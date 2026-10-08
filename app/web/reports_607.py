@@ -8,7 +8,10 @@ from openpyxl.utils import get_column_letter
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
 
+from app.utils.module_gate import gate_blueprint_module
+
 web_reports_607_bp = Blueprint('web_reports_607', __name__)
+gate_blueprint_module(web_reports_607_bp, 'e_cf', feature_name="Reporte 607 DGII")
 
 
 @web_reports_607_bp.before_request
@@ -16,7 +19,7 @@ def restrict_to_do():
     if session.get('company_country', 'DO') != 'DO':
         return render_template('auth/restricted.html',
             feature_name="Reporte 607 DGII (solo disponible para República Dominicana)",
-            required_permission="")
+            required_permission=""), 403
 
 from app.models.fiscal_document_type import report_labels as _report_labels_607
 ECF_TYPE_LABELS_607 = _report_labels_607("607")
@@ -83,7 +86,7 @@ def reporte_607():
     if "user" not in session:
         return redirect(url_for("login"))
     if not check_permission("canInvoice"):
-        return render_template("auth/restricted.html", active_page="reporte_607")
+        return render_template("auth/restricted.html", active_page="reporte_607"), 403
     owner_uid = session["user"]["ownerUID"]
     company_id = session.get("selected_company_id")
     sandbox = session.get("is_sandbox_mode", True)

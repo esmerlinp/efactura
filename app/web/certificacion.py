@@ -1,8 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.dgii_cert_service import DgiiCertService
 from app.services.db_service import DatabaseService
+from app.utils.module_gate import gate_blueprint_module
 
 web_certificacion_bp = Blueprint("web_certificacion", __name__)
+gate_blueprint_module(web_certificacion_bp, "certificacion")
 
 STEP_LABELS = {
     1: "Registrado",
@@ -39,11 +41,15 @@ def _get_context():
     return uid, company_id, profile
 
 
+from app.utils.decorators import check_permission
+
 @web_certificacion_bp.route("/certificacion")
 def wizard():
     redirect_resp = _login_required()
     if redirect_resp:
         return redirect_resp
+    if not check_permission("canCertifyDGII"):
+        return render_template("auth/restricted.html", feature_name="Certificación DGII", required_permission="canCertifyDGII"), 403
 
     uid, company_id, profile = _get_context()
     process = DgiiCertService.get_process(company_id) if company_id else {}
@@ -58,6 +64,8 @@ def step_view(step):
     redirect_resp = _login_required()
     if redirect_resp:
         return redirect_resp
+    if not check_permission("canCertifyDGII"):
+        return render_template("auth/restricted.html", feature_name="Certificación DGII", required_permission="canCertifyDGII"), 403
 
     uid, company_id, profile = _get_context()
     if not company_id:

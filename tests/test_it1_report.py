@@ -1,14 +1,15 @@
 from unittest.mock import MagicMock, patch
 from datetime import datetime, timezone
+from contextlib import ExitStack
 
 MOCK_USER_PROFILE = {
     'uid': 'test-uid',
     'email': 'admin@test.com',
     'name': 'Admin',
     'role': 'owner',
-    'ownerUID': 'test-owner',
+    'ownerUID': 'test-uid',
     'status': 'active',
-    'permissions': {'canInvoice': True}
+    'permissions': {'canInvoice': True, 'canReports': True}
 }
 
 MOCK_COMPANY = {
@@ -19,9 +20,32 @@ MOCK_COMPANY = {
     'productionEnabled': True,
     'sandboxEnabled': True,
     'sandboxIndefinite': True,
+    'planId': 'plan123',
+    'country': 'DO',
 }
 
-def mock_login(client, owner_uid='test-owner'):
+DB_PATCHES = (
+    patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE),
+    patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-uid', 'companyName': 'Test Co', 'role': 'owner'}]),
+    patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY),
+    patch('app.services.db_service.DatabaseService.get_company', return_value=None),
+    patch('app.services.db_service.DatabaseService.get_company_context', return_value={'permissions': {}, 'company_name': 'Test Co'}),
+    patch('app.services.db_service.DatabaseService.get_branches', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_projects', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_membership', return_value={'status': 'active'}),
+    patch('app.services.db_service.DatabaseService.get_plan', return_value={'modules': {
+        'e_cf': {'enabled': True},
+        'reportes': {'enabled': True},
+        'gastos': {'enabled': True},
+        'inventario': {'enabled': True},
+        'contabilidad': {'enabled': True},
+        'bancos': {'enabled': True},
+        'cxc': {'enabled': True},
+        'cxp': {'enabled': True},
+    }}),
+)
+
+def mock_login(client, owner_uid='test-uid', company_id='test-uid'):
     with client.session_transaction() as sess:
         sess['user'] = {
             'uid': 'test-uid',
@@ -29,7 +53,20 @@ def mock_login(client, owner_uid='test-owner'):
             'role': 'owner',
             'email': 'admin@test.com',
             'name': 'Admin',
-            'permissions': {'canInvoice': True},
+            'permissions': {'canInvoice': True, 'canReports': True},
+        }
+        sess['selected_company_id'] = company_id
+        sess['selected_owner_uid'] = owner_uid
+        sess['company_country'] = 'DO'
+        sess['company_modules'] = {
+            'e_cf': {'enabled': True},
+            'reportes': {'enabled': True},
+            'gastos': {'enabled': True},
+            'inventario': {'enabled': True},
+            'contabilidad': {'enabled': True},
+            'bancos': {'enabled': True},
+            'cxc': {'enabled': True},
+            'cxp': {'enabled': True},
         }
         sess['is_sandbox_mode'] = True
 
@@ -42,10 +79,10 @@ def test_it1_list_authenticated_empty(client):
     mock_coll = MagicMock()
     mock_coll.get.return_value = []
     
-    with patch('app.web.reports_sales._it1_coll', return_value=mock_coll), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.web.reports_sales._it1_coll', return_value=mock_coll))
         resp = client.get('/reports/fiscal/it1')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -71,10 +108,10 @@ def test_it1_list_with_data(client):
     mock_coll = MagicMock()
     mock_coll.get.return_value = [mock_doc]
     
-    with patch('app.web.reports_sales._it1_coll', return_value=mock_coll), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.web.reports_sales._it1_coll', return_value=mock_coll))
         resp = client.get('/reports/fiscal/it1')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -112,11 +149,11 @@ def test_it1_new_preview(client):
         }
     ]
     
-    with patch('app.services.db_service.DatabaseService.get_invoices', return_value=mock_invoices), \
-         patch('app.services.db_service.DatabaseService.get_expenses', return_value=mock_expenses), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoices', return_value=mock_invoices))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_expenses', return_value=mock_expenses))
         
         # GET request to preview
         resp = client.get('/reports/fiscal/it1/new?year=2026&month=6')
@@ -145,12 +182,12 @@ def test_it1_create_report(client):
     # Mock duplicate check return empty
     mock_coll.where.return_value.where.return_value.get.return_value = []
     
-    with patch('app.web.reports_sales._it1_coll', return_value=mock_coll), \
-         patch('app.services.db_service.DatabaseService.get_invoices', return_value=mock_invoices), \
-         patch('app.services.db_service.DatabaseService.get_expenses', return_value=mock_expenses), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.web.reports_sales._it1_coll', return_value=mock_coll))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoices', return_value=mock_invoices))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_expenses', return_value=mock_expenses))
         
         # POST request to create report for June 2026
         resp = client.post('/reports/fiscal/it1/new', data={'year': '2026', 'month': '6'})
@@ -188,10 +225,10 @@ def test_it1_report_detail_and_update(client):
     mock_coll = MagicMock()
     mock_coll.document.return_value.get.return_value = mock_doc
     
-    with patch('app.web.reports_sales._it1_coll', return_value=mock_coll), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.web.reports_sales._it1_coll', return_value=mock_coll))
          
         # GET Detail
         resp = client.get('/reports/fiscal/it1/it1-1')
@@ -210,10 +247,10 @@ def test_it1_report_delete(client):
     
     mock_coll = MagicMock()
     
-    with patch('app.web.reports_sales._it1_coll', return_value=mock_coll), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.web.reports_sales._it1_coll', return_value=mock_coll))
          
         resp = client.post('/reports/fiscal/it1/it1-1/delete')
         assert resp.status_code == 302

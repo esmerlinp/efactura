@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, g
 from app.services.db_service import DatabaseService
 from app.utils.decorators import require_permission, check_permission
+from app.utils.module_gate import gate_blueprint_module
 from datetime import datetime, timezone
 import uuid
 
 web_notes_bp = Blueprint('web_notes', __name__)
+gate_blueprint_module(web_notes_bp, 'crm')
 
 
 @web_notes_bp.route('/notes')

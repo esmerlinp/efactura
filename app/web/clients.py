@@ -9,15 +9,44 @@ from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
 from app.services.ai_service import AIService
 from app.utils.decorators import check_permission
+from app.utils.module_gate import require_module, module_enabled, get_module_label
 from app.brand import get_product_name
 
 web_clients_bp = Blueprint('web_clients', __name__)
 
+
+@web_clients_bp.before_request
+def _check_clients_module_gate():
+    if request.endpoint == 'static':
+        return None
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not (module_enabled('crm') or module_enabled('e_cf') or module_enabled('cotizaciones')):
+        label = "CRM & Clientes"
+        if (request.is_json or 
+            request.headers.get('Accept') == 'application/json' or 
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest'):
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "MODULE_DISABLED",
+                    "message": f"El módulo '{label}' no está contratado en tu plan actual."
+                }
+            }), 403
+        return render_template(
+            'auth/restricted.html',
+            feature_name=label,
+            required_permission="module_crm",
+            custom_message=f"El módulo <strong>{label}</strong> no está incluido en tu plan actual. "
+                           "Contacta a soporte para información sobre mejoras de plan."
+        ), 403
+
 @web_clients_bp.route('/clients')
+@require_module('crm')
 def list_clients():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="CRM Clientes", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="CRM Clientes", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -111,10 +140,11 @@ def list_clients():
     )
 
 @web_clients_bp.route('/clients/new', methods=['GET', 'POST'])
+@require_module('crm')
 def new_client():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Cliente", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Nuevo Cliente", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -258,10 +288,11 @@ def ajax_create_client():
     })
 
 @web_clients_bp.route('/clients/<client_id>/edit', methods=['GET', 'POST'])
+@require_module('crm')
 def edit_client(client_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Editar Cliente", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Editar Cliente", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -343,10 +374,11 @@ def edit_client(client_id):
     return render_template('clients/form.html', active_page='clients', client=client, collaborators=collaborators, price_lists=price_lists, projects=projects)
 
 @web_clients_bp.route('/clients/<client_id>/delete', methods=['POST'])
+@require_module('crm')
 def delete_client_route(client_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Eliminar Cliente", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Eliminar Cliente", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -375,6 +407,7 @@ def delete_client_route(client_id):
     return redirect(url_for('web_clients.list_clients'))
 
 @web_clients_bp.route('/clients/<client_id>/update_pipeline', methods=['POST'])
+@require_module('crm')
 def update_client_pipeline(client_id):
     if 'user' not in session:
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
@@ -392,6 +425,7 @@ def update_client_pipeline(client_id):
     return jsonify({'success': True})
 
 @web_clients_bp.route('/clients/<client_id>/toggle_reminders', methods=['POST'])
+@require_module('crm')
 def toggle_client_reminders(client_id):
     if 'user' not in session:
         return jsonify({"success": False, "error": "No autorizado."}), 401
@@ -415,6 +449,7 @@ def toggle_client_reminders(client_id):
     return jsonify({"success": True, "disableAutoReminders": disable_reminders})
 
 @web_clients_bp.route('/clients/<client_id>/send_portal_credentials', methods=['POST'])
+@require_module('portal_cliente')
 def send_portal_credentials(client_id):
     """Envía las credenciales de acceso del portal al cliente por email."""
     if 'user' not in session:
@@ -555,10 +590,11 @@ def send_portal_credentials(client_id):
     return jsonify({"success": True, "message": f"Credenciales enviadas exitosamente a {recipient_email}."})
 
 @web_clients_bp.route('/clients/<client_id>')
+@require_module('crm')
 def client_detail(client_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Ver Detalle de Cliente", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Ver Detalle de Cliente", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -675,10 +711,11 @@ def client_detail(client_id):
     )
 
 @web_clients_bp.route('/clients/<client_id>/insights')
+@require_module('ia_bi')
 def client_insights(client_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Smart Insights", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Smart Insights", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -719,10 +756,11 @@ def client_insights(client_id):
     )
 
 @web_clients_bp.route('/clients/<client_id>/interactions/new', methods=['POST'])
+@require_module('crm')
 def add_client_interaction(client_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Registrar Seguimiento", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Registrar Seguimiento", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -795,10 +833,11 @@ def add_client_interaction(client_id):
     return redirect(url_for('web_clients.client_detail', client_id=client_id))
 
 @web_clients_bp.route('/clients/<client_id>/interactions/<interaction_id>/delete', methods=['POST'])
+@require_module('crm')
 def delete_client_interaction_route(client_id, interaction_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Eliminar Seguimiento", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Eliminar Seguimiento", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -819,10 +858,11 @@ def delete_client_interaction_route(client_id, interaction_id):
     return redirect(url_for('web_clients.client_detail', client_id=client_id))
 
 @web_clients_bp.route('/clients/<client_id>/interactions/<interaction_id>/complete', methods=['POST'])
+@require_module('crm')
 def complete_client_interaction_task(client_id, interaction_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Completar Seguimiento", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Completar Seguimiento", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -846,10 +886,11 @@ def complete_client_interaction_task(client_id, interaction_id):
     return redirect(url_for('web_clients.client_detail', client_id=client_id))
 
 @web_clients_bp.route('/clients/<client_id>/interactions/quick-note', methods=['POST'])
+@require_module('crm')
 def add_quick_note(client_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Registrar Nota CRM", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Registrar Nota CRM", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)

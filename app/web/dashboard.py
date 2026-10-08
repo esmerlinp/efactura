@@ -71,7 +71,7 @@ def dashboard():
         elif check_permission('canExpenses'):
             return redirect(url_for('web_invoices.list_expenses'))
         else:
-            return render_template('auth/restricted.html', feature_name="Dashboard General", required_permission="canViewDashboard")
+            return render_template('auth/restricted.html', feature_name="Dashboard General", required_permission="canViewDashboard"), 403
             
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')

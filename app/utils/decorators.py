@@ -101,7 +101,7 @@ def require_permission(permission_name, feature_name="esta sección"):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not check_permission(permission_name):
-                return render_template('auth/restricted.html', feature_name=feature_name, required_permission=permission_name)
+                return render_template('auth/restricted.html', feature_name=feature_name, required_permission=permission_name), 403
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -116,7 +116,7 @@ def require_country(*allowed_countries):
             if session.get('company_country', 'DO') not in allowed_countries:
                 return render_template('auth/restricted.html',
                     feature_name="El recurso solicitado no está disponible para tu país",
-                    required_permission="")
+                    required_permission=""), 403
             return f(*args, **kwargs)
         return decorated_function
     return decorator

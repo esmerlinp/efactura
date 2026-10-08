@@ -397,7 +397,7 @@ MOCK_USER_PROFILE = {
     'role': 'owner',
     'email': 'admin@test.com',
     'name': 'Admin',
-    'permissions': {'canManagePOS': True, 'isPosSupervisor': True},
+    'permissions': {'canManagePOS': True, 'isPosSupervisor': True, 'canInvoice': True},
 }
 
 MOCK_COMPANY = {
@@ -408,13 +408,30 @@ MOCK_COMPANY = {
     'productionEnabled': True,
     'sandboxEnabled': True,
     'sandboxIndefinite': True,
+    'planId': 'plan123',
+    'country': 'DO',
 }
 
 PROFILE_WITH_PERMS = {**MOCK_USER_PROFILE, 'canManagePOS': True, 'canInvoice': True}
 
+DB_PATCHES = (
+    patch('app.services.db_service.DatabaseService.get_user_profile', return_value=PROFILE_WITH_PERMS),
+    patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]),
+    patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY),
+    patch('app.services.db_service.DatabaseService.get_company', return_value=None),
+    patch('app.services.db_service.DatabaseService.get_company_context', return_value={'permissions': {}, 'company_name': 'Test Co'}),
+    patch('app.services.db_service.DatabaseService.get_branches', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_projects', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_membership', return_value={'status': 'active'}),
+    patch('app.services.db_service.DatabaseService.get_plan', return_value={'modules': {
+        'pos': {'enabled': True},
+        'e_cf': {'enabled': True},
+    }}),
+)
+
 class TestContingencyRoutes:
 
-    def _login(self, client, owner_uid='test-owner'):
+    def _login(self, client, owner_uid='test-owner', company_id='test-owner'):
         with client.session_transaction() as sess:
             sess['user'] = {
                 'uid': 'test-uid',
@@ -422,30 +439,36 @@ class TestContingencyRoutes:
                 'role': 'owner',
                 'email': 'admin@test.com',
                 'name': 'Admin',
-                'permissions': {'canManagePOS': True, 'isPosSupervisor': True},
+                'permissions': {'canManagePOS': True, 'isPosSupervisor': True, 'canInvoice': True},
+            }
+            sess['selected_company_id'] = company_id
+            sess['selected_owner_uid'] = owner_uid
+            sess['company_country'] = 'DO'
+            sess['company_modules'] = {
+                'pos': {'enabled': True},
+                'e_cf': {'enabled': True},
             }
             sess['company_profile_pos_enabled'] = True
             sess['is_sandbox_mode'] = True
 
     def test_contingencia_route_shows_restricted_when_not_logged_in(self, client):
         resp = client.get('/pos/contingencia')
-        html = resp.data.decode('utf-8')
-        assert 'restricted' in html or 'Restricted' in html or 'Permiso' in html or '401' in resp.status
+        assert resp.status_code in (302, 401, 403)
 
     def test_contingencia_route_returns_200_when_authorized(self, client):
+        from contextlib import ExitStack
         self._login(client)
-        with patch('app.services.db_service.DatabaseService.get_contingency_invoices', return_value=[]), \
-             patch('app.services.db_service.DatabaseService.get_user_profile', return_value=PROFILE_WITH_PERMS), \
-             patch('app.services.db_service.DatabaseService.get_associated_companies',
-                   return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-             patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY), \
-             patch('app.services.contingency_sync_service.ContingencySyncService.check_expired_contingency',
-                   return_value=[]):
+        with ExitStack() as stack:
+            for p in DB_PATCHES:
+                stack.enter_context(p)
+            stack.enter_context(patch('app.services.db_service.DatabaseService.get_contingency_invoices', return_value=[]))
+            stack.enter_context(patch('app.services.contingency_sync_service.ContingencySyncService.check_expired_contingency', return_value=[]))
 
             resp = client.get('/pos/contingencia')
             assert resp.status_code == 200
 
     def test_contingencia_route_shows_pending_invoices(self, client):
+        from contextlib import ExitStack
         self._login(client)
         fallback_invoice = {
             'id': 'inv-001',
@@ -463,13 +486,11 @@ class TestContingencyRoutes:
             'lastSyncAttempt': '2026-06-18T10:30:00',
         }
 
-        with patch('app.services.db_service.DatabaseService.get_contingency_invoices', return_value=[fallback_invoice]), \
-             patch('app.services.db_service.DatabaseService.get_user_profile', return_value=PROFILE_WITH_PERMS), \
-             patch('app.services.db_service.DatabaseService.get_associated_companies',
-                   return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-             patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY), \
-             patch('app.services.contingency_sync_service.ContingencySyncService.check_expired_contingency',
-                   return_value=[]):
+        with ExitStack() as stack:
+            for p in DB_PATCHES:
+                stack.enter_context(p)
+            stack.enter_context(patch('app.services.db_service.DatabaseService.get_contingency_invoices', return_value=[fallback_invoice]))
+            stack.enter_context(patch('app.services.contingency_sync_service.ContingencySyncService.check_expired_contingency', return_value=[]))
 
             resp = client.get('/pos/contingencia')
             assert resp.status_code == 200
@@ -479,14 +500,13 @@ class TestContingencyRoutes:
             assert 'Juan Pérez' in html
 
     def test_contingencia_route_empty_state(self, client):
+        from contextlib import ExitStack
         self._login(client)
-        with patch('app.services.db_service.DatabaseService.get_contingency_invoices', return_value=[]), \
-             patch('app.services.db_service.DatabaseService.get_user_profile', return_value=PROFILE_WITH_PERMS), \
-             patch('app.services.db_service.DatabaseService.get_associated_companies',
-                   return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-             patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY), \
-             patch('app.services.contingency_sync_service.ContingencySyncService.check_expired_contingency',
-                   return_value=[]):
+        with ExitStack() as stack:
+            for p in DB_PATCHES:
+                stack.enter_context(p)
+            stack.enter_context(patch('app.services.db_service.DatabaseService.get_contingency_invoices', return_value=[]))
+            stack.enter_context(patch('app.services.contingency_sync_service.ContingencySyncService.check_expired_contingency', return_value=[]))
 
             resp = client.get('/pos/contingencia')
             assert resp.status_code == 200
@@ -498,16 +518,16 @@ class TestContingencyRoutes:
         assert resp.status_code == 401
 
     def test_notification_poll_returns_data_when_authenticated(self, client):
+        from contextlib import ExitStack
         self._login(client)
-        with patch('app.services.db_service.DatabaseService.get_user_profile', return_value=PROFILE_WITH_PERMS), \
-             patch('app.services.db_service.DatabaseService.get_associated_companies',
-                   return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-             patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY), \
-             patch('app.services.db_service.DatabaseService.get_user_notifications') as mock_notif:
-
+        with ExitStack() as stack:
+            for p in DB_PATCHES:
+                stack.enter_context(p)
+            mock_notif = stack.enter_context(patch('app.services.db_service.DatabaseService.get_user_notifications'))
             mock_notif.return_value = [{'id': 'n1', 'title': 'Test', 'message': 'Hello', 'type': 'info', 'createdAt': '2026-01-01'}]
             resp = client.get('/notifications/poll')
             assert resp.status_code == 200
             data = resp.get_json()
             assert data.get('success') is True
             assert len(data.get('notifications', [])) == 1
+

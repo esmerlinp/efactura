@@ -37,8 +37,84 @@ from app.brand import get_product_name
 from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
 
 
-from flask import Blueprint
+from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify, g
+from app.utils.module_gate import module_enabled, get_module_label
+
 web_invoices_bp = Blueprint('web_invoices', __name__)
+
+
+@web_invoices_bp.before_request
+def _check_invoices_module_gate():
+    if request.endpoint == 'static':
+        return None
+    if 'user' not in session:
+        return None
+
+    path = request.path
+
+    # Rutas globales, de configuración de cuenta, públicas o de soporte que no requieren un módulo comercial específico
+    if (path.startswith('/settings') or 
+        path.startswith('/onboarding') or 
+        path in ('/cambiar-plan', '/cancelar-suscripcion', '/reactivar-suscripcion', '/reports', '/reports/backup-export') or
+        path.startswith('/reports/categoria/') or
+        path.startswith('/notifications') or
+        path.startswith('/invoices/verify/') or
+        path.startswith('/invoices/qr/') or
+        path.startswith('/invoices/public/') or
+        path.startswith('/api/dgii/rnc/') or
+        path.startswith('/api/azul/webhook')):
+        return None
+
+    # Mapeo a submódulos específicos dentro de web_invoices
+    if path.startswith('/inventory'):
+        required_mod = 'inventario'
+    elif path.startswith('/price-lists'):
+        required_mod = 'price_lists'
+    elif path.startswith('/quotations') or path.startswith('/api/quotations'):
+        required_mod = 'cotizaciones'
+    elif path.startswith('/cxc') or path.startswith('/api/ai/draft-collection'):
+        required_mod = 'cxc'
+    elif path.startswith('/expenses') or path.startswith('/api/expenses') or path.startswith('/api/ai/classify-expense') or path.startswith('/api/ai/receipt-ocr'):
+        required_mod = 'gastos'
+    elif path.startswith('/items') or path.startswith('/api/quick-create-product'):
+        required_mod = 'catalogo'
+    elif path.startswith('/reports/export/accounting'):
+        required_mod = 'exportacion_contable'
+    elif path.startswith('/reports/bi') or path.startswith('/chatbot') or path.startswith('/api/chatbot'):
+        required_mod = 'ia_bi'
+    elif path.startswith('/reports/rrhh') or path.startswith('/reports/empleados'):
+        required_mod = 'nomina'
+    elif path.startswith('/api/save-chart-of-accounts'):
+        required_mod = 'contabilidad'
+    else:
+        # FAIL-CLOSED DEFAULT: Cualquier otra ruta funcional en web_invoices requiere e_cf
+        required_mod = 'e_cf'
+
+    if required_mod == 'catalogo':
+        has_mod = module_enabled('catalogo') or module_enabled('inventario')
+    elif required_mod == 'exportacion_contable':
+        has_mod = module_enabled('exportacion_contable') or module_enabled('contabilidad')
+    else:
+        has_mod = module_enabled(required_mod)
+
+    if not has_mod:
+        label = get_module_label(required_mod)
+        if request.is_json or request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "MODULE_DISABLED",
+                    "message": f"El módulo '{label}' no está contratado en tu plan actual."
+                }
+            }), 403
+        return render_template(
+            'auth/restricted.html',
+            feature_name=label,
+            required_permission=f"module_{required_mod}",
+            custom_message=f"El módulo <strong>{label}</strong> no está incluido en tu plan actual. "
+                           "Contacta a soporte para información sobre mejoras de plan."
+        ), 403
+
 
 
 def _is_credit_debit_note(ecf_type: str) -> bool:
@@ -296,7 +372,7 @@ def _company_has_issued_documents(owner_uid, sandbox=True, company_id=None):
 def list_items():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Catálogo de Productos", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Catálogo de Productos", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -342,7 +418,7 @@ def list_items():
 def new_item():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Artículo", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Nuevo Artículo", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -388,7 +464,7 @@ def new_item():
 def edit_item(item_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Editar Artículo", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Editar Artículo", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -440,7 +516,7 @@ def edit_item(item_id):
 def delete_item_route(item_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Eliminar Artículo", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Eliminar Artículo", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -479,7 +555,7 @@ def upload_item_image():
 def import_items_csv():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Importar Catálogo CSV", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Importar Catálogo CSV", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -532,7 +608,7 @@ def import_items_csv():
 def download_csv_template():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Descargar Plantilla CSV", required_permission="canClients")
+        return render_template('auth/restricted.html', feature_name="Descargar Plantilla CSV", required_permission="canClients"), 403
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["codigo", "tipo_bien_o_servicio", "nombre", "precio", "unidad_medida", "tasa_itbis", "precio_costo", "categoria", "codigo_barra", "codigo_impuesto_selectivo", "tasa_impuesto_selectivo", "proveedor", "precio_mayorista", "marca", "stock_maximo", "imagen_url", "estado"])
@@ -551,7 +627,7 @@ def download_csv_template():
 def export_stock_report():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Reporte de Existencia", required_permission="canManageInventory")
+        return render_template('auth/restricted.html', feature_name="Reporte de Existencia", required_permission="canManageInventory"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -626,6 +702,8 @@ def export_stock_report():
 @web_invoices_bp.route('/price-lists')
 def list_price_lists():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageInventory'):
+        return render_template('auth/restricted.html', feature_name="Listas de Precios", required_permission="canManageInventory"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -843,7 +921,7 @@ def quick_create_product():
 def inventory_dashboard():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Inventario y Almacén", required_permission="canManageInventory")
+        return render_template('auth/restricted.html', feature_name="Inventario y Almacén", required_permission="canManageInventory"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -887,7 +965,7 @@ def inventory_dashboard():
 def inventory_warehouses():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Almacenes", required_permission="canManageInventory")
+        return render_template('auth/restricted.html', feature_name="Almacenes", required_permission="canManageInventory"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -899,7 +977,7 @@ def inventory_warehouses():
 def new_warehouse():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Almacén", required_permission="canManageInventory")
+        return render_template('auth/restricted.html', feature_name="Nuevo Almacén", required_permission="canManageInventory"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -924,7 +1002,7 @@ def new_warehouse():
 def edit_warehouse(warehouse_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Editar Almacén", required_permission="canManageInventory")
+        return render_template('auth/restricted.html', feature_name="Editar Almacén", required_permission="canManageInventory"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -955,7 +1033,7 @@ def edit_warehouse(warehouse_id):
 def delete_warehouse_route(warehouse_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Eliminar Almacén", required_permission="canManageInventory")
+        return render_template('auth/restricted.html', feature_name="Eliminar Almacén", required_permission="canManageInventory"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -974,7 +1052,7 @@ def delete_warehouse_route(warehouse_id):
 def inventory_transactions():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Movimientos de Inventario", required_permission="canManageInventory")
+        return render_template('auth/restricted.html', feature_name="Movimientos de Inventario", required_permission="canManageInventory"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -997,7 +1075,7 @@ def inventory_transactions():
 def new_inventory_transaction():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Ajuste de Inventario", required_permission="canManageInventory")
+        return render_template('auth/restricted.html', feature_name="Nuevo Ajuste de Inventario", required_permission="canManageInventory"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -1074,7 +1152,7 @@ def new_inventory_transaction():
 def list_invoices():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Documentos y Facturación", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Documentos y Facturación", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -1284,7 +1362,7 @@ def list_invoices():
 def list_quotations():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Cotizaciones", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Cotizaciones", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -1445,7 +1523,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         if source and source.get('isProfessional'):
             return redirect(url_for('web_invoices.professional_quotation_route', clone=invoice_id))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Emisión de Documentos", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Emisión de Documentos", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -2422,7 +2500,7 @@ def invoice_detail(invoice_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
 
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Detalle de Factura", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Detalle de Factura", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -3068,7 +3146,7 @@ def pay_invoice_route(invoice_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
 
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Registrar Pago", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Registrar Pago", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -3234,7 +3312,7 @@ def pay_invoice_route(invoice_id):
 def forgive_mora_route(invoice_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Perdonar Mora", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Perdonar Mora", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -3321,7 +3399,7 @@ def forgive_mora_route(invoice_id):
 def pay_advanced_route(invoice_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Registrar Pago", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Registrar Pago", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -3432,7 +3510,7 @@ def pay_advanced_route(invoice_id):
 def approve_payment_proof(invoice_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Aprobar Pago", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Aprobar Pago", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -3555,7 +3633,7 @@ def approve_payment_proof(invoice_id):
 def reject_payment_proof(invoice_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Rechazar Pago", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Rechazar Pago", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -3666,7 +3744,7 @@ def reject_payment_proof(invoice_id):
 def sign_invoice_route(invoice_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Firmar Comprobante", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Firmar Comprobante", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -3794,7 +3872,7 @@ def reemit_invoice_route(invoice_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reemitir Comprobante", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Reemitir Comprobante", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -3853,7 +3931,7 @@ def reemit_invoice_route(invoice_id):
     """Convierte una Cotización (COT-) en un Comprobante Fiscal Electrónico real (FAC-)."""
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Convertir Cotización", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Convertir Cotización", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -3995,7 +4073,7 @@ def approve_quotation_route(invoice_id):
     """Aprueba manualmente una cotización cambiándole el estado a 'Aprobada'."""
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Aprobar Cotización", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Aprobar Cotización", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -4035,7 +4113,7 @@ def send_quotation_to_client(invoice_id):
     """Envía cotización al cliente — por portal (con enlace) o por PDF según el plan."""
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Enviar Cotización", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Enviar Cotización", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -4269,7 +4347,7 @@ def prepare_contract_page(invoice_id):
     if not check_permission('canManageContracts'):
         return render_template('auth/restricted.html',
                                feature_name="Preparar Contrato",
-                               required_permission="canManageContracts")
+                               required_permission="canManageContracts"), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -4361,7 +4439,7 @@ def prepare_contract_submit(invoice_id):
     if not check_permission('canManageContracts'):
         return render_template('auth/restricted.html',
                                feature_name="Preparar Contrato",
-                               required_permission="canManageContracts")
+                               required_permission="canManageContracts"), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -4464,7 +4542,7 @@ def convert_quotation_to_contract(invoice_id):
     if not check_permission('canManageContracts'):
         return render_template('auth/restricted.html',
                                feature_name="Convertir a Contrato",
-                               required_permission="canManageContracts")
+                               required_permission="canManageContracts"), 403
     return redirect(url_for('web_invoices.prepare_contract_page', invoice_id=invoice_id))
 
 
@@ -5399,7 +5477,7 @@ def expense_pdf_download(expense_id):
 def void_invoice_route(invoice_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Anular Comprobante", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Anular Comprobante", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -5575,7 +5653,7 @@ def delete_invoice_route(invoice_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Eliminar Documento", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Eliminar Documento", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -5710,7 +5788,7 @@ def sync_contingency_invoices():
 def sync_single_invoice_route(invoice_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Sincronizar Comprobante", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Sincronizar Comprobante", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -5820,7 +5898,7 @@ def sync_single_invoice_route(invoice_id):
 def list_expenses():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Control de Gastos", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Control de Gastos", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -6196,7 +6274,7 @@ def new_expense_route():
 def payments_list():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Pagos y Gastos", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Pagos y Gastos", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -6264,7 +6342,7 @@ def payments_list():
 def payments_new_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Pago", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Nuevo Pago", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -6491,7 +6569,7 @@ def payments_new_route():
 def minor_list():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Gastos Menores", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Gastos Menores", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -6553,7 +6631,7 @@ def minor_list():
 def minor_new_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Gasto Menor", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Nuevo Gasto Menor", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -6857,7 +6935,7 @@ def minor_new_route():
 def recurring_list():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Pagos Recurrentes", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Pagos Recurrentes", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -6915,7 +6993,7 @@ def recurring_list():
 def recurring_new_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Pago Recurrente", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Nuevo Pago Recurrente", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -7048,7 +7126,7 @@ def recurring_new_route():
 def delete_expense_route(expense_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Eliminar Gasto", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Eliminar Gasto", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -7081,7 +7159,7 @@ def delete_expense_route(expense_id):
 def delete_multiple_expenses_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Eliminar Gasto", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Eliminar Gasto", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -7117,7 +7195,7 @@ def delete_multiple_expenses_route():
 def edit_expense_route(expense_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Editar Gasto", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Editar Gasto", required_permission="canExpenses"), 403
         
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -7454,7 +7532,7 @@ def edit_expense_route(expense_id):
 def sync_expense_ecf_route(expense_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Sincronizar e-CF Gasto", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Sincronizar e-CF Gasto", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -7627,7 +7705,7 @@ def approve_expense_route(expense_id):
 def list_cxp():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageCXP'):
-        return render_template('auth/restricted.html', feature_name="Cuentas por Pagar (CxP)", required_permission="canManageCXP")
+        return render_template('auth/restricted.html', feature_name="Cuentas por Pagar (CxP)", required_permission="canManageCXP"), 403
         
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -7768,7 +7846,7 @@ def pay_cxp_route(expense_id):
 def list_sequences():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
-        return render_template('auth/restricted.html', feature_name="Secuencias Fiscales", required_permission="canModifySettings")
+        return render_template('auth/restricted.html', feature_name="Secuencias Fiscales", required_permission="canModifySettings"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -7819,7 +7897,7 @@ def new_sequence_route():
         return redirect(url_for('web_invoices.list_sequences'))
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
-        return render_template('auth/restricted.html', feature_name="Crear Secuencia Fiscal", required_permission="canModifySettings")
+        return render_template('auth/restricted.html', feature_name="Crear Secuencia Fiscal", required_permission="canModifySettings"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -7869,7 +7947,7 @@ def toggle_sequence_block(seq_id):
 def new_cancellation_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
-        return render_template('auth/restricted.html', feature_name="Anulación de Rangos", required_permission="canModifySettings")
+        return render_template('auth/restricted.html', feature_name="Anulación de Rangos", required_permission="canModifySettings"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -7912,7 +7990,7 @@ def tax_settings():
         return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
         return render_template('auth/restricted.html', feature_name="Configuración de Impuestos",
-                               required_permission="canModifySettings")
+                               required_permission="canModifySettings"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
@@ -7999,7 +8077,7 @@ def tax_settings():
 def company_settings():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
-        return render_template('auth/restricted.html', feature_name="Configuración de la Empresa", required_permission="canModifySettings")
+        return render_template('auth/restricted.html', feature_name="Configuración de la Empresa", required_permission="canModifySettings"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     
@@ -8391,7 +8469,7 @@ def onboarding_skip():
 def generate_company_api_key():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
-        return render_template('auth/restricted.html', feature_name="Configuración de la Empresa", required_permission="canModifySettings")
+        return render_template('auth/restricted.html', feature_name="Configuración de la Empresa", required_permission="canModifySettings"), 403
     
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -9005,7 +9083,7 @@ def team_member_activity(employee_uid):
 def export_company_data():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
-        return render_template('auth/restricted.html', feature_name="Exportación de Datos", required_permission="canModifySettings")
+        return render_template('auth/restricted.html', feature_name="Exportación de Datos", required_permission="canModifySettings"), 403
     
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -9196,7 +9274,7 @@ def export_company_data():
 def reports_dashboard():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reportes", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Reportes", required_permission="canInvoice"), 403
 
     report_categories = get_report_categories()
 
@@ -9473,7 +9551,7 @@ def reports_category(category_key):
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Reportes",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     categories = get_report_categories()
     category = next((c for c in categories if c['key'] == category_key), None)
@@ -9489,7 +9567,7 @@ def reports_category(category_key):
 def it1_diagnostic():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Diagnóstico de IT-1", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Diagnóstico de IT-1", required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -9525,7 +9603,7 @@ def backup_export():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Exportar Respaldo", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Exportar Respaldo", required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -9730,7 +9808,7 @@ def report_607_export():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reporte 607", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Reporte 607", required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -9994,7 +10072,7 @@ def report_609_export():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reporte 609", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Reporte 609", required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -10046,7 +10124,7 @@ def report_609_export():
 def dgii_tools():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Herramientas DGII", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Herramientas DGII", required_permission="canInvoice"), 403
     
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -10466,7 +10544,7 @@ def reactivate_subscription():
 def cxc_dashboard():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageCXC'):
-        return render_template('auth/restricted.html', feature_name="Dashboard CxC", required_permission="canManageCXC")
+        return render_template('auth/restricted.html', feature_name="Dashboard CxC", required_permission="canManageCXC"), 403
         
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -10854,7 +10932,7 @@ def cxc_write_off(invoice_id):
 def cxc_advances_list():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageCXC'):
-        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC")
+        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -10900,7 +10978,7 @@ def cxc_advances_list():
 def cxc_advances_new():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageCXC'):
-        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC")
+        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -10994,7 +11072,7 @@ def cxc_advances_new():
 def cxc_advances_edit(advance_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageCXC'):
-        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC")
+        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -11199,7 +11277,7 @@ def accounting_export_page():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', required_permission="canInvoice")
+        return render_template('auth/restricted.html', required_permission="canInvoice"), 403
     return render_template('reports/accounting_export.html',
                            formats=EXPORT_FORMATS,
                            active_page='reports')
@@ -11271,7 +11349,7 @@ def bi_dashboard():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canViewBI'):
-        return render_template('auth/restricted.html', feature_name="Inteligencia de Negocios (BI)", required_permission="canViewBI")
+        return render_template('auth/restricted.html', feature_name="Inteligencia de Negocios (BI)", required_permission="canViewBI"), 403
     return redirect(url_for('web_dashboard.dashboard'))
 
 
@@ -11283,7 +11361,7 @@ def bi_dashboard():
 def expense_import_page():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Importar XML", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Importar XML", required_permission="canExpenses"), 403
     return render_template('expenses/import.html', active_page='expenses',
                            categories=["Comida y Restaurantes", "Transporte y Combustible",
                                        "Servicios Básicos", "Software y Tecnología",
@@ -11519,7 +11597,7 @@ def expense_import_report(expense_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Informe de Importación", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Informe de Importación", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -11856,7 +11934,7 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
 def expense_detail(expense_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Detalle de Gasto", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Detalle de Gasto", required_permission="canExpenses"), 403
         
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -12203,7 +12281,7 @@ def api_toggle_comment_reaction(resource_type, resource_id, comment_id):
 def professional_quotation_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Cotización Personalizada", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Cotización Personalizada", required_permission="canInvoice"), 403
     
     if request.method == 'GET':
         owner_uid = session['user']['ownerUID']

@@ -223,7 +223,7 @@ class TestBuildPayrollAccountingLines:
             with patch.object(hr_data_service, 'get_tax_rates_snapshot', return_value=TAX_RATES_SNAPSHOT):
                 with patch('app.services.hr_data_service.get_payroll_transactions', return_value=transactions):
                     result = PayrollService.build_payroll_accounting_lines(
-                        period, employees={"emp-001": {}}
+                        period, employees={"emp-001": {}}, company_id="company-1"
                     )
         codes = [row["accountCode"] for row in result]
         assert "6.2.9.01" in codes

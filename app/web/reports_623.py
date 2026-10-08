@@ -6,7 +6,10 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
 
+from app.utils.module_gate import gate_blueprint_module
+
 web_reports_623_bp = Blueprint('web_reports_623', __name__)
+gate_blueprint_module(web_reports_623_bp, 'e_cf', feature_name="Reporte 623 DGII")
 
 
 @web_reports_623_bp.before_request
@@ -14,7 +17,7 @@ def restrict_to_do():
     if session.get('company_country', 'DO') != 'DO':
         return render_template('auth/restricted.html',
             feature_name="Reporte 623 DGII (solo disponible para República Dominicana)",
-            required_permission="")
+            required_permission=""), 403
 
 TIPO_GASTO_623 = {
     "01": "Gastos Personales",
@@ -79,7 +82,7 @@ def reporte_623():
     if "user" not in session:
         return redirect(url_for("login"))
     if not check_permission("canExpenses"):
-        return render_template("auth/restricted.html", active_page="reporte_623")
+        return render_template("auth/restricted.html", active_page="reporte_623"), 403
     owner_uid = session["user"]["ownerUID"]
     company_id = session.get("selected_company_id")
     sandbox = session.get("is_sandbox_mode", True)

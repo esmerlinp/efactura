@@ -4,9 +4,11 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 
 from app.services.bi_drilldown_service import BIDrilldownService, DRILLDOWN_METRICS
 from app.utils.decorators import check_permission
+from app.utils.module_gate import gate_blueprint_module
 
 
 web_bi_bp = Blueprint("web_bi", __name__)
+gate_blueprint_module(web_bi_bp, "ia_bi")
 
 
 @web_bi_bp.route("/bi/drilldown/<metric>")
@@ -14,7 +16,7 @@ def drilldown(metric):
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     if not check_permission("canViewBI"):
-        return render_template("auth/restricted.html", feature_name="BI Drill-down", required_permission="canViewBI")
+        return render_template("auth/restricted.html", feature_name="BI Drill-down", required_permission="canViewBI"), 403
 
     now = datetime.now(timezone.utc)
     try:

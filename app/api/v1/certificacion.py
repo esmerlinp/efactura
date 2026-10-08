@@ -12,8 +12,10 @@ from app.services.dgii_cert_service import DgiiCertService
 from app.services.db_service import DatabaseService
 from app.services.dgii_signer import DgiiSigner
 from app.services.ecf_readiness_service import EcfReadinessService
+from app.utils.module_gate import gate_blueprint_module
 
 api_certificacion_bp = Blueprint("api_certificacion", __name__)
+gate_blueprint_module(api_certificacion_bp, "certificacion")
 
 UPLOAD_DIR = "uploads/certificacion"
 

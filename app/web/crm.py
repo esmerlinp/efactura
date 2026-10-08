@@ -8,9 +8,32 @@ from app.services.contact_service import ContactService
 from app.services.crm_service import CRMService
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
+from app.utils.module_gate import module_enabled, require_module
 
 
 web_crm_bp = Blueprint("web_crm", __name__)
+
+
+@web_crm_bp.before_request
+def _check_crm_module():
+    if "user" not in session:
+        return redirect(url_for("web_auth.login"))
+    if not module_enabled("crm"):
+        if request.is_json or request.headers.get("Accept") == "application/json" or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "MODULE_DISABLED",
+                    "message": "El módulo 'CRM' no está contratado en tu plan actual."
+                }
+            }), 403
+        return render_template(
+            "auth/restricted.html",
+            feature_name="CRM & Agenda",
+            required_permission="module_crm",
+            custom_message="El módulo <strong>CRM & Agenda</strong> no está incluido en tu plan actual. "
+                           "Contacta a soporte para información sobre mejoras de plan."
+        ), 403
 
 
 def _sandbox():
@@ -35,8 +58,10 @@ def _get_active_company_context():
 def _check(feature="CRM", required_permission="canCRM"):
     if "user" not in session:
         return redirect(url_for("web_auth.login")), None
+    if not module_enabled("crm"):
+        return (render_template("auth/restricted.html", feature_name=feature, required_permission="module_crm", custom_message=f"El módulo <strong>{feature}</strong> no está incluido en tu plan actual."), 403), None
     if not check_permission(required_permission):
-        return render_template("auth/restricted.html", feature_name=feature, required_permission=required_permission), None
+        return (render_template("auth/restricted.html", feature_name=feature, required_permission=required_permission), 403), None
     ctx = _get_active_company_context()
     if not ctx:
         flash("Debe seleccionar una empresa activa para acceder al CRM.", "warning")

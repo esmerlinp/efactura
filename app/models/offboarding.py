@@ -44,6 +44,7 @@ class TerminationStatus(str, Enum):
     COMPLETED                   = "completed"
     CANCELLED                   = "cancelled"
     REJECTED                    = "rejected"
+    RETURNED                    = "returned"
 
 
 class LegalRiskLevel(str, Enum):
@@ -586,5 +587,11 @@ OFFBOARDING_STATES = {
         "transitions": [],
         "color": "danger",
         "description": "Solicitud rechazada. El empleado continúa activo y no se realiza ninguna acción adicional.",
+    },
+    "returned": {
+        "label": "Devuelta para corrección",
+        "transitions": ["pending_supervisor_approval", "pending_hr_approval", "draft", "cancelled"],
+        "color": "warning",
+        "description": "Devolución al creador para corregir parámetros o empleados antes de reenviar.",
     },
 }

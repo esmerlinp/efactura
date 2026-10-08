@@ -790,7 +790,7 @@ def _cached_crm_contacts(owner_uid, sandbox):
 
 
 @cache.memoize(timeout=3600)
-def _cached_plan(plan_id):
+def _cached_plan(plan_id, plan_version=0):
     if firebase_initialized and plan_id:
         try:
             doc = db_firestore.collection('plans').document(plan_id).get()
@@ -6333,10 +6333,10 @@ class DatabaseService:
             return copy.deepcopy(_cached_crm_contacts(owner_uid, sandbox))
 
     @classmethod
-    def get_plan(cls, plan_id):
-        """Retorna los datos de un plan (cacheado)."""
+    def get_plan(cls, plan_id, plan_version=0):
+        """Retorna los datos de un plan (cacheado con invalidación por plan_version)."""
         import copy
-        p = _cached_plan(plan_id)
+        p = _cached_plan(plan_id, plan_version=plan_version)
         return copy.deepcopy(p) if p else None
 
     @classmethod

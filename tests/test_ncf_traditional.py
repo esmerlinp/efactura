@@ -120,7 +120,7 @@ class TestEmission:
     def test_emit_all_types(self, code):
         """Cada tipo B01-B18 se emite correctamente."""
         result = NcfTraditionalService.emit(
-            owner_uid="test_uid",
+            company_id="test_uid",
             ncf_type=code,
             document_data=SAMPLE_DOC,
             user_email="user@test.com",
@@ -133,7 +133,7 @@ class TestEmission:
     def test_emit_with_minimal_data(self):
         """Emisión con datos mínimos (ceros, sin cliente)."""
         result = NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type="B02",
+            company_id="test_uid", ncf_type="B02",
             document_data=ZERO_DOC,
             user_email="user@test.com", sandbox=True,
         )
@@ -142,7 +142,7 @@ class TestEmission:
 
     def test_emit_sets_razon_social(self):
         result = NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type="B07",
+            company_id="test_uid", ncf_type="B07",
             document_data=SAMPLE_DOC,
             user_email="user@test.com", sandbox=True,
         )
@@ -156,7 +156,7 @@ class TestEmission:
         )
         with pytest.raises(ValueError, match="Perfil de empresa no encontrado"):
             NcfTraditionalService.emit(
-                owner_uid="test_uid", ncf_type="B01",
+                company_id="test_uid", ncf_type="B01",
                 document_data=SAMPLE_DOC,
                 user_email="user@test.com", sandbox=True,
             )
@@ -165,7 +165,7 @@ class TestEmission:
         _mock_db(monkeypatch, save_side_effect=lambda ou, doc, sb: None)
         with pytest.raises(RuntimeError, match="Error al guardar"):
             NcfTraditionalService.emit(
-                owner_uid="test_uid", ncf_type="B01",
+                company_id="test_uid", ncf_type="B01",
                 document_data=SAMPLE_DOC,
                 user_email="user@test.com", sandbox=True,
             )
@@ -174,7 +174,7 @@ class TestEmission:
         ids = set()
         for _ in range(20):
             result = NcfTraditionalService.emit(
-                owner_uid="test_uid", ncf_type="B01",
+                company_id="test_uid", ncf_type="B01",
                 document_data=SAMPLE_DOC,
                 user_email="user@test.com", sandbox=True,
             )
@@ -185,11 +185,11 @@ class TestEmission:
 
     def test_emit_stores_full_document_structure(self):
         result = NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type="B01",
+            company_id="test_uid", ncf_type="B01",
             document_data=SAMPLE_DOC,
             user_email="user@test.com", sandbox=True,
         )
-        required_keys = {"id", "ownerUID", "tipoComprobante", "ncf",
+        required_keys = {"id", "companyId", "tipoComprobante", "ncf",
                          "estado", "emittedBy", "emittedAt", "createdAt"}
         assert required_keys.issubset(result.keys())
 
@@ -206,7 +206,7 @@ class TestCancellation:
 
     def test_cancel_emitted_document(self):
         result = NcfTraditionalService.cancel(
-            owner_uid="test_uid", doc_id="test_id",
+            company_id="test_uid", doc_id="test_id",
             reason="Devolución total", cancelled_by_email="user@test.com",
             sandbox=True,
         )
@@ -223,7 +223,7 @@ class TestCancellation:
         )
         with pytest.raises(ValueError, match="ya está"):
             NcfTraditionalService.cancel(
-                owner_uid="test_uid", doc_id="test_id",
+                company_id="test_uid", doc_id="test_id",
                 reason="X", cancelled_by_email="u@t.com", sandbox=True,
             )
 
@@ -232,7 +232,7 @@ class TestCancellation:
         monkeypatch.setattr(NcfTraditionalService, "_get_document", lambda ou, di, sb: None)
         with pytest.raises(ValueError, match="no encontrado"):
             NcfTraditionalService.cancel(
-                owner_uid="test_uid", doc_id="no_existe",
+                company_id="test_uid", doc_id="no_existe",
                 reason="X", cancelled_by_email="u@t.com", sandbox=True,
             )
 
@@ -240,7 +240,7 @@ class TestCancellation:
         for bad in ("", "   "):
             with pytest.raises(ValueError, match="Motivo"):
                 NcfTraditionalService.cancel(
-                    owner_uid="test_uid", doc_id="test_id",
+                    company_id="test_uid", doc_id="test_id",
                     reason=bad, cancelled_by_email="u@t.com", sandbox=True,
                 )
 
@@ -266,32 +266,32 @@ class TestListing:
         _mock_db(monkeypatch, list_docs=lambda ou, sb: self.docs)
 
     def test_list_all(self):
-        docs = NcfTraditionalService.list_by_owner("test_uid")
+        docs = NcfTraditionalService.list_by_company("test_uid")
         assert len(docs) == 4
 
     def test_list_filter_by_type(self):
-        docs = NcfTraditionalService.list_by_owner("test_uid", tipo="B01")
+        docs = NcfTraditionalService.list_by_company("test_uid", tipo="B01")
         assert len(docs) == 2
         assert all(d["tipoComprobante"] == "B01" for d in docs)
 
     def test_list_filter_by_estado(self):
-        docs = NcfTraditionalService.list_by_owner("test_uid", estado="ANULADO")
+        docs = NcfTraditionalService.list_by_company("test_uid", estado="ANULADO")
         assert len(docs) == 1
         assert docs[0]["estado"] == "ANULADO"
 
     def test_list_combined_filters(self):
-        docs = NcfTraditionalService.list_by_owner(
+        docs = NcfTraditionalService.list_by_company(
             "test_uid", tipo="B01", estado="EMITIDO"
         )
         assert len(docs) == 1
 
     def test_list_returns_descending_date(self):
-        docs = NcfTraditionalService.list_by_owner("test_uid")
+        docs = NcfTraditionalService.list_by_company("test_uid")
         dates = [d["emittedAt"] for d in docs]
         assert dates == sorted(dates, reverse=True)
 
     def test_list_no_results(self):
-        docs = NcfTraditionalService.list_by_owner("test_uid", tipo="B99")
+        docs = NcfTraditionalService.list_by_company("test_uid", tipo="B99")
         assert docs == []
 
 
@@ -352,7 +352,7 @@ class TestEdgeCases:
         _mock_db(monkeypatch, save_side_effect=lambda ou, doc, sb: None)
         with pytest.raises(RuntimeError):
             NcfTraditionalService.emit(
-                owner_uid="test_uid", ncf_type="B01",
+                company_id="test_uid", ncf_type="B01",
                 document_data=SAMPLE_DOC,
                 user_email="u@t.com", sandbox=True,
             )
@@ -360,7 +360,7 @@ class TestEdgeCases:
     def test_cancel_with_none_reason(self):
         with pytest.raises(ValueError, match="Motivo"):
             NcfTraditionalService.cancel(
-                owner_uid="test_uid", doc_id="x",
+                company_id="test_uid", doc_id="x",
                 reason=None, cancelled_by_email="u@t.com", sandbox=True,
             )
 
@@ -374,7 +374,7 @@ class TestEdgeCases:
 
     def test_emit_preserves_items(self):
         doc = NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type="B05",
+            company_id="test_uid", ncf_type="B05",
             document_data=SAMPLE_DOC,
             user_email="u@t.com", sandbox=True,
         )
@@ -384,7 +384,7 @@ class TestEdgeCases:
 
     def test_case_insensitive_type(self):
         result = NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type="b01",
+            company_id="test_uid", ncf_type="b01",
             document_data=SAMPLE_DOC,
             user_email="u@t.com", sandbox=True,
         )
@@ -403,7 +403,7 @@ class TestEdgeCases:
         _mock_db(monkeypatch)
         with patch("app.services.dgii_direct.DgiiDirectService.emit_direct") as spy:
             NcfTraditionalService.emit(
-                owner_uid="test_uid", ncf_type="B01",
+                company_id="test_uid", ncf_type="B01",
                 document_data=SAMPLE_DOC,
                 user_email="u@t.com", sandbox=True,
             )
@@ -413,7 +413,7 @@ class TestEdgeCases:
         _mock_db(monkeypatch)
         with patch("app.services.dgii_xml_builder.DgiiXmlBuilder.build_invoice_xml") as spy:
             NcfTraditionalService.emit(
-                owner_uid="test_uid", ncf_type="B01",
+                company_id="test_uid", ncf_type="B01",
                 document_data=SAMPLE_DOC,
                 user_email="u@t.com", sandbox=True,
             )
@@ -422,7 +422,7 @@ class TestEdgeCases:
     def test_b03_debit_note_requires_reference(self):
         """B03 (Nota de Débito) requiere NCF de referencia (service registra)."""
         doc = NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type="B03",
+            company_id="test_uid", ncf_type="B03",
             document_data={**SAMPLE_DOC,
                           "referenceNcf": "B020000000001",
                           "referenceDate": "15-01-2026",
@@ -435,7 +435,7 @@ class TestEdgeCases:
         _mock_db(monkeypatch)
         monkeypatch.setattr(NcfTraditionalService, "_log_audit", lambda *a, **kw: None)
         NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type="B01",
+            company_id="test_uid", ncf_type="B01",
             document_data=SAMPLE_DOC,
             user_email="u@t.com", sandbox=True,
         )
@@ -444,7 +444,7 @@ class TestEdgeCases:
         _mock_db(monkeypatch, save_side_effect=lambda ou, doc, sb: None)
         with pytest.raises(RuntimeError):
             NcfTraditionalService.emit(
-                owner_uid="test_uid", ncf_type="B01",
+                company_id="test_uid", ncf_type="B01",
                 document_data=SAMPLE_DOC,
                 user_email="u@t.com", sandbox=True,
             )
@@ -492,7 +492,7 @@ class TestAccountingIntegration:
     def test_invoice_types_call_accounting(self, monkeypatch, code):
         self._mock_accounting(monkeypatch)
         NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type=code,
+            company_id="test_uid", ncf_type=code,
             document_data=SAMPLE_DOC,
             user_email="u@t.com", sandbox=True,
         )
@@ -504,7 +504,7 @@ class TestAccountingIntegration:
     def test_expense_types_call_accounting(self, monkeypatch, code):
         self._mock_accounting(monkeypatch)
         NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type=code,
+            company_id="test_uid", ncf_type=code,
             document_data=SAMPLE_DOC,
             user_email="u@t.com", sandbox=True,
         )
@@ -516,7 +516,7 @@ class TestAccountingIntegration:
     def test_credit_note_types_call_accounting(self, monkeypatch, code):
         self._mock_accounting(monkeypatch)
         NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type=code,
+            company_id="test_uid", ncf_type=code,
             document_data=SAMPLE_DOC,
             user_email="u@t.com", sandbox=True,
         )
@@ -533,7 +533,7 @@ class TestAccountingIntegration:
             fail,
         )
         result = NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type="B01",
+            company_id="test_uid", ncf_type="B01",
             document_data=SAMPLE_DOC,
             user_email="u@t.com", sandbox=True,
         )
@@ -552,7 +552,7 @@ class TestAccountingIntegration:
             capture,
         )
         NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type="B01",
+            company_id="test_uid", ncf_type="B01",
             document_data=SAMPLE_DOC,
             user_email="u@t.com", sandbox=False,
         )
@@ -574,7 +574,7 @@ class TestAccountingIntegration:
             capture,
         )
         NcfTraditionalService.emit(
-            owner_uid="test_uid", ncf_type="B01",
+            company_id="test_uid", ncf_type="B01",
             document_data=SAMPLE_DOC,
             user_email="u@t.com", sandbox=True,
         )

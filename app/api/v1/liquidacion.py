@@ -1,9 +1,10 @@
 """API REST para Cálculo de Liquidaciones Laborales (RD)."""
 
 from flask import Blueprint, request, jsonify, session
-from app.api.auth import require_api_key
+from app.api.auth import require_api_key, require_api_module, gate_api_blueprint_module
 
 api_liquidacion_bp = Blueprint("api_liquidacion", __name__)
+gate_api_blueprint_module(api_liquidacion_bp, "nomina")
 
 
 def _get_owner(uid_override=None):
@@ -13,7 +14,7 @@ def _get_owner(uid_override=None):
 
 
 @api_liquidacion_bp.route("/labor/settlement", methods=["POST"])
-@require_api_key
+@require_api_module('nomina')
 def calculate_settlement():
     """
     Calcular liquidación laboral
@@ -224,7 +225,7 @@ def calculate_settlement():
 
 
 @api_liquidacion_bp.route("/labor/settlement/<settlement_id>", methods=["GET"])
-@require_api_key
+@require_api_module('nomina')
 def get_settlement(settlement_id):
     """
     Obtener liquidación guardada
@@ -261,7 +262,7 @@ def get_settlement(settlement_id):
 
 
 @api_liquidacion_bp.route("/labor/settlement/<settlement_id>", methods=["DELETE"])
-@require_api_key
+@require_api_module('nomina')
 def delete_settlement(settlement_id):
     """
     Eliminar liquidación

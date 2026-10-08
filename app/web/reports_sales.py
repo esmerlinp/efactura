@@ -4,10 +4,12 @@ from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify, session, send_file, redirect, url_for, g
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
+from app.utils.module_gate import gate_blueprint_module
 from collections import defaultdict
 from app.models.fiscal_document_type import by_code as _by_code
 
 web_reports_sales_bp = Blueprint('web_reports_sales', __name__)
+gate_blueprint_module(web_reports_sales_bp, 'e_cf')
 
 MONTH_NAMES = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -82,10 +84,10 @@ def get_sales_data(owner_uid, sandbox, year, month, warehouse_id=None, series=No
 @web_reports_sales_bp.route('/reports/ventas')
 def ventas_generales():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Ventas generales")
+        return render_template('auth/restricted.html', feature_name="Ventas generales"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Ventas generales",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -140,10 +142,10 @@ def ventas_generales():
 @web_reports_sales_bp.route('/reports/ventas/export')
 def ventas_generales_export():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Ventas generales")
+        return render_template('auth/restricted.html', feature_name="Ventas generales"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Ventas generales",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -162,7 +164,7 @@ def ventas_generales_export():
     data = get_sales_data(owner_uid, sandbox, year, month)
     if not data:
         return render_template('auth/restricted.html', feature_name="Ventas generales",
-                               custom_message="No hay datos de ventas para exportar.")
+                               custom_message="No hay datos de ventas para exportar."), 403
 
     output = io.StringIO()
     output.write('\ufeff')
@@ -248,10 +250,10 @@ def get_product_sales_data(owner_uid, sandbox, year, month, item_type=None, comp
 @web_reports_sales_bp.route('/reports/ventas/producto')
 def ventas_por_producto():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Ventas por producto/servicio")
+        return render_template('auth/restricted.html', feature_name="Ventas por producto/servicio"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Ventas por producto/servicio",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -323,10 +325,10 @@ def ventas_por_producto():
 @web_reports_sales_bp.route('/reports/ventas/producto/export')
 def ventas_por_producto_export():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Ventas por producto/servicio")
+        return render_template('auth/restricted.html', feature_name="Ventas por producto/servicio"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Ventas por producto/servicio",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -347,7 +349,7 @@ def ventas_por_producto_export():
 
     if not all_products:
         return render_template('auth/restricted.html', feature_name="Ventas por producto/servicio",
-                               custom_message="No hay datos para exportar.")
+                               custom_message="No hay datos para exportar."), 403
 
     output = io.StringIO()
     output.write('\ufeff')
@@ -425,10 +427,10 @@ def get_client_sales_data(owner_uid, sandbox, year, month, company_id=None):
 @web_reports_sales_bp.route('/reports/ventas/cliente')
 def ventas_por_cliente():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Ventas por cliente")
+        return render_template('auth/restricted.html', feature_name="Ventas por cliente"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Ventas por cliente",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -498,10 +500,10 @@ def ventas_por_cliente():
 @web_reports_sales_bp.route('/reports/ventas/cliente/export')
 def ventas_por_cliente_export():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Ventas por cliente")
+        return render_template('auth/restricted.html', feature_name="Ventas por cliente"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Ventas por cliente",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -521,7 +523,7 @@ def ventas_por_cliente_export():
 
     if not all_clients:
         return render_template('auth/restricted.html', feature_name="Ventas por cliente",
-                               custom_message="No hay datos para exportar.")
+                               custom_message="No hay datos para exportar."), 403
 
     output = io.StringIO()
     output.write('\ufeff')
@@ -616,10 +618,10 @@ def get_profitability_data(owner_uid, sandbox, year, month, item_type=None, comp
 @web_reports_sales_bp.route('/reports/ventas/rentabilidad')
 def ventas_rentabilidad():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Rentabilidad por producto/servicio")
+        return render_template('auth/restricted.html', feature_name="Rentabilidad por producto/servicio"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Rentabilidad por producto/servicio",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -692,10 +694,10 @@ def ventas_rentabilidad():
 @web_reports_sales_bp.route('/reports/ventas/rentabilidad/export')
 def ventas_rentabilidad_export():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Rentabilidad por producto/servicio")
+        return render_template('auth/restricted.html', feature_name="Rentabilidad por producto/servicio"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Rentabilidad por producto/servicio",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -716,7 +718,7 @@ def ventas_rentabilidad_export():
 
     if not all_products:
         return render_template('auth/restricted.html', feature_name="Rentabilidad por producto/servicio",
-                               custom_message="No hay datos para exportar.")
+                               custom_message="No hay datos para exportar."), 403
 
     output = io.StringIO()
     output.write('\ufeff')
@@ -816,10 +818,10 @@ def get_seller_sales_data(owner_uid, sandbox, year, month, seller_filter=None, c
 @web_reports_sales_bp.route('/reports/ventas/vendedor')
 def ventas_por_vendedor():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Ventas por vendedor")
+        return render_template('auth/restricted.html', feature_name="Ventas por vendedor"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Ventas por vendedor",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -894,10 +896,10 @@ def ventas_por_vendedor():
 @web_reports_sales_bp.route('/reports/ventas/vendedor/export')
 def ventas_por_vendedor_export():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Ventas por vendedor")
+        return render_template('auth/restricted.html', feature_name="Ventas por vendedor"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Ventas por vendedor",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -919,7 +921,7 @@ def ventas_por_vendedor_export():
 
     if not all_sellers:
         return render_template('auth/restricted.html', feature_name="Ventas por vendedor",
-                               custom_message="No hay datos para exportar.")
+                               custom_message="No hay datos para exportar."), 403
 
     output = io.StringIO()
     output.write('\ufeff')
@@ -1058,10 +1060,10 @@ def get_client_account_data(owner_uid, sandbox, client_id, year, month, aging_fi
 @web_reports_sales_bp.route('/reports/ventas/estado-cuenta')
 def ventas_estado_cuenta():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Estado de cuenta por cliente")
+        return render_template('auth/restricted.html', feature_name="Estado de cuenta por cliente"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Estado de cuenta por cliente",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -1178,10 +1180,10 @@ def ventas_estado_cuenta():
 @web_reports_sales_bp.route('/reports/ventas/estado-cuenta/export')
 def ventas_estado_cuenta_export():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Estado de cuenta por cliente")
+        return render_template('auth/restricted.html', feature_name="Estado de cuenta por cliente"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Estado de cuenta por cliente",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -1203,7 +1205,7 @@ def ventas_estado_cuenta_export():
 
     if not invoices_data:
         return render_template('auth/restricted.html', feature_name="Estado de cuenta por cliente",
-                               custom_message="No hay datos para exportar.")
+                               custom_message="No hay datos para exportar."), 403
 
     output = io.StringIO()
     output.write('\ufeff')
@@ -1690,7 +1692,7 @@ def admin_ingresos_compras():
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Ingresos y compras",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -1734,7 +1736,7 @@ def admin_ingresos_compras_export():
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Ingresos y compras",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -1968,10 +1970,10 @@ def _compute_admin_reporte_anual(owner_uid, sandbox, year, company_id=None):
 @web_reports_sales_bp.route('/reports/admin/reporte-anual')
 def admin_reporte_anual():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Reporte anual")
+        return render_template('auth/restricted.html', feature_name="Reporte anual"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Reporte anual",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -2018,10 +2020,10 @@ def admin_reporte_anual():
 @web_reports_sales_bp.route('/reports/admin/reporte-anual/export')
 def admin_reporte_anual_export():
     if 'user' not in session:
-        return render_template('auth/restricted.html', feature_name="Reporte anual")
+        return render_template('auth/restricted.html', feature_name="Reporte anual"), 403
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Reporte anual",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -2074,7 +2076,7 @@ def cxc_report():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Cuentas por cobrar", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Cuentas por cobrar", required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -2234,7 +2236,7 @@ def cxc_report_export():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Cuentas por cobrar", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Cuentas por cobrar", required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -2327,7 +2329,7 @@ def cxp_report():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Cuentas por pagar", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Cuentas por pagar", required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -2551,7 +2553,7 @@ def cxp_report_export():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Cuentas por pagar", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Cuentas por pagar", required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -2684,7 +2686,7 @@ def inventory_value_report():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Valor de inventario", required_permission="canManageInventory")
+        return render_template('auth/restricted.html', feature_name="Valor de inventario", required_permission="canManageInventory"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -2794,7 +2796,7 @@ def inventory_value_export():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Valor de inventario", required_permission="canManageInventory")
+        return render_template('auth/restricted.html', feature_name="Valor de inventario", required_permission="canManageInventory"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -3720,7 +3722,7 @@ def it1_reports_list():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reporte IT1", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Reporte IT1", required_permission="canInvoice"), 403
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -3799,7 +3801,7 @@ def it1_new_report():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reporte IT1", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Reporte IT1", required_permission="canInvoice"), 403
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -3948,7 +3950,7 @@ def it1_report_detail(report_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reporte IT1", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Reporte IT1", required_permission="canInvoice"), 403
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -3994,7 +3996,7 @@ def it1_report_delete(report_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reporte IT1", required_permission="canInvoice")
+        return render_template('auth/restricted.html', feature_name="Reporte IT1", required_permission="canInvoice"), 403
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -4118,7 +4120,7 @@ def detailed_taxes_report():
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html',
                                feature_name="Reporte detallado de impuestos",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -4542,7 +4544,7 @@ def taxes_retentions_report():
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html',
                                feature_name="Impuestos y retenciones",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -4658,7 +4660,7 @@ def taxes_retentions_export():
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html',
                                feature_name="Impuestos y retenciones",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -4738,7 +4740,7 @@ def monthly_taxes_report():
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html',
                                feature_name="Impuestos mensuales",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -4930,7 +4932,7 @@ def tax_reconciliation_report():
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html',
                                feature_name="Conciliación fiscal",
-                               required_permission="canInvoice")
+                               required_permission="canInvoice"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)

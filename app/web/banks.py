@@ -8,6 +8,29 @@ from app.utils.module_gate import module_enabled
 
 web_banks_bp = Blueprint('web_banks', __name__)
 
+
+@web_banks_bp.before_request
+def _check_banks_module():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not module_enabled('banks'):
+        if request.is_json or request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "MODULE_DISABLED",
+                    "message": "El módulo 'Bancos' no está contratado en tu plan actual."
+                }
+            }), 403
+        return render_template(
+            'auth/restricted.html',
+            feature_name="Bancos & Conciliación",
+            required_permission="module_banks",
+            custom_message="El módulo <strong>Bancos & Conciliación</strong> no está incluido en tu plan actual. "
+                           "Contacta a soporte para información sobre mejoras de plan."
+        ), 403
+
+
 ACCOUNT_TYPES = {
     "banco": "Banco",
     "efectivo": "Efectivo",
@@ -19,7 +42,7 @@ def list_banks():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -36,7 +59,7 @@ def bank_detail(account_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -180,7 +203,7 @@ def new_bank():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -214,7 +237,7 @@ def edit_bank(account_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -258,7 +281,7 @@ def delete_bank(account_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -272,7 +295,7 @@ def new_bank_payment(account_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -328,7 +351,7 @@ def new_bank_receipt(account_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -386,7 +409,7 @@ def new_transfer():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -446,7 +469,7 @@ def reconcile_list():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -463,7 +486,7 @@ def reconcile_new(account_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -576,7 +599,7 @@ def reconcile_detail(recon_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -628,7 +651,7 @@ def reconcile_complete(recon_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -711,7 +734,7 @@ def reconcile_delete(recon_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -821,7 +844,7 @@ def payment_calendar():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Calendario de Pagos", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Calendario de Pagos", required_permission="canExpenses"), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)

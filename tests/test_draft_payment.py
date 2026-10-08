@@ -1,5 +1,6 @@
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
+from contextlib import ExitStack
 import pytest
 import json
 from app.services.db_service import DatabaseService
@@ -18,9 +19,36 @@ MOCK_COMPANY = {
     'companyRNC': '132-10912-2',
     'companyName': 'Test Co',
     'configured': True,
+    'posEnabled': True,
+    'productionEnabled': True,
+    'sandboxEnabled': True,
+    'sandboxIndefinite': True,
+    'planId': 'plan123',
+    'country': 'DO',
 }
 
-def mock_login(client, owner_uid='test-owner'):
+DB_PATCHES = (
+    patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE),
+    patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]),
+    patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY),
+    patch('app.services.db_service.DatabaseService.get_company', return_value=None),
+    patch('app.services.db_service.DatabaseService.get_company_context', return_value={'permissions': {}, 'company_name': 'Test Co'}),
+    patch('app.services.db_service.DatabaseService.get_branches', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_projects', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_membership', return_value={'status': 'active'}),
+    patch('app.services.db_service.DatabaseService.get_plan', return_value={'modules': {
+        'e_cf': {'enabled': True},
+        'reportes': {'enabled': True},
+        'gastos': {'enabled': True},
+        'inventario': {'enabled': True},
+        'contabilidad': {'enabled': True},
+        'bancos': {'enabled': True},
+        'cxc': {'enabled': True},
+        'cxp': {'enabled': True},
+    }}),
+)
+
+def mock_login(client, owner_uid='test-owner', company_id='test-owner'):
     with client.session_transaction() as sess:
         sess['user'] = {
             'uid': 'test-uid',
@@ -29,6 +57,19 @@ def mock_login(client, owner_uid='test-owner'):
             'email': 'admin@test.com',
             'name': 'Admin',
             'permissions': {'canInvoice': True, 'canManageCXC': True},
+        }
+        sess['selected_company_id'] = company_id
+        sess['selected_owner_uid'] = owner_uid
+        sess['company_country'] = 'DO'
+        sess['company_modules'] = {
+            'e_cf': {'enabled': True},
+            'reportes': {'enabled': True},
+            'gastos': {'enabled': True},
+            'inventario': {'enabled': True},
+            'contabilidad': {'enabled': True},
+            'bancos': {'enabled': True},
+            'cxc': {'enabled': True},
+            'cxp': {'enabled': True},
         }
         sess['is_sandbox_mode'] = True
 
@@ -87,12 +128,13 @@ def test_pay_advanced_route_get(client):
         "total": 15000.00
     }
 
-    with patch('app.services.db_service.DatabaseService.get_invoice', return_value=mock_invoice), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY), \
-         patch('app.services.db_service.DatabaseService.get_bank_accounts', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_cost_centers', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_invoice_payments', return_value=[]):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoice', return_value=mock_invoice))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_bank_accounts', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_cost_centers', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoice_payments', return_value=[]))
          
         resp = client.get('/invoices/inv-1/pay/advanced')
         assert resp.status_code == 200
@@ -117,13 +159,14 @@ def test_pay_advanced_route_post(client):
         "total": 15000.00
     }
 
-    with patch('app.services.db_service.DatabaseService.get_invoice', return_value=mock_invoice), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY), \
-         patch('app.services.db_service.DatabaseService.get_bank_accounts', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_cost_centers', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_invoice_payments', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.register_invoice_payment') as mock_register:
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoice', return_value=mock_invoice))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_bank_accounts', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_cost_centers', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoice_payments', return_value=[]))
+        mock_register = stack.enter_context(patch('app.services.db_service.DatabaseService.register_invoice_payment'))
          
         post_data = {
             "bankAccountId": "bank-1",
@@ -178,16 +221,18 @@ def test_sign_invoice_with_payment(client):
         "status": "ACCEPTED"
     }
 
-    with patch('app.services.db_service.DatabaseService.get_invoice', return_value=mock_invoice), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=mock_company), \
-         patch('app.web.invoices.check_document_limit_exceeded', return_value=(False, None)), \
-         patch('app.services.db_service.DatabaseService.consume_next_sequence', return_value=("E320000000002", "log-1")), \
-         patch('app.services.ecf_emission.EcfEmissionService.emit_electronic_comprobante', return_value=mock_dgii_response), \
-         patch('app.services.db_service.DatabaseService.get_sequence_logs', return_value=[]), \
-         patch('app.services.dgii.DGIIService.check_tolerancia_cuadratura', return_value={"within_tolerance": True, "warnings": []}), \
-         patch('app.services.audit_service.AuditService.log_from_request') as mock_audit, \
-         patch('app.services.db_service.DatabaseService.save_invoice') as mock_save:
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_company_profile', return_value=mock_company))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoice', return_value=mock_invoice))
+        stack.enter_context(patch('app.web.invoices.check_document_limit_exceeded', return_value=(False, None)))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.consume_next_sequence', return_value=("E320000000002", "log-1")))
+        stack.enter_context(patch('app.services.ecf_emission.EcfEmissionService.emit_electronic_comprobante', return_value=mock_dgii_response))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_sequence_logs', return_value=[]))
+        stack.enter_context(patch('app.services.dgii.DGIIService.check_tolerancia_cuadratura', return_value={"within_tolerance": True, "warnings": []}))
+        mock_audit = stack.enter_context(patch('app.services.audit_service.AuditService.log_from_request'))
+        mock_save = stack.enter_context(patch('app.services.db_service.DatabaseService.save_invoice'))
          
         resp = client.post('/invoices/inv-1/sign')
         assert resp.status_code == 302
@@ -199,11 +244,11 @@ def test_sign_invoice_with_payment(client):
 def test_invoice_preview_success(client):
     mock_login(client)
     
-    with patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY), \
-         patch('app.services.db_service.DatabaseService.get_items', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_clients', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_branches', return_value=[]):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_items', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_clients', return_value=[]))
         
         post_data = {
             "ecfType": "Factura de Consumo (E32)",
@@ -226,8 +271,9 @@ def test_invoice_preview_success(client):
 def test_invoice_preview_no_items(client):
     mock_login(client)
     
-    with patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
         
         post_data = {
             "ecfType": "Factura de Consumo (E32)",
@@ -275,12 +321,11 @@ def test_list_invoices_grid(client):
         }
     ]
 
-    with patch('app.services.db_service.DatabaseService.get_invoices', return_value=mock_invoices), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_branches', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_sequence_logs', return_value=[]):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoices', return_value=mock_invoices))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_sequence_logs', return_value=[]))
          
         resp = client.get('/invoices')
         assert resp.status_code == 200
@@ -318,11 +363,10 @@ def test_list_fiscal_notes_grid(client):
         }
     ]
 
-    with patch('app.services.db_service.DatabaseService.get_invoices', return_value=mock_notes), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_branches', return_value=[]):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoices', return_value=mock_notes))
          
         resp = client.get('/fiscal-notes')
         assert resp.status_code == 200
@@ -366,15 +410,15 @@ def test_pay_rejected_invoice_blocked(client):
         "items": []
     }
 
-    with patch('app.services.db_service.DatabaseService.get_invoice', return_value=mock_invoice), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY), \
-         patch('app.services.db_service.DatabaseService.get_team_members', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_invoice_payments', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_invoice_comments', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_bank_accounts', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_projects', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.register_invoice_payment') as mock_register:
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoice', return_value=mock_invoice))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_team_members', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoice_payments', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoice_comments', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_bank_accounts', return_value=[]))
+        mock_register = stack.enter_context(patch('app.services.db_service.DatabaseService.register_invoice_payment'))
 
         # 1. GET /invoices/<id>/pay/advanced debe redirigir al detalle con error
         resp_get = client.get('/invoices/inv-rejected/pay/advanced', follow_redirects=True)
@@ -423,4 +467,3 @@ def test_db_service_blocks_rejected_invoice_payment():
             DatabaseService.register_invoice_payment(
                 "owner-1", "inv-1", {"amount": 1000.0, "paymentMethod": "Efectivo"}, sandbox=True
             )
-

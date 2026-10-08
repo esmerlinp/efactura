@@ -97,18 +97,57 @@ CSV_GOOD = ("empleadoCedula,fecha,estado,entrada,salida,notas\n"
             "40212345678,02/03/2026,presente,08:00,17:00,\n"
             "40212345678,2026-03-03,tardia,09:15,18:00,Tarde por trafico\n")
 
+MOCK_USER_PROFILE = {
+    "uid": "u1",
+    "email": "rh@test.com",
+    "name": "RH",
+    "role": "owner",
+    "ownerUID": "u1",
+    "status": "active",
+    "permissions": {"canHR": True},
+}
+
+MOCK_COMPANY = {
+    "companyRNC": "132-10912-2",
+    "companyName": "Test Co",
+    "configured": True,
+    "posEnabled": True,
+    "productionEnabled": True,
+    "sandboxEnabled": True,
+    "sandboxIndefinite": True,
+    "planId": "plan123",
+}
+
+DB_PATCHES = (
+    patch("app.services.db_service.DatabaseService.get_user_profile", return_value=MOCK_USER_PROFILE),
+    patch("app.services.db_service.DatabaseService.get_associated_companies",
+          return_value=[{"ownerUID": "u1", "companyName": "Test Co", "role": "owner"}]),
+    patch("app.services.db_service.DatabaseService.get_company_profile", return_value=MOCK_COMPANY),
+    patch("app.services.db_service.DatabaseService.get_company", return_value=None),
+    patch("app.services.db_service.DatabaseService.get_membership",
+          return_value={"status": "active"}),
+    patch("app.services.db_service.DatabaseService.get_plan",
+          return_value={"modules": {"nomina": {"enabled": True}}}),
+    patch("app.services.db_service.DatabaseService.get_company_context",
+          return_value={"permissions": {}}),
+    patch("app.services.db_service.DatabaseService.get_projects", return_value=[]),
+)
+
 
 def _login(client):
     with client.session_transaction() as sess:
         sess["user"] = {"uid": "u1", "email": "rh@test.com", "role": "owner", "ownerUID": "u1"}
         sess["selected_owner_uid"] = "u1"
         sess["selected_company_id"] = "c1"
+        sess["company_modules"] = {"nomina": {"enabled": True}}
         sess["is_sandbox_mode"] = True
 
 
 def test_import_flow(client):
     saved = []
     with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
         hr = stack.enter_context(patch("app.web.rrhh.attendance_import.hr"))
         hr.get_employees.return_value = [EMP]
         hr.get_attendance_records.return_value = []
@@ -140,6 +179,8 @@ def test_import_upsert_reuses_existing_record(client):
     saved = []
     existing = [{"id": "existing-1", "employeeId": "e1", "date": "2026-03-02", "status": "presente"}]
     with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
         hr = stack.enter_context(patch("app.web.rrhh.attendance_import.hr"))
         hr.get_employees.return_value = [EMP]
         hr.get_attendance_records.return_value = existing
@@ -167,6 +208,8 @@ def test_import_skips_invalid_rows(client):
                    "40212345678,02/03/2026,volando\n")
     saved = []
     with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
         hr = stack.enter_context(patch("app.web.rrhh.attendance_import.hr"))
         hr.get_employees.return_value = [EMP]
         hr.get_attendance_records.return_value = []
@@ -184,9 +227,12 @@ def test_import_skips_invalid_rows(client):
 
 
 def test_import_template_download(client):
-    _login(client)
-    resp = client.get("/rrhh/attendance/import/template")
-    assert resp.status_code == 200
-    assert "plantilla_asistencia.csv" in resp.headers.get("Content-Disposition", "")
-    body = resp.data.decode("utf-8-sig")
-    assert "empleadoCedula" in body
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        _login(client)
+        resp = client.get("/rrhh/attendance/import/template")
+        assert resp.status_code == 200
+        assert "plantilla_asistencia.csv" in resp.headers.get("Content-Disposition", "")
+        body = resp.data.decode("utf-8-sig")
+        assert "empleadoCedula" in body

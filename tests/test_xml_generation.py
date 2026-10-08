@@ -60,8 +60,7 @@ def test_xml_currency_mapping(company_profile, invoice_data):
     xml_bytes = DgiiXmlBuilder.build_invoice_xml(company_profile, invoice_data)
     xml_str = xml_bytes.decode('utf-8')
     root = ET.fromstring(xml_str)
-    ns = {"cf": "http://dgii.gov.do/CF"}
-    tipo_moneda = root.find(".//cf:TipoMoneda", ns)
+    tipo_moneda = root.find(".//TipoMoneda")
     assert tipo_moneda is not None
     assert tipo_moneda.text == "COP"
 
@@ -70,9 +69,8 @@ def test_xml_emisor_province_municipality(company_profile, invoice_data):
     xml_bytes = DgiiXmlBuilder.build_invoice_xml(company_profile, invoice_data)
     xml_str = xml_bytes.decode('utf-8')
     root = ET.fromstring(xml_str)
-    ns = {"cf": "http://dgii.gov.do/CF"}
-    prov = root.find(".//cf:Emisor/cf:Provincia", ns)
-    mun = root.find(".//cf:Emisor/cf:Municipio", ns)
+    prov = root.find(".//Emisor/Provincia")
+    mun = root.find(".//Emisor/Municipio")
     assert prov is not None and prov.text == "320000"
     assert mun is not None and mun.text == "320100"
 
@@ -81,20 +79,19 @@ def test_xml_receptor_omitted_for_low_consumption(company_profile, invoice_data)
     xml_bytes = DgiiXmlBuilder.build_invoice_xml(company_profile, invoice_data)
     xml_str = xml_bytes.decode('utf-8')
     root = ET.fromstring(xml_str)
-    ns = {"cf": "http://dgii.gov.do/CF"}
-    rnc = root.find(".//cf:Receptor/cf:RNCReceptor", ns)
-    razon = root.find(".//cf:Receptor/cf:RazonSocialReceptor", ns)
+    rnc = root.find(".//Receptor/RNCReceptor")
+    razon = root.find(".//Receptor/RazonSocialReceptor")
     assert rnc is None
     assert razon is None
 
 
 def test_xml_zero_retentions_present(company_profile, invoice_data):
-    xml_bytes = DgiiXmlBuilder.build_invoice_xml(company_profile, invoice_data)
+    e41_data = dict(invoice_data, ecfType="Factura de Compras (E41)", encf="E410000000001")
+    xml_bytes = DgiiXmlBuilder.build_invoice_xml(company_profile, e41_data)
     xml_str = xml_bytes.decode('utf-8')
     root = ET.fromstring(xml_str)
-    ns = {"cf": "http://dgii.gov.do/CF"}
-    ret_itbis = root.find(".//cf:Totales/cf:TotalITBISRetenido", ns)
-    ret_isr = root.find(".//cf:Totales/cf:TotalISRRetencion", ns)
+    ret_itbis = root.find(".//Totales/TotalITBISRetenido")
+    ret_isr = root.find(".//Totales/TotalISRRetencion")
     assert ret_itbis is not None and ret_itbis.text == "0.00"
     assert ret_isr is not None and ret_isr.text == "0.00"
 
@@ -103,6 +100,5 @@ def test_xml_unit_of_measure_mapping(company_profile, invoice_data):
     xml_bytes = DgiiXmlBuilder.build_invoice_xml(company_profile, invoice_data)
     xml_str = xml_bytes.decode('utf-8')
     root = ET.fromstring(xml_str)
-    ns = {"cf": "http://dgii.gov.do/CF"}
-    unidad = root.find(".//cf:Detalle/cf:UnidadMedida", ns)
+    unidad = root.find(".//UnidadMedida")
     assert unidad is not None and unidad.text == "57"

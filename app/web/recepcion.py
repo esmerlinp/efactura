@@ -11,7 +11,10 @@ except Exception:
     WeasyprintHTML = None
     WEASYPRINT_AVAILABLE = False
 
+from app.utils.module_gate import gate_blueprint_module
+
 web_recepcion_bp = Blueprint("web_recepcion", __name__)
+gate_blueprint_module(web_recepcion_bp, "e_cf")
 
 
 def _check_auth():

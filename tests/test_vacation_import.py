@@ -114,6 +114,7 @@ MOCK_COMPANY = {
     "sandboxEnabled": True,
     "sandboxIndefinite": True,
     "planId": "plan123",
+    "country": "DO",
 }
 
 DB_PATCHES = (
@@ -125,18 +126,24 @@ DB_PATCHES = (
     patch("app.services.db_service.DatabaseService.get_membership",
           return_value={"status": "active"}),
     patch("app.services.db_service.DatabaseService.get_plan",
-          return_value={"modules": {"nomina": {"enabled": True}}}),
+          return_value={"modules": {"rrhh": {"enabled": True}, "nomina": {"enabled": True}}}),
     patch("app.services.db_service.DatabaseService.get_company_context",
-          return_value={"permissions": {}}),
+          return_value={"permissions": {}, "company_name": "Test Co"}),
+    patch("app.services.db_service.DatabaseService.get_branches", return_value=[]),
     patch("app.services.db_service.DatabaseService.get_projects", return_value=[]),
 )
 
 
 def _login(client):
     with client.session_transaction() as sess:
-        sess["user"] = {"uid": "u1", "email": "rh@test.com", "role": "owner", "ownerUID": "u1"}
+        sess["user"] = {"uid": "u1", "email": "rh@test.com", "role": "owner", "ownerUID": "u1", "permissions": {"canHR": True}}
         sess["selected_owner_uid"] = "u1"
         sess["selected_company_id"] = "c1"
+        sess["company_country"] = "DO"
+        sess["company_modules"] = {
+            "rrhh": {"enabled": True},
+            "nomina": {"enabled": True},
+        }
         sess["is_sandbox_mode"] = True
 
 
@@ -243,7 +250,7 @@ def test_import_computes_business_days_and_dedups(client, tmp_path):
         status = _wait_job(client, job["job_id"])
         assert status["status"] == "completed"
         assert status["imported"] == 1
-        assert saved_docs[0]["days"] == 10  # lun-vie entre 02/03 y 13/03
+        assert saved_docs[0]["days"] == 9  # lun-vie entre 02/03 y 13/03 (02/03 es feriado observado de la Independencia)
 
         # Re-ejecutar el mismo archivo: debe omitirse por duplicado
         hr.get_vacation_requests.return_value = existing + [saved_docs[0]]

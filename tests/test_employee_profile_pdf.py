@@ -369,6 +369,12 @@ def _login(client):
                         "name": "Admin", "permissions": {"canHR": True}}
         sess["is_sandbox_mode"] = True
         sess["selected_company_id"] = "c1"
+        sess["selected_owner_uid"] = "test-owner"
+        sess["company_country"] = "DO"
+        sess["company_modules"] = {
+            "rrhh": {"enabled": True},
+            "nomina": {"enabled": True},
+        }
 
 
 def test_profile_pdf_route_ok(mini_client):

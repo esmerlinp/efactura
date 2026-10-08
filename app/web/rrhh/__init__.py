@@ -15,6 +15,32 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 
 web_rrhh_bp = Blueprint("web_rrhh", __name__, template_folder="templates")
 
+from app.utils.module_gate import module_enabled
+
+
+@web_rrhh_bp.before_request
+def _check_rrhh_module():
+    if request.endpoint == 'web_rrhh.certificate_verify':
+        return None
+    if "user" not in session:
+        return redirect(url_for("web_auth.login"))
+    if not module_enabled("nomina"):
+        if request.is_json or request.headers.get("Accept") == "application/json" or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "MODULE_DISABLED",
+                    "message": "El módulo 'Nómina y RRHH' no está contratado en tu plan actual."
+                }
+            }), 403
+        return render_template(
+            "auth/restricted.html",
+            feature_name="Nómina y Recursos Humanos",
+            required_permission="module_nomina",
+            custom_message="El módulo <strong>Nómina y Recursos Humanos</strong> no está incluido en tu plan actual. "
+                           "Contacta a soporte para información sobre mejoras de plan."
+        ), 403
+
 
 def _get_owner_uid_and_sandbox():
     uid = session.get("selected_owner_uid", "") or session.get("user", {}).get("ownerUID", "")

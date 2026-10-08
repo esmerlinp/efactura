@@ -49,6 +49,10 @@ def client():
         yield c
 
 
+MOCK_MODULES_CRM = {
+    "crm": {"enabled": True},
+}
+
 MOCK_COMPANY_A = {
     "id": "comp_a",
     "ownerUID": "owner_a",
@@ -56,6 +60,7 @@ MOCK_COMPANY_A = {
     "apiKey": "key_a_123",
     "name": "Empresa A SRL",
     "allowed_company_ids": ["comp_a"],
+    "modules": MOCK_MODULES_CRM,
 }
 
 MOCK_USER_OPPS_ONLY = {
@@ -71,6 +76,7 @@ MOCK_USER_OPPS_ONLY = {
         "canCRMReports": False,
     },
     "allowed_company_ids": ["comp_a"],
+    "modules": MOCK_MODULES_CRM,
 }
 
 MOCK_USER_CONTACTS_ONLY = {
@@ -86,6 +92,7 @@ MOCK_USER_CONTACTS_ONLY = {
         "canCRMReports": False,
     },
     "allowed_company_ids": ["comp_a"],
+    "modules": MOCK_MODULES_CRM,
 }
 
 MOCK_USER_ACTIVITIES_ONLY = {
@@ -101,6 +108,7 @@ MOCK_USER_ACTIVITIES_ONLY = {
         "canCRMReports": False,
     },
     "allowed_company_ids": ["comp_a"],
+    "modules": MOCK_MODULES_CRM,
 }
 
 

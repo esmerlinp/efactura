@@ -4,10 +4,12 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 
 from app.services.budget_service import BudgetService
 from app.utils.decorators import check_permission
+from app.utils.module_gate import gate_blueprint_module
 from flask import g
 
 
 web_budgets_bp = Blueprint("web_budgets", __name__)
+gate_blueprint_module(web_budgets_bp, "ia_bi")
 
 
 @web_budgets_bp.route("/budgets")
@@ -15,7 +17,7 @@ def dashboard():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     if not (check_permission("canExpenses") or check_permission("canViewBI")):
-        return render_template("auth/restricted.html", feature_name="Presupuestos")
+        return render_template("auth/restricted.html", feature_name="Presupuestos"), 403
 
     now = datetime.now(timezone.utc)
     try:
@@ -54,7 +56,7 @@ def save_budget():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     if not check_permission("canExpenses"):
-        return render_template("auth/restricted.html", feature_name="Presupuestos", required_permission="canExpenses")
+        return render_template("auth/restricted.html", feature_name="Presupuestos", required_permission="canExpenses"), 403
 
     try:
         year = int(request.form.get("year", datetime.now(timezone.utc).year))

@@ -209,12 +209,14 @@ class ISRResolver:
         remaining = taxable_annual
         total_isr = 0.0
         for bracket in isr_table:
-            if isinstance(bracket, list):
-                r_from, r_to, rate, _ = bracket
-            else:
+            if isinstance(bracket, (list, tuple)):
+                r_from, r_to, rate, _ = bracket[:4]
+            elif isinstance(bracket, dict):
                 r_from = bracket.get("from", 0)
                 r_to = bracket.get("to", float("inf"))
                 rate = bracket.get("rate", 0)
+            else:
+                continue
             if remaining <= 0:
                 break
             bracket_range = r_to - r_from if r_to != float("inf") else remaining

@@ -5,8 +5,10 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.services.db_service import DatabaseService
 from app.services.rui_generation_service import RuiGenerationService
 from app.utils.decorators import require_permission
+from app.utils.module_gate import gate_blueprint_module
 
 web_rui_bp = Blueprint('web_rui', __name__, url_prefix='/rui')
+gate_blueprint_module(web_rui_bp, 'pos')
 
 
 @web_rui_bp.route('/list')

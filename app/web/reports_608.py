@@ -9,7 +9,10 @@ from openpyxl.utils import get_column_letter
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
 
+from app.utils.module_gate import gate_blueprint_module
+
 web_reports_608_bp = Blueprint('web_reports_608', __name__)
+gate_blueprint_module(web_reports_608_bp, 'e_cf', feature_name="Reporte 608 DGII")
 
 
 @web_reports_608_bp.before_request
@@ -17,7 +20,7 @@ def restrict_to_do():
     if session.get('company_country', 'DO') != 'DO':
         return render_template('auth/restricted.html',
             feature_name="Reporte 608 DGII (solo disponible para República Dominicana)",
-            required_permission="")
+            required_permission=""), 403
 
 CANCELLATION_TYPE_LABELS = {
     "01": "Deterioro de Factura Pre-Impresa",
@@ -74,7 +77,7 @@ def reporte_608():
     if "user" not in session:
         return redirect(url_for("login"))
     if not check_permission("canReports"):
-        return render_template("auth/restricted.html", active_page="reporte_608")
+        return render_template("auth/restricted.html", active_page="reporte_608"), 403
     owner_uid = session["user"]["ownerUID"]
     company_id = session.get("selected_company_id")
     sandbox = session.get("is_sandbox_mode", True)

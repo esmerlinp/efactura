@@ -90,7 +90,7 @@ def list_herramientas():
     if _login_required():
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
-        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
+        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools"), 403
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     herramientas = get_herramientas(owner_uid, sandbox=sandbox, company_id=company_id)
@@ -126,7 +126,7 @@ def new_herramienta():
     if _login_required():
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
-        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
+        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools"), 403
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     if request.method == "POST":
@@ -187,7 +187,7 @@ def edit_herramienta(herramienta_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
-        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
+        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools"), 403
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
@@ -252,7 +252,7 @@ def detail_herramienta(herramienta_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
-        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
+        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools"), 403
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
@@ -329,7 +329,7 @@ def asignar_herramienta(herramienta_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
-        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
+        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools"), 403
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
@@ -472,7 +472,7 @@ def list_asignaciones():
     if _login_required():
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
-        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
+        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools"), 403
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     asignaciones = get_asignaciones(owner_uid, sandbox=sandbox, company_id=company_id)
@@ -492,7 +492,7 @@ def nuevo_mantenimiento(herramienta_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
-        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
+        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools"), 403
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
@@ -560,7 +560,7 @@ def list_mantenimientos():
     if _login_required():
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
-        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
+        return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools"), 403
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     mantenimientos = get_mantenimientos(owner_uid, sandbox=sandbox, company_id=company_id)

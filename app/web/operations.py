@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.services.db_service import DatabaseService, _resolve_company_id
 from app.services.recurrence import RecurrenceService
 from app.utils.decorators import check_permission
+from app.utils.module_gate import require_module, module_enabled, get_module_label
 from config import Config
 from app.brand import get_product_name
 from datetime import datetime, timedelta, timezone
@@ -11,15 +12,54 @@ import json
 
 web_operations_bp = Blueprint('web_operations', __name__)
 
+
+@web_operations_bp.before_request
+def _check_operations_module_gate():
+    if request.endpoint == 'static':
+        return None
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+
+    path = request.path
+    if path.startswith('/operations/commissions'):
+        required_mod = 'comisiones'
+    elif path.startswith('/operations/contracts') or path.startswith('/contracts'):
+        required_mod = 'contratos'
+    elif '/documents' in path:
+        required_mod = 'crm' if module_enabled('crm') else 'contratos'
+    else:
+        required_mod = 'contratos' if module_enabled('contratos') else 'comisiones'
+
+    if not module_enabled(required_mod):
+        label = get_module_label(required_mod)
+        if (request.is_json or 
+            request.headers.get('Accept') == 'application/json' or 
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest'):
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "MODULE_DISABLED",
+                    "message": f"El módulo '{label}' no está contratado en tu plan actual."
+                }
+            }), 403
+        return render_template(
+            'auth/restricted.html',
+            feature_name=label,
+            required_permission=f"module_{required_mod}",
+            custom_message=f"El módulo <strong>{label}</strong> no está incluido en tu plan actual. "
+                           "Contacta a soporte para información sobre mejoras de plan."
+        ), 403
+
 # =========================================================================
 # GESTIÓN DE CONTRATOS Y FACTURACIÓN RECURRENTE
 # =========================================================================
 
 @web_operations_bp.route('/operations/contracts/new', methods=['GET'])
+@require_module('contratos')
 def new_contract():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageContracts'):
-        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts")
+        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts"), 403
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     company_id = _resolve_company_id(owner_uid)
@@ -33,10 +73,11 @@ def new_contract():
     )
 
 @web_operations_bp.route('/operations/contracts', methods=['GET', 'POST'])
+@require_module('contratos')
 def list_contracts():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageContracts'):
-        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts")
+        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts"), 403
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -192,6 +233,7 @@ def list_contracts():
     )
 
 @web_operations_bp.route('/operations/contracts/<contract_id>/toggle', methods=['POST'])
+@require_module('contratos')
 def toggle_contract(contract_id):
     if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
     if not check_permission('canManageContracts'): return jsonify({"success": False, "error": "Sin permisos"}), 403
@@ -212,6 +254,7 @@ def toggle_contract(contract_id):
     return jsonify({"success": False, "error": "Contrato no encontrado"}), 404
 
 @web_operations_bp.route('/operations/contracts/<contract_id>/status', methods=['POST'])
+@require_module('contratos')
 def set_contract_status(contract_id):
     if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
     if not check_permission('canManageContracts'): return jsonify({"success": False, "error": "Sin permisos"}), 403
@@ -238,6 +281,7 @@ def set_contract_status(contract_id):
     return jsonify({"success": False, "error": "Contrato no encontrado"}), 404
 
 @web_operations_bp.route('/operations/contracts/<contract_id>/delete', methods=['POST'])
+@require_module('contratos')
 def delete_contract_route(contract_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageContracts'): return jsonify({"success": False, "error": "Sin permisos"}), 403
@@ -251,10 +295,11 @@ def delete_contract_route(contract_id):
     return redirect(url_for('web_operations.list_contracts'))
 
 @web_operations_bp.route('/operations/contracts/<contract_id>/trigger', methods=['POST'])
+@require_module('contratos')
 def trigger_contract_billing(contract_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageContracts'):
-        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts")
+        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts"), 403
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -435,6 +480,7 @@ def trigger_contract_billing(contract_id):
 # =========================================================================
 
 @web_operations_bp.route('/operations/contracts/ai-terms', methods=['POST'])
+@require_module('contratos')
 def ai_contract_terms():
     if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
     if not check_permission('canManageContracts'):
@@ -516,10 +562,11 @@ Personaliza los términos basándote en la descripción del servicio proporciona
 # =========================================================================
 
 @web_operations_bp.route('/operations/commissions', methods=['GET', 'POST'])
+@require_module('comisiones')
 def list_commissions():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageCommissions'):
-        return render_template('auth/restricted.html', feature_name="Comisiones y Metas", required_permission="canManageCommissions")
+        return render_template('auth/restricted.html', feature_name="Comisiones y Metas", required_permission="canManageCommissions"), 403
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -633,6 +680,7 @@ def list_commissions():
 # =========================================================================
 
 @web_operations_bp.route('/clients/<client_id>/documents/upload', methods=['POST'])
+@require_module('crm')
 def upload_client_document_route(client_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'): return jsonify({"success": False, "error": "Sin permisos"}), 403
@@ -682,6 +730,7 @@ def upload_client_document_route(client_id):
     return redirect(url_for('web_clients.client_detail', client_id=client_id))
 
 @web_operations_bp.route('/clients/<client_id>/documents/<doc_id>/delete', methods=['POST'])
+@require_module('crm')
 def delete_client_document_route(client_id, doc_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'): return jsonify({"success": False, "error": "Sin permisos"}), 403
@@ -806,10 +855,11 @@ def format_mentions(content, users):
 
 
 @web_operations_bp.route('/contracts/<contract_id>')
+@require_module('contratos')
 def contract_detail(contract_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageContracts'):
-        return render_template('auth/restricted.html', feature_name="Detalle de Contrato", required_permission="canManageContracts")
+        return render_template('auth/restricted.html', feature_name="Detalle de Contrato", required_permission="canManageContracts"), 403
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -847,6 +897,7 @@ def contract_detail(contract_id):
 
 
 @web_operations_bp.route('/contracts/<contract_id>/comments/new', methods=['POST'])
+@require_module('contratos')
 def add_contract_comment(contract_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
@@ -899,6 +950,7 @@ def add_contract_comment(contract_id):
 
 
 @web_operations_bp.route('/contracts/<contract_id>/comments/<comment_id>/edit', methods=['POST'])
+@require_module('contratos')
 def edit_contract_comment(contract_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
@@ -954,6 +1006,7 @@ def edit_contract_comment(contract_id, comment_id):
 
 
 @web_operations_bp.route('/contracts/<contract_id>/comments/<comment_id>/delete', methods=['POST'])
+@require_module('contratos')
 def delete_contract_comment(contract_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
@@ -978,6 +1031,7 @@ def delete_contract_comment(contract_id, comment_id):
 
 
 @web_operations_bp.route('/contracts/billing/trigger-test', methods=['POST'])
+@require_module('contratos')
 def trigger_contract_billing_route():
     """
     Ruta para pruebas en sandbox: permite gatillar manualmente el proceso

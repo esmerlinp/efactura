@@ -21,9 +21,32 @@ try:
     WEASYPRINT_AVAILABLE = True
 except Exception:
     WeasyprintHTML = None
-    WEASYPRINT_AVAILABLE = False
+from app.utils.module_gate import module_enabled
 
 web_purchase_orders_bp = Blueprint('web_purchase_orders', __name__)
+
+
+@web_purchase_orders_bp.before_request
+def _check_purchase_module():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not module_enabled('cxp_compras'):
+        if request.is_json or request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "MODULE_DISABLED",
+                    "message": "El módulo 'Cuentas por Pagar & Compras' no está contratado en tu plan actual."
+                }
+            }), 403
+        return render_template(
+            'auth/restricted.html',
+            feature_name="CxP, Proveedores & Compras",
+            required_permission="module_cxp_compras",
+            custom_message="El módulo <strong>CxP, Proveedores & Compras</strong> no está incluido en tu plan actual. "
+                           "Contacta a soporte para información sobre mejoras de plan."
+        ), 403
+
 
 MODULE_PO = "Órdenes de Compra"
 MODULE_SINV = "Facturas Proveedor"
@@ -34,7 +57,7 @@ def list_purchase_orders():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', active_page='purchase_orders')
+        return render_template('auth/restricted.html', active_page='purchase_orders'), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -82,7 +105,7 @@ def new_purchase_order():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', active_page='purchase_orders')
+        return render_template('auth/restricted.html', active_page='purchase_orders'), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -194,7 +217,7 @@ def purchase_order_detail(po_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', active_page='purchase_orders')
+        return render_template('auth/restricted.html', active_page='purchase_orders'), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
@@ -457,7 +480,7 @@ def edit_purchase_order(po_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', active_page='purchase_orders')
+        return render_template('auth/restricted.html', active_page='purchase_orders'), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -564,7 +587,7 @@ def delete_purchase_order(po_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', active_page='purchase_orders')
+        return render_template('auth/restricted.html', active_page='purchase_orders'), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -828,7 +851,7 @@ def list_purchase_cxp():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canManagePurchaseCXP'):
-        return render_template('auth/restricted.html', feature_name="CxP Compras", required_permission="canManagePurchaseCXP")
+        return render_template('auth/restricted.html', feature_name="CxP Compras", required_permission="canManagePurchaseCXP"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
@@ -911,7 +934,7 @@ def new_supplier_invoice_direct():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canManagePurchaseCXP'):
-        return render_template('auth/restricted.html', feature_name="Nueva Factura Directa", required_permission="canManagePurchaseCXP")
+        return render_template('auth/restricted.html', feature_name="Nueva Factura Directa", required_permission="canManagePurchaseCXP"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
@@ -1621,7 +1644,7 @@ def register_supplier_invoice(po_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canManagePurchaseCXP'):
-        return render_template('auth/restricted.html', required_permission="canManagePurchaseCXP")
+        return render_template('auth/restricted.html', required_permission="canManagePurchaseCXP"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
@@ -1806,7 +1829,7 @@ def supplier_invoice_detail(invoice_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canManagePurchaseCXP'):
-        return render_template('auth/restricted.html', required_permission="canManagePurchaseCXP")
+        return render_template('auth/restricted.html', required_permission="canManagePurchaseCXP"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
@@ -2285,7 +2308,7 @@ def edit_supplier_invoice(invoice_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canManagePurchaseCXP'):
-        return render_template('auth/restricted.html', required_permission="canManagePurchaseCXP")
+        return render_template('auth/restricted.html', required_permission="canManagePurchaseCXP"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
@@ -2694,7 +2717,7 @@ def list_credit_notes():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canManagePurchaseCXP'):
-        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP")
+        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
@@ -2721,7 +2744,7 @@ def new_credit_note():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canManagePurchaseCXP'):
-        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP")
+        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
@@ -2788,7 +2811,7 @@ def credit_note_detail(note_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canManagePurchaseCXP'):
-        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP")
+        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')

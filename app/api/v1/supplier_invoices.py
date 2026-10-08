@@ -1,8 +1,9 @@
 from flask import Blueprint, request, g, jsonify
-from app.api.auth import require_api_key
+from app.api.auth import require_api_key, require_api_module, gate_api_blueprint_module
 from app.services.supplier_invoice_service import SupplierInvoiceService
 
 api_supplier_invoices_bp = Blueprint('api_supplier_invoices', __name__)
+gate_api_blueprint_module(api_supplier_invoices_bp, 'cxp_compras')
 
 
 def _company_kw():
@@ -10,7 +11,7 @@ def _company_kw():
 
 
 @api_supplier_invoices_bp.route('/supplier-invoices', methods=['GET'])
-@require_api_key
+@require_api_module('cxp_compras')
 def list_supplier_invoices():
     """
     Listar todas las facturas de proveedor
@@ -40,7 +41,7 @@ def list_supplier_invoices():
 
 
 @api_supplier_invoices_bp.route('/supplier-invoices/<invoice_id>', methods=['GET'])
-@require_api_key
+@require_api_module('cxp_compras')
 def get_supplier_invoice(invoice_id):
     """
     Obtener una factura de proveedor por ID
@@ -70,7 +71,7 @@ def get_supplier_invoice(invoice_id):
 
 
 @api_supplier_invoices_bp.route('/supplier-invoices', methods=['POST'])
-@require_api_key
+@require_api_module('cxp_compras')
 def create_supplier_invoice():
     """
     Crear una nueva factura de proveedor
@@ -191,7 +192,7 @@ def create_supplier_invoice():
 
 
 @api_supplier_invoices_bp.route('/supplier-invoices/<invoice_id>', methods=['PUT'])
-@require_api_key
+@require_api_module('cxp_compras')
 def update_supplier_invoice(invoice_id):
     """
     Actualizar una factura de proveedor existente
@@ -328,7 +329,7 @@ def update_supplier_invoice(invoice_id):
 
 
 @api_supplier_invoices_bp.route('/supplier-invoices/<invoice_id>', methods=['DELETE'])
-@require_api_key
+@require_api_module('cxp_compras')
 def delete_supplier_invoice(invoice_id):
     """
     Eliminar una factura de proveedor
@@ -359,7 +360,7 @@ def delete_supplier_invoice(invoice_id):
 
 
 @api_supplier_invoices_bp.route('/supplier-invoices/<invoice_id>/payments', methods=['GET'])
-@require_api_key
+@require_api_module('cxp_compras')
 def list_payments(invoice_id):
     """
     Listar pagos de una factura de proveedor
@@ -390,7 +391,7 @@ def list_payments(invoice_id):
 
 
 @api_supplier_invoices_bp.route('/supplier-invoices/<invoice_id>/payments', methods=['POST'])
-@require_api_key
+@require_api_module('cxp_compras')
 def register_payment(invoice_id):
     """
     Registrar un pago a una factura de proveedor
