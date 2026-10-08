@@ -1,0 +1,100 @@
+<!-- SECCIÓN: CONFIGURACIÓN -->
+{% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) or session.get('user', {}).get('permissions', {}).get('canViewSubscription', True) or module_enabled('auditoria') or module_enabled('certificacion') or module_enabled('api') or module_enabled('exportacion_contable') %}
+<div class="sidebar-section" id="sidebar-section-configuracion">
+    <div class="sidebar-section-header">
+        <div class="header-left">
+            <i class="fa-solid fa-gear section-icon"></i>
+            <span>Configuración</span>
+        </div>
+        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+    </div>
+    <ul class="sidebar-section-content">
+        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+        <li class="nav-item {% if active_page == 'settings' %}active{% endif %}"
+            data-tooltip="Configuración de Empresa">
+            <a href="{{ url_for('web_invoices.company_settings') }}">
+                <span>Configuración de Empresa</span>
+            </a>
+        </li>
+        <li class="nav-item {% if active_page == 'settings' %}active{% endif %}"
+            data-tooltip="Impuestos">
+            <a href="{{ url_for('web_invoices.tax_settings') }}">
+                <span>Impuestos</span>
+            </a>
+        </li>
+        {% endif %}
+        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', False) %}
+        <li class="nav-item {% if active_page == 'team_settings' %}active{% endif %}"
+            data-tooltip="Usuarios y Permisos">
+            <a href="{{ url_for('web_invoices.team_settings') }}">
+                <span>Usuarios y Permisos</span>
+            </a>
+        </li>
+        {% endif %}
+        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+        <li class="nav-item {% if active_page == 'sequences' %}active{% endif %}"
+            data-tooltip="Secuencias Fiscales (NCF)">
+            <a href="{{ url_for('web_invoices.list_sequences') }}">
+                <span>Secuencias Fiscales (NCF)</span>
+            </a>
+        </li>
+        {% endif %}
+        {% if module_enabled('certificacion') and dgii_environment == 'certecf' and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canCertifyDGII', True)) %}
+        <li class="nav-item {% if active_page == 'certificacion' %}active{% endif %}"
+            data-tooltip="Certificación DGII">
+            <a href="{{ url_for('web_certificacion.wizard') }}">
+                <span>Certificación DGII</span>
+            </a>
+        </li>
+        {% endif %}
+        {% if module_enabled('auditoria') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewAuditLog', False)) %}
+        <li class="nav-item {% if active_page == 'audit' %}active{% endif %}"
+            data-tooltip="Auditoría">
+            <a href="{{ url_for('web_audit.audit_log') }}">
+                <span>Auditoría</span>
+            </a>
+        </li>
+        {% endif %}
+        {% if module_enabled('auditoria') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewAuditLog', False) or session.get('user', {}).get('permissions', {}).get('canModifySettings', True)) %}
+        <li class="nav-item {% if active_page == 'system_jobs' %}active{% endif %}"
+            data-tooltip="Jobs y Procesos">
+            <a href="{{ url_for('web_system_jobs.dashboard') }}">
+                <span>Jobs y Procesos</span>
+            </a>
+        </li>
+        {% endif %}
+        {% if module_enabled('exportacion_contable') %}
+        <li class="nav-item {% if active_page == 'accounting_export' %}active{% endif %}"
+            data-tooltip="Exportación Contable">
+            <a href="{{ url_for('web_invoices.accounting_export_page') }}">
+                <span>Exportación Contable</span>
+            </a>
+        </li>
+        {% endif %}
+        {% if module_enabled('api') %}
+        <li class="nav-item {% if active_page == 'api_portal' %}active{% endif %}"
+            data-tooltip="API y Desarrolladores">
+            <a href="{{ url_for('web_api_portal.index') }}">
+                <span>API y Desarrolladores</span>
+            </a>
+        </li>
+        {% endif %}
+        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+        <li class="nav-item"
+            data-tooltip="Exportar Datos (CSV)">
+            <a href="javascript:void(0)" onclick="document.getElementById('global-export-modal').style.display='flex'">
+                <span>Exportar Datos (CSV)</span>
+            </a>
+        </li>
+        {% endif %}
+        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewSubscription', True) %}
+        <li class="nav-item {% if active_page == 'subscription' %}active{% endif %}"
+            data-tooltip="Mi Plan y Consumo">
+            <a href="{{ url_for('web_invoices.client_subscription_page') }}">
+                <span>Mi Plan y Consumo</span>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</div>
+{% endif %}
