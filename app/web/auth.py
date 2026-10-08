@@ -53,30 +53,15 @@ def _resolve_safe_next(next_url):
 @web_auth_bp.route('/')
 def home():
     is_logged_in = 'user' in session
-    plans = []
-    try:
-        plans = DatabaseService.get_visible_plans()
-    except Exception as e:
-        print(f"Error al cargar planes desde Firestore: {e}")
     from app.utils.module_gate import MODULE_DEFS
     return render_template('landing.html',
                            is_logged_in=is_logged_in,
-                           plans=plans,
                            module_definitions=MODULE_DEFS)
 
 @web_auth_bp.route('/precios')
 def pricing():
-    is_logged_in = 'user' in session
-    plans = []
-    try:
-        plans = DatabaseService.get_visible_plans()
-    except Exception as e:
-        print(f"Error al cargar planes desde Firestore: {e}")
-    from app.utils.module_gate import MODULE_DEFS
-    return render_template('pricing.html',
-                           is_logged_in=is_logged_in,
-                           plans=plans,
-                           module_definitions=MODULE_DEFS)
+    """Redirección permanente: el pricing público fue retirado (modelo de cotización personalizada)."""
+    return redirect(url_for('web_auth.home'), code=301)
 
 @web_auth_bp.route('/modulos')
 def modules_page():
@@ -92,10 +77,14 @@ def modules_page():
 def faqs():
     return render_template('faqs.html')
 
-@web_auth_bp.route('/contacto-embed')
-def contact_embed():
+@web_auth_bp.route('/privacidad')
+def privacidad():
+    return render_template('privacidad.html')
+
+@web_auth_bp.route('/cotizacion')
+def cotizacion():
     from app.utils.module_gate import get_main_modules
-    return render_template('landing_contact_embed.html',
+    return render_template('cotizacion.html',
                            module_definitions=get_main_modules())
 
 @web_auth_bp.route('/api/solicitar-demo', methods=['POST'])
@@ -188,10 +177,159 @@ def api_solicitar_demo():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@web_auth_bp.route('/api/solicitar-cotizacion', methods=['POST'])
+@limiter.limit("10/minute;30/hour;100/day")
+def api_solicitar_cotizacion():
+    """Solicitud de cotización personalizada desde la landing page.
+
+    Recolecta la información mínima para que el equipo comercial prepare una
+    propuesta, envía un correo organizado a SUPPORT_EMAIL y una confirmación
+    al solicitante. El consentimiento de datos (privacidad) es obligatorio.
+    """
+    from flask import current_app
+    try:
+        data = request.get_json(silent=True) or {}
+
+        nombre = (data.get('nombre') or '').strip()
+        apellido = (data.get('apellido') or '').strip()
+        email = (data.get('email') or '').strip()
+        empresa = (data.get('empresa') or '').strip()
+        telefono = (data.get('telefono') or '').strip()
+        cargo = (data.get('cargo') or '').strip()
+        rnc = (data.get('rnc') or '').strip()
+        sector = (data.get('sector') or '').strip()
+        empleados = (data.get('empleados') or '').strip()
+        usuarios = (data.get('usuarios') or '').strip()
+        comentarios = (data.get('comentarios') or data.get('comments') or '').strip()
+        consentimiento = bool(data.get('consentimiento'))
+
+        modulos = data.get('modulos') or []
+        if isinstance(modulos, str):
+            modulos = [m.strip() for m in modulos.split(',') if m.strip()]
+
+        if not nombre or not email or not empresa or not telefono:
+            return jsonify({"success": False, "error": "Nombre, correo, empresa y teléfono son obligatorios."}), 400
+
+        if not consentimiento:
+            return jsonify({"success": False, "error": "Debes aceptar la Política de Privacidad para continuar."}), 400
+
+        nombre_completo = f"{nombre} {apellido}".strip()
+
+        # Resolver etiquetas de módulos seleccionados
+        from app.utils.module_gate import MODULE_DEFS
+        labels = {m["key"]: m["label"] for m in MODULE_DEFS}
+        modulos_html = ""
+        if modulos:
+            items = []
+            for key in modulos:
+                label = labels.get(key, key)
+                items.append(f"<li style='padding:4px 0;'>{label}</li>")
+            modulos_html = "".join(items)
+        else:
+            modulos_html = "<li style='padding:4px 0;'>No especificado</li>"
+
+        print(f"INFO [Landing Lead]: Nueva solicitud de COTIZACIÓN. Nombre: {nombre_completo} ({email}), "
+              f"Empresa: {empresa} (RNC {rnc}), Módulos: {modulos}, "
+              f"Empleados: {empleados}, Usuarios: {usuarios}", flush=True)
+
+        if current_app.config.get("SMTP_USER") and current_app.config.get("SMTP_PASSWORD"):
+            html_body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 640px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #f59e0b; padding-bottom: 10px;">
+                    <h2 style="color: #f59e0b; margin: 0;">Nueva Solicitud de Cotización</h2>
+                </div>
+                <p>Se ha recibido una solicitud de cotización desde la página de aterrizaje:</p>
+
+                <h3 style="margin: 24px 0 8px; color: #111;">Datos de Contacto</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold; width: 40%;">Nombre:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{nombre_completo}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Cargo:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{cargo or 'No provisto'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Correo:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;"><a href="mailto:{email}">{email}</a></td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Teléfono:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{telefono}</td></tr>
+                </table>
+
+                <h3 style="margin: 24px 0 8px; color: #111;">Datos de la Empresa</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold; width: 40%;">Empresa:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{empresa}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">RNC:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{rnc or 'No provisto'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Sector:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{sector or 'No provisto'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Empleados:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{empleados or 'No especificado'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Usuarios estimados:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{usuarios or 'No especificado'}</td></tr>
+                </table>
+
+                <h3 style="margin: 24px 0 8px; color: #111;">Áreas de Interés</h3>
+                <ul style="margin: 0; padding-left: 20px;">{modulos_html}</ul>
+
+                <h3 style="margin: 24px 0 8px; color: #111;">Necesidades</h3>
+                <p style="margin: 0; padding: 8px; background: #f9fafb; border-radius: 6px;">{comentarios if comentarios else 'Sin comentarios'}</p>
+
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 24px 0;">
+                <div style="font-size: 0.8rem; color: #999; text-align: center;">
+                    Notificación automática del sistema de Landing Page de {get_product_name()}.
+                </div>
+            </body>
+            </html>
+            """
+
+            try:
+                Mailer.send(
+                    app=current_app._get_current_object(),
+                    to_email=current_app.config.get("SUPPORT_EMAIL", "support@vykcore.com"),
+                    subject=f"Nueva Solicitud de Cotización: {nombre_completo} — {empresa}",
+                    html_body=html_body,
+                    from_name=f"{get_product_name()} Landing",
+                    category='support'
+                )
+            except Exception as mail_err:
+                print(f"WARNING [Landing Lead]: Fallo al enviar email interno de cotización: {mail_err}", flush=True)
+
+            confirm_body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 560px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #f59e0b; padding-bottom: 10px;">
+                    <h2 style="color: #f59e0b; margin: 0;">Solicitud Recibida</h2>
+                </div>
+                <p>Hola <strong>{nombre_completo}</strong>,</p>
+                <p>Gracias por solicitar una cotización de {get_product_name()}.</p>
+                <p>Hemos recibido tu solicitud y un especialista revisará la información de tu empresa para preparar
+                una propuesta adaptada a tus necesidades. Nos pondremos en contacto contigo próximamente.</p>
+                <p>Si tienes alguna pregunta, no dudes en responder a este correo o escribirnos a
+                <a href="mailto:{current_app.config.get('SUPPORT_EMAIL', 'support@vykcore.com')}">{current_app.config.get('SUPPORT_EMAIL', 'support@vykcore.com')}</a>.</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 24px 0;">
+                <div style="font-size: 0.8rem; color: #999; text-align: center;">
+                    Equipo {get_product_name()}
+                </div>
+            </body>
+            </html>
+            """
+            try:
+                Mailer.send(
+                    app=current_app._get_current_object(),
+                    to_email=email,
+                    subject=f"Recibimos tu solicitud de cotización — {get_product_name()}",
+                    html_body=confirm_body,
+                    from_name=f"{get_product_name()}",
+                    category='notification'
+                )
+            except Exception as confirm_err:
+                print(f"WARNING [Landing Lead]: Fallo al enviar confirmación de cotización a {email}: {confirm_err}", flush=True)
+        else:
+            print("WARNING [Landing Lead]: SMTP no configurado. No se enviaron correos de cotización.", flush=True)
+
+        return jsonify({"success": True, "message": "¡Solicitud de cotización registrada con éxito!"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @web_auth_bp.route('/api/solicitar-prueba', methods=['POST'])
 @limiter.limit("10/minute;30/hour;100/day")
 def api_solicitar_prueba():
-    """Solicitud de prueba gratis (sandbox) desde la landing page.
+    """[DEPRECATED] Solicitud de prueba gratis (sandbox) desde la landing page.
+
+    Este endpoint quedó obsoleto tras migrar el landing al modelo de cotización
+    personalizada. Se mantiene temporalmente por compatibilidad con posibles
+    integraciones externas; sin referencias públicas en el sitio.
 
     Recolecta la información necesaria para que soporte cree el acceso al
     ambiente sandbox, envía un correo organizado a SUPPORT_EMAIL y un correo

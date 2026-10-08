@@ -52,11 +52,10 @@
                 </a>
                 <div class="flex items-center gap-4">
                     <a href="{{ url_for('web_auth.home') }}" class="text-gray-300 hover:text-white transition-colors">Inicio</a>
-                    <a href="{{ url_for('web_auth.pricing') }}" class="text-gray-300 hover:text-white transition-colors">Precios</a>
                     {% if is_logged_in %}
                     <a href="{{ url_for('web_dashboard.dashboard') }}" class="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Ir al Dashboard</a>
                     {% else %}
-                    <a href="{{ url_for('web_auth.home') }}#contacto" class="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Comenzar Gratis</a>
+                    <a href="{{ url_for('web_auth.cotizacion') }}" class="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Solicitar Cotización</a>
                     {% endif %}
                 </div>
             </div>
@@ -173,8 +172,8 @@
             </div>
 
             <div class="text-center mt-20">
-                <a href="{{ url_for('web_auth.home') }}#contacto" class="btn-primary inline-block bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-8 py-4 rounded-xl font-semibold text-lg">Solicitar Demo Gratis</a>
-                <p class="text-gray-500 text-sm mt-4">14 dias gratis. Sin tarjeta de credito.</p>
+                <a href="{{ url_for('web_auth.cotizacion') }}" class="btn-primary inline-block bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-8 py-4 rounded-xl font-semibold text-lg">Solicitar Cotización</a>
+                <p class="text-gray-500 text-sm mt-4">Propuesta personalizada segun las necesidades de tu empresa.</p>
             </div>
         </div>
     </section>
@@ -183,10 +182,7 @@
         <div class="max-w-7xl mx-auto px-6 lg:px-8 py-8">
             <div class="flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-gray-500">
                 <p>&copy; 2026 VykCore Automation S.R.L. Todos los derechos reservados.</p>
-                <div class="flex gap-4">
-                    <a href="{{ url_for('web_auth.home') }}" class="text-amber-400 hover:text-amber-300 transition-colors">Inicio</a>
-                    <a href="{{ url_for('web_auth.pricing') }}" class="text-amber-400 hover:text-amber-300 transition-colors">Planes</a>
-                </div>
+                <a href="{{ url_for('web_auth.home') }}" class="text-amber-400 hover:text-amber-300 transition-colors">Inicio</a>
             </div>
         </div>
     </footer>

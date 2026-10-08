@@ -832,8 +832,10 @@ def test_explicit_public_and_global_whitelist(client):
     public_endpoints = [
         ('/login', 200),
         ('/', 200),
-        ('/precios', 200),
+        ('/precios', 301),
         ('/modulos', 200),
+        ('/cotizacion', 200),
+        ('/privacidad', 200),
         ('/faqs', 200),
         ('/fe/autenticacion/api/semilla', 200),
         ('/health', 200),
