@@ -8,7 +8,7 @@ deducibles. Hay dos tipos principales:
 
 ## Registrar un gasto menor (E43)
 
-1. En el menú lateral, abre **Compras** y haz clic en **"Gastos menores"**.
+1. En el menú lateral, abre **Compras y Proveedores** y haz clic en **"Gastos menores"**.
 2. Haz clic en **"Nuevo Gasto Menor"**.
 3. En **Proveedor**:
    - Busca el proveedor o usa **"+ Nuevo"** para crearlo.
@@ -26,7 +26,7 @@ deducibles. Hay dos tipos principales:
 
 ## Registrar un pago / egreso
 
-1. En el menú lateral, abre **Compras** y haz clic en **"Pagos / Gastos"**.
+1. En el menú lateral, abre **Compras y Proveedores** y haz clic en **"Pagos / Gastos"**.
 2. Haz clic en **"Nuevo Pago"**.
 3. Elige **"Crear manualmente"** (o **"Desde archivo/imagen"** para leerlo con
    OCR).

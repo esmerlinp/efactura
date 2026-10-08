@@ -5,7 +5,7 @@ facturas.
 
 ## Registrar un cobro desde Cuentas por Cobrar
 
-1. En el menú lateral, abre **Ingresos** y haz clic en **"Cuentas por
+1. En el menú lateral, abre **Finanzas** y haz clic en **"Cuentas por
    Cobrar"**.
 2. En la tabla **"Cartera de Clientes Pendientes / Vencidos"**, localiza la
    factura.

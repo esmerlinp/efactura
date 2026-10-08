@@ -17,7 +17,7 @@ formas.
 
 ## Cambiarla después desde Configuración
 
-1. Abre el menú de **Configuración** (engranaje) y entra a **"Configuración de
+1. En el menú lateral, abre la sección **⚙️ Configuración** y entra a **"Configuración de
    Empresa"**.
 2. Busca la sección **"Certificado de Firma Digital"**.
 3. Selecciona el nuevo archivo `.p12` / `.pfx`.

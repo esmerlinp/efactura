@@ -5,7 +5,7 @@ almacén, y genera ajustes automáticos.
 
 ## Iniciar un conteo
 
-1. En el menú lateral, abre **Inventario → Conteos Físicos**.
+1. En el menú lateral, abre **Productos e Inventario → Conteos Físicos**.
 2. Haz clic en **"Nuevo Conteo"**.
 3. Selecciona el **Almacén a contar**.
 4. Haz clic en **"Iniciar Conteo"**.

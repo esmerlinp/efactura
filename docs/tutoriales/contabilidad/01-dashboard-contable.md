@@ -5,7 +5,7 @@ tu empresa.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad**.
+1. En el menú lateral, abre **Finanzas → Contabilidad**.
 
 ## Qué verás
 

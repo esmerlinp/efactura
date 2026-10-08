@@ -5,7 +5,7 @@ pagar.
 
 ## Crear una factura de compra
 
-1. En el menú lateral, abre **Compras → Facturas de proveedores**.
+1. En el menú lateral, abre **Compras y Proveedores → Facturas de proveedores**.
 2. Haz clic en **"+ Nueva Factura de Compra"**.
 3. Completa el proveedor y agrega las partidas con **"Añadir Partida"**.
 4. Define el **Estado del Pago** (Pagado / Pendiente).

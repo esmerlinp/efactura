@@ -5,7 +5,7 @@ cliente (por ejemplo, precio público vs. mayorista).
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Ingresos → Listas de Precios**.
+1. En el menú lateral, abre **Ventas → Listas de Precios**.
 
 ## Crear una lista
 

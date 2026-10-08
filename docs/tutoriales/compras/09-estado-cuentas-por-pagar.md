@@ -4,7 +4,7 @@ Consulta el estado consolidado de tus cuentas por pagar (compras y gastos).
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Compras → Facturas de proveedores → Estado de
+1. En el menú lateral, abre **Compras y Proveedores → Facturas de proveedores → Estado de
    cuentas por pagar** (o la vista consolidada de CxP).
 
 ## Filtrar

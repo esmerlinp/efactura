@@ -5,7 +5,7 @@ gastos reales.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **"Reportes"** y busca **"Presupuestos"** (o usa el
+1. En el menú lateral, abre **Reportes y Análisis → Reportes** y busca **"Presupuestos"** (o usa el
    acceso desde el dashboard de finanzas).
 
 ## Consultar el presupuesto

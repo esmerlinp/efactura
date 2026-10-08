@@ -5,7 +5,7 @@ estructura de árbol.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad** y haz clic en **"Catálogo de
+1. En el menú lateral, abre **Finanzas → Contabilidad** y haz clic en **"Catálogo de
    Cuentas"**.
 
 ## Explorar el catálogo

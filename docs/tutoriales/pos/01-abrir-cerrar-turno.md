@@ -5,7 +5,7 @@ inicial. Al terminar, cierras el turno.
 
 ## Abrir un turno
 
-1. En el menú lateral, abre **Módulos → Punto de Venta (POS)**.
+1. En el menú lateral, abre **Ventas → Punto de Venta (POS)**.
 2. En la tarjeta **"Apertura de Turno de Caja"**:
    - Selecciona la **Caja Registradora**.
    - Escribe el **Fondo Inicial de Caja (RD$)**.

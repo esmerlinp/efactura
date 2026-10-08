@@ -5,7 +5,7 @@ cédula y puede utilizar el crédito del ITBIS.
 
 ## Crear la factura
 
-1. En el menú lateral, abre **Ingresos** y haz clic en **"Facturas de Venta"**.
+1. En el menú lateral, abre **Ventas** y haz clic en **Facturación Electrónica**.
 2. Haz clic en el botón **"+ Documento"**.
 3. En el selector de tipo de documento, elige **"E31 — Factura de Crédito
    Fiscal"**.

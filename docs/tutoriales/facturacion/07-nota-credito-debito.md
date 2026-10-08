@@ -7,7 +7,7 @@ Las notas fiscales te permiten ajustar el valor de una factura ya emitida:
 
 ## Crear una nota de crédito o débito
 
-1. En el menú lateral, abre **Ingresos** y haz clic en **"Notas de
+1. En el menú lateral, abre **Ventas** y haz clic en **"Notas de
    Crédito/Débito"**.
 2. Haz clic en **"Nueva Nota de Crédito"** o **"Nueva Nota de Débito"**.
 3. Completa el formulario:

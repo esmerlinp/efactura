@@ -5,7 +5,7 @@ registrar a tus clientes para poder facturarles.
 
 ## Crear un contacto
 
-1. En el menú lateral, abre **CRM** y haz clic en **Contactos**.
+1. En el menú lateral, abre **CRM y Contactos** y haz clic en **Contactos**.
 2. Haz clic en el botón **"+ Nuevo Contacto"** (arriba a la derecha).
 3. En la sección **Datos Generales**:
    - Confirma que la opción **"Es Cliente"** esté activa (lo está por defecto).

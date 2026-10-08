@@ -5,8 +5,8 @@ sistema, con quién las realizó y cuándo.
 
 ## Cómo entrar
 
-1. Haz clic en el ícono de **Configuración** (engranaje).
-2. Selecciona **"Auditoría"**.
+1. En el menú lateral, abre la sección **⚙️ Configuración**.
+2. Haz clic en **"Auditoría"**.
 
 ## Filtrar el registro
 

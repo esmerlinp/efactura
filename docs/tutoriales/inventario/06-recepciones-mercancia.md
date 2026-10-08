@@ -4,7 +4,7 @@ Registra la entrada de mercancía de tus órdenes de compra al almacén.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Inventario → Recepciones de Mercancía**.
+1. En el menú lateral, abre **Productos e Inventario → Recepciones de Mercancía**.
 
 ## Registrar una recepción
 

@@ -5,8 +5,8 @@ próximos.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Inventario → Alertas**.
-   (También puedes ver un resumen en **Inventario Avanzado**.)
+1. En el menú lateral, abre **Productos e Inventario → Tablero de Inventario**.
+   (También puedes ver un resumen en **Tablero de Inventario**.)
 
 ## Qué verás
 

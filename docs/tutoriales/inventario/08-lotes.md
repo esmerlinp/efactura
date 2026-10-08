@@ -5,7 +5,7 @@ vencimiento.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Inventario → Lotes**.
+1. En el menú lateral, abre **Productos e Inventario → Lotes y Vencimientos**.
 
 ## Qué verás
 

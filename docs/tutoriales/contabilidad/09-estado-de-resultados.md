@@ -5,7 +5,7 @@ la utilidad del período.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad → Reportes Contables → Estado de
+1. En el menú lateral, abre **Finanzas → Contabilidad → Reportes Contables → Estado de
    Resultados**.
 
 ## Consultar el reporte

@@ -5,7 +5,7 @@ Las notas de crédito de compra reducen el valor de una factura de proveedor
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Compras → Notas de crédito en compras**.
+1. En el menú lateral, abre **Compras y Proveedores → Notas de crédito en compras**.
 
 ## Crear una nota de crédito de compra
 

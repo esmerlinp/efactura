@@ -5,7 +5,7 @@ contable externo.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **"Reportes"** → categoría **Contables** →
+1. En el menú lateral, abre **Reportes y Análisis → Reportes** → categoría **Contables** →
    **"Exportación contable"**.
 
 ## Exportar ventas o gastos

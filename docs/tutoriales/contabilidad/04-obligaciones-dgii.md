@@ -5,7 +5,7 @@ ningún vencimiento.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad** y haz clic en **"Obligaciones
+1. En el menú lateral, abre **Finanzas → Contabilidad** y haz clic en **"Obligaciones
    DGII"**.
 
 ## Qué verás

@@ -5,7 +5,7 @@ la mercancía.
 
 ## Crear una orden
 
-1. En el menú lateral, abre **Compras → Órdenes de compra**.
+1. En el menú lateral, abre **Compras y Proveedores → Órdenes de compra**.
 2. Haz clic en **"+ Nueva Orden"**.
 3. Completa los datos del proveedor y agrega las partidas con **"+ Agregar
    Partida"**.
@@ -18,7 +18,7 @@ la mercancía.
 ## Recibir la mercancía
 
 1. Con la orden **Aprobada**, haz clic en **"Registrar Recepción"** (o recibe
-   desde **Inventario → Recepciones de Mercancía**).
+   desde **Productos e Inventario → Recepciones de Mercancía**).
 2. Indica las cantidades recibidas y confirma.
 
 ## Convertir en factura de proveedor

@@ -4,7 +4,7 @@ Transfiere productos entre almacenes y gestiona su aprobación.
 
 ## Crear una transferencia
 
-1. En el menú lateral, abre **Inventario → Transferencias**.
+1. En el menú lateral, abre **Productos e Inventario → Transferencias**.
 2. Haz clic en **"Nueva Transferencia"**.
 3. Completa:
    - **Almacén Origen**.

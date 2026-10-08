@@ -5,7 +5,7 @@ ventas de consumo.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Módulos → Punto de Venta (POS) → RUI (Tipo 12)**.
+1. En el menú lateral, abre **Ventas → Punto de Venta (POS) → RUI (Tipo 12)**.
 
 ## Consultar los RUI
 

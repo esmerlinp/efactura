@@ -6,7 +6,7 @@ borrador).
 
 ## Registrar una secuencia
 
-1. En el menú lateral, abre **Ingresos** y haz clic en **Secuencias Fiscales**.
+1. En el menú lateral, abre **Configuración** y haz clic en **Secuencias Fiscales (NCF)**.
 2. Haz clic en el botón **"Registrar Secuencia"**.
 3. Completa los campos de la ventana **"Registrar Secuencia DGII"**:
    - **Tipo de e-CF**: elige el tipo de comprobante (por ejemplo,

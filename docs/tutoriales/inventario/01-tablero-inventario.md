@@ -5,7 +5,7 @@ alertas de abastecimiento.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Inventario → Inventario**.
+1. En el menú lateral, abre **Productos e Inventario → Tablero de Inventario**.
 
 ## Qué verás
 

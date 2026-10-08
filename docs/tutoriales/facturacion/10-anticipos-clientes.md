@@ -5,7 +5,7 @@ descuentan automáticamente cuando conviertes la cotización en factura.
 
 ## Registrar un anticipo
 
-1. En el menú lateral, abre **Ingresos** y haz clic en **"Anticipos de
+1. En el menú lateral, abre **Finanzas** y haz clic en **"Anticipos de
    Clientes"**.
 2. Haz clic en **"Nuevo Anticipo"**.
 3. Completa:

@@ -4,7 +4,7 @@ Gestiona tus cuentas bancarias y cajas de efectivo.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Bancos → Bancos y Cajas**.
+1. En el menú lateral, abre **Finanzas → Bancos y Cajas**.
 
 ## Crear una cuenta
 

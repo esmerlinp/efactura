@@ -5,7 +5,7 @@ cotizaciones/contratos y reportar pagos, de forma autoservicio.
 
 ## Habilitar el acceso a un cliente
 
-1. En el menú lateral, abre **Módulos → Portal de Clientes**.
+1. En el menú lateral, abre **Portal de Clientes**.
 2. Busca al cliente y configura su **PIN de acceso** (código de autoservicio).
 3. El sistema genera una **URL de acceso** con token que puedes compartir.
 

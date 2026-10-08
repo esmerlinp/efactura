@@ -5,7 +5,7 @@ contable correctamente.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad → Cierre Fiscal → Checklist de
+1. En el menú lateral, abre **Finanzas → Contabilidad → Cierre Fiscal → Checklist de
    Cierre**.
 
 ## Usar el checklist

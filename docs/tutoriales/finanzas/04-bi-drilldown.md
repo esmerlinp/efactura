@@ -1,10 +1,10 @@
-# Tutorial: BI Drill-down
+# Tutorial: Inteligencia de Negocio (BI)
 
-El BI Drill-down te permite profundizar en tus métricas de ventas y rentabilidad.
+La Inteligencia de Negocio (BI) te permite profundizar en tus métricas de ventas y rentabilidad.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Módulos → BI Drill-down**.
+1. En el menú lateral, abre **Reportes y Análisis → Inteligencia de Negocio (BI)**.
 
 ## Consultar métricas
 

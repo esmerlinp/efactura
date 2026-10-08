@@ -4,7 +4,7 @@ Configura y consulta las comisiones y metas de tus vendedores.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **CRM → Comisiones y Metas**.
+1. En el menú lateral, abre **CRM y Contactos → Comisiones y Metas**.
 
 ## Configurar comisiones
 

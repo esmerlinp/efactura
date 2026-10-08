@@ -5,7 +5,7 @@ Saldo Inicial, Ajuste, Depreciación, etc.) con su propio prefijo.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad → Registros Contables → Tipos de
+1. En el menú lateral, abre **Finanzas → Contabilidad → Registros Contables → Tipos de
    Entrada**.
 
 ## Crear un tipo

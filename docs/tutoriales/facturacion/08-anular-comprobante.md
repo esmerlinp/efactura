@@ -6,7 +6,7 @@ extra.
 
 ## Anular una factura
 
-1. En el menú lateral, abre **Ingresos** y haz clic en **"Facturas de Venta"**.
+1. En el menú lateral, abre **Ventas** y haz clic en **Facturación Electrónica**.
 2. Localiza la factura y abre su menú de acciones (los tres puntos ⋮).
 3. Haz clic en **"Anular"**.
 

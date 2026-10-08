@@ -5,7 +5,7 @@ intervalos regulares (mensual, etc.).
 
 ## Crear un contrato
 
-1. En el menú lateral, abre **Ingresos → Facturas Recurrentes**.
+1. En el menú lateral, abre **Contratos y Recurrencia**.
 2. Haz clic en **"+ Registrar Nuevo Contrato"**.
 3. Completa:
    - **Identificación del Contrato**: código y estado inicial.

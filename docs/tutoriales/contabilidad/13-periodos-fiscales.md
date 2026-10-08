@@ -5,7 +5,7 @@ facturas.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad → Cierre Fiscal → Períodos
+1. En el menú lateral, abre **Finanzas → Contabilidad → Cierre Fiscal → Períodos
    Fiscales**.
 
 ## Cerrar un período

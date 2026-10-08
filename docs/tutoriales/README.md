@@ -89,7 +89,7 @@ de usuario. Los tutoriales están organizados por módulo.
 1. [Dashboard principal](finanzas/01-dashboard-principal.md)
 2. [Flujo de caja y proyección](finanzas/02-flujo-de-caja.md)
 3. [Presupuestos](finanzas/03-presupuestos.md)
-4. [BI Drill-down](finanzas/04-bi-drilldown.md)
+4. [Inteligencia de Negocio (BI)](finanzas/04-bi-drilldown.md)
 5. [Bancos y cajas](finanzas/05-bancos-y-cajas.md)
 
 ## RRHH y Nómina

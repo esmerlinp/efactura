@@ -5,14 +5,14 @@ clientes.
 
 ## Pipeline
 
-1. En el menú lateral, abre **CRM → Pipeline**.
+1. En el menú lateral, abre **CRM y Contactos → Pipeline**.
 2. Arrastra los leads entre etapas: **Prospecto, Contactado, En Negociación,
    Cliente Activo**.
 3. Abre una oportunidad para ver o editar su detalle.
 
 ## Agenda CRM
 
-1. En el menú lateral, abre **CRM → Agenda CRM**.
+1. En el menú lateral, abre **CRM y Contactos → Agenda CRM**.
 2. Consulta y registra las actividades (llamadas, reuniones, seguimientos) con
    fecha y responsable.
 
