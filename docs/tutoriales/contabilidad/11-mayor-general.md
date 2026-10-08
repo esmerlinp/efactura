@@ -5,7 +5,7 @@ contable.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad → Reportes Contables → Mayor
+1. En el menú lateral, abre **Finanzas → Contabilidad → Reportes Contables → Mayor
    General**.
 
 ## Consultar el mayor

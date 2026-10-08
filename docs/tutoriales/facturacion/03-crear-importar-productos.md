@@ -5,7 +5,7 @@ mantener el control de existencias.
 
 ## Crear un producto o servicio
 
-1. En el menú lateral, abre **Inventario** y haz clic en **"Productos y
+1. En el menú lateral, abre **Productos e Inventario** y haz clic en **"Productos y
    Servicios"**.
 2. Haz clic en el botón **"Nuevo Artículo"**.
 3. Completa las tres secciones del formulario:

@@ -5,7 +5,7 @@ de cliente.
 
 ## Crear la factura
 
-1. En el menú lateral, abre **Ingresos** y haz clic en **"Facturas de Venta"**.
+1. En el menú lateral, abre **Ventas** y haz clic en **Facturación Electrónica**.
 2. Haz clic en el botón **"+ Documento"**.
 3. En el selector de tipo de documento, elige **"E32 — Factura de Consumo"**.
 

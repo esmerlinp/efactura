@@ -33,7 +33,7 @@ empezar.
 
 ## Configuración recomendada después del asistente
 
-Una vez dentro, abre el menú de **Configuración** (ícono de engranaje) para
+Una vez dentro, abre la sección **⚙️ Configuración** del menú lateral para
 dejar todo listo:
 
 1. **Secuencias Fiscales** — Registra el rango de comprobantes (NCF) que te

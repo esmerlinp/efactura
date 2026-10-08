@@ -5,7 +5,7 @@ transacción (venta, gasto, ITBIS, etc.).
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad → Configuración → Cuentas por
+1. En el menú lateral, abre **Finanzas → Contabilidad → Configuración Contable → Cuentas por
    Transacción**.
 
 ## Configurar las reglas

@@ -4,7 +4,7 @@ El Reporte 606 lista tus compras y gastos del período para la declaración DGII
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **"Reportes"**.
+1. En el menú lateral, abre **Reportes y Análisis → Reportes**.
 2. En la categoría **Fiscales**, haz clic en **"Reporte 606"**.
 
 ## Generar el reporte

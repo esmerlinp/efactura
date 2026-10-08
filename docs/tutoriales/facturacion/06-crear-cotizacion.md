@@ -5,7 +5,7 @@ apruebe, convertirlo en factura con un solo clic.
 
 ## Crear una cotización
 
-1. En el menú lateral, abre **Ingresos** y haz clic en **"Cotizaciones"**.
+1. En el menú lateral, abre **Ventas** y haz clic en **"Cotizaciones"**.
 2. Haz clic en **"Nueva Cotización"** y elige:
    - **"Cotización Rápida"** — formulario simple y directo.
    - **"Cotización Personalizada"** — con IA, cronograma, términos y vista

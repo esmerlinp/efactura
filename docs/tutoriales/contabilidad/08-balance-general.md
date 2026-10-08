@@ -5,7 +5,7 @@ obligaciones y patrimonio de tu empresa a una fecha.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad → Reportes Contables → Balance
+1. En el menú lateral, abre **Finanzas → Contabilidad → Reportes Contables → Balance
    General**.
 
 ## Consultar el reporte

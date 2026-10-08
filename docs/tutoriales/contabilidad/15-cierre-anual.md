@@ -11,7 +11,7 @@ Asegúrate de:
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad → Cierre Fiscal → Cierre Anual**.
+1. En el menú lateral, abre **Finanzas → Contabilidad → Cierre Fiscal → Cierre Anual**.
 
 ## Previsualizar el cierre
 

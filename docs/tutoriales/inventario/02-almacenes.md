@@ -4,7 +4,7 @@ Gestiona tus almacenes físicos para controlar el stock en cada ubicación.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Inventario → Inventario** y haz clic en
+1. En el menú lateral, abre **Productos e Inventario → Tablero de Inventario** y haz clic en
    **"Administrar Almacenes"**.
 
 ## Crear un almacén

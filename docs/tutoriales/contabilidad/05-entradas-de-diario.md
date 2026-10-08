@@ -6,7 +6,7 @@ depreciación), pero aquí puedes crear las tuyas.
 
 ## Crear una entrada
 
-1. En el menú lateral, abre **Contabilidad → Registros Contables → Entradas de
+1. En el menú lateral, abre **Finanzas → Contabilidad → Registros Contables → Entradas de
    Diario**.
 2. Haz clic en **"Nueva Entrada"**.
 3. En **Encabezado**, define:

@@ -5,7 +5,7 @@ proyecto.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad → Configuración → Centros de Costo**.
+1. En el menú lateral, abre **Finanzas → Contabilidad → Configuración Contable → Centros de Costo**.
 
 ## Crear un centro de costo
 

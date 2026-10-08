@@ -5,7 +5,7 @@ movimientos (kárdex).
 
 ## Registrar un ajuste
 
-1. En el menú lateral, abre **Inventario → Inventario** y haz clic en
+1. En el menú lateral, abre **Productos e Inventario → Tablero de Inventario** y haz clic en
    **"Ajuste / Transacción Manual"** (o ve a **Kárdex (Movimientos)** → **"Nuevo
    Ajuste"**).
 2. Completa:
@@ -19,7 +19,7 @@ movimientos (kárdex).
 
 ## Consultar el kárdex
 
-1. En el menú lateral, abre **Inventario → Inventario → Kárdex (Movimientos)**.
+1. En el menú lateral, abre **Productos e Inventario → Kardex Valorizado**.
 
 El kárdex es un **registro inmutable** de todas las entradas, salidas y
 transferencias, con fecha/hora, producto, tipo, cantidad (+/-), origen/destino,

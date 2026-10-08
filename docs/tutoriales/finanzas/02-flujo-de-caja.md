@@ -5,7 +5,7 @@ proyección futura.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **"Reportes"** → categoría **Financieros** →
+1. En el menú lateral, abre **Reportes y Análisis → Reportes** → categoría **Financieros** →
    **"Flujo de caja"**.
 
 ## Consultar el flujo de caja

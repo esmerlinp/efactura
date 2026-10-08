@@ -5,7 +5,7 @@ emitido y que la DGII validó.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Compras → e-CF Recibidos**.
+1. En el menú lateral, abre **Compras y Proveedores → e-CF Recibidos**.
 
 ## Consultar los comprobantes
 

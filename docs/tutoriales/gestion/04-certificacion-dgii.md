@@ -5,7 +5,7 @@ Dirección General de Impuestos Internos.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Módulos → Certificación DGII**.
+1. En el menú lateral, abre **Configuración → Certificación DGII**.
 
 ## Seguir el asistente
 

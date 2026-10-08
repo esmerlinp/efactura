@@ -5,7 +5,7 @@ de un período.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad → Registros Contables → Libro
+1. En el menú lateral, abre **Finanzas → Contabilidad → Registros Contables → Libro
    Diario**.
 
 ## Consultar el libro

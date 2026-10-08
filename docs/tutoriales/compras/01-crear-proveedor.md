@@ -5,7 +5,7 @@ Registrarlo te permite hacer compras y registrar gastos correctamente.
 
 ## Crear un proveedor
 
-1. En el menú lateral, abre **Compras** y haz clic en **Proveedores**.
+1. En el menú lateral, abre **Compras y Proveedores** y haz clic en **Proveedores**.
 2. Haz clic en **"Nuevo Contacto"**.
 3. Activa la opción **"Es Proveedor"** (puedes dejarlo también como cliente si
    aplica).

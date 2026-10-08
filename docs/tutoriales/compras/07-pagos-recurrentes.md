@@ -5,7 +5,7 @@ suscripciones, servicios).
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Compras → Pagos recurrentes**.
+1. En el menú lateral, abre **Compras y Proveedores → Pagos recurrentes**.
 
 ## Crear un pago recurrente
 

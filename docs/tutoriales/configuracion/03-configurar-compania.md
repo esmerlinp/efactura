@@ -5,8 +5,8 @@ información fiscal, de contacto y operativa de tu negocio.
 
 ## Cómo entrar
 
-1. Haz clic en el ícono de **Configuración** (engranaje) en la barra superior.
-2. Selecciona **"Configuración de Empresa"**.
+1. En el menú lateral, abre la sección **⚙️ Configuración**.
+2. Haz clic en **"Configuración de Empresa"**.
 
 ## Secciones principales
 

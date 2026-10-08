@@ -5,7 +5,7 @@ empezar a usar el sistema.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad** y haz clic en **"Saldos
+1. En el menú lateral, abre **Finanzas → Contabilidad** y haz clic en **"Saldos
    Iniciales"**.
 
 ## Cargar saldos manualmente

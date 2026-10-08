@@ -4,8 +4,8 @@ Invita a tu equipo y asigna un rol a cada persona según lo que necesite hacer.
 
 ## Añadir un colaborador
 
-1. Haz clic en el ícono de **Configuración** (engranaje).
-2. Selecciona **"Usuarios y Permisos"**.
+1. En el menú lateral, abre la sección **⚙️ Configuración**.
+2. Haz clic en **"Usuarios y Permisos"**.
 3. Haz clic en **"Añadir Colaborador"**.
 4. Completa los campos:
    - **Nombre Completo**.

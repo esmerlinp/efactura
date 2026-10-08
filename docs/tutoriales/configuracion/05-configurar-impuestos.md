@@ -5,8 +5,8 @@ ISC, ISR y retenciones según la normativa vigente.
 
 ## Cómo entrar
 
-1. Haz clic en el ícono de **Configuración** (engranaje).
-2. Selecciona **"Impuestos"**.
+1. En el menú lateral, abre la sección **⚙️ Configuración**.
+2. Haz clic en **"Impuestos"**.
 
 ## Secciones disponibles
 

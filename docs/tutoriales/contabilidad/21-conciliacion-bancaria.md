@@ -5,7 +5,7 @@ estado de cuenta del banco.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Bancos → Conciliación Bancaria**.
+1. En el menú lateral, abre **Finanzas → Conciliación Bancaria**.
    (También puedes usar **"Conciliar"** desde el menú de una cuenta bancaria.)
 
 ## Iniciar una conciliación

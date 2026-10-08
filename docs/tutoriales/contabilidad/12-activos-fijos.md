@@ -5,7 +5,7 @@ asientos contables automáticos.
 
 ## Registrar un activo
 
-1. En el menú lateral, abre **Contabilidad → Activos Fijos → Nuevo Activo**.
+1. En el menú lateral, abre **Finanzas → Contabilidad → Activos Fijos → Nuevo Activo**.
 2. En **Información General**, completa:
    - **Nombre del activo**.
    - **Tipo** (Tangible / Intangible) y **Categoría** (terreno, edificio,

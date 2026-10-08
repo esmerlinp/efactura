@@ -5,7 +5,7 @@ cuentas, para verificar que el libro esté balanceado.
 
 ## Cómo entrar
 
-1. En el menú lateral, abre **Contabilidad → Reportes Contables → Balanza de
+1. En el menú lateral, abre **Finanzas → Contabilidad → Reportes Contables → Balanza de
    Comprobación**.
 
 ## Generar la balanza
