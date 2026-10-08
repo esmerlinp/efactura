@@ -787,9 +787,8 @@ def create_app():
     # =========================================================================
     @app.after_request
     def add_security_headers(response):
-        # El formulario de la landing se incrusta vía iframe (mismo origen);
-        # para esos endpoints se permite el framing, en el resto se niega.
-        allow_frame = request.endpoint == 'web_auth.contact_embed'
+        # El formulario de cotización es una página independiente; no se permite framing.
+        allow_frame = False
         response.headers['X-Frame-Options'] = 'SAMEORIGIN' if allow_frame else 'DENY'
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'

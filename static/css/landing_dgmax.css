@@ -179,25 +179,6 @@ html {
 .fade-in-delay-5 { transition-delay: 0.5s; }
 .fade-in-delay-6 { transition-delay: 0.6s; }
 
-.pricing-featured {
-    position: relative;
-}
-
-.pricing-featured::before {
-    content: '';
-    position: absolute;
-    inset: -2px;
-    background: linear-gradient(135deg, #f59e0b, #14b8a6, #f59e0b);
-    border-radius: 1.5rem;
-    z-index: -1;
-    animation: borderGlow 3s ease-in-out infinite;
-}
-
-@keyframes borderGlow {
-    0%, 100% { opacity: 0.6; }
-    50% { opacity: 1; }
-}
-
 .faq-content {
     max-height: 0;
     overflow: hidden;
@@ -278,5 +259,26 @@ html {
     transform: translateY(0);
     pointer-events: auto;
     visibility: visible;
+}
+
+/* CTA sticky móvil (conversión principal) */
+.sticky-cta {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 60;
+    display: none;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 767px) {
+    .sticky-cta {
+        display: block;
+    }
+
+    body {
+        padding-bottom: 88px;
+    }
 }
 

@@ -7,20 +7,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ product_name }} | ERP Dominicano con Facturacion Electronica DGII</title>
     <meta name="description"
-        content="{{ product_name }}: el ERP completo para empresas dominicanas. Facturacion electronica DGII, nomina TSS, contabilidad, inventario, CRM, POS y reportes fiscales. Prueba gratis 14 dias.">
+        content="{{ product_name }}: la plataforma empresarial dominicana con facturacion electronica DGII, nomina TSS, contabilidad, inventario y CRM. Configurada a la medida de tu empresa. Solicita una cotizacion personalizada.">
     <meta name="keywords"
         content="ERP dominicano, facturacion electronica, e-CF, DGII, nomina, TSS, contabilidad, inventario, CRM, Republica Dominicana, Ley 32-23">
 
     <!-- Open Graph / Social -->
     <meta property="og:title" content="{{ product_name }} - ERP Dominicano con Facturacion Electronica DGII">
-    <meta property="og:description" content="ERP completo para empresas dominicanas: e-CF certificado DGII, nomina TSS, contabilidad NIIF, inventario, CRM y reportes 606/607/608/623.">
+    <meta property="og:description" content="ERP dominicano con e-CF certificado DGII, nomina TSS, contabilidad NIIF, inventario y CRM, configurado segun tu operacion.">
     <meta property="og:url" content="https://vykcore.com">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="{{ product_name }}">
     <meta property="og:image" content="{{ url_for('static', filename='images/og-default.png', _external=True) }}">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ product_name }} - ERP Dominicano con Facturacion Electronica DGII">
-    <meta name="twitter:description" content="ERP completo para empresas dominicanas: e-CF certificado DGII, nomina TSS, contabilidad NIIF, inventario, CRM y reportes 606/607/608/623.">
+    <meta name="twitter:description" content="ERP dominicano con e-CF certificado DGII, nomina TSS, contabilidad NIIF, inventario y CRM, configurado segun tu operacion.">
 
     <!-- Schema.org Structured Data -->
     <script type="application/ld+json">
@@ -30,14 +30,7 @@
       "name": "{{ product_name }}",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web",
-      "description": "ERP dominicano con facturacion electronica certificada por DGII, nomina TSS, contabilidad, inventario y CRM.",
-      "offers": {
-        "@type": "AggregateOffer",
-        "lowPrice": "35",
-        "highPrice": "160",
-        "priceCurrency": "USD",
-        "offerCount": "3"
-      }
+      "description": "ERP dominicano con facturacion electronica certificada por DGII, nomina TSS, contabilidad, inventario y CRM, configurado segun las necesidades de cada empresa."
     }
     </script>
     <script type="application/ld+json">
@@ -51,6 +44,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "{{ product_name }} es una plataforma ERP con facturacion electronica e-CF certificada por DGII para empresas en Republica Dominicana con nomina, contabilidad, inventario y CRM."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cómo se determina el precio de {{ product_name }}?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "La inversion depende de los modulos, usuarios, funcionalidades, integraciones y alcance de implementacion que requiere cada empresa. Por eso preparamos una propuesta personalizada despues de conocer tu operacion."
           }
         },
         {
@@ -118,12 +119,9 @@
                 </a>
 
                 <div class="hidden md:flex items-center gap-10">
-                    <a href="#features"
-                        class="nav-link text-gray-300 hover:text-white transition-colors">Modulos</a>
-                    <a href="#pricing" class="nav-link text-gray-300 hover:text-white transition-colors">Precios</a>
-                    <a href="{{ url_for('web_auth.pricing') }}" class="nav-link text-gray-300 hover:text-white transition-colors">Comparar</a>
+                    <a href="#modulos" class="nav-link text-gray-300 hover:text-white transition-colors">Modulos</a>
+                    <a href="#como-funciona" class="nav-link text-gray-300 hover:text-white transition-colors">Como funciona</a>
                     <a href="#faq" class="nav-link text-gray-300 hover:text-white transition-colors">FAQ</a>
-                    <a href="#contacto" class="nav-link text-gray-300 hover:text-white transition-colors">Contacto</a>
                     <a href="{{ url_for('web_api_portal.index') }}"
                         class="nav-link text-gray-300 hover:text-white transition-colors">API / Desarrolladores</a>
                 </div>
@@ -136,9 +134,9 @@
                     {% else %}
                     <a href="{{ url_for('web_auth.login') }}"
                         class="hidden sm:block text-gray-300 hover:text-white transition-colors">Iniciar Sesión</a>
-                    <a href="#contacto"
-                        class="hidden sm:block btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Comenzar
-                        Gratis</a>
+                    <a href="{{ url_for('web_auth.cotizacion') }}" data-cta="header"
+                        class="hidden sm:block btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Solicitar
+                        Cotización</a>
                     {% endif %}
 
                     <!-- Botón de menú móvil (Hamburger) -->
@@ -157,16 +155,12 @@
         <!-- Menú Móvil Desplegable -->
         <div id="mobile-menu"
             class="md:hidden fixed top-20 left-0 right-0 glass border-t border-white/5 bg-midnight-900/95 backdrop-blur-lg py-6 px-6 space-y-4 shadow-2xl z-40">
-            <a href="#features"
+            <a href="#modulos"
                 class="block text-lg text-gray-300 hover:text-white font-medium py-2 border-b border-white/5 transition-colors">Modulos</a>
-            <a href="#pricing"
-                class="block text-lg text-gray-300 hover:text-white font-medium py-2 border-b border-white/5 transition-colors">Precios</a>
-            <a href="{{ url_for('web_auth.pricing') }}"
-                class="block text-lg text-gray-300 hover:text-white font-medium py-2 border-b border-white/5 transition-colors">Comparar Planes</a>
+            <a href="#como-funciona"
+                class="block text-lg text-gray-300 hover:text-white font-medium py-2 border-b border-white/5 transition-colors">Como funciona</a>
             <a href="#faq"
                 class="block text-lg text-gray-300 hover:text-white font-medium py-2 border-b border-white/5 transition-colors">FAQ</a>
-            <a href="#contacto"
-                class="block text-lg text-gray-300 hover:text-white font-medium py-2 border-b border-white/5 transition-colors">Contacto</a>
             <a href="{{ url_for('web_api_portal.index') }}"
                 class="block text-lg text-gray-300 hover:text-white font-medium py-2 border-b border-white/5 transition-colors">API / Desarrolladores</a>
             {% if is_logged_in %}
@@ -177,9 +171,9 @@
             <a href="{{ url_for('web_auth.login') }}"
                 class="block text-center text-gray-300 hover:text-white font-medium py-2 border-b border-white/5 transition-colors">Iniciar
                 Sesión</a>
-            <a href="#contacto"
-                class="block btn-primary text-center bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-3 rounded-xl font-semibold mt-4">Comenzar
-                Gratis</a>
+            <a href="{{ url_for('web_auth.cotizacion') }}" data-cta="header-mobile"
+                class="block btn-primary text-center bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-3 rounded-xl font-semibold mt-4">Solicitar
+                Cotización</a>
             {% endif %}
         </div>
     </nav>
@@ -204,27 +198,28 @@
                     </div>
 
                     <h1 class="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.1]">
-                        <span class="block bg-gradient-to-r from-amber-400 via-amber-500 to-teal-400 bg-clip-text text-transparent">{{ product_name }}</span>
-                        <span class="block text-3xl sm:text-4xl md:text-5xl lg:text-6xl">El ERP que</span>
-                        <span class="block">unifica tu</span>
-                        <span class="block text-gray-400">empresa en RD</span>
+                        <span
+                            class="block bg-gradient-to-r from-amber-400 via-amber-500 to-teal-400 bg-clip-text text-transparent">El
+                            ERP que</span>
+                        <span class="block">se adapta a</span>
+                        <span class="block text-gray-400">tu empresa</span>
                     </h1>
 
                     <p class="text-lg md:text-xl text-gray-400 max-w-xl leading-relaxed">
-                        Facturacion electronica DGII, nomina TSS, contabilidad NIIF, inventario, CRM y POS.
-                        Todo en una plataforma certificada, sin integraciones costosas, lista para operar.
+                        Facturacion electronica DGII, nomina TSS, contabilidad, inventario y CRM. Configurado segun tu
+                        operacion, sin modulos de mas. Obten una propuesta hecha a la medida de tu empresa.
                     </p>
 
                     <div class="flex flex-col sm:flex-row gap-4 pt-2 md:pt-4">
-                        <a href="#contacto"
-                            class="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-8 py-4 rounded-xl font-semibold text-lg text-center">Comenzar
-                            Prueba Gratis</a>
-                        <a href="#features"
+                        <a href="{{ url_for('web_auth.cotizacion') }}" data-cta="hero"
+                            class="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-8 py-4 rounded-xl font-semibold text-lg text-center">Solicitar
+                            Cotización</a>
+                        <a href="#modulos"
                             class="btn-secondary border border-white/20 text-white px-8 py-4 rounded-xl font-semibold text-lg text-center">Ver
-                            Características</a>
+                            Modulos</a>
                     </div>
 
-                    <p class="text-gray-500 text-sm">14 días gratis. No requiere tarjeta de crédito.</p>
+                    <p class="text-gray-500 text-sm">Propuesta personalizada segun tus necesidades. Sin compromiso.</p>
                 </div>
 
                 <div class="hidden lg:block relative">
@@ -305,23 +300,6 @@
                                 <span class="text-sm font-medium">Enviado a DGII</span>
                             </div>
                         </div>
-
-                        <div class="absolute -bottom-10 -left-4 glass rounded-2xl px-4 py-3 shadow-xl">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                                    <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-xs text-gray-400">Tiempo de respuesta</p>
-                                    <p class="font-semibold text-amber-400">
-                                        < 2 segundos</p>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -349,14 +327,6 @@
                 </div>
                 <div class="trust-badge flex items-center gap-3 text-gray-400 cursor-default">
                     <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                            clip-rule="evenodd" />
-                    </svg>
-                    <span class="font-medium">99.5% Uptime</span>
-                </div>
-                <div class="trust-badge flex items-center gap-3 text-gray-400 cursor-default">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
                         <path
                             d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
@@ -367,7 +337,7 @@
         </div>
     </section>
 
-    <section id="features" class="relative py-16 md:py-32 mesh-gradient noise">
+    <section id="modulos" class="relative py-16 md:py-32 mesh-gradient noise">
         <div class="max-w-7xl mx-auto px-6 lg:px-8">
             <div class="text-center mb-12 md:mb-20 fade-in">
                 <span
@@ -531,347 +501,144 @@
                     <p class="text-gray-400 leading-relaxed">Administra multiples cuentas bancarias, concilia movimientos, controla flujo de caja y genera reportes financieros integrados con tu contabilidad.</p>
                 </div>
             </div>
+
+            <div class="text-center mt-16 md:mt-20 fade-in">
+                <div class="glass-card rounded-3xl p-8 md:p-12 max-w-3xl mx-auto">
+                    <h3 class="font-display text-2xl md:text-3xl font-bold mb-4">¿Qué necesita tu empresa?</h3>
+                    <p class="text-gray-400 text-lg mb-8">Cuentanos que areas deseas gestionar y preparemos una propuesta
+                        para ti.</p>
+                    <a href="{{ url_for('web_auth.cotizacion') }}" data-cta="modulos"
+                        class="btn-primary inline-block bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-8 py-4 rounded-xl font-semibold text-lg">Solicitar
+                        Cotización</a>
+                </div>
+            </div>
         </div>
     </section>
 
-    <section id="pricing" class="relative py-16 md:py-32 geo-pattern">
+    <section id="adaptacion" class="relative py-16 md:py-32 geo-pattern">
         <div class="max-w-7xl mx-auto px-6 lg:px-8">
             <div class="text-center mb-12 md:mb-16 fade-in">
                 <span
-                    class="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20 mb-6">Precios</span>
+                    class="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20 mb-6">Cotizacion personalizada</span>
                 <h2 class="font-display text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
-                    Precios simples y<br class="hidden sm:inline">
-                    <span
-                        class="bg-gradient-to-r from-teal-400 to-amber-400 bg-clip-text text-transparent">transparentes</span>
+                    Una solución pensada<br class="hidden sm:inline">
+                    <span class="bg-gradient-to-r from-teal-400 to-amber-400 bg-clip-text text-transparent">para tu empresa</span>
                 </h2>
-                <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10">Sin sorpresas. Paga solo por lo que
-                    necesitas.</p>
-
-                <div class="flex flex-wrap items-center justify-center gap-4">
-                    <div class="inline-flex items-center gap-4 p-1.5 rounded-full glass">
-                        <button id="monthly-btn"
-                            class="billing-btn px-6 py-2 rounded-full text-sm font-medium transition-all bg-amber-500 text-midnight-900">Mensual</button>
-                        <button id="annual-btn"
-                            class="billing-btn px-6 py-2 rounded-full text-sm font-medium transition-all text-gray-400 hover:text-white">Anual
-                            <span class="text-teal-400 ml-1">Ahorra hasta 12%</span></button>
-                    </div>
-                </div>
+                <p class="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto">
+                    Cada empresa tiene necesidades diferentes. {{ product_name }} se configura segun tu operacion, los
+                    modulos que necesitas, la cantidad de usuarios y las integraciones requeridas. Por eso preparamos
+                    una propuesta personalizada para cada organizacion.
+                </p>
             </div>
 
-            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-
-                <div class="glass-card rounded-3xl p-8 fade-in fade-in-delay-1">
-                    <div class="mb-8">
-                        <h3 class="font-display text-xl font-semibold mb-2">Esencial</h3>
-                        <p class="text-gray-400">Para comenzar a facturar</p>
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-1">
+                    <div
+                        class="feature-icon w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center mb-6 text-amber-400">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                        </svg>
                     </div>
-
-                    <div class="price-monthly mb-8">
-                        <span class="text-4xl font-display font-bold">$35</span>
-                        <span class="text-gray-400">/mes</span>
-                    </div>
-                    <div class="price-annual mb-8 hidden">
-                        <span class="text-4xl font-display font-bold">$386</span>
-                        <span class="text-gray-400">/año</span>
-                        <div class="text-sm text-teal-400 mt-1">$32.17/mes &middot; Ahorra 8%</div>
-                    </div>
-
-                    <div class="mb-4">
-                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Incluye</span>
-                    </div>
-                    <ul class="space-y-3 mb-8">
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            e-CF: 300/mes con firma digital
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Ventas E31/E32 + Notas E33/E34
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Dashboard &amp; KPIs
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Catálogo de productos/servicios
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Cotizaciones básicas
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Cuentas por Cobrar (CxC)
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Control de Gastos manual
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            API REST (lectura)
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Soporte por email
-                        </li>
-                    </ul>
-
-                    <div class="mb-6">
-                        <div class="flex flex-wrap gap-2">
-                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-gray-400 border border-white/10">1 usuario</span>
-                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-gray-400 border border-white/10">1 sucursal</span>
-                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-gray-400 border border-white/10">500 MB</span>
-                        </div>
-                    </div>
-
-                    <a href="#contacto" class="block w-full text-center py-4 rounded-xl font-semibold border border-white/10 text-white hover:bg-white/5 transition-all">Comenzar</a>
+                    <h3 class="font-display text-xl font-semibold mb-3">Modulos a la medida</h3>
+                    <p class="text-gray-400 leading-relaxed">Contrata solo las areas que tu operacion necesita y evita
+                        pagar por funciones que no usas.</p>
                 </div>
 
-                <div class="pricing-featured glass-card rounded-3xl p-8 bg-midnight-700/50 fade-in fade-in-delay-2 relative">
-                    <div class="flex items-center justify-between mb-8">
-                        <div>
-                            <h3 class="font-display text-xl font-semibold mb-2">Pro</h3>
-                            <p class="text-gray-400">Para empresas en crecimiento</p>
-                        </div>
-                        <span class="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-500 to-teal-500 text-midnight-900">Popular</span>
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-2">
+                    <div
+                        class="feature-icon w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-600/10 flex items-center justify-center mb-6 text-teal-400">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
                     </div>
-
-                    <div class="price-monthly mb-8">
-                        <span class="text-4xl font-display font-bold bg-gradient-to-r from-amber-400 to-teal-400 bg-clip-text text-transparent">$80</span>
-                        <span class="text-gray-400">/mes</span>
-                    </div>
-                    <div class="price-annual mb-8 hidden">
-                        <span class="text-4xl font-display font-bold bg-gradient-to-r from-amber-400 to-teal-400 bg-clip-text text-transparent">$864</span>
-                        <span class="text-gray-400">/año</span>
-                        <div class="text-sm text-teal-400 mt-1">$72.00/mes &middot; Ahorra 10%</div>
-                    </div>
-
-                    <div class="mb-4">
-                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Incluye</span>
-                    </div>
-                    <ul class="space-y-3 mb-8">
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            e-CF ilimitados con firma digital
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Todo en Esencial +
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            CRM &amp; Agenda (pipeline completo)
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            POS Punto de Venta (1 caja)
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Inventario &amp; Almacenes
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            CxC completo + recordatorios
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            CxP, Proveedores &amp; Compras
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Contratos &amp; Facturaci&oacute;n Recurrente
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Reporte 606 autom&aacute;tico
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Control de Gastos con OCR
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            API REST completa (lectura/escritura)
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Soporte prioritario
-                        </li>
-                    </ul>
-
-                    <div class="mb-6">
-                        <div class="flex flex-wrap gap-2">
-                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-amber-400 border border-amber-400/30">3 usuarios</span>
-                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-amber-400 border border-amber-400/30">2 sucursales</span>
-                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-amber-400 border border-amber-400/30">2 GB</span>
-                        </div>
-                    </div>
-
-                    <a href="#contacto" class="btn-primary block w-full text-center py-4 rounded-xl font-semibold bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900">Comenzar</a>
+                    <h3 class="font-display text-xl font-semibold mb-3">Usuarios segun tu equipo</h3>
+                    <p class="text-gray-400 leading-relaxed">La cantidad de usuarios se ajusta al tamaño de tu equipo,
+                        desde un par hasta multiples sucursales.</p>
                 </div>
 
-                <div class="glass-card rounded-3xl p-8 fade-in fade-in-delay-3">
-                    <div class="mb-8">
-                        <h3 class="font-display text-xl font-semibold mb-2">Enterprise</h3>
-                        <p class="text-gray-400">Corporativo a medida</p>
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-3">
+                    <div
+                        class="feature-icon w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-600/10 flex items-center justify-center mb-6 text-purple-400">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
                     </div>
-
-                    <div class="price-monthly mb-8">
-                        <span class="text-4xl font-display font-bold">$160</span>
-                        <span class="text-gray-400">/mes</span>
-                    </div>
-                    <div class="price-annual mb-8 hidden">
-                        <span class="text-4xl font-display font-bold">$1,690</span>
-                        <span class="text-gray-400">/año</span>
-                        <div class="text-sm text-teal-400 mt-1">$140.83/mes &middot; Ahorra 12%</div>
-                    </div>
-
-                    <div class="mb-4">
-                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Incluye</span>
-                    </div>
-                    <ul class="space-y-3 mb-8">
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            e-CF ilimitados con firma digital
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Todo en Pro +
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Multi-empresa (RNCs ilimitados)
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Contabilidad completa (NIIF)
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Nomina TSS + RRHH completo
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Portal del Cliente (autogesti&oacute;n)
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            IA &amp; BI (Smart Insights, Chatbot)
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            POS multi-caja (ilimitadas)
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Exportacion Contable + Pasarela de Pago
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            Auditoria completa + SLA 99.5%
-                        </li>
-                    </ul>
-
-                    <div class="mb-6">
-                        <div class="flex flex-wrap gap-2">
-                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-teal-400 border border-teal-400/30">Usuarios ilimitados</span>
-                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-teal-400 border border-teal-400/30">Sucursales ilimitadas</span>
-                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-teal-400 border border-teal-400/30">10 GB</span>
-                        </div>
-                    </div>
-
-                    <a href="#contacto" class="block w-full text-center py-4 rounded-xl font-semibold border border-white/10 text-white hover:bg-white/5 transition-all">Contactar Ventas</a>
+                    <h3 class="font-display text-xl font-semibold mb-3">Integraciones requeridas</h3>
+                    <p class="text-gray-400 leading-relaxed">Conectamos con los sistemas y flujos que ya usa tu empresa
+                        mediante API REST y herramientas de automatizacion.</p>
                 </div>
 
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-4">
+                    <div
+                        class="feature-icon w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 flex items-center justify-center mb-6 text-cyan-400">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Alcance de implementacion</h3>
+                    <p class="text-gray-400 leading-relaxed">Te acompanamos en la puesta en marcha: certificado digital,
+                        RNC, migracion de datos y primeras facturas.</p>
+                </div>
             </div>
-
-            <p class="text-center text-gray-500 text-sm mt-8 max-w-2xl mx-auto">
-                Precios en USD. No incluyen impuestos aplicables.<br>
-                Los documentos nunca se bloquean &mdash; si excedes tu plan, seguimos procesando. 14 d&iacute;as gratis en todos los planes.
-            </p>
-            <p class="text-center mt-6">
-                <a href="{{ url_for('web_auth.pricing') }}" class="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 transition-colors font-medium">
-                    Ver comparacion completa de planes
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
-                </a>
-            </p>
         </div>
     </section>
 
-    <section id="how-it-works" class="relative py-16 md:py-24 geo-pattern">
+    <section id="beneficios" class="relative py-16 md:py-32 mesh-gradient noise">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="text-center mb-12 md:mb-16 fade-in">
+                <span
+                    class="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-6">Beneficios</span>
+                <h2 class="font-display text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
+                    Pensado para equipos que<br class="hidden sm:inline">
+                    <span class="bg-gradient-to-r from-rose-400 to-amber-400 bg-clip-text text-transparent">necesitan operar en regla</span>
+                </h2>
+                <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto">Cumplimiento fiscal, control de nomina y visibilidad financiera en una sola plataforma.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-1">
+                    <div class="text-3xl mb-4">🇩🇴</div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Cumplimiento DGII</h3>
+                    <p class="text-gray-400 leading-relaxed">Facturacion electronica e-CF certificada y reportes
+                        606/607/608/623 listos para el portal de la DGII.</p>
+                </div>
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-2">
+                    <div class="text-3xl mb-4">📋</div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Nomina TSS en regla</h3>
+                    <p class="text-gray-400 leading-relaxed">Nomina con TSS, ISR y AFP, gestion de empleados y formularios
+                        DGT-3/4/5/9/12.</p>
+                </div>
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-3">
+                    <div class="text-3xl mb-4">📊</div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Visibilidad financiera</h3>
+                    <p class="text-gray-400 leading-relaxed">Contabilidad NIIF, estados financieros y dashboard operativo
+                        para decidir con datos.</p>
+                </div>
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-4">
+                    <div class="text-3xl mb-4">📈</div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Crece contigo</h3>
+                    <p class="text-gray-400 leading-relaxed">Empieza con lo esencial y agrega modulos y usuarios a medida
+                        que tu empresa crece.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="como-funciona" class="relative py-16 md:py-24 geo-pattern">
         <div class="max-w-4xl mx-auto px-6 lg:px-8">
             <div class="text-center mb-12 md:mb-16 fade-in">
                 <span
                     class="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 mb-6">Como Funciona</span>
                 <h2 class="font-display text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
-                    Empieza en <span class="bg-gradient-to-r from-cyan-400 to-amber-400 bg-clip-text text-transparent">3 pasos</span>
+                    De tu necesidad a una<br class="hidden sm:inline">
+                    <span class="bg-gradient-to-r from-cyan-400 to-amber-400 bg-clip-text text-transparent">propuesta en 3 pasos</span>
                 </h2>
-                <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto">No necesitas ser experto en tecnologia. Te acompanamos en cada paso.</p>
+                <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto">Un proceso claro y directo para llegar a una
+                    solucion que se ajuste a tu operacion.</p>
             </div>
 
             <div class="grid md:grid-cols-3 gap-8">
@@ -879,26 +646,123 @@
                     <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center mx-auto mb-6">
                         <span class="text-3xl font-display font-bold text-amber-400">1</span>
                     </div>
-                    <h3 class="font-display text-xl font-semibold mb-3">Solicita tu demo</h3>
-                    <p class="text-gray-400">Un especialista te contacta en menos de 2 horas para entender tu operacion y recomendarte el plan ideal.</p>
+                    <h3 class="font-display text-xl font-semibold mb-3">Cuentanos que necesitas</h3>
+                    <p class="text-gray-400">Comparte informacion basica sobre tu empresa y las areas que deseas gestionar.</p>
                 </div>
 
                 <div class="glass-card rounded-2xl p-8 text-center fade-in fade-in-delay-2">
                     <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-600/10 flex items-center justify-center mx-auto mb-6">
                         <span class="text-3xl font-display font-bold text-teal-400">2</span>
                     </div>
-                    <h3 class="font-display text-xl font-semibold mb-3">Configuracion guiada</h3>
-                    <p class="text-gray-400">Te ayudamos con el certificado digital, RNC y primeras facturas. En 1-2 dias estas operando en produccion.</p>
+                    <h3 class="font-display text-xl font-semibold mb-3">Analizamos tu operacion</h3>
+                    <p class="text-gray-400">Nuestro equipo evalua tus necesidades, usuarios, modulos e integraciones requeridas.</p>
                 </div>
 
                 <div class="glass-card rounded-2xl p-8 text-center fade-in fade-in-delay-3">
                     <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-600/10 flex items-center justify-center mx-auto mb-6">
                         <span class="text-3xl font-display font-bold text-purple-400">3</span>
                     </div>
-                    <h3 class="font-display text-xl font-semibold mb-3">Factura sin limites</h3>
-                    <p class="text-gray-400">Empieza a emitir e-CF, procesar nomina y gestionar tu contabilidad con soporte local RD cuando lo necesites.</p>
+                    <h3 class="font-display text-xl font-semibold mb-3">Recibe una propuesta personalizada</h3>
+                    <p class="text-gray-400">Preparamos una propuesta adaptada a las necesidades de tu empresa, sin compromiso.</p>
                 </div>
             </div>
+
+            <div class="text-center mt-12 fade-in">
+                <a href="{{ url_for('web_auth.cotizacion') }}" data-cta="como-funciona"
+                    class="btn-primary inline-block bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-8 py-4 rounded-xl font-semibold text-lg">Solicitar
+                    Cotización</a>
+            </div>
+        </div>
+    </section>
+
+    <section id="seguridad" class="relative py-16 md:py-24 border-y border-white/5 bg-midnight-800/50">
+        <div class="max-w-5xl mx-auto px-6 lg:px-8">
+            <div class="text-center mb-12 fade-in">
+                <span
+                    class="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-6">Seguridad y confianza</span>
+                <h2 class="font-display text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
+                    Tus datos, <span class="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">protegidos</span>
+                </h2>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="glass-card rounded-2xl p-8 text-center fade-in fade-in-delay-1">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center mx-auto mb-6 text-amber-400">
+                        <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd"
+                                d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Certificacion DGII</h3>
+                    <p class="text-gray-400">Emision de comprobantes fiscales certificada ante la Direccion General de Impuestos Internos.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8 text-center fade-in fade-in-delay-2">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-600/10 flex items-center justify-center mx-auto mb-6 text-teal-400">
+                        <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd"
+                                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Cifrado y respaldo</h3>
+                    <p class="text-gray-400">Conexion cifrada SSL de 256 bits, certificado digital almacenado de forma segura y respaldo en la nube.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8 text-center fade-in fade-in-delay-3">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 flex items-center justify-center mx-auto mb-6 text-cyan-400">
+                        <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
+                            <path
+                                d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
+                        </svg>
+                    </div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Soporte local</h3>
+                    <p class="text-gray-400">Acompanamiento en Republica Dominicana para configuracion, dudas y puesta en marcha.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="cotizacion" class="relative py-16 md:py-32 overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-b from-midnight-900 via-midnight-800 to-midnight-900"></div>
+        <div class="absolute inset-0 mesh-gradient opacity-50"></div>
+
+        <div class="relative max-w-4xl mx-auto px-6 lg:px-8 text-center fade-in">
+            <h2 class="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+                Solicita una<br class="hidden sm:inline">
+                <span
+                    class="bg-gradient-to-r from-amber-400 via-teal-400 to-amber-400 bg-clip-text text-transparent">cotización
+                    personalizada</span>
+            </h2>
+            <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-4">Cuentanos que necesita tu empresa y un
+                especialista preparara una propuesta adaptada a tu operacion.</p>
+            <p class="text-sm text-gray-500 max-w-2xl mx-auto mb-10">Sin compromiso. Solo la informacion necesaria para
+                preparar tu propuesta.</p>
+
+            <a href="{{ url_for('web_auth.cotizacion') }}" data-cta="seccion-cotizacion"
+                class="btn-primary inline-block bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-10 py-5 rounded-xl font-semibold text-lg">Solicitar
+                Cotización</a>
+
+            <div class="flex flex-wrap items-center justify-center gap-4 mt-8 text-xs text-gray-500">
+                <span class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    Certificado DGII
+                </span>
+                <span class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Tu información está protegida
+                </span>
+            </div>
+            <p class="mt-4 text-sm text-gray-500">¿Prefieres escribirnos? <a href="mailto:support@vykcore.com"
+                    class="text-amber-400 hover:text-amber-300 transition-colors">support@vykcore.com</a></p>
         </div>
     </section>
 
@@ -925,103 +789,115 @@
                     </button>
                     <div class="faq-content text-gray-400">
                         {{ product_name }} es una plataforma de facturacion electronica (e-CF) certificada por la DGII
-                        para empresas en Republica Dominicana. Permite emitir e-CF de ventas y notas, gestionar compras
-                        y gastos, operar POS, controlar inventario, y centralizar reportes y exportes contables.
+                        para empresas en Republica Dominicana, con nomina TSS, contabilidad, inventario y CRM. Permite
+                        centralizar la gestion de tu empresa en una sola herramienta.
                     </div>
                 </div>
 
                 <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-1">
                     <button
                         class="faq-toggle w-full px-4 py-4 md:px-6 md:py-5 text-left flex justify-between items-center">
-                        <span class="font-display font-semibold text-lg">¿Qué necesito para comenzar?</span>
+                        <span class="font-display font-semibold text-lg">¿{{ product_name }} se adapta a mi empresa?</span>
                         <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none"
                             stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
                     <div class="faq-content text-gray-400">
-                        Solo necesitas tu RNC activo, un certificado digital válido emitido por una entidad
-                        certificadora autorizada, y estar registrado como emisor electrónico ante la DGII. Nosotros te
-                        guiamos en todo el proceso.
+                        Sí. {{ product_name }} se configura segun tu operacion: los modulos que necesitas, la cantidad de
+                        usuarios, las integraciones y el alcance de implementacion. Por eso preparamos una propuesta
+                        personalizada para cada empresa.
                     </div>
                 </div>
 
                 <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-2">
                     <button
                         class="faq-toggle w-full px-4 py-4 md:px-6 md:py-5 text-left flex justify-between items-center">
-                        <span class="font-display font-semibold text-lg">¿La prueba gratis tiene limitaciones?</span>
+                        <span class="font-display font-semibold text-lg">¿Puedo contratar solamente determinados modulos?</span>
                         <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none"
                             stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
                     <div class="faq-content text-gray-400">
-                        No, tienes acceso completo a todas las funcionalidades durante 14 días. No requerimos tarjeta de
-                        crédito para comenzar. Puedes emitir comprobantes en ambiente de prueba de DGII.
+                        Sí. Puedes contratar los modulos que tu operacion requiere, sin pagar por funciones que no
+                        necesitas.
                     </div>
                 </div>
 
                 <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-3">
                     <button
                         class="faq-toggle w-full px-4 py-4 md:px-6 md:py-5 text-left flex justify-between items-center">
-                        <span class="font-display font-semibold text-lg">¿Cómo funciona la integración con mi sistema
-                            actual?</span>
+                        <span class="font-display font-semibold text-lg">¿Cómo se determina el precio de {{ product_name }}?</span>
                         <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none"
                             stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
                     <div class="faq-content text-gray-400">
-                        Ofrecemos una API completa con documentación detallada para integrar {{ product_name }} con tu
-                        sistema. Nuestro equipo te ayuda con la integración.
+                        La inversion depende de las necesidades especificas de cada empresa, incluyendo modulos,
+                        usuarios, funcionalidades, integraciones y alcance de implementacion. Por eso preparamos una
+                        propuesta personalizada despues de conocer tu operacion.
                     </div>
                 </div>
 
                 <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-4">
                     <button
                         class="faq-toggle w-full px-4 py-4 md:px-6 md:py-5 text-left flex justify-between items-center">
-                        <span class="font-display font-semibold text-lg">¿Mis datos están seguros?</span>
+                        <span class="font-display font-semibold text-lg">¿Puedo agregar modulos posteriormente?</span>
                         <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none"
                             stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
                     <div class="faq-content text-gray-400">
-                        Usamos encriptación SSL de 256 bits, almacenamiento seguro en la nube con backups automáticos, y
-                        cumplimos con las mejores prácticas de seguridad. Tu certificado digital se almacena de forma
-                        encriptada.
+                        Sí. Puedes ampliar la plataforma a medida que tu empresa crece, agregando modulos y usuarios
+                        cuando los necesites.
                     </div>
                 </div>
 
                 <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-5">
                     <button
                         class="faq-toggle w-full px-4 py-4 md:px-6 md:py-5 text-left flex justify-between items-center">
-                        <span class="font-display font-semibold text-lg">¿Puedo cancelar en cualquier momento?</span>
+                        <span class="font-display font-semibold text-lg">¿{{ product_name }} soporta facturación electrónica?</span>
                         <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none"
                             stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
                     <div class="faq-content text-gray-400">
-                        Sí, puedes cancelar tu suscripción en cualquier momento sin penalidades. Tendrás acceso hasta el
-                        final de tu período de facturación actual y podrás exportar todos tus datos.
+                        Sí. {{ product_name }} emite comprobantes fiscales e-CF certificados por la DGII: ventas E31/E32,
+                        notas E33/E34 y compras/gastos E41/E43/E47, ademas de los reportes 606/607/608/623.
                     </div>
                 </div>
 
                 <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-6">
                     <button
                         class="faq-toggle w-full px-4 py-4 md:px-6 md:py-5 text-left flex justify-between items-center">
-                        <span class="font-display font-semibold text-lg">¿Cuándo es obligatoria la facturación
-                            electrónica para mi empresa?</span>
+                        <span class="font-display font-semibold text-lg">¿Ofrecen integración con otros sistemas?</span>
                         <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none"
                             stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
                     <div class="faq-content text-gray-400">
-                        La Ley 32-23 establece fechas según el tamaño del contribuyente. Los grandes contribuyentes
-                        nacionales ya están obligados desde 2024. Los grandes locales y medianos tienen hasta noviembre
-                        2025. Las PyMEs, microempresas y no clasificados tienen hasta el 15 de mayo de 2026.
+                        Sí. Ofrecemos una API REST documentada para integrar {{ product_name }} con tu sistema actual, y
+                        nuestro equipo te acompana en la integracion.
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-6">
+                    <button
+                        class="faq-toggle w-full px-4 py-4 md:px-6 md:py-5 text-left flex justify-between items-center">
+                        <span class="font-display font-semibold text-lg">¿Cómo funciona el proceso de implementación?</span>
+                        <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div class="faq-content text-gray-400">
+                        Tras la cotizacion, te acompanamos en la configuracion: certificado digital, RNC, carga de datos y
+                        primeras facturas. El alcance se define junto contigo en la propuesta.
                     </div>
                 </div>
 
@@ -1036,62 +912,26 @@
                         </svg>
                     </button>
                     <div class="faq-content text-gray-400">
-                        {{ product_name }} incluye un sistema de cola automática con reintentos. Si la DGII no está
-                        disponible, tus documentos se firman y almacenan localmente, y se envían automáticamente cuando
-                        el servicio se restablece. Tu operación nunca se detiene.
+                        {{ product_name }} incluye un sistema de cola automatica con reintentos. Si la DGII no esta
+                        disponible, tus documentos se firman y almacenan localmente, y se envian automaticamente cuando
+                        el servicio se restablece. Tu operacion nunca se detiene.
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <section id="contacto" class="relative py-16 md:py-32 overflow-hidden">
-        <div class="absolute inset-0 bg-gradient-to-b from-midnight-900 via-midnight-800 to-midnight-900"></div>
-        <div class="absolute inset-0 mesh-gradient opacity-50"></div>
-
-        <div class="relative max-w-4xl mx-auto px-6 lg:px-8 text-center fade-in">
-            <h2 class="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
-                Hablemos de tu<br class="hidden sm:inline">
-                <span
-                    class="bg-gradient-to-r from-amber-400 via-teal-400 to-amber-400 bg-clip-text text-transparent">facturación
-                    electrónica</span>
+    <section class="relative py-16 md:py-24 hero-gradient">
+        <div class="max-w-4xl mx-auto px-6 lg:px-8 text-center fade-in">
+            <h2 class="font-display text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
+                Empieza con una propuesta<br class="hidden sm:inline">
+                <span class="bg-gradient-to-r from-amber-400 to-teal-400 bg-clip-text text-transparent">hecha para tu empresa</span>
             </h2>
-            <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-4">Nuestro equipo te asesorará sin
-                compromiso sobre el mejor plan para tu empresa.</p>
-            <p class="text-sm text-gray-500 max-w-2xl mx-auto mb-10">14 días gratis. Sin tarjeta de crédito. Sin
-                compromiso.</p>
-
-            <div class="max-w-2xl mx-auto">
-                <iframe id="lead-iframe" src="{{ url_for('web_auth.contact_embed') }}"
-                    class="w-full h-[1500px] sm:h-[1350px] md:h-[1300px] lg:h-[1250px]" frameborder="0" marginheight="0"
-                    marginwidth="0" title="Formulario de contacto {{ product_name }}"></iframe>
-            </div>
-
-            <div class="flex flex-wrap items-center justify-center gap-4 mt-6 text-xs text-gray-500">
-                <span class="flex items-center gap-1.5">
-                    <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    Certificado DGII
-                </span>
-                <span class="flex items-center gap-1.5">
-                    <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Respuesta en menos de 2 horas
-                </span>
-                <span class="flex items-center gap-1.5">
-                    <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    Tu información está protegida
-                </span>
-            </div>
-            <p class="mt-4 text-sm text-gray-500">¿Prefieres escribirnos? <a href="mailto:support@vykcore.com"
-                    class="text-amber-400 hover:text-amber-300 transition-colors">support@vykcore.com</a></p>
+            <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-8">Cuentanos que necesitas y un especialista
+                preparara una solucion a la medida de tu operacion.</p>
+            <a href="{{ url_for('web_auth.cotizacion') }}" data-cta="final"
+                class="btn-primary inline-block bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-10 py-5 rounded-xl font-semibold text-lg">Solicitar
+                Cotización</a>
         </div>
     </section>
 
@@ -1104,20 +944,18 @@
                             class="w-10 h-10 object-contain">
                         <span class="font-display text-2xl font-bold">{{ product_name }}</span>
                     </a>
-                    <p class="text-gray-400 mb-6">{{ product_name }} es el ERP empresarial dominicano con facturacion electronica certificada por DGII, nomina TSS, contabilidad, inventario y CRM.</p>
+                    <p class="text-gray-400 mb-6">{{ product_name }} es el ERP empresarial dominicano con facturacion electronica certificada por DGII, nomina TSS, contabilidad, inventario y CRM, configurado a la medida de tu empresa.</p>
                 </div>
 
                 <div>
                     <h4 class="font-display font-semibold mb-6">Producto</h4>
                     <ul class="space-y-3">
-                        <li><a href="#features"
+                        <li><a href="#modulos"
                                 class="text-gray-400 hover:text-amber-400 transition-colors">Modulos</a></li>
-                        <li><a href="#pricing" class="text-gray-400 hover:text-amber-400 transition-colors">Precios</a>
-                        </li>
-                        <li><a href="{{ url_for('web_auth.pricing') }}" class="text-gray-400 hover:text-amber-400 transition-colors">Comparar Planes</a></li>
-                        {# TODO: Rehabilitar enlace API docs cuando esté lista #}
-                        <!-- <li><a href="{{ url_for('flasgger.apidocs') }}"
-                                class="text-gray-400 hover:text-amber-400 transition-colors">API</a></li> -->
+                        <li><a href="#como-funciona"
+                                class="text-gray-400 hover:text-amber-400 transition-colors">Como funciona</a></li>
+                        <li><a href="{{ url_for('web_auth.cotizacion') }}"
+                                class="text-gray-400 hover:text-amber-400 transition-colors">Solicitar cotizacion</a></li>
                         <li><a href="#faq" class="text-gray-400 hover:text-amber-400 transition-colors">FAQ</a></li>
                     </ul>
                 </div>
@@ -1127,9 +965,10 @@
                     <ul class="space-y-3">
                         <li><a href="{{ url_for('web_auth.faqs') }}"
                                 class="text-gray-400 hover:text-amber-400 transition-colors">Centro de Ayuda</a></li>
-                        {# TODO: Rehabilitar enlace API docs cuando esté lista #}
-                        <!-- <li><a href="{{ url_for('flasgger.apidocs') }}"
-                                class="text-gray-400 hover:text-amber-400 transition-colors">Documentación API</a></li> -->
+                        <li><a href="{{ url_for('web_api_portal.index') }}"
+                                class="text-gray-400 hover:text-amber-400 transition-colors">API / Desarrolladores</a></li>
+                        <li><a href="{{ url_for('web_auth.privacidad') }}"
+                                class="text-gray-400 hover:text-amber-400 transition-colors">Privacidad</a></li>
                     </ul>
                 </div>
 
@@ -1175,13 +1014,33 @@
             <div class="border-t border-white/5 mt-16 pt-8">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-gray-500">
                     <p>&copy; 2026 VykCore Automation S.R.L. Todos los derechos reservados.</p>
-                    <p>Pagos seguros · Autenticación 3D Secure en cada transacción</p>
+                    <a href="{{ url_for('web_auth.privacidad') }}" class="hover:text-amber-400 transition-colors">Política de Privacidad</a>
                 </div>
             </div>
         </div>
     </footer>
 
+    <!-- CTA sticky móvil -->
+    <div class="sticky-cta md:hidden">
+        <a href="{{ url_for('web_auth.cotizacion') }}" data-cta="sticky-mobile"
+            class="block w-full text-center bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 py-4 rounded-xl font-semibold">Solicitar
+            Cotización</a>
+    </div>
+
     <script>
+        window.dataLayer = window.dataLayer || [];
+        function track(eventName, payload) {
+            var data = Object.assign({ event: eventName }, payload || {});
+            window.dataLayer.push(data);
+        }
+        track('landing_view');
+
+        document.querySelectorAll('[data-cta]').forEach(function (el) {
+            el.addEventListener('click', function () {
+                track('click_solicitar_cotizacion', { cta_location: el.getAttribute('data-cta') });
+            });
+        });
+
         const observerOptions = {
             threshold: 0.1,
             rootMargin: '0px 0px -50px 0px'
@@ -1198,32 +1057,6 @@
         document.querySelectorAll('.fade-in').forEach(el => {
             observer.observe(el);
         });
-
-        const monthlyBtn = document.getElementById('monthly-btn');
-        const annualBtn = document.getElementById('annual-btn');
-        const monthlyPrices = document.querySelectorAll('.price-monthly');
-        const annualPrices = document.querySelectorAll('.price-annual');
-
-        function setMonthly() {
-            monthlyBtn.classList.add('bg-amber-500', 'text-midnight-900');
-            monthlyBtn.classList.remove('text-gray-400');
-            annualBtn.classList.remove('bg-amber-500', 'text-midnight-900');
-            annualBtn.classList.add('text-gray-400');
-            monthlyPrices.forEach(el => el.classList.remove('hidden'));
-            annualPrices.forEach(el => el.classList.add('hidden'));
-        }
-
-        function setAnnual() {
-            annualBtn.classList.add('bg-amber-500', 'text-midnight-900');
-            annualBtn.classList.remove('text-gray-400');
-            monthlyBtn.classList.remove('bg-amber-500', 'text-midnight-900');
-            monthlyBtn.classList.add('text-gray-400');
-            annualPrices.forEach(el => el.classList.remove('hidden'));
-            monthlyPrices.forEach(el => el.classList.add('hidden'));
-        }
-
-        monthlyBtn.addEventListener('click', setMonthly);
-        annualBtn.addEventListener('click', setAnnual);
 
         document.querySelectorAll('.faq-toggle').forEach(button => {
             button.addEventListener('click', () => {
@@ -1292,15 +1125,7 @@
                 });
             });
         }
-        // Ajustar altura del iframe del formulario de lead
-        window.addEventListener('message', function (e) {
-            if (e.data && e.data.type === 'lead-iframe-height') {
-                const iframe = document.getElementById('lead-iframe');
-                if (iframe) {
-                    iframe.style.height = (e.data.height + 24) + 'px';
-                }
-            }
-        });
+
     </script>
 </body>
 

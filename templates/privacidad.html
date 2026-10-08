@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es-DO">
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#0a0e1a">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Privacidad | {{ product_name }}</title>
+    <meta name="description" content="Política de privacidad de {{ product_name }}: cómo tratamos los datos que recibimos a través de las solicitudes de cotización.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Sora', 'sans-serif'],
+                        body: ['DM Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        midnight: {
+                            900: '#0a0e1a',
+                            800: '#0f1629',
+                            700: '#151d35',
+                            600: '#1c2541',
+                        },
+                        amber: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                        },
+                        teal: {
+                            400: '#2dd4bf',
+                            500: '#14b8a6',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing_dgmax.css') }}?v={{ static_hash('css/landing_dgmax.css') }}">
+</head>
+<body class="bg-midnight-900 text-white antialiased">
+    <nav class="fixed top-0 left-0 right-0 z-50 glass">
+        <div class="max-w-4xl mx-auto px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <a href="{{ url_for('web_auth.home') }}" class="flex items-center gap-3">
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="{{ product_name }}" class="w-10 h-10 object-contain">
+                    <span class="font-display text-2xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">{{ product_name }}</span>
+                </a>
+                <a href="{{ url_for('web_auth.home') }}" class="text-gray-300 hover:text-white transition-colors">← Volver al inicio</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="relative hero-gradient pt-32 pb-20">
+        <div class="max-w-3xl mx-auto px-6 lg:px-8">
+            <h1 class="font-display text-3xl sm:text-4xl md:text-5xl font-bold mb-4">Política de Privacidad</h1>
+            <p class="text-gray-400 mb-12">Última actualización: 2026. Este documento describe cómo tratamos los datos que recibimos a través de las solicitudes de cotización de {{ product_name }}.</p>
+
+            <div class="space-y-10 text-gray-300 leading-relaxed">
+                <div class="glass-card rounded-2xl p-8">
+                    <h2 class="font-display text-xl font-semibold mb-3 text-white">1. Responsable del tratamiento</h2>
+                    <p>El responsable del tratamiento de los datos es <strong>VykCore Automation S.R.L.</strong>, con domicilio en Santo Domingo, Distrito Nacional, República Dominicana.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8">
+                    <h2 class="font-display text-xl font-semibold mb-3 text-white">2. Datos que recopilamos</h2>
+                    <p class="mb-3">A través del formulario de cotización podemos recopilar los siguientes datos, según lo que decidas proporcionar:</p>
+                    <ul class="list-disc pl-6 space-y-1 text-gray-400">
+                        <li>Nombre y apellido.</li>
+                        <li>Correo electrónico corporativo.</li>
+                        <li>Teléfono.</li>
+                        <li>Empresa y cargo.</li>
+                        <li>RNC o cédula, si decides proporcionarlo.</li>
+                        <li>Información sobre tus necesidades empresariales.</li>
+                        <li>Cualquier otra información que introduzcas voluntariamente.</li>
+                    </ul>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8">
+                    <h2 class="font-display text-xl font-semibold mb-3 text-white">3. Finalidad del tratamiento</h2>
+                    <p>Utilizamos tus datos principalmente para:</p>
+                    <ul class="list-disc pl-6 space-y-1 mt-3 text-gray-400">
+                        <li>Atender tu solicitud de cotización.</li>
+                        <li>Contactarte para dar seguimiento a tu solicitud.</li>
+                        <li>Comprender las necesidades de tu empresa.</li>
+                        <li>Preparar una propuesta comercial personalizada.</li>
+                    </ul>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8">
+                    <h2 class="font-display text-xl font-semibold mb-3 text-white">4. Uso de la información</h2>
+                    <p>La información se utiliza exclusivamente para los fines descritos anteriormente y para los trámites internos necesarios para dar respuesta a tu solicitud. No realizamos usos adicionales con tus datos.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8">
+                    <h2 class="font-display text-xl font-semibold mb-3 text-white">5. Compartición de la información</h2>
+                    <p>Tus datos pueden ser procesados por proveedores tecnológicos necesarios para operar el servicio (por ejemplo, servicios de correo electrónico o almacenamiento). No vendemos ni compartimos tus datos con terceros con fines de marketing.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8">
+                    <h2 class="font-display text-xl font-semibold mb-3 text-white">6. Conservación de los datos</h2>
+                    <p>Conservamos la información durante el tiempo necesario para atender tu solicitud y cumplir con las obligaciones aplicables. Transcurrido ese plazo, los datos se eliminan o anonimizan.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8">
+                    <h2 class="font-display text-xl font-semibold mb-3 text-white">7. Tus derechos</h2>
+                    <p>Puedes solicitar el acceso, la corrección, la actualización o la eliminación de tus datos cuando corresponda, contactándonos a través de los medios indicados en la siguiente sección.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8">
+                    <h2 class="font-display text-xl font-semibold mb-3 text-white">8. Contacto</h2>
+                    <p>Para cualquier consulta sobre esta Política de Privacidad o sobre el tratamiento de tus datos, puedes escribirnos a <a href="mailto:support@vykcore.com" class="text-amber-400 hover:text-amber-300 transition-colors">support@vykcore.com</a> o llamar al <a href="tel:8098668227" class="text-amber-400 hover:text-amber-300 transition-colors">8098668227</a>.</p>
+                </div>
+
+                <p class="text-sm text-gray-500">Esta política es de carácter informativo y está sujeta a revisión legal periódica.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="relative border-t border-white/5 bg-midnight-900">
+        <div class="max-w-4xl mx-auto px-6 lg:px-8 py-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-gray-500">
+                <p>&copy; 2026 VykCore Automation S.R.L. Todos los derechos reservados.</p>
+                <a href="{{ url_for('web_auth.home') }}" class="text-amber-400 hover:text-amber-300 transition-colors">Volver al inicio</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
