@@ -225,12 +225,12 @@
                     </ul>
                 </div>
 
-                <!-- ── Configuración ── -->
+                <!-- ── Configuración Contable ── -->
                 <div class="sidebar-section" id="sidebar-section-acc-settings">
                     <div class="sidebar-section-header">
                         <div class="header-left">
                             <i class="fa-solid fa-gear section-icon"></i>
-                            <span>Configuración</span>
+                            <span>Configuración Contable</span>
                         </div>
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
@@ -247,26 +247,21 @@
                                 <span>Cuentas por Transacción</span>
                             </a>
                         </li>
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
-                        <li class="nav-item {% if active_page == 'company_settings' %}active{% endif %}"
-                            data-tooltip="Identidad fiscal, certificado digital y preferencias">
-                            <a href="{{ url_for('web_invoices.company_settings') }}">
-                                <span>Administrar Empresa</span>
-                            </a>
-                        </li>
-                        {% endif %}
                     </ul>
                 </div>
 
                 <!-- GRUPO: MÓDULOS (acceso cruzado) -->
                 {% include "_sidebar_modules.html" %}
 
+                <!-- SECCIÓN: CONFIGURACIÓN -->
+                {% include "_sidebar_config.html" %}
+
                 <!-- Collapse init needs sections in DOM -->
                 <script>
                     const accSections = ['sidebar-section-acc-dashboard', 'sidebar-section-acc-chart',
                         'sidebar-section-acc-entries', 'sidebar-section-acc-reports',
                         'sidebar-section-acc-assets', 'sidebar-section-acc-fiscal',
-                        'sidebar-section-acc-settings'];
+                        'sidebar-section-acc-settings', 'sidebar-section-configuracion'];
                     accSections.forEach(id => {
                         const el = document.getElementById(id);
                         if (!el) return;

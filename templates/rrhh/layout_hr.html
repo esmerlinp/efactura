@@ -259,11 +259,15 @@
                 <!-- GRUPO: MÓDULOS (acceso cruzado) -->
                 {% include "_sidebar_modules.html" %}
 
+                <!-- SECCIÓN: CONFIGURACIÓN -->
+                {% include "_sidebar_config.html" %}
+
                 <!-- Collapse init -->
                 <script>
                     const hrSections = ['sidebar-section-rrhh-personal',
                         'sidebar-section-rrhh-nomina', 'sidebar-section-rrhh-desarrollo',
-                        'sidebar-section-rrhh-reportes', 'sidebar-section-rrhh-config'];
+                        'sidebar-section-rrhh-reportes', 'sidebar-section-rrhh-config',
+                        'sidebar-section-configuracion'];
                     hrSections.forEach(id => {
                         const el = document.getElementById(id);
                         if (!el) return;
