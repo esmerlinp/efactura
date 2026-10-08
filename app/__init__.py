@@ -259,35 +259,38 @@ def create_app():
                 session['company_sandbox_indefinite'] = company_profile.get('sandboxIndefinite', True)
                 session['company_sandbox_start_date'] = company_profile.get('sandboxStartDate', '')
                 session['company_sandbox_end_date'] = company_profile.get('sandboxEndDate', '')
-                new_plan_id = company_profile.get('planId', '')
+                new_plan_id = company_profile.get('planId') or company_profile.get('plan_id', '')
                 old_plan_id = session.get('company_plan_id', '')
                 session['company_plan_id'] = new_plan_id
                 session['company_country'] = company_profile.get('country', 'DO')
                 session['company_offboarding_mode'] = company_profile.get('offboardingMode', 'simple')
 
-                plan_version = company_profile.get('plan_version', 0) or 0
-                cached_plan_version = session.get('company_plan_version', -1)
-                if cached_plan_version != plan_version or old_plan_id != new_plan_id:
-                    plan_id = new_plan_id
-                    if plan_id and company_id:
-                        plan_data = DatabaseService.get_plan(plan_id, plan_version=plan_version)
-                        if plan_data:
+                if new_plan_id:
+                    plan_data = DatabaseService.get_plan(new_plan_id)
+                    if plan_data:
+                        actual_plan_version = plan_data.get('plan_version', 0) or 0
+                        cached_plan_version = session.get('company_plan_version', -1)
+                        if ('company_modules' not in session or 
+                            old_plan_id != new_plan_id or 
+                            cached_plan_version != actual_plan_version):
+                            
                             session['company_modules'] = plan_data.get('modules', {})
-                            session['company_plan_version'] = plan_version
+                            session['company_plan_version'] = actual_plan_version
                             plan_limits = {}
                             for f in ['documentLimit','userLimit','storageLimitMB','monthlyPayment',
                                       'additionalDocumentCost','additionalUserCost','branchLimit',
                                       'boxLimit','additionalBoxCost','posEnabled']:
                                 if f in plan_data:
                                     plan_limits[f] = plan_data[f]
-                            if plan_limits:
+                            if plan_limits and company_id:
                                 DatabaseService.update_company(company_id, plan_limits)
                                 company_profile.update(plan_limits)
-                        else:
-                            session.pop('company_modules', None)
                     else:
                         session.pop('company_modules', None)
-                    session['company_plan_version'] = plan_version
+                        session.pop('company_plan_version', None)
+                else:
+                    session.pop('company_modules', None)
+                    session.pop('company_plan_version', None)
 
                 # Auto-cancelación: si cancel_at_period_end y la fecha pasó, aplicar cancelación
                 if company_profile.get('cancel_at_period_end') and company_profile.get('cancel_scheduled_date'):
