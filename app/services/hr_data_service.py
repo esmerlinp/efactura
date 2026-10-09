@@ -7,6 +7,7 @@ Evita inflar aún más el DatabaseService monolítico.
 
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 from google.cloud.firestore import FieldFilter
 from app.services.db_service import db_firestore, firebase_initialized
 
