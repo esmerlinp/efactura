@@ -37,8 +37,13 @@ def employee_dependent_add(employee_id):
     now = datetime.now(timezone.utc).isoformat()
     user_email = session.get("user", {}).get("email", "")
 
-    if id_number and hr.is_dependent_doc_duplicate(company_id, doc_type, id_number, sandbox=sandbox):
+    if id_number and hr.is_dependent_doc_duplicate(company_id, id_number, sandbox=sandbox):
         flash(f"Ya existe un dependiente registrado con el documento {id_number}.", "error")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+
+    effective_start_date = request.form.get("effectiveStartDate", "").strip()
+    if not effective_start_date:
+        flash("La fecha de inicio de vigencia es obligatoria.", "error")
         return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
     category_input = request.form.get("category", "").strip()
@@ -47,7 +52,6 @@ def employee_dependent_add(employee_id):
     disability = request.form.get("disability") == "on"
     birth_date = request.form.get("birthDate", "").strip()
     student_cert_expiry = request.form.get("studentCertificationExpiry", "").strip()
-    effective_start_date = request.form.get("effectiveStartDate", "").strip() or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     effective_end_date = request.form.get("effectiveEndDate", "").strip()
     ars_code = request.form.get("arsCode", "").strip()
     doc_verification_status = request.form.get("documentVerificationStatus", "verified").strip()
@@ -112,6 +116,11 @@ def employee_dependent_edit(employee_id, dep_id):
         flash(f"Ya existe otro dependiente con el documento {id_number}.", "error")
         return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
+    effective_start_date = request.form.get("effectiveStartDate", existing.get("effectiveStartDate", "")).strip()
+    if not effective_start_date:
+        flash("La fecha de inicio de vigencia es obligatoria.", "error")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+
     relationship_code = request.form.get("relationshipCode", existing.get("relationshipCode", "")).strip()
     relationship_name = next(
         (r["name"] for r in RELATIONSHIP_CATALOG if r["code"] == relationship_code),
@@ -134,7 +143,7 @@ def employee_dependent_edit(employee_id, dep_id):
         "isFinancialDependent": request.form.get("isFinancialDependent") == "on",
         "disability": request.form.get("disability") == "on",
         "studentCertificationExpiry": request.form.get("studentCertificationExpiry", existing.get("studentCertificationExpiry", "")).strip(),
-        "effectiveStartDate": request.form.get("effectiveStartDate", existing.get("effectiveStartDate", "")).strip(),
+        "effectiveStartDate": effective_start_date,
         "effectiveEndDate": request.form.get("effectiveEndDate", existing.get("effectiveEndDate", "")).strip(),
         "documentVerificationStatus": request.form.get("documentVerificationStatus", existing.get("documentVerificationStatus", "verified")).strip(),
         "arsCode": request.form.get("arsCode", existing.get("arsCode", "")).strip(),
