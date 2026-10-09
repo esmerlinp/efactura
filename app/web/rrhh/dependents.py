@@ -152,7 +152,7 @@ def employee_dependent_edit(employee_id, dep_id):
         merged = dict(existing)
         merged.update(updates)
         dep_temp = Dependent(**merged)
-        cat, el_status = dep_temp.resolve_category_and_eligibility()
+        cat, el_status, _ = dep_temp.resolve_category_and_eligibility()
         updates["category"] = cat
         updates["eligibilityStatus"] = el_status
 
