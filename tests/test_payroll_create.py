@@ -30,11 +30,13 @@ def test_payroll_create_uses_limited_employee_check():
          patch.object(pp, "_login_required", return_value=False), \
          patch.object(pp, "_get_owner_uid_and_sandbox", return_value=("u1", True, "co-1")), \
          patch.object(pp, "_generate_periods", side_effect=_periods), \
+         patch.object(pp, "get_locked_periods", return_value=(set(), None, set())), \
          patch.object(pp, "url_for", side_effect=lambda endpoint, **kwargs: f"/{endpoint}"), \
          patch.object(pp, "redirect", side_effect=lambda location: location), \
          patch.object(pp, "flash"), \
          patch.object(pp, "session", {"user": {"email": "user@example.com"}}), \
          patch.object(hr, "get_payroll_group", return_value={"id": "group-1", "frequency": "mensual"}), \
+         patch.object(hr, "get_payroll_periods", return_value=[]), \
          patch.object(hr, "has_active_employee_in_payroll_group", return_value=True) as active_check, \
          patch.object(hr, "get_payroll_period_by_key_and_group", return_value=None), \
          patch.object(hr, "save_payroll_period", return_value=True), \
@@ -55,10 +57,12 @@ def test_payroll_create_handles_validation_service_failure():
          patch.object(pp, "_login_required", return_value=False), \
          patch.object(pp, "_get_owner_uid_and_sandbox", return_value=("u1", True, "co-1")), \
          patch.object(pp, "_generate_periods", side_effect=_periods), \
+         patch.object(pp, "get_locked_periods", return_value=(set(), None, set())), \
          patch.object(pp, "url_for", side_effect=lambda endpoint, **kwargs: f"/{endpoint}"), \
          patch.object(pp, "redirect", side_effect=lambda location: location), \
          patch.object(pp, "flash", flash), \
          patch.object(hr, "get_payroll_group", return_value={"id": "group-1", "frequency": "mensual"}), \
+         patch.object(hr, "get_payroll_periods", return_value=[]), \
          patch.object(hr, "get_payroll_period_by_key_and_group", return_value=None), \
          patch.object(hr, "has_active_employee_in_payroll_group", side_effect=RuntimeError("Firestore unavailable")), \
          patch.object(hr, "save_payroll_period") as save_period:

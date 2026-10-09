@@ -634,7 +634,11 @@ def payroll_new():
     incidencias = PayrollService.validate_employees_before_payroll(employees) if employees else {"errors": [], "warnings": []}
 
     now = date.today()
-    available_periods = _generate_periods(group_frequency, now.year)
+    selected_year_arg = request.args.get("year") or request.form.get("year")
+    pk_raw = (selected_period_key or "").split("-")
+    pk_year = int(pk_raw[0]) if (pk_raw and pk_raw[0].isdigit() and len(pk_raw[0]) == 4) else None
+    eval_year = pk_year or (int(selected_year_arg) if (selected_year_arg and str(selected_year_arg).isdigit()) else now.year)
+    available_periods = _generate_periods(group_frequency, eval_year)
 
     # ── Bloqueo secuencial: períodos posteriores al primer regular abierto ──
     locked_period_keys = set()
@@ -1706,7 +1710,9 @@ def payroll_create():
 
         group_frequency = selected_group.get("frequency", "mensual")
         now = date.today()
-        available_periods = _generate_periods(group_frequency, now.year)
+        parts = period_key.split("-")
+        period_year = int(parts[0]) if (parts and parts[0].isdigit()) else now.year
+        available_periods = _generate_periods(group_frequency, period_year)
         period_info = next((p for p in available_periods if p["key"] == period_key), None)
         if not period_info:
             flash("El período seleccionado no es válido para este grupo.", "error")
@@ -1831,7 +1837,9 @@ def payroll_simulate():
         employees = [e for e in employees if e.get("id") not in pending_liquidation_ids]
 
     now = date.today()
-    available_periods = _generate_periods(group_frequency, now.year)
+    modal_year_arg = request.args.get("year") or request.form.get("year")
+    modal_year = int(modal_year_arg) if (modal_year_arg and str(modal_year_arg).isdigit()) else now.year
+    available_periods = _generate_periods(group_frequency, modal_year)
 
     # ── Liquidaciones pendientes del grupo (para preseleccionar subtipo "liquidation") ──
     pending_liquidations = []

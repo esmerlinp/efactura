@@ -106,41 +106,47 @@ def _filter_employees_by_period(employees, period_key=None, frequency_mode=None)
     return list(employees), []
 
 
-def _generate_periods(frequency: str, year: int = None):
-    """Genera lista de períodos disponibles para el año."""
-    if year is None:
-        year = date.today().year
+def _generate_periods(frequency: str, year: int = None, years: list = None):
+    """Genera lista de períodos disponibles para uno o varios años en orden cronológico."""
+    if years:
+        target_years = sorted({int(y) for y in years if y})
+    elif year is not None:
+        target_years = [int(year)]
+    else:
+        target_years = [date.today().year]
+
     periods = []
-    if frequency in ("quincenal", "ambos", "quincenal_y_mensual"):
-        for m in range(1, 13):
-            last_day = calendar.monthrange(year, m)[1]
-            mid = 15
-            label_m = MONTHS_ES[m - 1].upper()
-            periods.append({
-                "key": f"{year}-{m:02d}-1",
-                "label": f"Q1: 1 {label_m} - 15 {label_m}",
-                "start": f"{year}-{m:02d}-01",
-                "end": f"{year}-{m:02d}-{mid}",
-                "type": "quincenal",
-            })
-            periods.append({
-                "key": f"{year}-{m:02d}-2",
-                "label": f"Q2: 16 {label_m} - {last_day} {label_m}",
-                "start": f"{year}-{m:02d}-16",
-                "end": f"{year}-{m:02d}-{last_day}",
-                "type": "quincenal",
-            })
-    if frequency in ("mensual", "ambos", "quincenal_y_mensual"):
-        for m in range(1, 13):
-            label_m = MONTHS_ES[m - 1].upper()
-            last_day = calendar.monthrange(year, m)[1]
-            periods.append({
-                "key": f"{year}-{m:02d}-M",
-                "label": f"M: {label_m} {year}",
-                "start": f"{year}-{m:02d}-01",
-                "end": f"{year}-{m:02d}-{last_day}",
-                "type": "mensual",
-            })
+    for y in target_years:
+        if frequency in ("quincenal", "ambos", "quincenal_y_mensual"):
+            for m in range(1, 13):
+                last_day = calendar.monthrange(y, m)[1]
+                mid = 15
+                label_m = MONTHS_ES[m - 1].upper()
+                periods.append({
+                    "key": f"{y}-{m:02d}-1",
+                    "label": f"Q1: 1 {label_m} - 15 {label_m} {y}",
+                    "start": f"{y}-{m:02d}-01",
+                    "end": f"{y}-{m:02d}-{mid}",
+                    "type": "quincenal",
+                })
+                periods.append({
+                    "key": f"{y}-{m:02d}-2",
+                    "label": f"Q2: 16 {label_m} - {last_day} {label_m} {y}",
+                    "start": f"{y}-{m:02d}-16",
+                    "end": f"{y}-{m:02d}-{last_day}",
+                    "type": "quincenal",
+                })
+        if frequency in ("mensual", "ambos", "quincenal_y_mensual"):
+            for m in range(1, 13):
+                label_m = MONTHS_ES[m - 1].upper()
+                last_day = calendar.monthrange(y, m)[1]
+                periods.append({
+                    "key": f"{y}-{m:02d}-M",
+                    "label": f"M: {label_m} {y}",
+                    "start": f"{y}-{m:02d}-01",
+                    "end": f"{y}-{m:02d}-{last_day}",
+                    "type": "mensual",
+                })
     return periods
 
 
@@ -152,10 +158,20 @@ def get_locked_periods(company_id, group_id, available_periods, sandbox=True):
     que hay que cerrar (o ``None``) y ``closed_keys`` los periodKeys ya cerrados.
     """
     from app.services import hr_data_service as hr
-    from app.services.payroll_period_sequence import blocked_period_keys
+    from app.services.payroll_period_sequence import (
+        blocked_period_keys,
+        get_initial_live_period,
+        get_historical_cutoff_period,
+    )
 
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
-    return blocked_period_keys(periods, available_periods, group_id)
+    init_live = get_initial_live_period(company_id, group_id=group_id, sandbox=sandbox)
+    cutoff = get_historical_cutoff_period(company_id, group_id=group_id, sandbox=sandbox)
+    return blocked_period_keys(
+        periods, available_periods, group_id,
+        initial_live_period=init_live,
+        historical_cutoff_period=cutoff,
+    )
 
 
 # ── Import all module files so their @routes are registered on the Blueprint ──
