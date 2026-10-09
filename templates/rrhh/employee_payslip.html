@@ -136,6 +136,12 @@
                 <td style="padding:6px 10px; padding-left:24px;">SFS</td>
                 <td style="text-align:right; padding:6px 10px;">RD$ {{ "{:,.2f}".format(line.sfsEmployee|float) }}</td>
             </tr>
+            {% if line.get('sfsDependentsAdditional', 0)|float > 0 %}
+            <tr>
+                <td style="padding:6px 10px; padding-left:24px;">SFS Dependientes Adicionales</td>
+                <td style="text-align:right; padding:6px 10px;">RD$ {{ "{:,.2f}".format(line.sfsDependentsAdditional|float) }}</td>
+            </tr>
+            {% endif %}
             {% if line.get('infotepEmployee', 0)|float > 0 %}
             <tr>
                 <td style="padding:6px 10px; padding-left:24px;">INFOTEP</td>

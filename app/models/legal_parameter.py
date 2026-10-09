@@ -66,7 +66,7 @@ PARAM_TYPES = {
     "afp_salary_cap": {"type": float, "default": 464460.00},
     "sfs_salary_cap": {"type": float, "default": 232230.00},
     "min_salary": {"type": float, "default": 23223.00},
-    "dependents_additional_rate": {"type": float, "default": 1919.78},
+    "dependents_additional_rate": {"type": float, "default": 1970.42},
     "education_deduction": {"type": float, "default": 50000.00},
     "overtime_rate": {"type": float, "default": 1.35},
     "working_days_per_month": {"type": float, "default": 23.83},

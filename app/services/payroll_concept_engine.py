@@ -14,7 +14,7 @@ from app.services.db_service import db_firestore, firebase_initialized, Database
 
 # ── Conceptos del sistema (no pueden eliminarse, solo desactivarse) ──
 SYSTEM_CONCEPT_CODES = {
-    "SALARIO_BASE", "AFP_EMPLEADO", "SFS_EMPLEADO", "ISR_RETENCION",
+    "SALARIO_BASE", "AFP_EMPLEADO", "SFS_EMPLEADO", "SFS_DEP_ADICIONAL", "ISR_RETENCION",
     "AFP_EMPLEADOR", "SFS_EMPLEADOR", "SRL_EMPLEADOR", "INFOTEP_EMPLEADOR",
     "INFOTEP_EMPLEADO",     "HORAS_EXTRA", "HE_DIURNA", "HE_FERIADO",
     "NOCTURNIDAD",
@@ -185,6 +185,13 @@ DEFAULT_CONCEPTS = [
      "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
      "accountDebit": "2.1.2.1.06", "account_credit": "2.1.2.1.02",
      "priority": 110, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": True, "maxPercentage": 0.0},
+
+    {"code": "SFS_DEP_ADICIONAL",  "name": "SFS dependientes adicionales",
+     "type": "deduction", "category": "tss",
+     "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
+     "accountDebit": "2.1.2.1.07", "account_credit": "2.1.2.1.02",
+     "priority": 115, "active": True, "isSystem": True,
      "isRecurringCapable": False, "isLegalMandatory": True, "maxPercentage": 0.0},
 
     {"code": "ISR_RETENCION",      "name": "ISR retención",

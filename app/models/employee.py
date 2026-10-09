@@ -1,7 +1,7 @@
 """Modelos Pydantic para RRHH: Employee, Attendance, Vacation, Leave, Payroll, Evaluation, Training."""
 
 from datetime import date, datetime
-from typing import Optional, List
+from typing import Optional, List, ClassVar
 from pydantic import BaseModel, Field
 
 
@@ -120,7 +120,7 @@ class Dependent(BaseModel):
         parts = [self.firstName, self.middleName, self.firstLastName, self.secondLastName]
         return " ".join(p for p in parts if p)
 
-    relationshipCode: str = ""  # "hijo" | "hija" | "conyuge" | "padre" | "madre" | "otro"
+    relationshipCode: str = ""  # "hijo" | "hija" | "conyuge" | "padre" | "madre" | "hijastro" | "hijastra" | "otro"
     relationshipName: str = ""  # Nombre del parentesco desde catálogo
     birthDate: str = ""  # YYYY-MM-DD
     gender: str = ""  # "masculino" | "femenino" | "otro"
@@ -128,13 +128,108 @@ class Dependent(BaseModel):
     isFinancialDependent: bool = True
     docType: str = "C"  # Tipo documento TSS: C=Cédula, N=NSS
     active: bool = True
-    endDate: str = ""  # Fecha fin de dependencia (si aplica)
+    endDate: str = ""  # Fecha fin de dependencia (legacy/compatibilidad)
     idNumber: str = ""  # Cédula/NSS del dependiente (11 dígitos sin guiones)
+
+    # ── Clasificación legal SFS y elegibilidad (Ley 87-01 / SISALRIL) ──
+    category: str = "informational"  # "direct" | "additional" | "informational"
+    eligibilityStatus: str = "pending_document"  # "eligible" | "ineligible" | "pending_document"
+    effectiveStartDate: str = ""  # YYYY-MM-DD fecha efectiva de alta
+    effectiveEndDate: str = ""  # YYYY-MM-DD fecha efectiva de baja
+    deactivationReason: str = ""  # Motivo de baja/desactivación
+    documentVerificationStatus: str = "pending"  # "verified" | "pending" | "rejected"
+    disability: bool = False  # Discapacidad permanente (hijo directo permanente sin límite de edad)
+    studentCertificationExpiry: str = ""  # YYYY-MM-DD vencimiento constancia estudio (18-21 años)
+    arsCode: str = ""  # Código ARS
+    arsName: str = ""  # Nombre ARS
+    monthlyCost: float = 0.0  # Tarifa aplicable si es adicional
+
     notes: str = ""
     createdAt: str = ""
     createdBy: str = ""
     updatedAt: str = ""
     updatedBy: str = ""
+
+    def calculate_age(self, reference_date: Optional[date] = None) -> int:
+        """Calcula la edad del dependiente a una fecha de referencia (default hoy)."""
+        if not self.birthDate:
+            return 0
+        try:
+            ref = reference_date or date.today()
+            bd = datetime.strptime(self.birthDate[:10], "%Y-%m-%d").date()
+            age = ref.year - bd.year
+            if ref.month < bd.month or (ref.month == bd.month and ref.day < bd.day):
+                age -= 1
+            return max(0, age)
+        except (ValueError, TypeError):
+            return 0
+
+    def resolve_category_and_eligibility(self, reference_date: Optional[date] = None) -> tuple[str, str, str]:
+        """
+        Determina la clasificación oficial y estado de elegibilidad para el SFS (Ley 87-01 / SISALRIL).
+
+        Returns:
+            (category, eligibility_status, reason)
+            category: "direct" | "additional" | "informational"
+            eligibility_status: "eligible" | "ineligible" | "pending_document"
+        """
+        ref = reference_date or date.today()
+        ref_str = ref.isoformat() if hasattr(ref, "isoformat") else str(ref)[:10]
+
+        def _ret(c: str, s: str, r: str) -> tuple[str, str, str]:
+            self.category = c
+            self.eligibilityStatus = s
+            return c, s, r
+
+        # 1. Si está inactivo o la fecha de baja es anterior a la fecha de referencia
+        end_d = (self.effectiveEndDate or self.endDate or "").strip()
+        if not self.active or (end_d and end_d < ref_str):
+            return _ret("informational", "ineligible", "Dependiente inactivo o dado de baja")
+
+        # 2. Si tiene fecha efectiva de alta futura posterior a la referencia
+        start_d = (self.effectiveStartDate or "").strip()
+        if start_d and start_d > ref_str:
+            return _ret(self.category or "informational", "pending_document", "Fecha efectiva de alta posterior al período")
+
+        rel = (self.relationshipCode or "").strip().lower()
+        if not rel:
+            return _ret("informational", "pending_document", "Registro sin parentesco definido — requiere revisión documental")
+
+        # Cónyuge o compañero(a) de vida -> Directo
+        if rel in ("conyuge", "esposo", "esposa", "marido", "mujer", "pareja", "union_libre", "conviviente"):
+            return _ret("direct", "eligible", "Cónyuge o conviviente registrado (cobertura núcleo directo)")
+
+        # Hijos / Hijastros -> Regla de edad, estudios y discapacidad
+        if rel in ("hijo", "hija", "hijastro", "hijastra"):
+            if self.disability:
+                return _ret("direct", "eligible", "Hijo con discapacidad permanente (cobertura directa permanente)")
+
+            if not self.birthDate:
+                return _ret("direct", "pending_document", "Hijo sin fecha de nacimiento registrada — requiere verificación de edad")
+
+            age = self.calculate_age(ref)
+            if age < 18:
+                return _ret("direct", "eligible", f"Hijo menor de edad ({age} años) — cobertura directa")
+            elif 18 <= age <= 21:
+                if self.isStudent:
+                    exp = (self.studentCertificationExpiry or "").strip()
+                    if exp and exp < ref_str:
+                        return _ret("additional", "pending_document", f"Hijo estudiante ({age} años) con constancia de estudios vencida")
+                    return _ret("direct", "eligible", f"Hijo estudiante soltero ({age} años) — cobertura directa hasta 21 años")
+                else:
+                    return _ret("additional", "eligible", f"Hijo mayor de edad ({age} años) no estudiante — dependiente adicional")
+            else:
+                return _ret("additional", "eligible", f"Hijo mayor de 21 años ({age} años) — dependiente adicional")
+
+        # Padres -> Dependiente adicional
+        if rel in ("padre", "madre"):
+            return _ret("additional", "eligible", "Ascendiente en 1er grado — dependiente adicional")
+
+        # Otros familiares (hermanos, nietos, tutores, otro)
+        if self.category == "additional" or self.isFinancialDependent:
+            return _ret("additional", "eligible", f"Familiar ({self.relationshipName or rel}) registrado como adicional")
+
+        return _ret("informational", "ineligible", f"Familiar ({self.relationshipName or rel}) — registro informativo sin cobertura SFS")
 
 
 class AttendanceRecord(BaseModel):
@@ -338,14 +433,14 @@ class SalaryHistory(BaseModel):
 
 class MassAction(BaseModel):
     """Acción de personal masiva con workflow de aprobación."""
-    ACTION_TYPES = (
+    ACTION_TYPES: ClassVar[tuple] = (
         "salary_change",
         "position_change",
         "supervisor_change",
         "promotion",
         "mass_absence",
     )
-    STATUSES = ("draft", "pending_approval", "approved", "rejected", "processing", "completed", "partial", "failed")
+    STATUSES: ClassVar[tuple] = ("draft", "pending_approval", "approved", "rejected", "processing", "completed", "partial", "failed")
 
     id: str = ""
     actionType: str = "salary_change"

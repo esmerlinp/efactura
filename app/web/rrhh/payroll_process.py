@@ -1266,6 +1266,80 @@ def payroll_new():
                         if tx:
                             employee_transactions.append(tx.model_dump())
 
+                    # ── SFS Dependientes Adicionales ──
+                    emp_deps = dependents_by_employee.get(emp_id, [])
+                    insufficient_alert = None
+                    if emp_deps:
+                        is_second_q = False
+                        if emp_is_quincenal:
+                            parts = period_key.split("-") if period_key else []
+                            if len(parts) == 3 and parts[2] == "2":
+                                is_second_q = True
+                            elif period_info and period_info.get("quincena") == 2:
+                                is_second_q = True
+                            elif start_date:
+                                try:
+                                    is_second_q = int(start_date.split("-")[2]) > 15
+                                except Exception:
+                                    pass
+                        from app.services.payroll_service import PayrollService
+                        dep_res = PayrollService.calculate_dependents_additional(
+                            dependents=emp_deps,
+                            tax_rates=params,
+                            period_type="quincenal" if emp_is_quincenal else "mensual",
+                            period_start=start_date,
+                            period_end=end_date,
+                            is_second_quincena=is_second_q,
+                        )
+                        calc_dep_amt = float(dep_res.get("amount", 0.0))
+                        if calc_dep_amt > 0:
+                            earn_so_far = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "earning")
+                            ded_so_far = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "deduction")
+                            net_avail = max(0.0, earn_so_far - ded_so_far)
+                            deductible_dep_amt = calc_dep_amt
+                            if net_avail < calc_dep_amt:
+                                deductible_dep_amt = round(net_avail, 2)
+                                diff_amt = round(calc_dep_amt - deductible_dep_amt, 2)
+                                insufficient_alert = {
+                                    "employeeId": emp_id,
+                                    "employeeName": emp.get("fullName", emp_id),
+                                    "conceptCode": "SFS_DEP_ADICIONAL",
+                                    "calculatedAmount": calc_dep_amt,
+                                    "deductibleAmount": deductible_dep_amt,
+                                    "difference": diff_amt,
+                                    "eligibleCount": dep_res.get("eligibleCount", 0),
+                                    "details": dep_res.get("details", []),
+                                    "reason": f"Salario neto disponible (RD$ {net_avail:,.2f}) insuficiente para cubrir el descuento de dependientes adicionales SFS (RD$ {calc_dep_amt:,.2f}).",
+                                }
+                            if deductible_dep_amt > 0:
+                                dep_concept = concept_map.get("SFS_DEP_ADICIONAL")
+                                from app.models.transaction import PayrollTransaction as _PTx
+                                from app.services.payroll_concept_engine import build_concept_snapshot as _bcs
+                                employee_transactions.append(_PTx(
+                                    id=str(uuid.uuid4()), periodId=period_id, periodKey=period_key,
+                                    payrollLineId=line_id, employeeId=emp_id,
+                                    conceptCode="SFS_DEP_ADICIONAL", type="deduction",
+                                    amount=round(deductible_dep_amt, 2), source="dependents_additional",
+                                    status="applied", priority=115,
+                                    conceptSnapshot=_bcs(dep_concept) if dep_concept else {
+                                        "code": "SFS_DEP_ADICIONAL",
+                                        "name": "SFS Dependientes Adicionales",
+                                        "type": "deduction",
+                                        "category": "tss",
+                                        "affectsISR": False,
+                                        "affectsTSS": False,
+                                        "affectsNet": True,
+                                        "accountDebit": "",
+                                        "accountCredit": "2.1.2.1.07",
+                                        "conceptVersion": 1,
+                                        "isLegalMandatory": True,
+                                    },
+                                    periodYear=year,
+                                    notes=f"SFS Dependientes Adicionales ({dep_res.get('eligibleCount', 0)} elegibles)",
+                                    createdAt=datetime.now(timezone.utc).isoformat(),
+                                    updatedAt=datetime.now(timezone.utc).isoformat(),
+                                ).model_dump())
+
                     # ── ISR ──
                     isr_concept = concept_map.get("ISR_RETENCION")
                     if isr_concept:
@@ -1390,6 +1464,7 @@ def payroll_new():
                         "netSalary": round(net, 2), "totalEmployerContrib": round(employer, 2),
                         "afpEmployee": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "AFP_EMPLEADO"),
                         "sfsEmployee": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "SFS_EMPLEADO"),
+                        "sfsDependentsAdditional": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "SFS_DEP_ADICIONAL"),
                         "infotepEmployee": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "INFOTEP_EMPLEADO"),
                         "isrRetention": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "ISR_RETENCION"),
                         "afpEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "AFP_EMPLEADOR"),
@@ -1402,6 +1477,7 @@ def payroll_new():
                         "leaveDeductionDays": leave_deduction_days,
                         "recurringDeductionsBreakdown": recurring_details,
                         "recurringAdditionsBreakdown": recurring_additions_details,
+                        "insufficientSalaryAlert": insufficient_alert,
                     }
 
                     lines.append(line)
@@ -2318,6 +2394,80 @@ def payroll_simulate():
                 else:
                     pass
 
+            # ── SFS Dependientes Adicionales ──
+            emp_deps = dependents_by_employee.get(emp_id, [])
+            insufficient_alert = None
+            if emp_deps:
+                is_second_q = False
+                if emp_is_quincenal:
+                    parts = period_key.split("-") if period_key else []
+                    if len(parts) == 3 and parts[2] == "2":
+                        is_second_q = True
+                    elif period_info and period_info.get("quincena") == 2:
+                        is_second_q = True
+                    elif start_date:
+                        try:
+                            is_second_q = int(start_date.split("-")[2]) > 15
+                        except Exception:
+                            pass
+                from app.services.payroll_service import PayrollService
+                dep_res = PayrollService.calculate_dependents_additional(
+                    dependents=emp_deps,
+                    tax_rates=params,
+                    period_type="quincenal" if emp_is_quincenal else "mensual",
+                    period_start=start_date,
+                    period_end=end_date,
+                    is_second_quincena=is_second_q,
+                )
+                calc_dep_amt = float(dep_res.get("amount", 0.0))
+                if calc_dep_amt > 0:
+                    earn_so_far = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "earning")
+                    ded_so_far = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "deduction")
+                    net_avail = max(0.0, earn_so_far - ded_so_far)
+                    deductible_dep_amt = calc_dep_amt
+                    if net_avail < calc_dep_amt:
+                        deductible_dep_amt = round(net_avail, 2)
+                        diff_amt = round(calc_dep_amt - deductible_dep_amt, 2)
+                        insufficient_alert = {
+                            "employeeId": emp_id,
+                            "employeeName": emp.get("fullName", emp_id),
+                            "conceptCode": "SFS_DEP_ADICIONAL",
+                            "calculatedAmount": calc_dep_amt,
+                            "deductibleAmount": deductible_dep_amt,
+                            "difference": diff_amt,
+                            "eligibleCount": dep_res.get("eligibleCount", 0),
+                            "details": dep_res.get("details", []),
+                            "reason": f"Salario neto disponible (RD$ {net_avail:,.2f}) insuficiente para cubrir el descuento de dependientes adicionales SFS (RD$ {calc_dep_amt:,.2f}).",
+                        }
+                    if deductible_dep_amt > 0:
+                        dep_concept = concept_map.get("SFS_DEP_ADICIONAL")
+                        from app.models.transaction import PayrollTransaction as _PTx
+                        from app.services.payroll_concept_engine import build_concept_snapshot as _bcs
+                        employee_transactions.append(_PTx(
+                            id=str(uuid.uuid4()), periodId=sim_period_id, periodKey=period_key,
+                            payrollLineId=line_id, employeeId=emp_id,
+                            conceptCode="SFS_DEP_ADICIONAL", type="deduction",
+                            amount=round(deductible_dep_amt, 2), source="dependents_additional",
+                            status="applied", priority=115,
+                            conceptSnapshot=_bcs(dep_concept) if dep_concept else {
+                                "code": "SFS_DEP_ADICIONAL",
+                                "name": "SFS Dependientes Adicionales",
+                                "type": "deduction",
+                                "category": "tss",
+                                "affectsISR": False,
+                                "affectsTSS": False,
+                                "affectsNet": True,
+                                "accountDebit": "",
+                                "accountCredit": "2.1.2.1.07",
+                                "conceptVersion": 1,
+                                "isLegalMandatory": True,
+                            },
+                            periodYear=int(period_key[:4]) if period_key and len(period_key) >= 4 else 0,
+                            notes=f"SFS Dependientes Adicionales ({dep_res.get('eligibleCount', 0)} elegibles)",
+                            createdAt=datetime.now(timezone.utc).isoformat(),
+                            updatedAt=datetime.now(timezone.utc).isoformat(),
+                        ).model_dump())
+
             # ── ISR vía ConceptEngine ──
             # Extraer AFP/SFS ya calculados para restarlos de la base imponible (consistente con PayrollService)
             afp_ded = sum(
@@ -2411,6 +2561,7 @@ def payroll_simulate():
                 "totalEmployerContrib": round(employer, 2),
                 "afpEmployee": sum_by_concept(employee_transactions, "AFP_EMPLEADO"),
                 "sfsEmployee": sum_by_concept(employee_transactions, "SFS_EMPLEADO"),
+                "sfsDependentsAdditional": sum_by_concept(employee_transactions, "SFS_DEP_ADICIONAL"),
                 "isrRetention": sum_by_concept(employee_transactions, "ISR_RETENCION"),
                 "otherDeductions": round(build_manual_other_deductions(employee_transactions) - insurance_deduction, 2),
                 "insuranceDeduction": round(insurance_deduction, 2),
@@ -2418,6 +2569,7 @@ def payroll_simulate():
                 "leaveDeductionDays": leave_deduction_days,
                 "recurringDeductionsBreakdown": recurring_deductions_details,
                 "recurringAdditionsBreakdown": recurring_additions_details,
+                "insufficientSalaryAlert": insufficient_alert,
             }
 
             # Ensure rule-generated amounts are excluded from fixed columns

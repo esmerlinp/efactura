@@ -60,6 +60,7 @@ class PayrollPolicy(BaseModel):
     accountInfotepEmployer: str = "2.1.2.1.12"
     accountInfotepEmployee: str = "2.1.2.1.12"
     accountOtherDeductions: str = "2.1.2.1.13"
+    accountSfsDependentsAdditional: str = "2.1.2.1.07"
 
     costCenterAccounts: dict = Field(default_factory=lambda: {
         "General": "6.2.1.01",
@@ -90,6 +91,7 @@ class PayrollPolicy(BaseModel):
             "afp_salary_cap": self.afpSalaryCap,
             "sfs_salary_cap": self.sfsSalaryCap,
             "min_salary": self.minSalary,
+            "dependents_additional_rate": self.dependentsAdditionalRate,
             "education_deduction": self.educationDeduction,
             "isr_table": self.isrAnnualTable,
             "overtime_rate": self.overtimeRate,
@@ -99,6 +101,7 @@ class PayrollPolicy(BaseModel):
             "account_salaries_payable": self.accountSalariesPayable,
             "account_afp_employee": self.accountAfpEmployee,
             "account_sfs_employee": self.accountSfsEmployee,
+            "account_sfs_dependents_additional": self.accountSfsDependentsAdditional,
             "account_isr_employee": self.accountIsrEmployee,
             "account_afp_employer": self.accountAfpEmployer,
             "account_sfs_employer": self.accountSfsEmployer,
@@ -129,6 +132,7 @@ class PolicyOverride(BaseModel):
     sfsSalaryCap: Optional[float] = None
     infotepThresholdMultiplier: Optional[float] = None
     minSalary: Optional[float] = None
+    dependentsAdditionalRate: Optional[float] = None
 
     # ISR
     isrAnnualTable: Optional[list] = None
@@ -143,6 +147,7 @@ class PolicyOverride(BaseModel):
     accountSalariesPayable: Optional[str] = None
     accountAfpEmployee: Optional[str] = None
     accountSfsEmployee: Optional[str] = None
+    accountSfsDependentsAdditional: Optional[str] = None
     accountIsrEmployee: Optional[str] = None
     accountAfpEmployer: Optional[str] = None
     accountSfsEmployer: Optional[str] = None
@@ -165,6 +170,7 @@ class PolicyOverride(BaseModel):
             "afp_salary_cap": self.afpSalaryCap,
             "sfs_salary_cap": self.sfsSalaryCap,
             "min_salary": self.minSalary,
+            "dependents_additional_rate": self.dependentsAdditionalRate,
             "education_deduction": self.educationDeduction,
             "isr_table": self.isrAnnualTable,
             "overtime_rate": self.overtimeRate,
@@ -174,6 +180,7 @@ class PolicyOverride(BaseModel):
             "account_salaries_payable": self.accountSalariesPayable,
             "account_afp_employee": self.accountAfpEmployee,
             "account_sfs_employee": self.accountSfsEmployee,
+            "account_sfs_dependents_additional": self.accountSfsDependentsAdditional,
             "account_isr_employee": self.accountIsrEmployee,
             "account_afp_employer": self.accountAfpEmployer,
             "account_sfs_employer": self.accountSfsEmployer,

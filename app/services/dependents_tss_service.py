@@ -18,7 +18,7 @@ _DETALLE_LENGTH = 158
 
 def _ascii_upper(s: str) -> str:
     """Convierte a uppercase ASCII: elimina tildes, ñ→n, etc."""
-    nfkd = unicodedata.normalize("NFKD", s)
+    nfkd = unicodedata.normalize("NFKD", s or "")
     return nfkd.encode("ascii", "ignore").decode("ascii").upper()
 
 
@@ -29,6 +29,9 @@ def _clean_doc(doc: str) -> str:
 
 def validate_rd_export(employees: list, dependents_map: dict) -> list:
     """Valida que los datos estén listos para exportar el archivo RD.
+
+    Solo valida los dependientes adicionales elegibles (los dependientes directos o
+    informativos no forman parte del archivo RD de la TSS).
 
     Retorna lista de errores. Si está vacía, la exportación puede proceder.
     """
@@ -47,6 +50,16 @@ def validate_rd_export(employees: list, dependents_map: dict) -> list:
 
         deps = [d for d in dependents_map.get(emp_id, []) if d.get("active", True)]
         for dep in deps:
+            cat = dep.get("category", "")
+            rel = (dep.get("relationshipCode", "") or "").strip()
+            eligibility = dep.get("eligibilityStatus", "eligible")
+
+            # Solo validar dependientes adicionales destinados a reporte RD
+            if cat in ("direct", "informational") or eligibility == "ineligible":
+                continue
+            if not cat and rel not in _TSS_RD_VALID_RELATIONSHIPS:
+                continue
+
             dep_name = f"{dep.get('firstName', '')} {dep.get('firstLastName', '')}".strip()
             dep_id = dep.get("id", "")
 
@@ -57,9 +70,8 @@ def validate_rd_export(employees: list, dependents_map: dict) -> list:
             if not id_num:
                 errors.append(f"Dependiente {dep_name or dep_id}: sin documento de identidad")
 
-            rel = (dep.get("relationshipCode", "") or "").strip()
             if rel not in _TSS_RD_VALID_RELATIONSHIPS:
-                errors.append(f"Dependiente {dep_name or dep_id}: parentesco '{rel}' no es ascendiente en primer grado (padre/madre)")
+                errors.append(f"Dependiente {dep_name or dep_id}: parentesco '{rel}' no es admitido en el archivo RD (solo ascendientes en 1er grado: padre/madre)")
 
     return errors
 
@@ -68,6 +80,8 @@ def generate_tss_rd(
     employees: list,
     employer_rnc: str,
     dependents_by_employee: Optional[dict] = None,
+    company_id: str = "",
+    sandbox: bool = True,
 ) -> dict:
     """Genera archivo RD — Registro de Dependientes Adicionales en formato SUIRPLUS v5.0.
 
@@ -83,6 +97,8 @@ def generate_tss_rd(
         employer_rnc: RNC o Cédula del empleador (sin guiones, 11 dígitos).
         dependents_by_employee: Dict {employee_id: [dependent_dict, ...]} con
             dependientes pre-cargados. Si es None, no se incluirán dependientes.
+        company_id: ID de la empresa.
+        sandbox: Flag de sandbox.
 
     Returns:
         Dict con {content, filename, total_dependientes, total_registros, errors}.
@@ -95,9 +111,7 @@ def generate_tss_rd(
     now = datetime.now()
     periodo_mmaaaa = now.strftime("%m%Y")
 
-    # Clave de filtrado: solo ascendientes en primer grado
     valid_rels = _TSS_RD_VALID_RELATIONSHIPS
-
     output_lines = []
 
     # ═══════════════════════════════════════════════════════════════
@@ -138,6 +152,14 @@ def generate_tss_rd(
             if not dep.get("active", True):
                 continue
 
+            cat = dep.get("category", "")
+            if cat in ("direct", "informational"):
+                continue
+
+            eligibility = dep.get("eligibilityStatus", "eligible")
+            if eligibility == "ineligible":
+                continue
+
             rel = (dep.get("relationshipCode", "") or "").strip()
             if rel not in valid_rels:
                 continue
@@ -146,22 +168,34 @@ def generate_tss_rd(
             if dep_doc_type not in ("C", "N"):
                 dep_doc_type = "C"
 
+            # Documento dependiente (11) — Pos 148-158
             dep_doc = _clean_doc(dep.get("idNumber", "") or "")
             if not dep_doc:
                 continue
-
             dep_doc = dep_doc.ljust(11)[:11]
 
-            # Nombres (40): primer y segundo nombre concatenados
+            # Nombres (50 chars) — Pos 17-66: primer y segundo nombre concatenados
             nombres_raw = f"{dep.get('firstName', '')} {dep.get('middleName', '')}".strip()
-            nombres = _ascii_upper(nombres_raw).ljust(40)[:40]
+            nombres = _ascii_upper(nombres_raw).ljust(50)[:50]
 
-            # Primer apellido (40)
+            # Primer apellido (40 chars) — Pos 67-106
             apellido1 = _ascii_upper(dep.get("firstLastName", "") or "").ljust(40)[:40]
 
-            # Segundo apellido (40)
+            # Segundo apellido (40 chars) — Pos 107-146
             apellido2 = _ascii_upper(dep.get("secondLastName", "") or "").ljust(40)[:40]
 
+            # ═══════════════════════════════════════════════════════════════
+            # Layout oficial TSS RD v5.0 (158 caracteres):
+            # Pos 1:       Tipo Registro ("D", 1)
+            # Pos 2-4:     Clave Nómina TSS titular (3)
+            # Pos 5:       Tipo Documento titular ("C"/"N", 1)
+            # Pos 6-16:    Número Documento titular (11)
+            # Pos 17-66:   Nombres dependiente (50)
+            # Pos 67-106:  Primer apellido dependiente (40)
+            # Pos 107-146: Segundo apellido dependiente (40)
+            # Pos 147:     Tipo Documento dependiente ("C"/"N", 1)
+            # Pos 148-158: Número Documento dependiente (11)
+            # ═══════════════════════════════════════════════════════════════
             detalle = (
                 "D"
                 + tss_key.rjust(3)
@@ -174,12 +208,9 @@ def generate_tss_rd(
                 + dep_doc
             )
 
-            # Asegurar longitud fija de 158 caracteres (padding al final)
-            if len(detalle) < _DETALLE_LENGTH:
-                detalle = detalle.ljust(_DETALLE_LENGTH)
-            detalle = detalle[:_DETALLE_LENGTH]
-
-            assert len(detalle) == _DETALLE_LENGTH, f"Detalle RD: {len(detalle)} chars, deben ser {_DETALLE_LENGTH}"
+            assert len(detalle) == _DETALLE_LENGTH, (
+                f"Detalle RD: {len(detalle)} chars, deben ser {_DETALLE_LENGTH}"
+            )
             output_lines.append(detalle)
             dependientes_contados += 1
 

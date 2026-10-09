@@ -106,6 +106,20 @@ class TSSResolver:
             tss_base_capped = capped
             note = f"SFS emp: {rate*100:.2f}% s/{capped:,.2f}"
 
+        elif concept_code == "SFS_DEP_ADICIONAL":
+            additional_rate = float(params.get("dependents_additional_rate", 1919.78) or 0.0)
+            if hasattr(context, "get"):
+                dep_count = int(context.get("additionalDependentsCount", 0))
+                if "dependentsAdditionalAmount" in context:
+                    amount = float(context.get("dependentsAdditionalAmount", 0))
+                else:
+                    period_rate = round(additional_rate / 2, 2) if is_q else additional_rate
+                    amount = round(period_rate * dep_count, 2)
+            else:
+                dep_count = getattr(context, "additionalDependentsCount", 0)
+                amount = getattr(context, "dependentsAdditionalAmount", round((round(additional_rate / 2, 2) if is_q else additional_rate) * dep_count, 2))
+            note = f"SFS dep. adicionales ({dep_count}) @ {additional_rate:,.2f}/mes"
+
         elif concept_code == "SFS_EMPLEADOR":
             capped = min(tss_base, sfs_cap_period)
             rate = params.get("sfs_employer_rate", 0.0709)

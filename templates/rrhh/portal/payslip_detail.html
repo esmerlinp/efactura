@@ -45,6 +45,9 @@
             {% else %}
             <tr><td style="padding-left:20px;">AFP</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.afpEmployee|float) }}</td></tr>
             <tr><td style="padding-left:20px;">SFS</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.sfsEmployee|float) }}</td></tr>
+            {% if line.get('sfsDependentsAdditional', 0)|float > 0 %}
+            <tr><td style="padding-left:20px;">SFS Dependientes Adicionales</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.sfsDependentsAdditional|float) }}</td></tr>
+            {% endif %}
             <tr><td style="padding-left:20px;">INFOTEP</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.get('infotepEmployee', 0)|float) }}</td></tr>
             <tr><td style="padding-left:20px;">ISR</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.isrRetention|float) }}</td></tr>
             <tr><td style="padding-left:20px;">Otras deducciones</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.otherDeductions|float) }}</td></tr>

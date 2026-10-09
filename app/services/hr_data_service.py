@@ -967,6 +967,39 @@ def get_employee_dependents(company_id: str, employee_id: str, sandbox: bool = T
         return []
 
 
+def get_employee_dependent(company_id: str, dep_id: str, sandbox: bool = True) -> Optional[dict]:
+    """Obtiene un dependiente específico por su ID."""
+    if not firebase_initialized or db_firestore is None or not dep_id:
+        return None
+    try:
+        coll_path = _hr_company_path(company_id, "employee_dependents", sandbox)
+        doc = db_firestore.collection(coll_path).document(dep_id).get()
+        if doc.exists:
+            return {"id": doc.id, **doc.to_dict()}
+    except Exception as e:
+        print(f"⚠️ get_employee_dependent: {e}")
+    return None
+
+
+def is_dependent_doc_duplicate(company_id: str, id_number: str, exclude_dep_id: str = "", sandbox: bool = True) -> bool:
+    """Valida si ya existe un dependiente activo con el mismo idNumber en la empresa."""
+    clean_id = "".join(c for c in (id_number or "") if c.isdigit())
+    if not clean_id or not firebase_initialized or db_firestore is None:
+        return False
+    try:
+        coll_path = _hr_company_path(company_id, "employee_dependents", sandbox)
+        docs = db_firestore.collection(coll_path)\
+            .where(filter=FieldFilter("active", "==", True))\
+            .where(filter=FieldFilter("idNumber", "==", clean_id))\
+            .get()
+        for d in docs:
+            if d.id != exclude_dep_id:
+                return True
+    except Exception as e:
+        print(f"⚠️ is_dependent_doc_duplicate: {e}")
+    return False
+
+
 def get_employee_dependents_active(company_id: str, employee_id: str, sandbox: bool = True) -> list:
     """Retorna solo dependientes activos."""
     all_deps = get_employee_dependents(company_id, employee_id, sandbox=sandbox)
@@ -986,22 +1019,57 @@ def save_employee_dependent(company_id: str, data: dict, sandbox: bool = True):
         print(f"⚠️ save_employee_dependent: {e}")
 
 
+def update_employee_dependent(company_id: str, dep_id: str, data: dict, sandbox: bool = True, updated_by: str = "") -> Optional[dict]:
+    """Actualiza los datos de un dependiente existente."""
+    if not firebase_initialized or db_firestore is None:
+        return None
+    try:
+        coll_path = _hr_company_path(company_id, "employee_dependents", sandbox)
+        doc_ref = db_firestore.collection(coll_path).document(dep_id)
+        existing = doc_ref.get()
+        if not existing.exists:
+            return None
+
+        update_data = dict(data)
+        update_data.pop("id", None)
+        update_data.pop("createdAt", None)
+        update_data.pop("createdBy", None)
+        update_data["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        if updated_by:
+            update_data["updatedBy"] = updated_by
+
+        doc_ref.update(update_data)
+        updated = existing.to_dict()
+        updated.update(update_data)
+        updated["id"] = dep_id
+        return updated
+    except Exception as e:
+        print(f"⚠️ update_employee_dependent: {e}")
+        return None
+
+
 def deactivate_employee_dependent(company_id: str, dep_id: str, sandbox: bool = True,
-                                  updated_by: str = "", end_date: str = ""):
+                                  updated_by: str = "", end_date: str = "", reason: str = ""):
     """Desactiva un dependiente en lugar de eliminarlo físicamente."""
     if not firebase_initialized or db_firestore is None:
-        return
+        return False
     try:
         coll_path = _hr_company_path(company_id, "employee_dependents", sandbox)
         update_data = {"active": False}
         if end_date:
             update_data["endDate"] = end_date
+            update_data["effectiveEndDate"] = end_date
+        if reason:
+            update_data["deactivationReason"] = reason
+        update_data["eligibilityStatus"] = "ineligible"
         if updated_by:
             update_data["updatedBy"] = updated_by
         update_data["updatedAt"] = datetime.now(timezone.utc).isoformat()
         db_firestore.collection(coll_path).document(dep_id).update(update_data)
+        return True
     except Exception as e:
         print(f"⚠️ deactivate_employee_dependent: {e}")
+        return False
 
 
 def get_dependents_for_employees(company_id: str, employee_ids: list, sandbox: bool = True) -> dict:

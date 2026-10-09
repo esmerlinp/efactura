@@ -101,7 +101,11 @@ class PayrollService:
             "afp_salary_cap": tax_rates.get("afpSalaryCap", _AFP_SALARY_CAP),
             "sfs_salary_cap": tax_rates.get("sfsSalaryCap", _SFS_SALARY_CAP),
             "min_salary": tax_rates.get("minSalary", _MIN_SALARY),
-            "dependents_additional_rate": tax_rates.get("dependentsAdditionalRate", _DEPENDENTS_ADDITIONAL_RATE),
+            "dependents_additional_rate": float(
+                tax_rates.get("dependentsAdditionalRate")
+                if tax_rates.get("dependentsAdditionalRate") is not None
+                else tax_rates.get("dependents_additional_rate", _DEPENDENTS_ADDITIONAL_RATE)
+            ),
             "education_deduction": tax_rates.get("educationDeduction", _ANNUAL_EDUCATION_DEDUCTION),
             "isr_table": tax_rates.get("isrAnnualTable", _ISR_ANNUAL_TABLE),
             "overtime_rate": tax_rates.get("overtimeRate", _DEFAULT_OVERTIME_RATE),
@@ -550,6 +554,7 @@ class PayrollService:
         education_deduction: float = 0.0,
         period_type: str = "mensual",
         prorated_salary: float = None,
+        sfs_dependents_additional: float = 0.0,
     ) -> dict:
         """
         Calcula una línea de nómina completa.
@@ -567,6 +572,7 @@ class PayrollService:
             period_type: "mensual" o "quincenal".
             prorated_salary: Salario ya prorrateado para el período (entrada a mitad, salida, cambio salarial).
                              Si es None, se calcula normalmente.
+            sfs_dependents_additional: Descuento adicional de SFS por dependientes adicionales.
         """
         r = cls.get_rates(tax_rates)
         if overtime_rate is None:
@@ -613,7 +619,7 @@ class PayrollService:
             tax_rates=r,
         )
 
-        total_deductions = round(afp_employee + sfs_employee + infotep_employee + isr_monthly + other_deductions, 2)
+        total_deductions = round(afp_employee + sfs_employee + infotep_employee + isr_monthly + sfs_dependents_additional + other_deductions, 2)
         net_salary = round(total_income - total_deductions, 2)
 
         # ── 4. Aportes empleador ────────────────────────────────────────
@@ -636,6 +642,7 @@ class PayrollService:
             "totalIncome": total_income,
             "afpEmployee": afp_employee,
             "sfsEmployee": sfs_employee,
+            "sfsDependentsAdditional": sfs_dependents_additional,
             "infotepEmployee": infotep_employee,
             "isrRetention": isr_monthly,
             "otherDeductions": other_deductions,
@@ -646,6 +653,197 @@ class PayrollService:
             "srlEmployer": srl_employer,
             "infotepEmployer": infotep_employer,
             "totalEmployerContrib": total_employer,
+        }
+
+    @classmethod
+    def calculate_dependents_additional(
+        cls,
+        dependents: list,
+        tax_rates: dict = None,
+        period_type: str = "mensual",
+        period_start: str = "",
+        period_end: str = "",
+        is_second_quincena: bool = False,
+    ) -> dict:
+        """
+        Calcula el importe de dependientes adicionales para el período de nómina.
+
+        Reglas:
+        - Tarifa mensual aplicable por dependiente adicional elegible:
+            * Octubre 2026 en adelante: RD$ 1,970.42 (Cápita RD$ 1,938.18 + FONAMAT RD$ 32.24)
+            * Histórico (< 2026-10-01): RD$ 1,919.78
+        - Quincenal: 50% cada quincena con balanceo exacto de centavos.
+        - Prorrateo por días: Si la fecha efectiva de alta o baja cae dentro del período.
+
+        Returns:
+            {
+                "eligible_count": int,
+                "monthly_rate": float,
+                "capita_rate": float,
+                "fonamat_rate": float,
+                "period_amount": float,
+                "breakdown": list[dict],
+            }
+        """
+        from app.models.employee import Dependent
+        from app.countries.do.payroll_rules import (
+            get_sfs_dependents_additional_rate_schedule,
+            DEFAULT_SFS_DEPENDENTS_ADDITIONAL_RATE,
+        )
+
+        p_start_d = None
+        p_end_d = None
+        total_days = 30 if period_type == "mensual" else 15
+        if period_start and period_end:
+            try:
+                p_start_d = datetime.strptime(period_start[:10], "%Y-%m-%d").date()
+                p_end_d = datetime.strptime(period_end[:10], "%Y-%m-%d").date()
+                total_days = max(1, (p_end_d - p_start_d).days + 1)
+            except (ValueError, TypeError):
+                pass
+
+        ref_date = p_start_d or p_end_d or date.today()
+        ref_date_str = ref_date.isoformat() if hasattr(ref_date, "isoformat") else str(ref_date)[:10]
+
+        # Resolver tarifas según fecha de período o override explícito
+        sched = get_sfs_dependents_additional_rate_schedule(ref_date_str)
+        default_total = sched["total_rate"]
+
+        r = cls.get_rates(tax_rates) if tax_rates else {}
+        explicit_rate = None
+        if tax_rates and isinstance(tax_rates, dict):
+            if "dependentsAdditionalRate" in tax_rates:
+                explicit_rate = tax_rates["dependentsAdditionalRate"]
+            elif "dependents_additional_rate" in tax_rates:
+                explicit_rate = tax_rates["dependents_additional_rate"]
+
+        if explicit_rate is not None:
+            monthly_rate = float(explicit_rate)
+            if abs(monthly_rate - sched["total_rate"]) < 0.01:
+                capita_rate = sched["capita_rate"]
+                fonamat_rate = sched["fonamat_rate"]
+            else:
+                capita_rate = monthly_rate
+                fonamat_rate = 0.0
+        else:
+            monthly_rate = default_total
+            capita_rate = sched["capita_rate"]
+            fonamat_rate = sched["fonamat_rate"]
+
+        if monthly_rate <= 0 or not dependents:
+            return {
+                "amount": 0.0,
+                "period_amount": 0.0,
+                "eligibleCount": 0,
+                "eligible_count": 0,
+                "monthly_rate": monthly_rate,
+                "capita_rate": capita_rate,
+                "fonamat_rate": fonamat_rate,
+                "details": [],
+                "breakdown": [],
+            }
+
+        eligible_count = 0
+        total_period_amount = 0.0
+        breakdown = []
+
+        for d_raw in dependents:
+            if isinstance(d_raw, Dependent):
+                dep = d_raw
+            elif isinstance(d_raw, dict):
+                dep = Dependent(**d_raw)
+            else:
+                continue
+
+            dep_start_str = (dep.effectiveStartDate or dep.createdAt or "").strip()
+            dep_end_str = (dep.effectiveEndDate or dep.endDate or "").strip()
+
+            dep_start_d = None
+            dep_end_d = None
+            if dep_start_str:
+                try:
+                    dep_start_d = datetime.strptime(dep_start_str[:10], "%Y-%m-%d").date()
+                except (ValueError, TypeError):
+                    pass
+            if dep_end_str:
+                try:
+                    dep_end_d = datetime.strptime(dep_end_str[:10], "%Y-%m-%d").date()
+                except (ValueError, TypeError):
+                    pass
+
+            if p_start_d and p_end_d:
+                if dep_end_d and dep_end_d < p_start_d:
+                    continue
+                if dep_start_d and dep_start_d > p_end_d:
+                    continue
+
+                eff_start = max(p_start_d, dep_start_d) if dep_start_d else p_start_d
+                eff_end = min(p_end_d, dep_end_d) if dep_end_d else p_end_d
+                active_days = max(0, (eff_end - eff_start).days + 1)
+            else:
+                active_days = total_days
+
+            if active_days <= 0:
+                continue
+
+            # Evaluar categoría y elegibilidad durante la ventana activa del período
+            eff_eval_date = max(p_start_d, dep_start_d) if (p_start_d and dep_start_d) else ref_date
+            cat, elig_status, reason = dep.resolve_category_and_eligibility(reference_date=eff_eval_date)
+            if cat != "additional" or elig_status != "eligible":
+                continue
+
+            if period_type == "quincenal":
+                q1_capita = round(capita_rate / 2, 2)
+                q2_capita = round(capita_rate - q1_capita, 2)
+                base_capita = q2_capita if is_second_quincena else q1_capita
+
+                q1_fonamat = round(fonamat_rate / 2, 2)
+                q2_fonamat = round(fonamat_rate - q1_fonamat, 2)
+                base_fonamat = q2_fonamat if is_second_quincena else q1_fonamat
+            else:
+                base_capita = capita_rate
+                base_fonamat = fonamat_rate
+
+            if active_days < total_days:
+                ratio = active_days / total_days
+                dep_capita = round(base_capita * ratio, 2)
+                dep_fonamat = round(base_fonamat * ratio, 2)
+                dep_amount = round(dep_capita + dep_fonamat, 2)
+            else:
+                dep_capita = base_capita
+                dep_fonamat = base_fonamat
+                dep_amount = round(base_capita + base_fonamat, 2)
+
+            eligible_count += 1
+            total_period_amount = round(total_period_amount + dep_amount, 2)
+
+            name = dep.full_name or f"{dep.firstName} {dep.firstLastName}".strip() or dep.id
+            breakdown.append({
+                "dependentId": dep.id,
+                "name": name,
+                "relationship": dep.relationshipName or dep.relationshipCode,
+                "relationshipCode": dep.relationshipCode,
+                "activeDays": active_days,
+                "totalDays": total_days,
+                "proratedRatio": round(active_days / total_days, 4) if total_days > 0 else 1.0,
+                "capitaAmount": dep_capita,
+                "fonamatAmount": dep_fonamat,
+                "amount": dep_amount,
+                "category": cat,
+                "eligibilityStatus": elig_status,
+                "reason": reason,
+            })
+
+        return {
+            "amount": total_period_amount,
+            "period_amount": total_period_amount,
+            "eligibleCount": eligible_count,
+            "eligible_count": eligible_count,
+            "monthly_rate": monthly_rate,
+            "capita_rate": capita_rate,
+            "fonamat_rate": fonamat_rate,
+            "details": breakdown,
+            "breakdown": breakdown,
         }
 
     @classmethod
@@ -1402,6 +1600,7 @@ class PayrollService:
         total_infotep = 0.0
         total_infotep_emp = 0.0
         total_other_ded = 0.0
+        total_sfs_dep_adic = 0.0
 
         cc_accounts = r.get("cost_center_accounts", cls.DEFAULT_COST_CENTER_ACCOUNTS)
 
@@ -1438,6 +1637,7 @@ class PayrollService:
             total_infotep += pl.get("infotepEmployer", 0)
             total_infotep_emp += pl.get("infotepEmployee", 0)
             total_other_ded += pl.get("otherDeductions", 0)
+            total_sfs_dep_adic += pl.get("sfsDependentsAdditional", 0)
 
             emp_id = pl.get("employeeId", "")
             emp = employees.get(emp_id, {})
@@ -1539,6 +1739,15 @@ class PayrollService:
                 "accountName": resolved["accountName"],
                 "debit": 0.00, "credit": round(total_sfs_emp, 2),
                 "description": f"SFS empleado {period_label}",
+            })
+        if total_sfs_dep_adic > 0:
+            resolved = _acc("nomina_sfs_dependientes_adicionales", fallback_code=r.get("account_sfs_dependents_additional", "2.1.2.1.07"), fallback_name="Retenciones SFS Dependientes Adicionales")
+            lines.append({
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
+                "debit": 0.00, "credit": round(total_sfs_dep_adic, 2),
+                "description": f"SFS Dependientes Adicionales {period_label}",
             })
         if total_isr > 0:
             resolved = _acc("nomina_isr_empleado", fallback_code=r["account_isr_employee"], fallback_name="Retención ISR empleados")
