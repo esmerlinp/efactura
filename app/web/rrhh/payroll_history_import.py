@@ -247,14 +247,15 @@ def _delete_imported_transactions(company_id, employee_id, period_key, sandbox):
             return
         docs = db_firestore.collection(coll_path)\
             .where("employeeId", "==", employee_id).get()
-        batch = db_firestore.batch()
-        count = 0
-        for d in docs:
-            t = d.to_dict()
-            if t.get("source") == "import" and t.get("periodKey") == period_key:
+        to_delete = [
+            d for d in docs
+            if d.to_dict().get("source") == "import" and d.to_dict().get("periodKey") == period_key
+        ]
+        batch_size = 400
+        for i in range(0, len(to_delete), batch_size):
+            batch = db_firestore.batch()
+            for d in to_delete[i:i + batch_size]:
                 batch.delete(d.reference)
-                count += 1
-        if count:
             batch.commit()
     except Exception as e:
         print(f"⚠️ [hist-import] Error eliminando transacciones previas: {e}")
@@ -314,7 +315,7 @@ def _build_line_from_transactions(txs):
 
 
 def build_import_transactions(employee, contract_id, period_key, period_year,
-                              values, concepts_by_code, now_iso):
+                              values, concepts_by_code, now_iso, batch_id=""):
     """Construye las PayrollTransaction (dicts) para un empleado+período.
 
     ``values`` es un dict {field_id: raw_value} con los valores ya mapeados.
@@ -353,6 +354,8 @@ def build_import_transactions(employee, contract_id, period_key, period_year,
             "priority": 100,
             "periodYear": period_year,
             "notes": "Importación histórica de nómina",
+            "importBatchId": batch_id,
+            "isHistorical": True,
             "createdAt": now_iso,
             "updatedAt": now_iso,
         })
@@ -387,13 +390,228 @@ def _rebuild_ytd_for_employee(company_id, employee_id, year, contract_id, sandbo
 _MONTHS_ES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
 
+def sync_imported_payroll_periods(company_id, batch_id="", imported_by="", sandbox=True) -> list:
+    """Genera/actualiza documentos PayrollPeriod en Firestore para los períodos importados.
+
+    Crea documentos con status='cerrada', isHistorical=True, source='import',
+    isExternallyAccounted=True, accountingEntryGenerated=True y sus líneas
+    correspondientes. Esto permite que el IR-13, TSS y la secuencia de períodos
+    reconozcan los antecedentes históricos sin generar asientos ni requerir workflow.
+    """
+    from app.services.db_service import db_firestore, firebase_initialized
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = hr._hr_company_path(company_id, "payroll_transactions", sandbox)
+        if not coll_path:
+            return []
+        docs = db_firestore.collection(coll_path).where("source", "==", "import").get()
+        txs = [{"id": d.id, **d.to_dict()} for d in docs]
+    except Exception as e:
+        print(f"⚠️ [hist-import] Error leyendo transacciones importadas: {e}")
+        return []
+
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    emp_map = {e.get("id"): e for e in employees if e.get("id")}
+
+    by_period = {}
+    for t in txs:
+        if t.get("status") not in ("applied", "adjusted"):
+            continue
+        pk = t.get("periodKey") or ""
+        if not pk:
+            continue
+        by_period.setdefault(pk, []).append(t)
+
+    # ── Limpieza de períodos históricos obsoletos (ej. tras reversión de lotes) ──
+    existing_periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
+    for ep in existing_periods:
+        if ep.get("isHistorical") or ep.get("source") == "import" or str(ep.get("id", "")).startswith("imp_"):
+            ep_key = ep.get("periodKey", "")
+            if ep_key not in by_period:
+                try:
+                    hr.delete_payroll_period(company_id, ep["id"], sandbox=sandbox)
+                    hr.delete_payroll_lines(company_id, ep["id"], sandbox=sandbox)
+                except Exception as e:
+                    print(f"⚠️ [hist-import] Error eliminando período histórico obsoleto {ep.get('id')}: {e}")
+
+    synced_periods = []
+    max_imported_pk = ""
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    for pk, pts in by_period.items():
+        if pk > max_imported_pk:
+            max_imported_pk = pk
+        year, month, suffix = _split_period_key(pk)
+        if not year or not month:
+            continue
+
+        by_emp = {}
+        for t in pts:
+            eid = t.get("employeeId", "")
+            if eid:
+                by_emp.setdefault(eid, []).append(t)
+
+        lines = []
+        total_income = 0.0
+        total_deductions = 0.0
+        total_employer = 0.0
+        total_isr = 0.0
+        total_tss_employee = 0.0
+        total_tss_employer = 0.0
+
+        for eid, emp_txs in by_emp.items():
+            emp_info = emp_map.get(eid, {})
+            l_dict = _build_line_from_transactions(emp_txs)
+
+            horas_extra = sum(float(t.get("amount", 0)) for t in emp_txs if t.get("conceptCode") == "HORAS_EXTRA")
+            comision = sum(float(t.get("amount", 0)) for t in emp_txs if t.get("conceptCode") == "COMISION")
+            bono = sum(float(t.get("amount", 0)) for t in emp_txs if t.get("conceptCode") == "BONIFICACION")
+            otros_ing = sum(float(t.get("amount", 0)) for t in emp_txs if t.get("conceptCode") == "OTROS_INGRESOS")
+            regalia = sum(float(t.get("amount", 0)) for t in emp_txs if t.get("conceptCode") == "REGALIA_PASCUAL")
+            salario_base = sum(float(t.get("amount", 0)) for t in emp_txs if t.get("conceptCode") == "SALARIO_BASE")
+
+            full_line = {
+                "id": f"line_{pk}_{eid}",
+                "employeeId": eid,
+                "cedula": (emp_info.get("cedula") or emp_info.get("idNumber", "")).replace("-", "").strip(),
+                "fullName": emp_info.get("fullName", "") or f"{emp_info.get('firstName', '')} {emp_info.get('lastName', '')}".strip(),
+                "position": emp_info.get("position", ""),
+                "department": emp_info.get("department", ""),
+                "baseSalary": round(salario_base or float(emp_info.get("baseSalary", 0)), 2),
+                "grossSalary": round(salario_base, 2),
+                "overtimePay": round(horas_extra, 2),
+                "commission": round(comision, 2),
+                "bonus": round(bono, 2),
+                "otherIncome": round(otros_ing, 2),
+                "christmasBonus": round(regalia, 2),
+                "totalIncome": round(l_dict["totalIncome"], 2),
+                "afpEmployee": l_dict["afpEmployee"],
+                "sfsEmployee": l_dict["sfsEmployee"],
+                "infotepEmployee": l_dict["infotepEmployee"],
+                "isrRetention": l_dict["isrRetention"],
+                "otherDeductions": l_dict["otherDeductions"],
+                "netSalary": l_dict["netSalary"],
+                "afpEmployer": l_dict["afpEmployer"],
+                "sfsEmployer": l_dict["sfsEmployer"],
+                "srlEmployer": l_dict["srlEmployer"],
+                "infotepEmployer": l_dict["infotepEmployer"],
+                "totalEmployerContrib": l_dict["totalEmployerContrib"],
+                "isHistorical": True,
+                "status": "applied",
+            }
+            lines.append(full_line)
+
+            total_income += l_dict["totalIncome"]
+            total_deductions += (l_dict["afpEmployee"] + l_dict["sfsEmployee"] + l_dict["infotepEmployee"] + l_dict["isrRetention"] + l_dict["otherDeductions"])
+            total_employer += l_dict["totalEmployerContrib"]
+            total_isr += l_dict["isrRetention"]
+            total_tss_employee += (l_dict["afpEmployee"] + l_dict["sfsEmployee"] + l_dict["infotepEmployee"])
+            total_tss_employer += l_dict["totalEmployerContrib"]
+
+        last_day = calendar.monthrange(year, month)[1] if 1 <= month <= 12 else 28
+        if suffix == "1":
+            start_date = f"{year:04d}-{month:02d}-01"
+            end_date = f"{year:04d}-{month:02d}-15"
+            period_type = "quincenal"
+        elif suffix == "2":
+            start_date = f"{year:04d}-{month:02d}-16"
+            end_date = f"{year:04d}-{month:02d}-{last_day:02d}"
+            period_type = "quincenal"
+        else:
+            start_date = f"{year:04d}-{month:02d}-01"
+            end_date = f"{year:04d}-{month:02d}-{last_day:02d}"
+            period_type = "mensual"
+
+        period_id = f"imp_{pk}"
+        doc_data = {
+            "id": period_id,
+            "periodKey": pk,
+            "periodType": period_type,
+            "periodSubType": "regular",
+            "periodRange": _period_range_label(pk, year, month, suffix),
+            "startDate": start_date,
+            "endDate": end_date,
+            "month": month,
+            "year": year,
+            "status": "cerrada",
+            "isHistorical": True,
+            "source": "import",
+            "isExternallyAccounted": True,
+            "accountingEntryGenerated": True,
+            "importBatchId": batch_id,
+            "importedBy": imported_by,
+            "importedAt": now_iso,
+            "lines": lines,
+            "totalGross": round(total_income, 2),
+            "totalNet": round(max(0.0, total_income - total_deductions), 2),
+            "totalEmployerContrib": round(total_employer, 2),
+            "totalIsr": round(total_isr, 2),
+            "totalTssEmployee": round(total_tss_employee, 2),
+            "totalTssEmployer": round(total_tss_employer, 2),
+            "totalDeducciones": round(total_deductions, 2),
+            "lineCount": len(lines),
+        }
+        hr.save_payroll_period(company_id, period_id, doc_data, sandbox=sandbox)
+        # Guardar líneas en subcolección si la nómina supera 20 líneas para optimizar consultas
+        if len(lines) > 20:
+            hr.save_payroll_lines_batch(company_id, period_id, lines, sandbox=sandbox)
+        synced_periods.append(doc_data)
+
+    from app.services.payroll_period_sequence import set_payroll_migration_config, get_historical_cutoff_period
+    set_payroll_migration_config(
+        company_id,
+        historical_cutoff_period=max_imported_pk or None,
+        migration_status="completed" if max_imported_pk else "not_started",
+        sandbox=sandbox,
+    )
+
+    return synced_periods
+
+
+def revert_import_batch(company_id, batch_id: str, sandbox: bool = True) -> dict:
+    """Revierte un lote de importación histórica, eliminando sus transacciones y actualizando períodos."""
+    from app.services.db_service import db_firestore, firebase_initialized
+    if not firebase_initialized or db_firestore is None:
+        return {"deleted_transactions": 0, "affected_employees": 0}
+    try:
+        coll_path = hr._hr_company_path(company_id, "payroll_transactions", sandbox)
+        if not coll_path:
+            return {"deleted_transactions": 0, "affected_employees": 0}
+        docs = db_firestore.collection(coll_path).where("importBatchId", "==", batch_id).get()
+        affected_employees = set()
+        docs_list = list(docs)
+        count = len(docs_list)
+
+        batch_size = 400
+        for i in range(0, count, batch_size):
+            batch = db_firestore.batch()
+            for d in docs_list[i:i + batch_size]:
+                t = d.to_dict()
+                eid = t.get("employeeId")
+                yr = int(t.get("periodYear") or 0)
+                cid = t.get("contractId") or ""
+                if eid and yr:
+                    affected_employees.add((eid, yr, cid))
+                batch.delete(d.reference)
+            batch.commit()
+
+        for emp_id, yr, cid in affected_employees:
+            _rebuild_ytd_for_employee(company_id, emp_id, yr, cid, sandbox)
+
+        sync_imported_payroll_periods(company_id, batch_id="", sandbox=sandbox)
+        return {"deleted_transactions": count, "affected_employees": len(affected_employees)}
+    except Exception as e:
+        print(f"⚠️ [hist-import] Error revirtiendo lote {batch_id}: {e}")
+        return {"error": str(e)}
+
+
 def get_imported_period_summaries(company_id, sandbox=True):
     """Construye resúmenes de período (formato PayrollPeriod) desde las
     transacciones importadas (``source="import"``).
 
-    Devuelve una lista de dicts virtuales (solo-lectura, sin ``id`` de Firestore)
-    agrupados por ``periodKey``, con los mismos campos de totales que consume el
-    dashboard de nómina. Se excluyen del scope de grupo (no tienen grupo).
+    Devuelve una lista de dicts (con ``id=imp_{pk}``) agrupados por ``periodKey``,
+    con los mismos campos de totales que consume el dashboard y listado de nómina.
     """
     from app.services.db_service import db_firestore, firebase_initialized
     if not firebase_initialized or db_firestore is None:
@@ -457,7 +675,10 @@ def get_imported_period_summaries(company_id, sandbox=True):
             "month": month,
             "year": year,
             "status": "importado",
+            "isHistorical": True,
             "source": "import",
+            "isExternallyAccounted": True,
+            "accountingEntryGenerated": True,
             "totalGross": round(total_income, 2),
             "totalNet": round(max(0.0, total_income - total_deductions), 2),
             "totalEmployerContrib": round(total_employer, 2),
@@ -708,9 +929,10 @@ def payroll_history_import_process():
 
                     contract_id = employee.get("currentEmploymentContractId", "") or ""
                     values = {fid: _get_col(row_data, fid) for fid in HISTORY_CONCEPT_MAP}
+                    user_email = session.get("user", {}).get("email", "") if session else ""
                     txs = build_import_transactions(
                         employee, contract_id, period_key, period_year,
-                        values, concepts_by_code, now_iso)
+                        values, concepts_by_code, now_iso, batch_id=job_id)
                     if not txs:
                         errors.append({"row": row_num, "reason": "No hay montos para importar (todas las columnas están vacías o en 0)."})
                         skipped += 1
@@ -734,6 +956,12 @@ def payroll_history_import_process():
             # Recalcular YTD de empleados/años afectados
             for emp_id, year, cid in ytd_to_rebuild:
                 _rebuild_ytd_for_employee(company_id, emp_id, year, cid, sandbox)
+
+            # Sincronizar resúmenes de períodos históricos en payroll_periods
+            try:
+                sync_imported_payroll_periods(company_id, batch_id=job_id, imported_by=user_email, sandbox=sandbox)
+            except Exception as se:
+                print(f"⚠️ [hist-import] Error sincronizando períodos de nómina: {se}")
 
             _write_job({
                 "job_id": job_id, "status": "completed", "total": total,

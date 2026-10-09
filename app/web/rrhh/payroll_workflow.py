@@ -154,7 +154,14 @@ def _transition(period, to_status, comment="", owner_uid="", sandbox=True, skip_
 
 def _ensure_payroll_accounting_entry(period, period_id, owner_uid, company_id, sandbox) -> tuple:
     """Genera el asiento contable de nómina si aún no se generó. Retorna (ok, msg)."""
-    if period.get("accountingEntryGenerated"):
+    if (
+        period.get("accountingEntryGenerated")
+        or period.get("isHistorical")
+        or period.get("source") == "import"
+        or period.get("isExternallyAccounted")
+        or period.get("status") == "importado"
+    ):
+        period["accountingEntryGenerated"] = True
         return True, "OK"
     from app.services.payroll_service import PayrollService
     try:

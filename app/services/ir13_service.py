@@ -75,11 +75,14 @@ def calculate_ir13(company_id: str, year: int, sandbox: bool = True) -> dict:
     employee_map = {e.get("id", ""): e for e in hr.get_employees(company_id, sandbox=sandbox)}
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
 
-    accum = {}  # emp_id -> dict de acumulados
+    accum = {}
+    seen_period_employees = set()
 
     for period in periods:
         pk = period.get("periodKey", "")
-        py = period.get("year", 0)
+        py = period.get("year")
+        if not py and len(pk) >= 4 and pk[:4].isdigit():
+            py = int(pk[:4])
         if py != year:
             continue
 
@@ -88,6 +91,8 @@ def calculate_ir13(company_id: str, year: int, sandbox: bool = True) -> dict:
             emp_id = line.get("employeeId", "")
             if not emp_id:
                 continue
+
+            seen_period_employees.add((pk, emp_id))
 
             emp = employee_map.get(emp_id, {})
             if emp.get("status", "activo") not in (
@@ -104,7 +109,8 @@ def calculate_ir13(company_id: str, year: int, sandbox: bool = True) -> dict:
             a["C"] += float(line.get("grossSalary", 0) or 0)
             a["D"] += (float(line.get("commission", 0) or 0) +
                         float(line.get("bonus", 0) or 0) +
-                        float(line.get("otherIncome", 0) or 0))
+                        float(line.get("otherIncome", 0) or 0) +
+                        float(line.get("overtimePay", 0) or 0))
             a["G"] += (float(line.get("christmasBonus", 0) or 0) +
                         float(line.get("preaviso", 0) or 0) +
                         float(line.get("cesantia", 0) or 0))
@@ -116,6 +122,54 @@ def calculate_ir13(company_id: str, year: int, sandbox: bool = True) -> dict:
             a["education"] = max(a["education"], education)
 
             a["line_count"] += 1
+
+    # ── Fallback para transacciones históricas importadas sin documento de período ──
+    try:
+        txs = hr.get_payroll_transactions(company_id, sandbox=sandbox)
+        unprocessed_txs = [
+            t for t in txs
+            if t.get("status") in ("applied", "adjusted")
+            and int(t.get("periodYear") or (t.get("periodKey", "")[:4] if len(t.get("periodKey", "")) >= 4 and t.get("periodKey", "")[:4].isdigit() else 0) or 0) == year
+            and (t.get("periodKey"), t.get("employeeId")) not in seen_period_employees
+        ]
+        if unprocessed_txs:
+            by_period_emp = {}
+            for t in unprocessed_txs:
+                k = (t.get("periodKey", ""), t.get("employeeId", ""))
+                by_period_emp.setdefault(k, []).append(t)
+
+            for (pk, emp_id), pts in by_period_emp.items():
+                emp = employee_map.get(emp_id, {})
+                if emp.get("status", "activo") not in (
+                        "activo", "inactivo", "suspendido", "vacaciones", "licencia"):
+                    continue
+
+                if emp_id not in accum:
+                    accum[emp_id] = {
+                        "C": 0.0, "D": 0.0, "E": 0.0, "G": 0.0, "H": 0.0, "L": 0.0,
+                        "education": 0.0, "line_count": 0,
+                    }
+
+                a = accum[emp_id]
+                for t in pts:
+                    code = t.get("conceptCode", "")
+                    amount = float(t.get("amount", 0.0) or 0.0)
+                    ttype = t.get("type", "")
+                    if ttype == "earning":
+                        if code == "REGALIA_PASCUAL":
+                            a["G"] += amount
+                        elif code in ("COMISION", "BONIFICACION", "OTROS_INGRESOS", "HORAS_EXTRA"):
+                            a["D"] += amount
+                        else:
+                            a["C"] += amount
+                    elif ttype == "deduction":
+                        if code in ("AFP_EMPLEADO", "SFS_EMPLEADO"):
+                            a["H"] += amount
+                        elif code in ("ISR_RETENCION", "ISR"):
+                            a["L"] += amount
+                a["line_count"] += 1
+    except Exception as e:
+        print(f"⚠️ IR13Service: Error procesando transacciones de fallback: {e}")
 
     employees = []
     totals = {"C": 0.0, "D": 0.0, "E": 0.0, "F": 0.0, "G": 0.0,
