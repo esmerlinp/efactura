@@ -9,6 +9,7 @@ from app.web.rrhh import (
 )
 from app.services import hr_data_service as hr
 from app.utils.hr_utils import RELATIONSHIP_CATALOG, is_active_equivalent
+from app.models.employee import Dependent
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/dependents/add", methods=["POST"])
@@ -36,32 +37,127 @@ def employee_dependent_add(employee_id):
     now = datetime.now(timezone.utc).isoformat()
     user_email = session.get("user", {}).get("email", "")
 
+    if id_number and hr.is_dependent_doc_duplicate(company_id, doc_type, id_number, sandbox=sandbox):
+        flash(f"Ya existe un dependiente registrado con el documento {id_number}.", "error")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+
+    category_input = request.form.get("category", "").strip()
+    is_student = request.form.get("isStudent") == "on"
+    is_financial = request.form.get("isFinancialDependent", "on") == "on"
+    disability = request.form.get("disability") == "on"
+    birth_date = request.form.get("birthDate", "").strip()
+    student_cert_expiry = request.form.get("studentCertificationExpiry", "").strip()
+    effective_start_date = request.form.get("effectiveStartDate", "").strip() or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    effective_end_date = request.form.get("effectiveEndDate", "").strip()
+    ars_code = request.form.get("arsCode", "").strip()
+    doc_verification_status = request.form.get("documentVerificationStatus", "verified").strip()
+
     dep_id = str(uuid.uuid4())
-    hr.save_employee_dependent(company_id, {
-        "id": dep_id,
-        "employeeId": employee_id,
-        "firstName": first_name,
-        "middleName": middle_name,
-        "firstLastName": first_last_name,
-        "secondLastName": second_last_name,
+    dep_obj = Dependent(
+        id=dep_id,
+        employeeId=employee_id,
+        firstName=first_name,
+        middleName=middle_name,
+        firstLastName=first_last_name,
+        secondLastName=second_last_name,
+        relationshipCode=relationship_code,
+        relationshipName=relationship_name,
+        birthDate=birth_date,
+        gender=request.form.get("gender", "").strip(),
+        docType=doc_type,
+        idNumber=id_number,
+        isStudent=is_student,
+        isFinancialDependent=is_financial,
+        disability=disability,
+        studentCertificationExpiry=student_cert_expiry,
+        effectiveStartDate=effective_start_date,
+        effectiveEndDate=effective_end_date,
+        documentVerificationStatus=doc_verification_status,
+        arsCode=ars_code,
+        notes=request.form.get("notes", "").strip(),
+        active=True,
+        createdAt=now,
+        createdBy=user_email,
+        updatedAt=now,
+        updatedBy=user_email,
+    )
+
+    if category_input in ("direct", "additional", "informational"):
+        dep_obj.category = category_input
+        status_input = request.form.get("eligibilityStatus", "").strip()
+        dep_obj.eligibilityStatus = status_input if status_input in ("eligible", "ineligible", "pending_document") else "eligible"
+    else:
+        dep_obj.resolve_category_and_eligibility()
+
+    hr.save_employee_dependent(company_id, dep_obj.model_dump(), sandbox=sandbox)
+    flash("Dependiente agregado exitosamente.", "success")
+    return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+
+
+@web_rrhh_bp.route("/rrhh/employees/<employee_id>/dependents/<dep_id>/edit", methods=["POST"])
+def employee_dependent_edit(employee_id, dep_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    user_email = session.get("user", {}).get("email", "")
+
+    existing = hr.get_employee_dependent(company_id, dep_id, sandbox=sandbox)
+    if not existing:
+        flash("Dependiente no encontrado.", "error")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+
+    doc_type = request.form.get("docType", existing.get("docType", "C")).strip()
+    id_number = "".join(c for c in (request.form.get("idNumber", "") or "").strip() if c.isdigit())
+    if id_number and hr.is_dependent_doc_duplicate(company_id, doc_type, id_number, exclude_dep_id=dep_id, sandbox=sandbox):
+        flash(f"Ya existe otro dependiente con el documento {id_number}.", "error")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+
+    relationship_code = request.form.get("relationshipCode", existing.get("relationshipCode", "")).strip()
+    relationship_name = next(
+        (r["name"] for r in RELATIONSHIP_CATALOG if r["code"] == relationship_code),
+        relationship_code,
+    )
+    now = datetime.now(timezone.utc).isoformat()
+
+    updates = {
+        "firstName": request.form.get("firstName", existing.get("firstName", "")).strip(),
+        "middleName": request.form.get("middleName", existing.get("middleName", "")).strip(),
+        "firstLastName": request.form.get("firstLastName", existing.get("firstLastName", "")).strip(),
+        "secondLastName": request.form.get("secondLastName", existing.get("secondLastName", "")).strip(),
         "relationshipCode": relationship_code,
         "relationshipName": relationship_name,
-        "birthDate": request.form.get("birthDate", "").strip(),
-        "gender": request.form.get("gender", "").strip(),
+        "birthDate": request.form.get("birthDate", existing.get("birthDate", "")).strip(),
+        "gender": request.form.get("gender", existing.get("gender", "")).strip(),
         "docType": doc_type,
-        "isStudent": request.form.get("isStudent") == "on",
-        "isFinancialDependent": request.form.get("isFinancialDependent", "on") == "on",
-        "active": True,
-        "endDate": "",
         "idNumber": id_number,
-        "notes": request.form.get("notes", "").strip(),
-        "createdAt": now,
-        "createdBy": user_email,
+        "isStudent": request.form.get("isStudent") == "on",
+        "isFinancialDependent": request.form.get("isFinancialDependent") == "on",
+        "disability": request.form.get("disability") == "on",
+        "studentCertificationExpiry": request.form.get("studentCertificationExpiry", existing.get("studentCertificationExpiry", "")).strip(),
+        "effectiveStartDate": request.form.get("effectiveStartDate", existing.get("effectiveStartDate", "")).strip(),
+        "effectiveEndDate": request.form.get("effectiveEndDate", existing.get("effectiveEndDate", "")).strip(),
+        "documentVerificationStatus": request.form.get("documentVerificationStatus", existing.get("documentVerificationStatus", "verified")).strip(),
+        "arsCode": request.form.get("arsCode", existing.get("arsCode", "")).strip(),
+        "notes": request.form.get("notes", existing.get("notes", "")).strip(),
         "updatedAt": now,
         "updatedBy": user_email,
-    }, sandbox=sandbox)
+    }
 
-    flash("Dependiente agregado exitosamente.", "success")
+    category_input = request.form.get("category", "").strip()
+    if category_input in ("direct", "additional", "informational"):
+        updates["category"] = category_input
+        status_input = request.form.get("eligibilityStatus", "").strip()
+        updates["eligibilityStatus"] = status_input if status_input in ("eligible", "ineligible", "pending_document") else "eligible"
+    else:
+        merged = dict(existing)
+        merged.update(updates)
+        dep_temp = Dependent(**merged)
+        cat, el_status = dep_temp.resolve_category_and_eligibility()
+        updates["category"] = cat
+        updates["eligibilityStatus"] = el_status
+
+    hr.update_employee_dependent(company_id, dep_id, updates, sandbox=sandbox)
+    flash("Dependiente actualizado exitosamente.", "success")
     return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
 
@@ -71,13 +167,37 @@ def employee_dependent_deactivate(employee_id, dep_id):
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     user_email = session.get("user", {}).get("email", "")
+    reason = request.form.get("deactivationReason", "").strip()
+    end_date = request.form.get("endDate", "").strip() or datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
+    # Correct company_id passed (fixing previous owner_uid multi-tenancy bug)
     hr.deactivate_employee_dependent(
-        owner_uid, dep_id, sandbox=sandbox,
+        company_id, dep_id, sandbox=sandbox,
         updated_by=user_email,
-        end_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        end_date=end_date,
+        reason=reason,
     )
     flash("Dependiente desactivado.", "success")
+    return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+
+
+@web_rrhh_bp.route("/rrhh/employees/<employee_id>/dependents/<dep_id>/reactivate", methods=["POST"])
+def employee_dependent_reactivate(employee_id, dep_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    user_email = session.get("user", {}).get("email", "")
+
+    now = datetime.now(timezone.utc).isoformat()
+    hr.update_employee_dependent(company_id, dep_id, {
+        "active": True,
+        "endDate": "",
+        "effectiveEndDate": "",
+        "deactivationReason": "",
+        "updatedAt": now,
+        "updatedBy": user_email,
+    }, sandbox=sandbox)
+    flash("Dependiente reactivado.", "success")
     return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
 

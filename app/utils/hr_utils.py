@@ -75,3 +75,21 @@ RELATIONSHIP_CATALOG = [
     {"code": "tutor", "name": "Tutor"},
     {"code": "otro", "name": "Otro"},
 ]
+
+DEPENDENT_CATEGORIES = [
+    {"code": "direct", "name": "Dependiente Directo (SFS Cubierto)", "description": "Cónyuge, hijos <18, hijos 18-21 estudiantes, hijos discapacitados"},
+    {"code": "additional", "name": "Dependiente Adicional (Cápita SFS)", "description": "Padres, hijos mayores de 21 o no estudiantes"},
+    {"code": "informational", "name": "Informativo / Sin Cobertura", "description": "Contacto familiar o registro interno sin cobertura SFS"},
+]
+
+DEPENDENT_ELIGIBILITY_STATUSES = [
+    {"code": "eligible", "name": "Elegible"},
+    {"code": "ineligible", "name": "No elegible / Baja"},
+    {"code": "pending_document", "name": "Pendiente Documentación"},
+]
+
+DOCUMENT_VERIFICATION_STATUSES = [
+    {"code": "verified", "name": "Verificado"},
+    {"code": "pending", "name": "Pendiente"},
+    {"code": "rejected", "name": "Rechazado"},
+]
