@@ -755,7 +755,11 @@ class PayrollService:
             else:
                 continue
 
-            dep_start_str = (dep.effectiveStartDate or dep.createdAt or "").strip()
+            # Si el dependiente fue explícitamente desactivado
+            if dep.active is False:
+                continue
+
+            dep_start_str = (dep.effectiveStartDate or "").strip()
             dep_end_str = (dep.effectiveEndDate or dep.endDate or "").strip()
 
             dep_start_d = None
@@ -787,8 +791,14 @@ class PayrollService:
                 continue
 
             # Evaluar categoría y elegibilidad durante la ventana activa del período
-            eff_eval_date = max(p_start_d, dep_start_d) if (p_start_d and dep_start_d) else ref_date
-            cat, elig_status, reason = dep.resolve_category_and_eligibility(reference_date=eff_eval_date)
+            if dep.category == "additional" and dep.eligibilityStatus == "eligible":
+                cat = "additional"
+                elig_status = "eligible"
+                reason = "Dependiente adicional configurado y verificado como elegible"
+            else:
+                eff_eval_date = max(p_start_d, dep_start_d) if (p_start_d and dep_start_d) else ref_date
+                cat, elig_status, reason = dep.resolve_category_and_eligibility(reference_date=eff_eval_date)
+
             if cat != "additional" or elig_status != "eligible":
                 continue
 

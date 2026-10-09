@@ -182,12 +182,12 @@ class Dependent(BaseModel):
             return c, s, r
 
         # 1. Si está inactivo o la fecha de baja es anterior a la fecha de referencia
-        end_d = (self.effectiveEndDate or self.endDate or "").strip()
+        end_d = (self.effectiveEndDate or self.endDate or "").strip()[:10]
         if not self.active or (end_d and end_d < ref_str):
             return _ret("informational", "ineligible", "Dependiente inactivo o dado de baja")
 
         # 2. Si tiene fecha efectiva de alta futura posterior a la referencia
-        start_d = (self.effectiveStartDate or "").strip()
+        start_d = (self.effectiveStartDate or "").strip()[:10]
         if start_d and start_d > ref_str:
             return _ret(self.category or "informational", "pending_document", "Fecha efectiva de alta posterior al período")
 
