@@ -1282,7 +1282,6 @@ def payroll_new():
                                     is_second_q = int(start_date.split("-")[2]) > 15
                                 except Exception:
                                     pass
-                        from app.services.payroll_service import PayrollService
                         dep_res = PayrollService.calculate_dependents_additional(
                             dependents=emp_deps,
                             tax_rates=params,
@@ -2410,7 +2409,6 @@ def payroll_simulate():
                             is_second_q = int(start_date.split("-")[2]) > 15
                         except Exception:
                             pass
-                from app.services.payroll_service import PayrollService
                 dep_res = PayrollService.calculate_dependents_additional(
                     dependents=emp_deps,
                     tax_rates=params,
