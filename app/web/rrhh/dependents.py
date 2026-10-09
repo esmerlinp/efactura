@@ -108,7 +108,7 @@ def employee_dependent_edit(employee_id, dep_id):
 
     doc_type = request.form.get("docType", existing.get("docType", "C")).strip()
     id_number = "".join(c for c in (request.form.get("idNumber", "") or "").strip() if c.isdigit())
-    if id_number and hr.is_dependent_doc_duplicate(company_id, doc_type, id_number, exclude_dep_id=dep_id, sandbox=sandbox):
+    if id_number and hr.is_dependent_doc_duplicate(company_id, id_number, exclude_dep_id=dep_id, sandbox=sandbox):
         flash(f"Ya existe otro dependiente con el documento {id_number}.", "error")
         return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 

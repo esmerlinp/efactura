@@ -120,13 +120,14 @@
                     <th class="num" title="Descuentos recurrentes: préstamos, cooperativas, embargos y reglas. Pasa el cursor sobre cada monto para ver el detalle">Rec.</th>
                     <th title="Aporte AFP del empleado">AFP</th>
                     <th title="Seguro Familiar de Salud (ARS) del empleado">SFS</th>
+                    <th title="Aporte adicional al SFS por dependientes adicionales">SFS Adic.</th>
                     <th title="Impuesto Sobre la Renta retenido al empleado">ISR</th>
                     <th title="Descuento por días de licencia no pagada">Lic. No Pag.</th>
                     <th class="num" title="Total de ingresos del período: salario base + variables + recurrentes">T. Ing.</th>
                     <th class="num" title="Total de descuentos: TSS, ISR, variables y recurrentes">T. Desc.</th>
                     <th class="num" title="Neto a pagar al empleado (ingresos − descuentos)">Neto</th>
                 </tr></thead>
-                <tbody id="pv-live-detalle-body"><tr><td colspan="17" class="text-muted" style="padding:14px;">Calculando…</td></tr></tbody>
+                <tbody id="pv-live-detalle-body"><tr><td colspan="18" class="text-muted" style="padding:14px;">Calculando…</td></tr></tbody>
             </table>
             </div>
             {% elif period_lines %}
@@ -146,6 +147,7 @@
                     <th class="num" title="Descuentos recurrentes: préstamos, cooperativas, embargos y reglas. Pasa el cursor sobre cada monto para ver el detalle">Rec.</th>
                     <th title="Aporte AFP del empleado">AFP</th>
                     <th title="Seguro Familiar de Salud (ARS) del empleado">SFS</th>
+                    <th title="Aporte adicional al SFS por dependientes adicionales">SFS Adic.</th>
                     <th title="Impuesto Sobre la Renta retenido al empleado">ISR</th>
                     <th title="Descuento por días de licencia no pagada">Lic. No Pag.</th>
                     <th class="num" title="Total de ingresos del período: salario base + variables + recurrentes">T. Ing.</th>
@@ -167,6 +169,7 @@
                         <td class="num" title="{% for d in (l.get('recurringDeductionsBreakdown') or []) %}{{ d.description }}: RD$ {{ "{:,.2f}".format(d.amount|float) }}{% if not loop.last %} · {% endif %}{% endfor %}">{{ "{:,.2f}".format((l.get('recurringDeductionsBreakdown') or [])|sum(attribute='amount')) if (l.get('recurringDeductionsBreakdown') or [])|sum(attribute='amount') else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('afpEmployee', 0)|float) if l.get('afpEmployee', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('sfsEmployee', 0)|float) if l.get('sfsEmployee', 0)|float else '—' }}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('sfsDependentsAdditional', 0)|float) if l.get('sfsDependentsAdditional', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('isrRetention', 0)|float) if l.get('isrRetention', 0)|float else '—' }}</td>
                         <td class="num" title="{{ l.get('leaveDeductionDays', 0) }} día(s) de licencia no pagada">{{ "{:,.2f}".format(l.get('leaveDeduction', 0)|float) if l.get('leaveDeduction', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('totalIncome', 0)|float) if l.get('totalIncome', 0)|float else '—' }}</td>
@@ -919,13 +922,14 @@ function pvRenderLive(lines) {
                 '<td class="num">' + pvFmtNum(rec) + '</td>' +
                 '<td class="num">' + pvFmtNum(l.afpEmployee) + '</td>' +
                 '<td class="num">' + pvFmtNum(l.sfsEmployee) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.sfsDependentsAdditional) + '</td>' +
                 '<td class="num">' + pvFmtNum(l.isrRetention) + '</td>' +
                 '<td class="num">' + pvFmtNum(l.leaveDeduction) + '</td>' +
                 '<td class="num">' + pvFmtNum(l.totalIncome) + '</td>' +
                 '<td class="num">' + pvFmtNum(l.totalDeductions) + '</td>' +
                 '<td class="num net">' + pvFmtNum(l.netSalary) + '</td>' +
             '</tr>';
-        }).join('') || '<tr><td colspan="17" class="text-muted" style="padding:14px;">Sin empleados en este período.</td></tr>';
+        }).join('') || '<tr><td colspan="18" class="text-muted" style="padding:14px;">Sin empleados en este período.</td></tr>';
     }
 }
 

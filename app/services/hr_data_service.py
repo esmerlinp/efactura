@@ -989,11 +989,11 @@ def is_dependent_doc_duplicate(company_id: str, id_number: str, exclude_dep_id: 
     try:
         coll_path = _hr_company_path(company_id, "employee_dependents", sandbox)
         docs = db_firestore.collection(coll_path)\
-            .where(filter=FieldFilter("active", "==", True))\
             .where(filter=FieldFilter("idNumber", "==", clean_id))\
             .get()
         for d in docs:
-            if d.id != exclude_dep_id:
+            dep_data = d.to_dict()
+            if dep_data.get("active", True) is not False and d.id != exclude_dep_id:
                 return True
     except Exception as e:
         print(f"⚠️ is_dependent_doc_duplicate: {e}")
@@ -1076,6 +1076,7 @@ def get_dependents_for_employees(company_id: str, employee_ids: list, sandbox: b
     """Carga todos los dependientes activos para múltiples empleados.
 
     Firestore limita 'in' a 30 valores. Se particiona en lotes.
+    Usa solo filtro de campo simple por employeeId para evitar requerir índices compuestos.
 
     Returns:
         Dict {employee_id: [dependent_dict, ...]}
@@ -1089,13 +1090,13 @@ def get_dependents_for_employees(company_id: str, employee_ids: list, sandbox: b
         for i in range(0, len(employee_ids), batch_size):
             chunk = employee_ids[i:i + batch_size]
             docs = db_firestore.collection(coll_path)\
-                .where(filter=FieldFilter("active", "==", True))\
                 .where(filter=FieldFilter("employeeId", "in", chunk))\
                 .get()
             for d in docs:
                 dep = {"id": d.id, **d.to_dict()}
-                emp_id = dep.get("employeeId", "")
-                result.setdefault(emp_id, []).append(dep)
+                if dep.get("active", True) is not False:
+                    emp_id = dep.get("employeeId", "")
+                    result.setdefault(emp_id, []).append(dep)
         return result
     except Exception as e:
         print(f"⚠️ get_dependents_for_employees: {e}")
