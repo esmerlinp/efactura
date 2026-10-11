@@ -130,8 +130,11 @@
     </div>
 
     <!-- Resumen -->
-    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:0.82rem;color:var(--text-muted);">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:0.82rem;color:var(--text-muted);align-items:center;">
         <span><strong style="color:var(--text-primary);">{{ team | length }}</strong> colaboradores</span>
+        {% if user_limit is defined %}
+        <span>· <strong style="color:var(--text-primary);">{{ team | length }}</strong> / {% if user_limit > 0 %}<strong>{{ user_limit }}</strong>{% else %}Ilimitados{% endif %} permitidos por el plan</span>
+        {% endif %}
         {% set ns = namespace(active=0, suspended=0) %}
         {% for m in team %}{% if m.status == 'active' %}{% set ns.active = ns.active + 1 %}{% elif m.status == 'suspended' %}{% set ns.suspended = ns.suspended + 1 %}{% endif %}{% endfor %}
         <span>· <strong style="color:var(--accent-success);">{{ ns.active }}</strong> activos</span>
@@ -174,7 +177,7 @@
                     </div>
                     <div class="form-group">
                         <label for="reg-role">Rol base</label>
-                        <select id="reg-role" name="role" class="form-input">
+                        <select id="reg-role" name="role" class="form-input" onchange="applyRolePreset(this.value)">
                             <option value="vendedor">Vendedor</option>
                             <option value="administrador">Administrador</option>
                             <option value="contador">Contador</option>
@@ -189,8 +192,14 @@
                         Permisos de Acceso <span style="font-weight:400;color:var(--text-muted);">(se ajustan según el rol)</span>
                     </label>
                     {% for group in PERMISSION_GROUPS %}
-                    <div style="margin-bottom:10px;">
-                        <strong style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:6px;">{{ group.name }}</strong>
+                    <div class="perm-group" style="margin-bottom:10px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                            <strong style="font-size:0.8rem;color:var(--text-muted);">{{ group.name }}</strong>
+                            <div style="display:flex;gap:6px;">
+                                <button type="button" class="btn btn-ghost" style="font-size:0.72rem;padding:2px 6px;" onclick="toggleModalGroup(this, true)">Todos</button>
+                                <button type="button" class="btn btn-ghost" style="font-size:0.72rem;padding:2px 6px;" onclick="toggleModalGroup(this, false)">Ninguno</button>
+                            </div>
+                        </div>
                         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;">
                             {% for key in group.perms %}
                             {% set default_val = ROLES_PRESETS['vendedor'].get(key, False) %}
@@ -217,6 +226,38 @@
 
 {% block extra_scripts %}
 <script>
+    const PRESETS = {{ ROLES_PRESETS | tojson }};
+
+    function applyRolePreset(role) {
+        if (role === 'personalizado') return;
+        const preset = PRESETS[role];
+        if (!preset) return;
+        const modal = document.getElementById('team-modal');
+        if (!modal) return;
+        modal.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            const key = cb.getAttribute('name');
+            if (key && key in preset) {
+                cb.checked = Boolean(preset[key]);
+            }
+        });
+    }
+
+    function markModalCustom() {
+        const roleSelect = document.getElementById('reg-role');
+        if (roleSelect && roleSelect.value !== 'personalizado') {
+            roleSelect.value = 'personalizado';
+        }
+    }
+
+    function toggleModalGroup(btn, checked) {
+        const group = btn.closest('.perm-group');
+        if (!group) return;
+        group.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.checked = checked;
+        });
+        markModalCustom();
+    }
+
     // Filtro de búsqueda y tabla
     function filterTable() {
         const q = document.getElementById('search-input').value.toLowerCase().trim();
@@ -243,9 +284,28 @@
         const openBtn = document.getElementById('btn-open-team-modal');
         const closeBtn = document.getElementById('btn-close-team-modal');
         const backdrop = document.getElementById('team-modal-backdrop');
+        const roleSelect = document.getElementById('reg-role');
+
+        if (roleSelect) {
+            roleSelect.addEventListener('change', function () {
+                applyRolePreset(this.value);
+            });
+        }
+
+        const modalForm = document.querySelector('#team-modal form');
+        if (modalForm) {
+            modalForm.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', markModalCustom);
+            });
+        }
 
         if (openBtn && teamModal) {
-            openBtn.addEventListener('click', () => teamModal.style.display = 'flex');
+            openBtn.addEventListener('click', () => {
+                teamModal.style.display = 'flex';
+                if (roleSelect) {
+                    applyRolePreset(roleSelect.value);
+                }
+            });
         }
         function close() { if (teamModal) teamModal.style.display = 'none'; }
         if (closeBtn) closeBtn.addEventListener('click', close);

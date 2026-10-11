@@ -8640,7 +8640,10 @@ def team_settings():
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    user_limit = int(profile.get('userLimit', 2)) if profile else 2
     return render_template('team_settings.html', active_page='team_settings', team=team,
+                           user_limit=user_limit,
                            ROLES_PRESETS=ROLES_PRESETS, PERMISSION_GROUPS=PERMISSION_GROUPS)
 
 @web_invoices_bp.route('/settings/team/new', methods=['POST'])
@@ -8655,9 +8658,25 @@ def add_team_member():
     
     profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     inviting_company_name = (profile.get("companyName") or profile.get("name", "Nueva Empresa")) if profile else "Nueva Empresa"
-    user_limit = int(profile.get('userLimit', 2)) if profile else 2
+    
+    # Resolver límite de usuarios: perfil -> plan de la empresa
+    user_limit = None
+    if profile:
+        user_limit = profile.get('userLimit')
+        if user_limit is None:
+            plan_id = profile.get('planId') or profile.get('plan_id')
+            if plan_id:
+                plan_data = DatabaseService.get_plan(plan_id)
+                if plan_data and 'userLimit' in plan_data:
+                    user_limit = plan_data.get('userLimit')
+    if user_limit is None:
+        user_limit = 2
+    else:
+        user_limit = int(user_limit)
+
     team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
-    if user_limit > 0 and (len(team) + 1) >= user_limit:
+    # len(team) ya incluye al propietario y a los colaboradores registrados
+    if user_limit > 0 and len(team) >= user_limit:
         flash(f'Límite de usuarios alcanzado ({user_limit} usuarios en tu plan). Por favor, actualiza tu plan para registrar nuevos colaboradores.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
     
@@ -10408,7 +10427,7 @@ def change_plan_page():
         target_user_limit = plan_data.get('userLimit', 0)
         if target_user_limit > 0:
             team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
-            current_team = len(team) + 1
+            current_team = len(team)
             if current_team > target_user_limit:
                 blocked_reasons.append(f'tienes {current_team} miembros del equipo (límite: {target_user_limit})')
         
@@ -10466,7 +10485,7 @@ def change_plan_page():
     current_usage = {
         'docs': stats.get('prod_current_cycle', 0),
         'storage': DatabaseService.get_storage_usage_mb(owner_uid, company_id=company_id),
-        'team': len(DatabaseService.get_team_members(owner_uid, company_id=company_id)) + 1,
+        'team': len(DatabaseService.get_team_members(owner_uid, company_id=company_id)),
         'branches': len(DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=False)),
         'boxes': len(DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=False)),
     }
