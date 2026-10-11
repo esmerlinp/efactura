@@ -76,18 +76,38 @@ def _parse_int(val, default=0):
 def _get_expenses_for_period(owner_uid, sandbox, year, month):
     prefix = f"{year:04d}-{month:02d}"
     all_items = []
+    seen_keys = set()
     branch_id = g.get('branch_id')
     project_id = g.get('project_id')
     company_id = session.get('selected_company_id')
 
+    # 0. Sincronizar automáticamente e-CFs recibidos (incluyendo históricos de meses anteriores)
+    try:
+        from app.services.received_ecf_bridge_service import ReceivedEcfBridgeService
+        ReceivedEcfBridgeService.sync_unprocessed_received_ecfs(
+            owner_uid=owner_uid,
+            sandbox=sandbox,
+            company_id=company_id,
+        )
+    except Exception as e:
+        print(f"Error sincronizando e-CF recibidos para 606: {e}")
+
+    # 1. Gastos registrados (expenses) - incluye e-CFs sincronizados
     expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
     for exp in expenses:
         if exp.get("includeIn606") is False:
             continue
         d = (exp.get("date") or exp.get("createdAt") or "")[:7]
-        if d == prefix:
+        d_rec = (exp.get("fechaRecepcion") or exp.get("receivedAt") or "")[:7]
+        if d == prefix or (d_rec and d_rec == prefix):
+            ncf_val = str(exp.get("ncf") or exp.get("encf") or "").strip()
+            rnc_val = "".join(filter(str.isdigit, str(exp.get("rncEmisor") or "")))
+            key = (rnc_val, ncf_val)
+            if key != ("", ""):
+                seen_keys.add(key)
             all_items.append(exp)
 
+    # 2. Facturas de proveedor (supplier_invoices)
     try:
         from app.services.supplier_invoice_service import SupplierInvoiceService
         invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
@@ -104,6 +124,14 @@ def _get_expenses_for_period(owner_uid, sandbox, year, month):
                     continue
             d = (inv.get("date") or inv.get("createdAt") or "")[:7]
             if d == prefix:
+                ncf_val = str(inv.get("ncf") or inv.get("supplierInvoiceNumber") or "").strip()
+                rnc_val = "".join(filter(str.isdigit, str(inv.get("supplierRnc") or "")))
+                key = (rnc_val, ncf_val)
+                if key != ("", "") and key in seen_keys:
+                    continue
+                if key != ("", ""):
+                    seen_keys.add(key)
+
                 concept = inv.get("comentario") or inv.get("notes") or ""
                 if not concept and inv.get("supplierInvoiceNumber"):
                     concept = f"Compra {inv.get('supplierInvoiceNumber', '')} - {inv.get('supplierName', '')}"
@@ -118,6 +146,7 @@ def _get_expenses_for_period(owner_uid, sandbox, year, month):
                     "providerName": inv.get("supplierName", ""),
                     "ncf": inv.get("ncf", ""),
                     "encf": inv.get("ncf", ""),
+                    "ncfModificado": inv.get("ncfModificado", ""),
                     "ecfType": inv.get("ecfType", ""),
                     "tipoGastoDGII": inv.get("tipoGastoDGII", "02"),
                     "supplierId": inv.get("supplierId", ""),
@@ -125,7 +154,7 @@ def _get_expenses_for_period(owner_uid, sandbox, year, month):
                     "isITBISDeductible": inv.get("isITBISDeductible", True),
                     "isrWithheld": float(inv.get("retainedISR", 0) or 0),
                     "itbisWithheld": float(inv.get("retainedITBIS", 0) or 0),
-                    "formaPago": "02",
+                    "formaPago": inv.get("formaPago", "02"),
                     "dgiiStatus": inv.get("dgiiStatus", ""),
                     "createdAt": inv.get("createdAt", ""),
                 }
@@ -161,7 +190,19 @@ def _to_dgii_date(date_str):
     if not date_str:
         return ""
     clean = str(date_str).strip()[:10]
-    return clean.replace("-", "")
+    parts = clean.split("-")
+    if len(parts) == 3:
+        if len(parts[0]) == 4:
+            return f"{parts[0]}{parts[1]}{parts[2]}"
+        if len(parts[2]) == 4:
+            return f"{parts[2]}{parts[1]}{parts[0]}"
+    parts_slash = clean.split("/")
+    if len(parts_slash) == 3:
+        if len(parts_slash[0]) == 4:
+            return f"{parts_slash[0]}{parts_slash[1]}{parts_slash[2]}"
+        if len(parts_slash[2]) == 4:
+            return f"{parts_slash[2]}{parts_slash[1]}{parts_slash[0]}"
+    return clean.replace("-", "").replace("/", "")
 
 
 def _resolve_montos(exp):
@@ -247,33 +288,36 @@ def _generate_606_xlsx(owner_rnc, period, expenses):
         date_str = _to_dgii_date(exp.get("date"))
         due_str = _to_dgii_date(exp.get("dueDate"))
         ncf = exp.get("ncf") or exp.get("encf") or ""
+        clean_rnc = "".join(filter(str.isdigit, str(exp.get("rncEmisor", ""))))
+        tipo_id = "2" if len(clean_rnc) == 11 else "1"
+        tipo_gasto = exp.get("tipoGastoDGII", "02")
 
         valores = [
             i + 1,
-            exp.get("rncEmisor", ""),
-            "1",
-            exp.get("tipoGastoDGII", "02"),
+            clean_rnc,
+            tipo_id,
+            tipo_gasto,
             ncf,
             exp.get("ncfModificado", ""),
             date_str,
             "",
             due_str,
             "",
-            monto_serv,
-            monto_bienes,
-            total,
-            itbis_fact,
-            float(exp.get("itbisWithheld", 0) or 0),
-            float(exp.get("itbisProporcionalidad", 0) or 0),
-            itbis_costo,
-            itbis_adelantar,
+            round(monto_serv, 2),
+            round(monto_bienes, 2),
+            round(total, 2),
+            round(itbis_fact, 2),
+            round(float(exp.get("itbisWithheld", 0) or 0), 2),
+            round(float(exp.get("itbisProporcionalidad", 0) or 0), 2),
+            round(itbis_costo, 2),
+            round(itbis_adelantar, 2),
             "",
             exp.get("tipoRetencionISR", ""),
-            float(exp.get("isrWithheld", 0) or 0),
+            round(float(exp.get("isrWithheld", 0) or 0), 2),
             "",
-            float(exp.get("iscMonto", 0) or 0),
-            float(exp.get("otrosImpuestos", 0) or 0),
-            float(exp.get("propinaLegal", 0) or 0),
+            round(float(exp.get("iscMonto", 0) or 0), 2),
+            round(float(exp.get("otrosImpuestos", 0) or 0), 2),
+            round(float(exp.get("propinaLegal", 0) or 0), 2),
             exp.get("formaPago", "02"),
             "",
         ]
@@ -308,11 +352,14 @@ def _generate_606_txt(owner_rnc, period, expenses):
         date_str = _to_dgii_date(exp.get("date"))
         due_str = _to_dgii_date(exp.get("dueDate"))
         ncf = exp.get("ncf") or exp.get("encf") or ""
+        clean_rnc = "".join(filter(str.isdigit, str(exp.get("rncEmisor", ""))))
+        tipo_id = "2" if len(clean_rnc) == 11 else "1"
+        tipo_gasto = exp.get("tipoGastoDGII", "02")
 
         fields = [
-            exp.get("rncEmisor", ""),
-            "1",
-            exp.get("tipoGastoDGII", "06"),
+            clean_rnc,
+            tipo_id,
+            tipo_gasto,
             ncf,
             exp.get("ncfModificado", ""),
             date_str,
@@ -354,12 +401,43 @@ def reporte_606():
     sandbox = session.get("is_sandbox_mode", True)
 
     now = datetime.now(timezone.utc)
-    year = _parse_int(request.args.get("year"), now.year)
-    month = _parse_int(request.args.get("month"), now.month)
+    raw_year = request.args.get("year")
+    raw_month = request.args.get("month")
     supplier_id = request.args.get("supplier_id", "").strip()
     tipo_gasto = request.args.get("tipo_gasto", "").strip()
     ecf_type = request.args.get("ecf_type", "").strip()
     search = request.args.get("search", "").strip()
+
+    year = _parse_int(raw_year, 0)
+    month = _parse_int(raw_month, 0)
+
+    # Si viene búsqueda de un comprobante pero no se indicó año o mes, auto-detectar su período
+    if (not year or not month) and search:
+        try:
+            from app.services.received_ecf_bridge_service import ReceivedEcfBridgeService
+            ReceivedEcfBridgeService.sync_unprocessed_received_ecfs(
+                owner_uid=owner_uid,
+                sandbox=sandbox,
+                company_id=session.get('selected_company_id'),
+            )
+            all_exp = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=session.get('selected_company_id'))
+            for exp in all_exp:
+                e_ncf = str(exp.get("ncf") or exp.get("encf") or "").strip()
+                if e_ncf.lower() == search.lower():
+                    exp_date = (exp.get("date") or exp.get("createdAt") or "")[:10]
+                    if len(exp_date) >= 7:
+                        parts = exp_date.split("-")
+                        if len(parts) >= 2:
+                            year = int(parts[0])
+                            month = int(parts[1])
+                            break
+        except Exception:
+            pass
+
+    if not year:
+        year = now.year
+    if not month:
+        month = now.month
 
     expenses = _get_expenses_for_period(owner_uid, sandbox, year, month)
     filtered = _filter_expenses(expenses, supplier_id, tipo_gasto, ecf_type, search)

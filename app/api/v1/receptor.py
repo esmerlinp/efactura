@@ -263,7 +263,21 @@ def recepcion_ecf():
         "track_id": track_id,
         "received_at": datetime.now(timezone.utc).isoformat(),
     }
-    ReceptorRepository.save_received_ecf(owner_uid, ecf_document, sandbox=sandbox)
+    saved_ecf_id = ReceptorRepository.save_received_ecf(owner_uid, ecf_document, sandbox=sandbox)
+    ecf_document["id"] = saved_ecf_id
+
+    if estado == "0":
+        try:
+            from app.services.received_ecf_bridge_service import ReceivedEcfBridgeService
+            ReceivedEcfBridgeService.process_received_ecf(
+                owner_uid=owner_uid,
+                ecf_document=ecf_document,
+                sandbox=sandbox,
+                company_id=company.get("id"),
+            )
+        except Exception as bridge_err:
+            logger.warning("Error en registro automático 606 para e-CF %s: %s", parsed.get("encf"), bridge_err)
+
     response = make_response(signed_arecf)
     response.headers["Content-Type"] = "application/xml; charset=utf-8"
     response.headers["X-Track-Id"] = track_id

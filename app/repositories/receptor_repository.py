@@ -223,9 +223,11 @@ class ReceptorRepository:
     @staticmethod
     def list_received_ecf(owner_uid, sandbox=True, limit=100, status=None):
         coll = ReceptorRepository._resolve_collection(owner_uid, COLLECTION_RECEIVED_ECF, sandbox)
-        query = coll.order_by("received_at", direction="DESCENDING").limit(limit)
+        query = coll.order_by("received_at", direction="DESCENDING")
         if status:
-            query = coll.where("status", "==", status).order_by("received_at", direction="DESCENDING").limit(limit)
+            query = coll.where("status", "==", status).order_by("received_at", direction="DESCENDING")
+        if limit:
+            query = query.limit(limit)
         docs = query.stream()
         results = []
         for doc in docs:
