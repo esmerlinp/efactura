@@ -366,6 +366,7 @@ def employee_import_process():
         errors = []
         processed = 0
         used_codes = set()
+        imported_periods = set()
         try:
             update_every = max(1, total // 20)
 
@@ -617,6 +618,8 @@ def employee_import_process():
                     else:
                         inactive_cedulas.add(id_number)
                     imported += 1
+                    _period = (hire_date[:7] if hire_date else "") or (end_date_csv[:7] if end_date_csv else "") or date.today().isoformat()[:7]
+                    imported_periods.add(_period)
 
                 except Exception as e:
                     errors.append({"row": row_num, "reason": f"Error inesperado: {html.escape(str(e))}"})
@@ -632,6 +635,19 @@ def employee_import_process():
                         _write_job(current_state)
                     except Exception as e:
                         print(f"⚠️ [import] Error escribiendo progreso: {e}")
+
+            # ── Generar alertas automáticas DGT-4 por los períodos importados ──
+            if imported_periods:
+                try:
+                    from app.services.tax_obligation_service import TaxObligationService
+                    for _p in imported_periods:
+                        TaxObligationService.ensure_dgt4_alert(
+                            company_id=company_id,
+                            transaction_date=_p,
+                            owner_uid=user_uid,
+                        )
+                except Exception as e_dgt:
+                    print(f"⚠️ [import] Error generando alertas automáticas DGT-4: {e_dgt}")
 
             final_state = {
                 "job_id": job_id, "status": "completed", "total": total,

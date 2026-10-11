@@ -677,6 +677,18 @@ def employee_new():
                    session.get("user", {}).get("email", ""),
                    changes={"name": data["fullName"], "salary": salary}, sandbox=sandbox)
 
+        # ── Alerta automática DGT-4 (Ministerio de Trabajo / SIRLA) ──
+        try:
+            from app.services.tax_obligation_service import TaxObligationService
+            hire_date_val = request.form.get("hireDate", "").strip() or date.today().isoformat()
+            TaxObligationService.ensure_dgt4_alert(
+                company_id=company_id,
+                transaction_date=hire_date_val,
+                owner_uid=owner_uid,
+            )
+        except Exception as e_dgt:
+            print(f"⚠️ Error generando alerta automática DGT-4 en alta de empleado: {e_dgt}")
+
         flash("Empleado creado exitosamente.", "success")
         return redirect(url_for("web_rrhh.employee_list"))
 

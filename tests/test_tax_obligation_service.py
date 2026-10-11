@@ -260,3 +260,105 @@ class TestCustomAlertsAndRecurrences:
         assert success is True
         assert err is None
         mock_doc.delete.assert_called_once()
+
+
+class TestEnsureDGT4Alert:
+    """Pruebas del enlace automático de RRHH con Alertas para el reporte DGT-4."""
+
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    def test_ensure_dgt4_alert_creates_when_not_exists(self, mock_ref):
+        mock_doc = MagicMock()
+        mock_doc.get().exists = False
+        mock_coll = MagicMock()
+        mock_coll.document.return_value = mock_doc
+        mock_ref.return_value = mock_coll
+
+        res = TaxObligationService.ensure_dgt4_alert(
+            company_id="comp_1",
+            transaction_date="2026-10-15",
+            owner_uid="user_1",
+        )
+
+        assert res["created"] is True
+        assert res["key"] == "dgt4_2026_10"
+        assert res["year"] == 2026
+        assert res["month"] == 10
+        # 5 de noviembre 2026 es jueves (día hábil)
+        assert res["due_date"] == "2026-11-05"
+
+        mock_coll.document.assert_any_call("dgt4_2026_10")
+        saved_call = mock_doc.set.call_args
+        assert saved_call is not None
+        payload = saved_call[0][0]
+        assert payload["obligation_key"] == "dgt4_2026_10"
+        assert "Octubre 2026" in payload["label"]
+        assert payload["recurrence"] == "fixed_date"
+        assert payload["first_due_date"] == "2026-11-05"
+        assert payload["action_url"] == "/rrhh/dgt/dgt4?year=2026&month=10"
+        assert payload["is_custom"] is True
+        assert payload["origin"] == "rrhh_auto"
+
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    def test_ensure_dgt4_alert_idempotent_no_duplicate(self, mock_ref):
+        mock_doc = MagicMock()
+        mock_doc.get().exists = True  # Ya existe la alerta para ese mes
+        mock_coll = MagicMock()
+        mock_coll.document.return_value = mock_doc
+        mock_ref.return_value = mock_coll
+
+        # Segundo movimiento de empleado en el mismo mes (ej. otra alta o baja)
+        res = TaxObligationService.ensure_dgt4_alert(
+            company_id="comp_1",
+            transaction_date="2026-10-28",
+            owner_uid="user_1",
+        )
+
+        assert res["created"] is False
+        assert res["key"] == "dgt4_2026_10"
+        assert res["reason"] == "already_exists"
+        # No debe haber llamado a set() porque ya existía
+        mock_doc.set.assert_not_called()
+
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    def test_ensure_dgt4_alert_weekend_shift(self, mock_ref):
+        mock_doc = MagicMock()
+        mock_doc.get().exists = False
+        mock_coll = MagicMock()
+        mock_coll.document.return_value = mock_doc
+        mock_ref.return_value = mock_coll
+
+        # Transacción en agosto 2026. Mes siguiente = septiembre 2026.
+        # 5 de septiembre 2026 es sábado -> se traslada a lunes 7 de septiembre 2026.
+        res = TaxObligationService.ensure_dgt4_alert(
+            company_id="comp_1",
+            transaction_date="2026-08-10",
+        )
+
+        assert res["created"] is True
+        assert res["key"] == "dgt4_2026_08"
+        assert res["due_date"] == "2026-09-07"
+
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    def test_ensure_dgt4_alert_december_rollover(self, mock_ref):
+        mock_doc = MagicMock()
+        mock_doc.get().exists = False
+        mock_coll = MagicMock()
+        mock_coll.document.return_value = mock_doc
+        mock_ref.return_value = mock_coll
+
+        # Transacción en diciembre 2026. Mes siguiente = enero 2027.
+        # 5 de enero 2027 es martes (día hábil).
+        res = TaxObligationService.ensure_dgt4_alert(
+            company_id="comp_1",
+            transaction_date="2026-12-20",
+        )
+
+        assert res["created"] is True
+        assert res["key"] == "dgt4_2026_12"
+        assert res["due_date"] == "2027-01-05"
+
+    def test_ensure_dgt4_alert_missing_company_and_owner(self):
+        res = TaxObligationService.ensure_dgt4_alert(company_id=None, owner_uid=None)
+        assert res["created"] is False
+        assert res["reason"] == "missing_company_or_owner"
+

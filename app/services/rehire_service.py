@@ -452,6 +452,16 @@ class RehireService:
             updated_employee["code"] = prev_code
         hr.save_employee(self.company_id, employee_id, updated_employee, sandbox=self.sandbox)
 
+        # ── Alerta automática DGT-4 (Ministerio de Trabajo / SIRLA) ──
+        try:
+            from app.services.tax_obligation_service import TaxObligationService
+            TaxObligationService.ensure_dgt4_alert(
+                company_id=self.company_id,
+                transaction_date=norm_start,
+            )
+        except Exception as e_dgt:
+            print(f"⚠️ Error generando alerta automática DGT-4 en reincorporación: {e_dgt}")
+
         # ── 9. Historial salarial del nuevo período ──
         try:
             prev_salary = float(before_employee.get("baseSalary", before_employee.get("salary", 0)) or 0)
