@@ -1037,6 +1037,8 @@ def _company_coll(*, company_id=None, coll_name=None, owner_uid=None):
 
 class DatabaseService:
 
+    _resolve_company_id = staticmethod(_resolve_company_id)
+
     @classmethod
     def init_local_db(cls):
         """Verifica la conexión con Firebase y registra el usuario Administrador Demo en la nube si no existe."""
@@ -1087,8 +1089,8 @@ class DatabaseService:
         return None
 
     @classmethod
-    def register_user(cls, email, password, name, role="owner", owner_uid=None, can_manage_own_company=None):
-        """Registra un nuevo usuario en Firebase Auth y Firestore."""
+    def register_user(cls, email, password, name, role="owner", owner_uid=None, can_manage_own_company=None, company_id=None):
+        """Registra un nuevo usuario en Firebase Auth y Firestore vinculándolo a la empresa indicada."""
         uid = str(uuid.uuid4())
         created_at = datetime.now(timezone.utc).isoformat()
         resolved_owner_uid = owner_uid if owner_uid else uid
@@ -1147,6 +1149,14 @@ class DatabaseService:
                     raise e
 
 
+        # Determinar la empresa destino con prioridad:
+        # 1) company_id explícito pasado al registrar
+        # 2) primera compañía del owner o fallback legacy
+        target_company_id = company_id
+        if not target_company_id and owner_uid and uid != owner_uid:
+            owner_companies = cls.get_companies_by_owner(owner_uid)
+            target_company_id = owner_companies[0]["id"] if owner_companies else _resolve_company_id(owner_uid)
+
         # 2. Guardar/Actualizar perfil del usuario en Firestore sin sobrescribir si ya existe
         doc_ref = db_firestore.collection("users").document(uid).collection("config").document("user_profile")
         doc_snap = doc_ref.get()
@@ -1159,9 +1169,14 @@ class DatabaseService:
             
             current_can_manage = existing_data.get("canManageOwnCompany", can_manage_own_company)
             
-            doc_ref.update({
+            update_fields = {
                 "canManageOwnCompany": current_can_manage
-            })
+            }
+            if target_company_id and not existing_data.get("default_company_id"):
+                update_fields["default_company_id"] = target_company_id
+                existing_data["default_company_id"] = target_company_id
+
+            doc_ref.update(update_fields)
             
             profile_data = existing_data
             profile_data["uid"] = uid
@@ -1213,15 +1228,19 @@ class DatabaseService:
                 "posSupervisorPin": ""
             }
             
+            if target_company_id:
+                profile_data["default_company_id"] = target_company_id
+
             # Inicializar su propia empresa
             if can_manage_own_company:
                 own_comp = cls.get_company_profile(resolved_owner_uid) or {}
-                company_id = cls.create_company(resolved_owner_uid, own_comp)
-                if company_id:
-                    profile_data["default_company_id"] = company_id
+                new_comp_id = cls.create_company(resolved_owner_uid, own_comp)
+                if new_comp_id:
+                    profile_data["default_company_id"] = new_comp_id
+                    target_company_id = new_comp_id
                     cls.create_membership(
                         uid=uid,
-                        company_id=company_id,
+                        company_id=new_comp_id,
                         role=role,
                         permissions=profile_data.get("permissions", {}),
                         invited_by=""
@@ -1229,21 +1248,30 @@ class DatabaseService:
                 
             doc_ref.set(profile_data)
         
-        # Si fue invitado por otro usuario, agregar también la empresa invitadora
-        if owner_uid and uid != owner_uid:
-            owner_companies = cls.get_companies_by_owner(owner_uid)
-            inv_company_id = owner_companies[0]["id"] if owner_companies else _resolve_company_id(owner_uid)
-            if inv_company_id:
+        # Si fue invitado o es colaborador, agregar/asegurar membresía en la empresa correspondiente
+        if target_company_id and (owner_uid and uid != owner_uid):
+            existing_mem = cls.get_membership(uid, target_company_id)
+            if not existing_mem:
                 cls.create_membership(
                     uid=uid,
-                    company_id=inv_company_id,
+                    company_id=target_company_id,
                     role="employee",
                     permissions=profile_data.get("permissions", {}),
                     invited_by=owner_uid
                 )
+            else:
+                cls.update_membership(
+                    uid,
+                    target_company_id,
+                    {
+                        "status": "active",
+                        "role": "employee",
+                        "permissions": profile_data.get("permissions", {}),
+                    }
+                )
         
         # Guardar en team si es colaborador (companies/{companyId}/team)
-        if owner_uid:
+        if owner_uid and target_company_id:
             team_data = {
                 "uid": uid,
                 "name": name,
@@ -1252,7 +1280,7 @@ class DatabaseService:
                 "permissions": profile_data.get("permissions", {}),
                 "createdAt": created_at
             }
-            ref = cls._company_team_coll(owner_uid)
+            ref = cls._company_team_coll(owner_uid, company_id=target_company_id)
             if ref:
                 ref.document(uid).set(team_data)
             
@@ -1456,9 +1484,7 @@ class DatabaseService:
         """Retorna referencia a companies/{companyId}/team con fallback legacy."""
         cid = company_id or _resolve_company_id(owner_uid)
         if cid:
-            ref = db_firestore.collection("companies").document(cid).collection("team")
-            if ref.get():
-                return ref
+            return db_firestore.collection("companies").document(cid).collection("team")
         if owner_uid:
             return db_firestore.collection("users").document(owner_uid).collection("team")
         return None
@@ -1474,6 +1500,11 @@ class DatabaseService:
             return team
         try:
             team_docs = ref.get()
+            if not team_docs and not company_id and owner_uid:
+                legacy_ref = db_firestore.collection("users").document(owner_uid).collection("team")
+                legacy_docs = legacy_ref.get()
+                if legacy_docs:
+                    team_docs = legacy_docs
             team_data_map = {d.id: d.to_dict() for d in team_docs if d.exists}
             from app.web.invoices import resolve_permissions
             for emp_uid in team_data_map:
@@ -1600,10 +1631,28 @@ class DatabaseService:
                 resolved_perms = dict(permissions)
 
             if company_id:
-                cls.update_membership(employee_uid, company_id, {
+                updated = cls.update_membership(employee_uid, company_id, {
                     "permissions": resolved_perms,
                     "role": role or "personalizado",
                 })
+                if not updated:
+                    cls.create_membership(
+                        uid=employee_uid,
+                        company_id=company_id,
+                        role=role or "personalizado",
+                        permissions=resolved_perms
+                    )
+                try:
+                    team_ref = cls._company_team_coll(None, company_id=company_id)
+                    if team_ref:
+                        team_doc = team_ref.document(employee_uid).get()
+                        if team_doc.exists:
+                            team_ref.document(employee_uid).update({
+                                "role": role or "personalizado",
+                                "permissions": resolved_perms,
+                            })
+                except Exception:
+                    pass
 
             return True
         except Exception as e:
