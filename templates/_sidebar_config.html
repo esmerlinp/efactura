@@ -22,6 +22,12 @@
                 <span>Impuestos</span>
             </a>
         </li>
+        <li class="nav-item {% if active_page in ('tax_obligations', 'acc_tax_obligations') %}active{% endif %}"
+            data-tooltip="Registro de Alertas">
+            <a href="{{ url_for('web_accounting.tax_obligations') }}">
+                <span>Registro de Alertas</span>
+            </a>
+        </li>
         {% endif %}
         {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', False) %}
         <li class="nav-item {% if active_page == 'team_settings' %}active{% endif %}"

@@ -2293,16 +2293,19 @@ def toggle_checklist_task():
 
 
 # =========================================================================
-# OBLIGACIONES TRIBUTARIAS DGII
+# REGISTRO DE ALERTAS Y OBLIGACIONES TRIBUTARIAS
 # =========================================================================
 @web_accounting_bp.route('/accounting/tax-obligations')
-@require_module('contabilidad')
+@web_accounting_bp.route('/settings/alerts')
 def tax_obligations():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    is_owner = session.get('user', {}).get('role') == 'owner'
+    has_perm = is_owner or check_permission('canModifySettings') or check_permission('canAccounting')
+    if not has_perm:
+        return render_template('auth/restricted.html', required_permission="canModifySettings"), 403
+
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     from app.services.tax_obligation_service import TaxObligationService, REGIME_PRESETS
@@ -2312,7 +2315,7 @@ def tax_obligations():
     status_map = {s["key"]: s for s in status_list}
     tax_profile = TaxObligationService.detect_tax_profile(owner_uid, company_id=company_id)
     return render_template('accounting/tax_obligations.html',
-                           active_page='acc_tax_obligations',
+                           active_page='tax_obligations',
                            obligations=obligations,
                            status_map=status_map,
                            tax_profile=tax_profile,
@@ -2320,13 +2323,15 @@ def tax_obligations():
 
 
 @web_accounting_bp.route('/accounting/tax-obligations/save', methods=['POST'])
-@require_module('contabilidad')
+@web_accounting_bp.route('/settings/alerts/save', methods=['POST'])
 def tax_obligations_save():
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
-    if not check_permission('canAccounting'):
+    is_owner = session.get('user', {}).get('role') == 'owner'
+    if not (is_owner or check_permission('canModifySettings') or check_permission('canAccounting')):
         return jsonify(success=False, error="Permiso denegado"), 403
+
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
 
@@ -2334,41 +2339,87 @@ def tax_obligations_save():
     if not data:
         data = request.form.to_dict()
 
-    key = data.get('key', '')
+    key = (data.get('key') or data.get('obligation_key') or '').strip()
+    is_new = False
     if not key:
-        return jsonify(success=False, error="key requerido"), 400
+        import uuid
+        key = f"custom_{uuid.uuid4().hex[:8]}"
+        is_new = True
 
     payload = {"obligation_key": key}
+    if is_new:
+        payload["is_custom"] = True
+
+    for field in ("label", "description", "recurrence", "first_due_date",
+                  "category", "action_url", "action_label"):
+        if field in data and data[field] is not None:
+            payload[field] = str(data[field]).strip()
+
     if 'enabled' in data:
-        payload["enabled"] = str(data['enabled']).lower() in ('1', 'true', 'yes')
-    if 'first_due_date' in data:
-        payload["first_due_date"] = data['first_due_date']
+        payload["enabled"] = str(data['enabled']).lower() in ('1', 'true', 'yes', 'on')
+    elif is_new:
+        payload["enabled"] = True
 
     from app.services.tax_obligation_service import TaxObligationService
-    TaxObligationService.save(owner_uid, payload, company_id=company_id)
+    saved = TaxObligationService.save(owner_uid, payload, company_id=company_id)
+    if not saved:
+        return jsonify(success=False, error="Error al guardar la alerta"), 500
 
     # Calcular estado actualizado para respuesta inmediata en frontend
     all_status = TaxObligationService.get_status(owner_uid, company_id=company_id)
     updated_st = next((s for s in all_status if s["key"] == key), None)
 
+    all_obs = TaxObligationService.get_all(owner_uid, company_id=company_id)
+    ob_data = next((o for o in all_obs if (o.get("obligation_key") == key or o.get("key") == key)), payload)
+
     return jsonify(
         success=True,
         key=key,
+        obligation=ob_data,
         status=updated_st.get("status") if updated_st else "ok",
-        next_due_date=updated_st.get("next_due_date", "") if updated_st else "",
+        next_due_date=updated_st.get("next_due_date", "") if updated_st else (payload.get("first_due_date") or ""),
         days_remaining=updated_st.get("days_remaining", 0) if updated_st else 0,
         enabled=payload.get("enabled", True),
+        is_new=is_new,
     )
 
 
+@web_accounting_bp.route('/accounting/tax-obligations/delete', methods=['POST'])
+@web_accounting_bp.route('/settings/alerts/delete', methods=['POST'])
+def tax_obligations_delete():
+    user = _auth()
+    if not user:
+        return jsonify(success=False, error="No autorizado"), 401
+    is_owner = session.get('user', {}).get('role') == 'owner'
+    if not (is_owner or check_permission('canModifySettings') or check_permission('canAccounting')):
+        return jsonify(success=False, error="Permiso denegado"), 403
+
+    owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
+
+    data = request.get_json(silent=True) if request.is_json else request.form.to_dict()
+    key = (data.get('key') or data.get('obligation_key') or '').strip()
+    if not key:
+        return jsonify(success=False, error="Identificador de alerta requerido"), 400
+
+    from app.services.tax_obligation_service import TaxObligationService
+    success, err_msg = TaxObligationService.delete(owner_uid, key, company_id=company_id)
+    if not success:
+        return jsonify(success=False, error=err_msg or "No se pudo eliminar la alerta"), 400
+
+    return jsonify(success=True, key=key)
+
+
 @web_accounting_bp.route('/accounting/tax-obligations/apply-preset', methods=['POST'])
-@require_module('contabilidad')
+@web_accounting_bp.route('/settings/alerts/apply-preset', methods=['POST'])
 def tax_obligations_apply_preset():
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
-    if not check_permission('canAccounting'):
+    is_owner = session.get('user', {}).get('role') == 'owner'
+    if not (is_owner or check_permission('canModifySettings') or check_permission('canAccounting')):
         return jsonify(success=False, error="Permiso denegado"), 403
+
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
 

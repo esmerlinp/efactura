@@ -1,6 +1,6 @@
-{% extends "accounting/layout_accounting.html" %}
-{% block title %}Obligaciones Tributarias DGII & TSS{% endblock %}
-{% block page_header %}Obligaciones Tributarias DGII & TSS{% endblock %}
+{% extends "layout.html" %}
+{% block title %}Registro de Alertas — {{ product_name }}{% endblock %}
+{% block page_header %}Registro de Alertas{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
 <style>
@@ -192,24 +192,154 @@
     opacity: 0;
     transform: translateY(10px);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 9999;
+    z-index: 10005;
     pointer-events: none;
 }
 .tax-toast.show {
     opacity: 1;
     transform: translateY(0);
 }
+
+/* Modal styling */
+.modal-backdrop-alert {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 24, 39, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.modal-backdrop-alert.active {
+    display: flex;
+}
+.modal-card-alert {
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 600px;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.2);
+    overflow: hidden;
+    animation: modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+@keyframes modalScaleIn {
+    from { opacity: 0; transform: scale(0.96) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Frequency Selector Pills */
+.freq-pill-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+}
+@media (max-width: 580px) {
+    .freq-pill-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+.freq-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 8px;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 10px;
+    background: var(--bg-surface, #fff);
+    color: var(--text-secondary, #6b7280);
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+.freq-pill i {
+    font-size: 1.05rem;
+}
+.freq-pill:hover {
+    border-color: var(--accent-purple, #8b5cf6);
+    color: var(--accent-purple, #8b5cf6);
+    background: rgba(139, 92, 246, 0.04);
+}
+.freq-pill.active {
+    border-color: var(--accent-purple, #8b5cf6);
+    background: rgba(139, 92, 246, 0.1);
+    color: #7c3aed;
+    box-shadow: 0 0 0 1px var(--accent-purple, #8b5cf6);
+}
+
+.day-preset-btn {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e5e7eb);
+    background: var(--bg-surface, #fff);
+    color: var(--text-primary, #374151);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.day-preset-btn:hover {
+    border-color: var(--accent-purple, #8b5cf6);
+    color: var(--accent-purple, #8b5cf6);
+}
+.day-preset-btn.active {
+    background: var(--accent-purple, #8b5cf6);
+    border-color: var(--accent-purple, #8b5cf6);
+    color: #ffffff;
+}
 </style>
 {% endblock %}
+
+{% macro recurrence_badge(rec, first_due) %}
+    {% set months = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] %}
+    {% if rec == 'monthly_15' %}
+        <span style="font-size:0.75rem; background:rgba(139,92,246,0.08); color:var(--accent-purple); padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Día 15 de cada mes</span>
+    {% elif rec == 'monthly_20' %}
+        <span style="font-size:0.75rem; background:rgba(139,92,246,0.08); color:var(--accent-purple); padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Día 20 de cada mes</span>
+    {% elif rec == 'monthly_10' %}
+        <span style="font-size:0.75rem; background:rgba(139,92,246,0.08); color:var(--accent-purple); padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Día 10 de cada mes</span>
+    {% elif rec and rec.startswith('monthly_day_') %}
+        <span style="font-size:0.75rem; background:rgba(139,92,246,0.08); color:var(--accent-purple); padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Día {{ rec.replace('monthly_day_', '') }} de cada mes</span>
+    {% elif rec == 'annual_120days' %}
+        <span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ 120 días post-cierre</span>
+    {% elif rec == 'annual_90days' %}
+        <span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ 90 días post-cierre</span>
+    {% elif rec == 'annual_rst_feb' %}
+        <span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ Fin de Febrero</span>
+    {% elif rec == 'annual_date' %}
+        {% if first_due and first_due|length >= 10 %}
+            {% set f_parts = first_due[:10].split('-') %}
+            {% set m_idx = f_parts[1]|int %}
+            <span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">📅 Cada año el {{ f_parts[2]|int }} de {{ months[m_idx] if m_idx <= 12 else '' }}</span>
+        {% else %}
+            <span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">📅 Anual (fecha fija)</span>
+        {% endif %}
+    {% elif rec in ('fixed_date', 'one_time') %}
+        <span style="font-size:0.75rem; background:rgba(107,114,128,0.1); color:#4b5563; padding:3px 8px; border-radius:6px; font-weight:600;">📌 Fecha fija{% if first_due %}: {{ first_due[:10] }}{% endif %}</span>
+    {% else %}
+        <span style="font-size:0.75rem; color:var(--text-muted);">{{ rec }}</span>
+    {% endif %}
+{% endmacro %}
 
 {% block content %}
 <div class="page-title-container" style="margin-bottom:16px; padding-left:4px;">
     <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
-        <i class="fa-solid fa-scale-balanced" style="color:var(--accent-purple); margin-right:10px;"></i>
-        Obligaciones Tributarias DGII & TSS
+        <i class="fa-solid fa-bell" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Registro de Alertas
     </h1>
     <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
-        Monitoreo preventivo del calendario impositivo dominicano (DGII, TSS y Ministerio de Trabajo).
+        Monitoreo preventivo del calendario impositivo dominicano (DGII, TSS y Ministerio de Trabajo) y alertas empresariales personalizadas.
         Calcula traslados por feriados oficiales (Ley 139-97) y adapta los requerimientos según tu régimen fiscal.
     </p>
 </div>
@@ -241,8 +371,13 @@
     </div>
     
     <div class="tax-preset-selector">
+        <button type="button" class="btn btn-primary" onclick="openCreateAlertModal()" style="font-size:0.82rem; padding:7px 16px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; background:var(--accent-purple, #8b5cf6); color:#fff; border:none; font-weight:600; box-shadow:0 2px 6px rgba(139,92,246,0.3);">
+            <i class="fa-solid fa-plus"></i>
+            <span>Nueva Alerta</span>
+        </button>
+
         <div class="dropdown" style="display:inline-block; position:relative;">
-            <button type="button" class="btn btn-outline" style="font-size:0.8rem; padding:6px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" onclick="togglePresetMenu()">
+            <button type="button" class="btn btn-outline" style="font-size:0.82rem; padding:6px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" onclick="togglePresetMenu()">
                 <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent-purple);"></i>
                 <span>Auto-configurar Régimen</span>
                 <i class="fa-solid fa-chevron-down" style="font-size:0.7rem;"></i>
@@ -310,10 +445,10 @@
 
 <div class="tax-kpi-grid">
     <div class="tax-kpi-card">
-        <div class="tax-kpi-icon purple"><i class="fa-solid fa-calendar-check"></i></div>
+        <div class="tax-kpi-icon purple"><i class="fa-solid fa-bell"></i></div>
         <div>
             <div class="tax-kpi-val" id="kpi-total-active">{{ total_active }}</div>
-            <div class="tax-kpi-lbl">Obligaciones Activas</div>
+            <div class="tax-kpi-lbl">Alertas Activas</div>
         </div>
     </div>
     <div class="tax-kpi-card">
@@ -360,6 +495,9 @@
             <button type="button" class="tax-filter-btn" data-filter="annual" onclick="filterObligations('annual', this)">
                 <i class="fa-solid fa-calendar"></i> Anuales
             </button>
+            <button type="button" class="tax-filter-btn" data-filter="custom" onclick="filterObligations('custom', this)">
+                <i class="fa-solid fa-user-tag"></i> Personalizadas
+            </button>
             <button type="button" class="tax-filter-btn" data-filter="alerts" onclick="filterObligations('alerts', this)">
                 <i class="fa-solid fa-bell"></i> Con Alertas
             </button>
@@ -367,16 +505,17 @@
     </div>
 
     <div style="overflow-x:auto;">
-        <table class="data-grid" id="tax-table">
+        <table class="data-grid" id="tax-table" style="table-layout:auto; width:100%;">
             <thead>
                 <tr style="background:var(--bg-nav-hover);">
-                    <th style="padding:10px 12px; text-align:left;">Obligación</th>
-                    <th style="padding:10px 12px; text-align:left;">Descripción</th>
-                    <th style="padding:10px 12px; text-align:center;">Recurrencia</th>
-                    <th style="padding:10px 12px; text-align:center;">Próximo Vencimiento</th>
-                    <th style="padding:10px 12px; text-align:center;">Estado</th>
-                    <th style="padding:10px 12px; text-align:center;">Acción</th>
-                    <th style="padding:10px 12px; text-align:center;">Activa</th>
+                    <th style="padding:10px 12px; text-align:left; min-width:180px;">Alerta / Obligación</th>
+                    <th style="padding:10px 12px; text-align:left; min-width:240px; max-width:380px;">Descripción</th>
+                    <th style="padding:10px 12px; text-align:center; min-width:160px; white-space:nowrap;">Recurrencia</th>
+                    <th style="padding:10px 12px; text-align:center; min-width:130px; white-space:nowrap;">Próximo Vencimiento</th>
+                    <th style="padding:10px 12px; text-align:center; min-width:130px; white-space:nowrap;">Estado</th>
+                    <th style="padding:10px 12px; text-align:center; min-width:90px; white-space:nowrap;">Enlace</th>
+                    <th style="padding:10px 12px; text-align:center; min-width:70px; white-space:nowrap;">Activa</th>
+                    <th style="padding:10px 12px; text-align:center; min-width:90px; white-space:nowrap;">Opciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -388,39 +527,33 @@
                     id="row-{{ ob_key }}"
                     data-key="{{ ob_key }}"
                     data-category="{{ ob.get('category', 'monthly') }}"
+                    data-is-custom="{{ '1' if ob.get('is_custom') else '0' }}"
                     data-status="{{ st.get('status', 'unconfigured') if is_active else 'disabled' }}"
                     style="border-bottom:1px solid var(--border-color);">
                     
-                    <td style="padding:12px 10px;">
-                        <div style="display:flex; flex-direction:column; gap:2px;">
-                            <strong style="color:var(--text-primary); font-size:0.88rem;">{{ ob.label }}</strong>
+                    <td style="padding:12px 10px; min-width:180px;">
+                        <div style="display:flex; flex-direction:column; gap:3px;">
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                <strong style="color:var(--text-primary); font-size:0.88rem;" class="ob-label-val">{{ ob.label }}</strong>
+                                {% if ob.get('is_custom') %}
+                                <span style="font-size:0.68rem; font-weight:700; background:rgba(139,92,246,0.12); color:var(--accent-purple); padding:1px 6px; border-radius:10px; border:1px solid rgba(139,92,246,0.25);">Personalizada</span>
+                                {% else %}
+                                <span style="font-size:0.68rem; font-weight:600; background:rgba(107,114,128,0.1); color:var(--text-muted); padding:1px 6px; border-radius:10px;">DGII</span>
+                                {% endif %}
+                            </div>
                             <span style="font-size:0.72rem; font-family:monospace; color:var(--text-muted);">{{ ob_key }}</span>
                         </div>
                     </td>
                     
-                    <td style="padding:12px 10px; color:var(--text-secondary); font-size:0.78rem; max-width:280px; line-height:1.35;">
+                    <td style="padding:12px 10px; color:var(--text-secondary); font-size:0.78rem; min-width:240px; max-width:380px; white-space:normal; line-height:1.4; word-break:normal;" class="ob-description-val">
                         {{ ob.description }}
                     </td>
 
-                    <td style="padding:12px 10px; text-align:center;">
-                        {% if ob.recurrence == 'monthly_15' %}
-                            <span style="font-size:0.75rem; background:rgba(139,92,246,0.08); color:var(--accent-purple); padding:3px 8px; border-radius:6px; font-weight:600;">Día 15</span>
-                        {% elif ob.recurrence == 'monthly_20' %}
-                            <span style="font-size:0.75rem; background:rgba(139,92,246,0.08); color:var(--accent-purple); padding:3px 8px; border-radius:6px; font-weight:600;">Día 20</span>
-                        {% elif ob.recurrence == 'monthly_10' %}
-                            <span style="font-size:0.75rem; background:rgba(139,92,246,0.08); color:var(--accent-purple); padding:3px 8px; border-radius:6px; font-weight:600;">Día 10</span>
-                        {% elif ob.recurrence == 'annual_120days' %}
-                            <span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">120 días cierre</span>
-                        {% elif ob.recurrence == 'annual_90days' %}
-                            <span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">90 días cierre</span>
-                        {% elif ob.recurrence == 'annual_rst_feb' %}
-                            <span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">Fin de Febrero</span>
-                        {% else %}
-                            <span style="font-size:0.75rem; color:var(--text-muted);">{{ ob.recurrence }}</span>
-                        {% endif %}
+                    <td style="padding:12px 10px; text-align:center; min-width:160px; white-space:nowrap;" class="ob-recurrence-cell">
+                        {{ recurrence_badge(ob.recurrence, ob.first_due_date) }}
                     </td>
 
-                    <td style="padding:12px 10px; text-align:center;">
+                    <td style="padding:12px 10px; text-align:center; min-width:130px; white-space:nowrap;">
                         <div class="due-date-container" style="display:flex; flex-direction:column; align-items:center; gap:2px;">
                             <span class="next-due-date-val" style="font-family:monospace; font-size:0.82rem; font-weight:600; color:var(--text-primary);">
                                 {{ st.next_due_date if (st.next_due_date and is_active) else '—' }}
@@ -428,7 +561,7 @@
                         </div>
                     </td>
 
-                    <td style="padding:12px 10px; text-align:center;">
+                    <td style="padding:12px 10px; text-align:center; min-width:130px; white-space:nowrap;">
                         <span class="tax-badge tax-badge-container {% if not is_active %}tax-badge-disabled{% elif st.status == 'overdue' %}tax-badge-overdue{% elif st.status == 'due_soon' %}tax-badge-due_soon{% elif st.status == 'upcoming' %}tax-badge-upcoming{% elif st.status == 'ok' %}tax-badge-ok{% else %}tax-badge-unconfigured{% endif %}">
                             {% if not is_active %}
                                 <i class="fa-solid fa-power-off"></i> Inactiva
@@ -446,7 +579,7 @@
                         </span>
                     </td>
 
-                    <td style="padding:12px 10px; text-align:center;">
+                    <td style="padding:12px 10px; text-align:center; min-width:90px; white-space:nowrap;" class="ob-action-cell">
                         {% if ob.action_url %}
                             <a href="{{ ob.action_url }}" class="tax-action-btn">
                                 <i class="fa-solid fa-arrow-up-right-from-square"></i> {{ ob.action_label or 'Abrir' }}
@@ -456,7 +589,7 @@
                         {% endif %}
                     </td>
 
-                    <td style="padding:12px 10px; text-align:center;">
+                    <td style="padding:12px 10px; text-align:center; min-width:70px; white-space:nowrap;">
                         <label class="toggle-switch" style="display:inline-flex; align-items:center; gap:8px;">
                             <input type="checkbox" class="tax-toggle"
                                    data-key="{{ ob_key }}"
@@ -468,10 +601,230 @@
                             </span>
                         </label>
                     </td>
+
+                    <td style="padding:12px 10px; text-align:center; min-width:90px; white-space:nowrap;">
+                        <div style="display:inline-flex; align-items:center; gap:6px;">
+                            <button type="button" class="btn btn-icon-sm" title="Editar alerta" onclick='openEditAlertModal({{ ob | tojson | forceescape }})' style="background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-secondary); width:30px; height:30px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s;">
+                                <i class="fa-solid fa-pen-to-square" style="font-size:0.8rem;"></i>
+                            </button>
+                            {% if ob.get('is_custom') %}
+                            <button type="button" class="btn btn-icon-sm" title="Eliminar alerta" onclick="deleteAlert('{{ ob_key }}', '{{ ob.label | escape }}')" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#ef4444; width:30px; height:30px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s;">
+                                <i class="fa-solid fa-trash" style="font-size:0.8rem;"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Modal Crear / Editar Alerta con Smart Recurrence Builder -->
+<div id="alert-modal" class="modal-backdrop-alert">
+    <div class="modal-card-alert">
+        <!-- Modal Header -->
+        <div style="padding:16px 20px; border-bottom:1px solid var(--border-color, #e5e7eb); display:flex; align-items:center; justify-content:space-between; background:var(--bg-nav-hover, #f9fafb); flex-shrink:0;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div class="segment-header-icon purple" style="width:36px; height:36px; border-radius:8px; font-size:1rem; display:flex; align-items:center; justify-content:center; background:rgba(139,92,246,0.12); color:#8b5cf6;">
+                    <i class="fa-solid fa-bell" id="modal-icon"></i>
+                </div>
+                <div>
+                    <h3 id="modal-title" style="margin:0; font-size:1.05rem; font-weight:700; color:var(--text-primary, #111827);">Nueva Alerta</h3>
+                    <span id="modal-subtitle" style="font-size:0.75rem; color:var(--text-secondary, #6b7280);">Configura los parámetros del requerimiento</span>
+                </div>
+            </div>
+            <button type="button" onclick="closeAlertModal()" style="background:none; border:none; font-size:1.2rem; color:var(--text-muted); cursor:pointer; padding:4px 8px; border-radius:6px;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body (Scrollable) -->
+        <form id="alert-form" onsubmit="saveAlert(event)" style="padding:20px; display:flex; flex-direction:column; gap:14px; margin:0; overflow-y:auto; flex:1;">
+            <input type="hidden" id="alert-key" name="key" value="">
+            <input type="hidden" id="alert-is-custom" name="is_custom" value="1">
+            <input type="hidden" id="alert-category" name="category" value="monthly">
+            <input type="hidden" id="alert-recurrence" name="recurrence" value="monthly_15">
+            <input type="hidden" id="alert-first-due-date" name="first_due_date" value="">
+
+            <!-- Nombre -->
+            <div>
+                <label style="display:block; font-size:0.78rem; font-weight:600; color:var(--text-primary); margin-bottom:5px;">
+                    Nombre o Título de la Alerta <span style="color:#ef4444;">*</span>
+                </label>
+                <input type="text" id="alert-label" name="label" required placeholder="Ej: Renovación Registro Mercantil, Pago Póliza de Seguros"
+                       style="width:100%; box-sizing:border-box; padding:9px 12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-input, #fff); color:var(--text-primary); font-size:0.85rem;">
+            </div>
+
+            <!-- Descripción -->
+            <div>
+                <label style="display:block; font-size:0.78rem; font-weight:600; color:var(--text-primary); margin-bottom:5px;">
+                    Descripción
+                </label>
+                <textarea id="alert-description" name="description" rows="2" placeholder="Detalle, requisitos o instrucciones sobre este trámite..."
+                          style="width:100%; box-sizing:border-box; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-input, #fff); color:var(--text-primary); font-size:0.82rem; resize:vertical;"></textarea>
+            </div>
+
+            <!-- ── SELECCIÓN DE FRECUENCIA INTUITIVA ─────────────────────────── -->
+            <div>
+                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-primary); margin-bottom:8px;">
+                    ¿Con qué frecuencia se repetirá esta alerta? <span style="color:#ef4444;">*</span>
+                </label>
+                <div class="freq-pill-grid">
+                    <button type="button" class="freq-pill active" id="pill-monthly" onclick="selectFrequency('monthly')">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Mensual</span>
+                    </button>
+                    <button type="button" class="freq-pill" id="pill-annual_fixed" onclick="selectFrequency('annual_fixed')">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        <span>Anual (Fecha fija)</span>
+                    </button>
+                    <button type="button" class="freq-pill" id="pill-annual_fiscal" onclick="selectFrequency('annual_fiscal')">
+                        <i class="fa-solid fa-scale-balanced"></i>
+                        <span>Cierre fiscal DGII</span>
+                    </button>
+                    <button type="button" class="freq-pill" id="pill-once" onclick="selectFrequency('once')">
+                        <i class="fa-solid fa-thumbtack"></i>
+                        <span>Fecha única</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- SUB-PANEL: MENSUAL -->
+            <div id="panel-monthly" style="background:var(--bg-nav-hover, #f9fafb); border:1px solid var(--border-color); border-radius:10px; padding:14px;">
+                <label style="display:block; font-size:0.78rem; font-weight:600; color:var(--text-primary); margin-bottom:8px;">
+                    ¿Qué día de cada mes vence?
+                </label>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                    <button type="button" class="day-preset-btn" onclick="setMonthlyDay(10, this)">Día 10 (Retenciones/TSS)</button>
+                    <button type="button" class="day-preset-btn active" onclick="setMonthlyDay(15, this)">Día 15 (606 / 607)</button>
+                    <button type="button" class="day-preset-btn" onclick="setMonthlyDay(20, this)">Día 20 (ITBIS IT-1)</button>
+                    <button type="button" class="day-preset-btn" onclick="setMonthlyDay('custom', this)">Otro día...</button>
+                </div>
+                <div id="monthly-custom-wrap" style="display:none; margin-top:8px;">
+                    <label style="display:block; font-size:0.75rem; color:var(--text-secondary); margin-bottom:4px;">
+                        Ingresa el día específico (1 al 31):
+                    </label>
+                    <input type="number" id="monthly-day-input" min="1" max="31" value="15" oninput="onMonthlyDayInputChange()"
+                           style="width:110px; box-sizing:border-box; padding:7px 10px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:0.85rem;">
+                </div>
+            </div>
+
+            <!-- SUB-PANEL: ANUAL FECHA FIJA (MES + DÍA) -->
+            <div id="panel-annual_fixed" style="display:none; background:var(--bg-nav-hover, #f9fafb); border:1px solid var(--border-color); border-radius:10px; padding:14px;">
+                <label style="display:block; font-size:0.78rem; font-weight:600; color:var(--text-primary); margin-bottom:8px;">
+                    ¿Qué día y mes del año vence?
+                </label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label style="display:block; font-size:0.75rem; color:var(--text-secondary); margin-bottom:4px;">Mes:</label>
+                        <select id="annual-month-select" onchange="updateLivePreview()" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-input); font-size:0.82rem;">
+                            <option value="1">Enero</option>
+                            <option value="2">Febrero</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Mayo</option>
+                            <option value="6">Junio</option>
+                            <option value="7">Julio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.75rem; color:var(--text-secondary); margin-bottom:4px;">Día (1 al 31):</label>
+                        <input type="number" id="annual-day-input" min="1" max="31" value="15" oninput="updateLivePreview()"
+                               style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-input); font-size:0.82rem;">
+                    </div>
+                </div>
+                <p style="font-size:0.74rem; color:var(--text-muted); margin:8px 0 0 0;">
+                    La alerta se generará automáticamente cada año en esta fecha (ej. renovación de licencias, seguros o permisos).
+                </p>
+            </div>
+
+            <!-- SUB-PANEL: ANUAL CIERRE FISCAL DGII -->
+            <div id="panel-annual_fiscal" style="display:none; background:var(--bg-nav-hover, #f9fafb); border:1px solid var(--border-color); border-radius:10px; padding:14px;">
+                <label style="display:block; font-size:0.78rem; font-weight:600; color:var(--text-primary); margin-bottom:6px;">
+                    Regla del Código Tributario (DGII)
+                </label>
+                <select id="fiscal-rule-select" onchange="updateLivePreview()" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-input); font-size:0.82rem;">
+                    <option value="annual_120days">120 días después del cierre fiscal (IR-2 Sociedades / Activos ACT)</option>
+                    <option value="annual_90days">90 días después del cierre fiscal (IR-1 Personas Físicas)</option>
+                    <option value="annual_rst_feb">Último día hábil de Febrero (Declaración Anual RST)</option>
+                </select>
+                <p style="font-size:0.74rem; color:var(--text-muted); margin:8px 0 0 0;">
+                    El sistema toma el mes de cierre de la empresa (por defecto 31 de Diciembre) y calcula los días hábiles.
+                </p>
+            </div>
+
+            <!-- SUB-PANEL: FECHA ÚNICA -->
+            <div id="panel-once" style="display:none; background:var(--bg-nav-hover, #f9fafb); border:1px solid var(--border-color); border-radius:10px; padding:14px;">
+                <label style="display:block; font-size:0.78rem; font-weight:600; color:var(--text-primary); margin-bottom:6px;">
+                    Fecha límite no recurrente
+                </label>
+                <input type="date" id="once-date-input" onchange="updateLivePreview()"
+                       style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-input); font-size:0.85rem;">
+                <p style="font-size:0.74rem; color:var(--text-muted); margin:8px 0 0 0;">
+                    La alerta vencerá una única vez en la fecha seleccionada.
+                </p>
+            </div>
+
+            <!-- ── LIVE PREVIEW BANNER (VISTA PREVIA EN TIEMPO REAL) ──────────── -->
+            <div id="live-preview-box" style="background:rgba(139,92,246,0.06); border:1px solid rgba(139,92,246,0.22); border-radius:10px; padding:12px 14px; display:flex; align-items:flex-start; gap:10px;">
+                <div style="font-size:1.15rem; color:var(--accent-purple); margin-top:2px;">
+                    <i class="fa-solid fa-sparkles"></i>
+                </div>
+                <div style="flex:1;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <strong style="font-size:0.82rem; color:var(--text-primary);">Próximo Vencimiento Calculado:</strong>
+                        <span id="preview-due-date" style="font-family:monospace; font-weight:700; font-size:0.88rem; color:#7c3aed; background:rgba(139,92,246,0.12); padding:2px 8px; border-radius:6px;">—</span>
+                        <span id="preview-days-badge" style="font-size:0.74rem; font-weight:600; color:#059669;">—</span>
+                    </div>
+                    <p id="preview-rule-explanation" style="margin:4px 0 0 0; font-size:0.75rem; color:var(--text-secondary); line-height:1.35;">
+                        Se repetirá todos los meses el día 15.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Enlace y Texto opcional -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div>
+                    <label style="display:block; font-size:0.78rem; font-weight:600; color:var(--text-primary); margin-bottom:5px;">
+                        Enlace de Acción (URL opcional)
+                    </label>
+                    <input type="text" id="alert-action-url" name="action_url" placeholder="/rrhh, /reports-606..."
+                           style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-input, #fff); color:var(--text-primary); font-size:0.82rem;">
+                </div>
+
+                <div>
+                    <label style="display:block; font-size:0.78rem; font-weight:600; color:var(--text-primary); margin-bottom:5px;">
+                        Etiqueta del Botón
+                    </label>
+                    <input type="text" id="alert-action-label" name="action_label" placeholder="Abrir, Ver Nómina..."
+                           style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-input, #fff); color:var(--text-primary); font-size:0.82rem;">
+                </div>
+            </div>
+
+            <!-- Estado Activo -->
+            <div style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" id="alert-enabled" name="enabled" checked style="width:18px; height:18px; accent-color:var(--accent-purple, #8b5cf6); cursor:pointer;">
+                <label for="alert-enabled" style="font-size:0.82rem; color:var(--text-primary); cursor:pointer;">Alerta activa para monitoreo</label>
+            </div>
+
+            <!-- Footer Buttons -->
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px; padding-top:12px; border-top:1px solid var(--border-color);">
+                <button type="button" onclick="closeAlertModal()" class="btn btn-outline" style="font-size:0.82rem; padding:8px 16px; border-radius:8px; cursor:pointer;">
+                    Cancelar
+                </button>
+                <button type="submit" id="btn-save-alert" class="btn btn-primary" style="font-size:0.82rem; padding:8px 18px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; background:var(--accent-purple, #8b5cf6); color:#fff; border:none; font-weight:600;">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>Guardar Alerta</span>
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -482,7 +835,13 @@
 </div>
 
 <script>
-// ── Menú Dropdown Presets ─────────────────────────────────────────────────
+// ── CSRF Token Helper ─────────────────────────────────────────────────────
+function getCsrfToken() {
+    const el = document.querySelector('meta[name="csrf-token"]');
+    return el ? el.getAttribute('content') : '';
+}
+
+// ── Dropdown Presets ──────────────────────────────────────────────────────
 function togglePresetMenu() {
     const menu = document.getElementById('preset-menu');
     menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
@@ -504,7 +863,7 @@ function applyPreset(presetKey) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({ preset_key: presetKey })
     })
@@ -555,7 +914,7 @@ function showToast(message, isError = false) {
     clearTimeout(_toastTimer);
     _toastTimer = setTimeout(() => {
         toast.classList.remove('show');
-    }, 2500);
+    }, 2800);
 }
 
 // ── Filtrado de Obligaciones en Tabla ──────────────────────────────────────
@@ -566,6 +925,7 @@ function filterObligations(category, btn) {
     const rows = document.querySelectorAll('.tax-row');
     rows.forEach(row => {
         const cat = row.dataset.category;
+        const isCustom = row.dataset.isCustom === '1';
         const status = row.dataset.status;
         
         if (category === 'all') {
@@ -573,6 +933,8 @@ function filterObligations(category, btn) {
         } else if (category === 'monthly' && cat === 'monthly') {
             row.style.display = '';
         } else if (category === 'annual' && cat === 'annual') {
+            row.style.display = '';
+        } else if (category === 'custom' && (isCustom || cat === 'custom')) {
             row.style.display = '';
         } else if (category === 'alerts' && (status === 'overdue' || status === 'due_soon' || status === 'upcoming')) {
             row.style.display = '';
@@ -667,7 +1029,7 @@ function toggleObligation(el) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            'X-CSRFToken': getCsrfToken()
         },
         body: 'key=' + encodeURIComponent(key) + '&enabled=' + (enabled ? '1' : '0')
     })
@@ -675,7 +1037,7 @@ function toggleObligation(el) {
     .then(data => {
         if (data.success) {
             updateRowBadge(row, data.status, data.days_remaining, data.enabled, data.next_due_date);
-            showToast(enabled ? 'Obligación activada' : 'Obligación desactivada');
+            showToast(enabled ? 'Alerta activada' : 'Alerta desactivada');
         } else {
             showToast(data.error || 'Error al actualizar', true);
         }
@@ -683,6 +1045,451 @@ function toggleObligation(el) {
     .catch(err => {
         console.error('Error:', err);
         showToast('Error de conexión con el servidor', true);
+    });
+}
+
+// ── SMART RECURRENCE BUILDER ENGINE ───────────────────────────────────────
+const MONTH_NAMES = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+let _currentFrequency = 'monthly'; // 'monthly', 'annual_fixed', 'annual_fiscal', 'once'
+
+function selectFrequency(freq) {
+    _currentFrequency = freq;
+    
+    // Update active pill
+    document.querySelectorAll('.freq-pill').forEach(btn => btn.classList.remove('active'));
+    const activePill = document.getElementById('pill-' + freq);
+    if (activePill) activePill.classList.add('active');
+
+    // Show corresponding panel
+    document.getElementById('panel-monthly').style.display = freq === 'monthly' ? 'block' : 'none';
+    document.getElementById('panel-annual_fixed').style.display = freq === 'annual_fixed' ? 'block' : 'none';
+    document.getElementById('panel-annual_fiscal').style.display = freq === 'annual_fiscal' ? 'block' : 'none';
+    document.getElementById('panel-once').style.display = freq === 'once' ? 'block' : 'none';
+
+    updateLivePreview();
+}
+
+function setMonthlyDay(day, btn) {
+    document.querySelectorAll('.day-preset-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    const customWrap = document.getElementById('monthly-custom-wrap');
+    const input = document.getElementById('monthly-day-input');
+
+    if (day === 'custom') {
+        customWrap.style.display = 'block';
+    } else {
+        customWrap.style.display = 'none';
+        input.value = day;
+    }
+    updateLivePreview();
+}
+
+function onMonthlyDayInputChange() {
+    updateLivePreview();
+}
+
+// Client-side RD date shift calculator for live preview feedback
+const RD_HOLIDAYS_FIXED = [
+    '01-01', '01-06', '01-21', '01-26', '02-27',
+    '05-01', '08-16', '09-24', '11-06', '12-25'
+];
+
+function isWeekendOrHolidayClient(d) {
+    const day = d.getDay();
+    if (day === 0 || day === 6) return true;
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return RD_HOLIDAYS_FIXED.includes(`${mm}-${dd}`);
+}
+
+function nextBusinessDayClient(d) {
+    let cur = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    while (isWeekendOrHolidayClient(cur)) {
+        cur.setDate(cur.getDate() + 1);
+    }
+    return cur;
+}
+
+function updateLivePreview() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let candidateDate = null;
+    let ruleText = '';
+    let category = 'monthly';
+    let recurrenceKey = 'monthly_15';
+    let firstDueDateVal = '';
+
+    if (_currentFrequency === 'monthly') {
+        category = 'monthly';
+        const dayVal = Math.min(31, Math.max(1, parseInt(document.getElementById('monthly-day-input').value, 10) || 15));
+        
+        let targetMonth = today.getMonth();
+        let targetYear = today.getFullYear();
+        let testDate = new Date(targetYear, targetMonth, dayVal);
+        if (testDate < today) {
+            targetMonth++;
+            if (targetMonth > 11) {
+                targetMonth = 0;
+                targetYear++;
+            }
+            testDate = new Date(targetYear, targetMonth, dayVal);
+        }
+        candidateDate = testDate;
+        
+        if (dayVal === 10) recurrenceKey = 'monthly_10';
+        else if (dayVal === 15) recurrenceKey = 'monthly_15';
+        else if (dayVal === 20) recurrenceKey = 'monthly_20';
+        else recurrenceKey = 'monthly_day_' + dayVal;
+
+        firstDueDateVal = formatDateYMD(testDate);
+        ruleText = `Se repetirá todos los meses el día ${dayVal}.`;
+
+    } else if (_currentFrequency === 'annual_fixed') {
+        category = 'annual';
+        recurrenceKey = 'annual_date';
+
+        const monthVal = parseInt(document.getElementById('annual-month-select').value, 10) || 1; // 1..12
+        const dayVal = Math.min(31, Math.max(1, parseInt(document.getElementById('annual-day-input').value, 10) || 15));
+
+        let targetYear = today.getFullYear();
+        let testDate = new Date(targetYear, monthVal - 1, dayVal);
+        if (testDate < today) {
+            targetYear++;
+            testDate = new Date(targetYear, monthVal - 1, dayVal);
+        }
+        candidateDate = testDate;
+        firstDueDateVal = formatDateYMD(testDate);
+        ruleText = `Se repetirá automáticamente cada año el ${dayVal} de ${MONTH_NAMES[monthVal - 1]}.`;
+
+    } else if (_currentFrequency === 'annual_fiscal') {
+        category = 'annual';
+        const ruleVal = document.getElementById('fiscal-rule-select').value;
+        recurrenceKey = ruleVal;
+
+        // Approximate for live preview (assuming Dec 31 closure)
+        const curYear = today.getFullYear();
+        if (ruleVal === 'annual_120days') {
+            candidateDate = new Date(curYear, 3, 30); // ~Abril 30
+            if (candidateDate < today) candidateDate = new Date(curYear + 1, 3, 30);
+            ruleText = 'Se calcula a los 120 días del cierre fiscal de la empresa (IR-2 / ACT).';
+        } else if (ruleVal === 'annual_90days') {
+            candidateDate = new Date(curYear, 2, 31); // ~Marzo 31
+            if (candidateDate < today) candidateDate = new Date(curYear + 1, 2, 31);
+            ruleText = 'Se calcula a los 90 días del cierre fiscal de la empresa (IR-1 Personas Físicas).';
+        } else {
+            // RST end of Feb
+            candidateDate = new Date(curYear, 1, 28);
+            if (candidateDate < today) candidateDate = new Date(curYear + 1, 1, 28);
+            ruleText = 'Vence el último día hábil de Febrero (Declaración Anual RST).';
+        }
+        firstDueDateVal = formatDateYMD(candidateDate);
+
+    } else if (_currentFrequency === 'once') {
+        category = 'custom';
+        recurrenceKey = 'fixed_date';
+        const dateStr = document.getElementById('once-date-input').value;
+        if (dateStr) {
+            const parts = dateStr.split('-');
+            candidateDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            firstDueDateVal = dateStr;
+            ruleText = 'Vence una única vez en la fecha límite seleccionada (sin repetición).';
+        } else {
+            candidateDate = new Date();
+            candidateDate.setDate(candidateDate.getDate() + 7);
+            firstDueDateVal = formatDateYMD(candidateDate);
+            ruleText = 'Selecciona la fecha límite específica.';
+        }
+    }
+
+    // Apply business day shift if weekend or official holiday
+    const finalDueDate = nextBusinessDayClient(candidateDate);
+    const wasShifted = finalDueDate.getTime() !== candidateDate.getTime();
+
+    // Update hidden form fields
+    document.getElementById('alert-category').value = category;
+    document.getElementById('alert-recurrence').value = recurrenceKey;
+    document.getElementById('alert-first-due-date').value = firstDueDateVal;
+
+    // Update Preview in DOM
+    const previewDateSpan = document.getElementById('preview-due-date');
+    const previewDaysBadge = document.getElementById('preview-days-badge');
+    const previewExpl = document.getElementById('preview-rule-explanation');
+
+    const formattedDateStr = formatDateYMD(finalDueDate);
+    const daysDiff = Math.ceil((finalDueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (previewDateSpan) previewDateSpan.textContent = formattedDateStr;
+    if (previewDaysBadge) {
+        if (daysDiff < 0) {
+            previewDaysBadge.textContent = `(Vencido hace ${Math.abs(daysDiff)} d)`;
+            previewDaysBadge.style.color = '#dc2626';
+        } else if (daysDiff === 0) {
+            previewDaysBadge.textContent = '(Vence hoy)';
+            previewDaysBadge.style.color = '#d97706';
+        } else {
+            previewDaysBadge.textContent = `(en ${daysDiff} días)`;
+            previewDaysBadge.style.color = daysDiff <= 7 ? '#d97706' : '#059669';
+        }
+    }
+
+    if (previewExpl) {
+        let expl = ruleText;
+        if (wasShifted) {
+            expl += ` <span style="color:#7c3aed;">★ Trasladado al ${formatDateYMD(finalDueDate)} por caer en día no laborable/feriado.</span>`;
+        }
+        previewExpl.innerHTML = expl;
+    }
+}
+
+function formatDateYMD(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+// ── Abrir Modal Crear ─────────────────────────────────────────────────────
+function openCreateAlertModal() {
+    document.getElementById('modal-title').textContent = 'Nueva Alerta';
+    document.getElementById('modal-subtitle').textContent = 'Registra un nuevo requerimiento fiscal o empresarial';
+    document.getElementById('modal-icon').className = 'fa-solid fa-plus';
+    document.getElementById('alert-key').value = '';
+    document.getElementById('alert-is-custom').value = '1';
+    document.getElementById('alert-label').value = '';
+    document.getElementById('alert-description').value = '';
+    document.getElementById('alert-action-url').value = '';
+    document.getElementById('alert-action-label').value = '';
+    document.getElementById('alert-enabled').checked = true;
+
+    // Reset default frequency: Mensual Día 15
+    selectFrequency('monthly');
+    setMonthlyDay(15, document.querySelectorAll('.day-preset-btn')[1]);
+
+    // Setup initial date for once
+    const today = new Date();
+    today.setDate(today.getDate() + 7);
+    document.getElementById('once-date-input').value = formatDateYMD(today);
+
+    // Setup initial month/day for annual
+    document.getElementById('annual-month-select').value = String(new Date().getMonth() + 1);
+    document.getElementById('annual-day-input').value = '15';
+
+    updateLivePreview();
+    document.getElementById('alert-modal').classList.add('active');
+}
+
+// ── Abrir Modal Editar ────────────────────────────────────────────────────
+function openEditAlertModal(data) {
+    if (!data) return;
+    document.getElementById('modal-title').textContent = 'Editar Alerta';
+    document.getElementById('modal-subtitle').textContent = 'Modifica los parámetros de la alerta';
+    document.getElementById('modal-icon').className = 'fa-solid fa-pen-to-square';
+
+    const key = data.obligation_key || data.key || data.id || '';
+    document.getElementById('alert-key').value = key;
+    document.getElementById('alert-is-custom').value = data.is_custom ? '1' : '0';
+    document.getElementById('alert-label').value = data.label || '';
+    document.getElementById('alert-description').value = data.description || '';
+    document.getElementById('alert-action-url').value = data.action_url || '';
+    document.getElementById('alert-action-label').value = data.action_label || '';
+    document.getElementById('alert-enabled').checked = data.enabled !== false;
+
+    const rec = data.recurrence || 'monthly_15';
+    const firstDue = data.first_due_date ? data.first_due_date.slice(0, 10) : '';
+
+    if (rec === 'annual_120days' || rec === 'annual_90days' || rec === 'annual_rst_feb') {
+        selectFrequency('annual_fiscal');
+        document.getElementById('fiscal-rule-select').value = rec;
+    } else if (rec === 'annual_date') {
+        selectFrequency('annual_fixed');
+        if (firstDue && firstDue.includes('-')) {
+            const parts = firstDue.split('-');
+            if (parts.length >= 3) {
+                document.getElementById('annual-month-select').value = String(parseInt(parts[1], 10));
+                document.getElementById('annual-day-input').value = parseInt(parts[2], 10);
+            }
+        }
+    } else if (rec === 'fixed_date' || rec === 'one_time') {
+        selectFrequency('once');
+        document.getElementById('once-date-input').value = firstDue || formatDateYMD(new Date());
+    } else {
+        // Mensual
+        selectFrequency('monthly');
+        let dayNum = 15;
+        if (rec === 'monthly_10') dayNum = 10;
+        else if (rec === 'monthly_15') dayNum = 15;
+        else if (rec === 'monthly_20') dayNum = 20;
+        else if (rec.startsWith('monthly_day_')) dayNum = parseInt(rec.replace('monthly_day_', ''), 10) || 15;
+
+        document.getElementById('monthly-day-input').value = dayNum;
+        if ([10, 15, 20].includes(dayNum)) {
+            const btnIdx = dayNum === 10 ? 0 : dayNum === 15 ? 1 : 2;
+            setMonthlyDay(dayNum, document.querySelectorAll('.day-preset-btn')[btnIdx]);
+        } else {
+            setMonthlyDay('custom', document.querySelectorAll('.day-preset-btn')[3]);
+        }
+    }
+
+    updateLivePreview();
+    document.getElementById('alert-modal').classList.add('active');
+}
+
+function closeAlertModal() {
+    document.getElementById('alert-modal').classList.remove('active');
+}
+
+function getRecurrenceLabelHtml(rec, firstDue) {
+    if (rec === 'monthly_15') return '<span style="font-size:0.75rem; background:rgba(139,92,246,0.08); color:var(--accent-purple); padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Día 15 de cada mes</span>';
+    if (rec === 'monthly_20') return '<span style="font-size:0.75rem; background:rgba(139,92,246,0.08); color:var(--accent-purple); padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Día 20 de cada mes</span>';
+    if (rec === 'monthly_10') return '<span style="font-size:0.75rem; background:rgba(139,92,246,0.08); color:var(--accent-purple); padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Día 10 de cada mes</span>';
+    if (rec && rec.startsWith('monthly_day_')) return `<span style="font-size:0.75rem; background:rgba(139,92,246,0.08); color:var(--accent-purple); padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Día ${rec.replace('monthly_day_', '')} de cada mes</span>`;
+    if (rec === 'annual_120days') return '<span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ 120 días post-cierre</span>';
+    if (rec === 'annual_90days') return '<span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ 90 días post-cierre</span>';
+    if (rec === 'annual_rst_feb') return '<span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ Fin de Febrero</span>';
+    if (rec === 'annual_date') {
+        if (firstDue && firstDue.includes('-')) {
+            const parts = firstDue.split('-');
+            const m = parseInt(parts[1], 10);
+            const d = parseInt(parts[2], 10);
+            return `<span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">📅 Cada año el ${d} de ${MONTH_NAMES[m - 1] || ''}</span>`;
+        }
+        return '<span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">📅 Anual (fecha fija)</span>';
+    }
+    if (rec === 'fixed_date' || rec === 'one_time') {
+        return `<span style="font-size:0.75rem; background:rgba(107,114,128,0.1); color:#4b5563; padding:3px 8px; border-radius:6px; font-weight:600;">📌 Fecha fija: ${firstDue || ''}</span>`;
+    }
+    return `<span style="font-size:0.75rem; color:var(--text-muted);">${rec}</span>`;
+}
+
+function saveAlert(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-save-alert');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+    // Form values
+    const key = document.getElementById('alert-key').value;
+    const label = document.getElementById('alert-label').value.trim();
+    const description = document.getElementById('alert-description').value.trim();
+    const category = document.getElementById('alert-category').value;
+    const recurrence = document.getElementById('alert-recurrence').value;
+    const firstDueDate = document.getElementById('alert-first-due-date').value;
+    const actionUrl = document.getElementById('alert-action-url').value.trim();
+    const actionLabel = document.getElementById('alert-action-label').value.trim();
+    const enabled = document.getElementById('alert-enabled').checked;
+
+    const payload = {
+        key: key,
+        label: label,
+        description: description,
+        category: category,
+        recurrence: recurrence,
+        first_due_date: firstDueDate,
+        action_url: actionUrl,
+        action_label: actionLabel,
+        enabled: enabled ? 1 : 0
+    };
+
+    fetch('{{ url_for("web_accounting.tax_obligations_save") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Alerta';
+
+        if (data.success) {
+            closeAlertModal();
+            showToast('✓ Alerta guardada correctamente');
+
+            const existingRow = document.getElementById('row-' + data.key);
+            if (existingRow) {
+                existingRow.dataset.category = category;
+                const labelEl = existingRow.querySelector('.ob-label-val');
+                if (labelEl) labelEl.textContent = label;
+                const descEl = existingRow.querySelector('.ob-description-val');
+                if (descEl) descEl.textContent = description;
+                const recCell = existingRow.querySelector('.ob-recurrence-cell');
+                if (recCell) recCell.innerHTML = getRecurrenceLabelHtml(recurrence, firstDueDate);
+
+                const actionCell = existingRow.querySelector('.ob-action-cell');
+                if (actionCell) {
+                    if (actionUrl) {
+                        actionCell.innerHTML = `<a href="${actionUrl}" class="tax-action-btn"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${actionLabel || 'Abrir'}</a>`;
+                    } else {
+                        actionCell.innerHTML = '<span style="color:var(--text-muted); font-size:0.75rem;">—</span>';
+                    }
+                }
+
+                const toggle = existingRow.querySelector('.tax-toggle');
+                const track = existingRow.querySelector('.toggle-track');
+                const thumb = existingRow.querySelector('.toggle-thumb');
+                if (toggle) toggle.checked = enabled;
+                if (track) track.style.background = enabled ? 'var(--accent-emerald, #10b981)' : 'var(--border-color, #d1d5db)';
+                if (thumb) thumb.style.left = enabled ? '20px' : '2px';
+
+                updateRowBadge(existingRow, data.status, data.days_remaining, enabled, data.next_due_date);
+            } else {
+                setTimeout(() => { window.location.reload(); }, 600);
+            }
+        } else {
+            showToast(data.error || 'Error al guardar la alerta', true);
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Alerta';
+        console.error('Error:', err);
+        showToast('Error de comunicación con el servidor', true);
+    });
+}
+
+// ── Eliminar Alerta Personalizada ─────────────────────────────────────────
+function deleteAlert(key, label) {
+    if (!confirm(`¿Estás seguro de que deseas eliminar la alerta "${label}"? Esta acción no se puede deshacer.`)) {
+        return;
+    }
+
+    fetch('{{ url_for("web_accounting.tax_obligations_delete") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({ key: key })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const row = document.getElementById('row-' + key);
+            if (row) {
+                row.style.transition = 'opacity 0.3s, transform 0.3s';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+                setTimeout(() => {
+                    row.remove();
+                    refreshKpiCounters();
+                }, 300);
+            }
+            showToast('✓ Alerta eliminada');
+        } else {
+            showToast(data.error || 'Error al eliminar', true);
+        }
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        showToast('Error de comunicación con el servidor', true);
     });
 }
 </script>

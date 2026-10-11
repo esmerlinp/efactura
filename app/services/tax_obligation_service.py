@@ -331,12 +331,32 @@ def _next_due_date(first_due_date_str, recurrence, reference_date=None, fiscal_e
         raw_due = _next_monthly_day(first, 20, today)
     elif recurrence == "monthly_10":
         raw_due = _next_monthly_day(first, 10, today)
+    elif recurrence and recurrence.startswith("monthly_day_"):
+        try:
+            day_num = int(recurrence.replace("monthly_day_", ""))
+            raw_due = _next_monthly_day(first, day_num, today)
+        except ValueError:
+            raw_due = _next_monthly_day(first, 15, today)
     elif recurrence == "annual_120days":
         raw_due = _next_annual_120days(today, fiscal_end_month, first)
     elif recurrence == "annual_90days":
         raw_due = _next_annual_90days(today, fiscal_end_month, first)
     elif recurrence == "annual_rst_feb":
         raw_due = _next_annual_rst_feb(today, first)
+    elif recurrence == "annual_date" and first:
+        candidate_year = today.year
+        try:
+            candidate = date(candidate_year, first.month, first.day)
+        except ValueError:
+            candidate = date(candidate_year, first.month, 28)
+        if candidate < today:
+            try:
+                candidate = date(candidate_year + 1, first.month, first.day)
+            except ValueError:
+                candidate = date(candidate_year + 1, first.month, 28)
+        raw_due = candidate
+    elif recurrence in ("fixed_date", "one_time"):
+        raw_due = first if first else None
 
     if raw_due:
         return _next_business_day(raw_due, company_id=company_id)
@@ -476,16 +496,17 @@ class TaxObligationService:
                     "category": ob.get("category", "monthly"),
                     "last_notified_at": "",
                     "last_notified_period": "",
+                    "is_custom": False,
                 }
                 doc_ref.set(payload)
                 obligations.append(payload)
             else:
                 data = doc.to_dict()
+                # Asegurar campos estructurales sin sobreescribir ediciones del usuario
                 dirty = False
-                for field in ["description", "label", "action_url", "action_label", "category", "recurrence"]:
-                    if field in ob and data.get(field) != ob.get(field):
-                        data[field] = ob.get(field)
-                        dirty = True
+                if "is_custom" not in data:
+                    data["is_custom"] = False
+                    dirty = True
                 if dirty:
                     doc_ref.set(data, merge=True)
                 obligations.append(data)
@@ -494,7 +515,8 @@ class TaxObligationService:
     @classmethod
     def get_all(cls, owner_uid, company_id=None):
         """
-        Obtiene todas las obligaciones tributarias en orden canónico.
+        Obtiene todas las obligaciones tributarias en orden canónico,
+        incluyendo las alertas personalizadas creadas por el usuario.
         """
         config_ref = cls._profile_ref(owner_uid, company_id=company_id)
         if not config_ref:
@@ -502,12 +524,16 @@ class TaxObligationService:
 
         docs = config_ref.stream()
         db_map = {}
+        custom_docs = []
         for doc in docs:
             data = doc.to_dict()
             key = data.get("obligation_key") or doc.id
             data["id"] = doc.id
             data["obligation_key"] = key
             db_map[key] = data
+            if key not in OBLIGATIONS_DICT or data.get("is_custom"):
+                data["is_custom"] = True
+                custom_docs.append(data)
 
         if not db_map:
             return cls.seed_defaults(owner_uid, company_id=company_id)
@@ -523,13 +549,20 @@ class TaxObligationService:
             if key in db_map:
                 merged = dict(ob)
                 merged.update(db_map[key])
+                merged["is_custom"] = False
                 result.append(merged)
+
+        # Añadir alertas personalizadas
+        for c_doc in custom_docs:
+            if c_doc["obligation_key"] not in OBLIGATIONS_DICT:
+                result.append(c_doc)
+
         return result
 
     @classmethod
     def save(cls, owner_uid, obligation_data, company_id=None):
         """
-        Guarda o actualiza una obligación para la empresa activa.
+        Guarda o actualiza una obligación o alerta para la empresa activa.
         """
         config_ref = cls._profile_ref(owner_uid, company_id=company_id)
         if not config_ref:
@@ -540,7 +573,7 @@ class TaxObligationService:
 
         payload = {"obligation_key": key}
         for field in ("label", "description", "first_due_date", "recurrence",
-                      "action_url", "action_label", "category",
+                      "action_url", "action_label", "category", "is_custom",
                       "last_notified_at", "last_notified_period",
                       "last_presented_period", "last_presented_at", "confirmation_number"):
             if field in obligation_data:
@@ -548,13 +581,35 @@ class TaxObligationService:
         if "enabled" in obligation_data:
             payload["enabled"] = bool(obligation_data["enabled"])
 
+        # Si no está en las canónicas, marcar como personalizada
+        if key not in OBLIGATIONS_DICT and "is_custom" not in payload:
+            payload["is_custom"] = True
+
         config_ref.document(key).set(payload, merge=True)
         return True
 
     @classmethod
+    def delete(cls, owner_uid, obligation_key, company_id=None):
+        """
+        Elimina una alerta personalizada registrada por el usuario.
+        Las obligaciones canónicas DGII no pueden eliminarse, sólo desactivarse.
+        """
+        if obligation_key in OBLIGATIONS_DICT:
+            return False, "Las obligaciones fiscales del sistema no pueden eliminarse, sólo desactivarse."
+        config_ref = cls._profile_ref(owner_uid, company_id=company_id)
+        if not config_ref:
+            return False, "Error de acceso a la base de datos."
+        doc_ref = config_ref.document(obligation_key)
+        doc = doc_ref.get()
+        if not doc.exists:
+            return False, "La alerta especificada no existe."
+        doc_ref.delete()
+        return True, None
+
+    @classmethod
     def get_status(cls, owner_uid, reference_date=None, company_id=None):
         """
-        Devuelve una lista con el estado calculado de cada obligación activa.
+        Devuelve una lista con el estado calculado de cada obligación o alerta activa.
         """
         today = reference_date or date.today()
         fiscal_end_month = _get_fiscal_end_month(owner_uid, company_id=company_id)
@@ -605,6 +660,7 @@ class TaxObligationService:
                 "days_remaining": days if next_due else 0,
                 "status": status,
                 "enabled": True,
+                "is_custom": ob.get("is_custom", False),
             })
         return result
 

@@ -211,3 +211,52 @@ class TestTaxObligationStatusCalculation:
 
             statuses = TaxObligationService.get_status("user_123", reference_date=today)
             assert len(statuses) == 0
+
+
+class TestCustomAlertsAndRecurrences:
+    def test_custom_monthly_day_recurrence(self):
+        # 5 de cada mes
+        today = date(2026, 10, 1)
+        next_due = _next_due_date("", "monthly_day_5", reference_date=today)
+        assert next_due == date(2026, 10, 5)
+
+        # Si hoy es 6 de octubre, debe calcular para noviembre
+        today_after = date(2026, 10, 6)
+        next_due_after = _next_due_date("", "monthly_day_5", reference_date=today_after)
+        # 5 de nov 2026 es jueves (laborable)
+        assert next_due_after == date(2026, 11, 5)
+
+    def test_annual_date_recurrence(self):
+        today = date(2026, 5, 10)
+        # Vence cada 15 de julio
+        next_due = _next_due_date("2026-07-15", "annual_date", reference_date=today)
+        assert next_due == date(2026, 7, 15)
+
+        # Si ya pasó en el año actual, debe ser en el año siguiente
+        today_past = date(2026, 8, 1)
+        next_due_next_year = _next_due_date("2026-07-15", "annual_date", reference_date=today_past)
+        assert next_due_next_year == date(2027, 7, 15)
+
+    def test_fixed_date_recurrence(self):
+        today = date(2026, 10, 1)
+        next_due = _next_due_date("2026-10-25", "fixed_date", reference_date=today)
+        # 25 de octubre 2026 es domingo -> se traslada a lunes 26
+        assert next_due == date(2026, 10, 26)
+
+    def test_delete_native_obligation_rejected(self):
+        success, err = TaxObligationService.delete("user_123", "form_606")
+        assert success is False
+        assert "no pueden eliminarse" in err
+
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    def test_delete_custom_obligation_allowed(self, mock_ref):
+        mock_doc = MagicMock()
+        mock_doc.get().exists = True
+        mock_coll = MagicMock()
+        mock_coll.document.return_value = mock_doc
+        mock_ref.return_value = mock_coll
+
+        success, err = TaxObligationService.delete("user_123", "custom_abc123")
+        assert success is True
+        assert err is None
+        mock_doc.delete.assert_called_once()
