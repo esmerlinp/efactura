@@ -4095,8 +4095,14 @@ class DatabaseService:
             exp_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
         exp_dict["amount"] = float(exp_dict["amount"])
-        if exp_dict["amount"] <= 0:
+        is_zero_allowed = (
+            exp_dict.get("ecfType") in ("34", "E34")
+            or bool(exp_dict.get("ncfModificado"))
+            or exp_dict.get("source") == "received_ecf"
+        )
+        if exp_dict["amount"] < 0 or (exp_dict["amount"] == 0 and not is_zero_allowed):
             raise ValueError("El monto del gasto debe ser mayor a cero.")
+
         exp_dict["itbisAmount"] = float(exp_dict.get("itbisAmount", exp_dict["amount"] * 0.18 / 1.18))
         exp_dict["isMinorExpense"] = bool(exp_dict.get("isMinorExpense", False))
         exp_dict["isSyncedWithDGII"] = bool(exp_dict.get("isSyncedWithDGII", False))

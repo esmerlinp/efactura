@@ -307,6 +307,23 @@
                             Total:</span>
                         <span>RD$ {{ "{:,.2f}".format(detail.monto_total or (doc.monto_total | float)) }}</span>
                     </div>
+
+                    <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border-color); display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; color: var(--text-secondary);">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Bienes (Reporte 606 Col 9):</span>
+                            <strong>RD$ {{ "{:,.2f}".format(detail.monto_bienes | float) }}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Servicios (Reporte 606 Col 8):</span>
+                            <strong>RD$ {{ "{:,.2f}".format(detail.monto_servicios | float) }}</strong>
+                        </div>
+                        {% if detail.ncf_modificado %}
+                        <div style="display: flex; justify-content: space-between; color: var(--accent-purple);">
+                            <span>NCF Modificado (Col 5):</span>
+                            <strong style="font-family: monospace;">{{ detail.ncf_modificado }}</strong>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -335,6 +352,15 @@
                 Track ID: {{ doc.track_id or '-' }}
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% if doc.estado_arecf != '1' %}
+                {% set doc_year = detail.fecha_emision_iso[:4] if detail and detail.fecha_emision_iso else (doc.received_at[:4] if doc.received_at else '') %}
+                {% set doc_month = detail.fecha_emision_iso[5:7] if detail and detail.fecha_emision_iso else (doc.received_at[5:7] if doc.received_at else '') %}
+                <a href="{{ url_for('web_reports_606.reporte_606', search=doc.encf, year=doc_year, month=doc_month) }}" class="btn btn-secondary"
+                    style="width: 100%; font-size: 0.82rem; padding: 8px 16px; border-color: var(--accent-purple); color: var(--accent-purple);">
+                    <i class="fa-solid fa-file-invoice"></i>
+                    <span>Ver en Reporte 606</span>
+                </a>
+                {% endif %}
                 <a href="{{ url_for('web_recepcion.download_received_pdf', ecf_id=doc.id) }}" class="btn btn-primary"
                     style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
                     <i class="fa-solid fa-file-pdf"></i>

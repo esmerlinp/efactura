@@ -331,3 +331,30 @@ def list_approvals():
         active_page="recepcion_aprobaciones",
         company_id=company_id,
     )
+
+
+@web_recepcion_bp.route("/recepcion/ecf/sync-606", methods=["GET", "POST"])
+def sync_received_to_606():
+    if not _check_auth():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, company_id = _get_context()
+    sandbox = session.get("sandbox", True)
+    try:
+        from app.services.received_ecf_bridge_service import ReceivedEcfBridgeService
+        result = ReceivedEcfBridgeService.sync_unprocessed_received_ecfs(
+            owner_uid=owner_uid,
+            sandbox=sandbox,
+            company_id=company_id,
+        )
+        processed = result.get("processed", 0)
+        errors = result.get("errors", 0)
+        if processed > 0:
+            flash(f"Se sincronizaron exitosamente {processed} e-CF con el Reporte 606 (en sus respectivos meses según su fecha de emisión).", "success")
+        elif errors > 0:
+            flash(f"Se intentó sincronizar pero ocurrieron {errors} error(es).", "warning")
+        else:
+            flash("Todos los e-CF recibidos válidos ya se encontraban sincronizados en el Reporte 606.", "info")
+    except Exception as e:
+        flash(f"Error al sincronizar con el Reporte 606: {e}", "error")
+    return redirect(url_for("web_recepcion.list_received_ecf"))
+

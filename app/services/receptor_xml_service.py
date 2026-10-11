@@ -140,6 +140,25 @@ class ReceptorXmlService:
         return 0.0
 
     @staticmethod
+    def normalize_date_iso(date_str):
+        if not date_str:
+            return ""
+        clean = str(date_str).strip()[:10]
+        parts = clean.split("-")
+        if len(parts) == 3:
+            if len(parts[0]) == 4:
+                return clean  # YYYY-MM-DD
+            if len(parts[2]) == 4:
+                return f"{parts[2]}-{parts[1]}-{parts[0]}"  # DD-MM-YYYY -> YYYY-MM-DD
+        parts_slash = clean.split("/")
+        if len(parts_slash) == 3:
+            if len(parts_slash[0]) == 4:
+                return f"{parts_slash[0]}-{parts_slash[1]}-{parts_slash[2]}"
+            if len(parts_slash[2]) == 4:
+                return f"{parts_slash[2]}-{parts_slash[1]}-{parts_slash[0]}"
+        return clean
+
+    @staticmethod
     def default_detail():
         """Estructura con valores por defecto para renderizar el detalle
         cuando el XML no está disponible o no se pudo parsear."""
@@ -154,6 +173,7 @@ class ReceptorXmlService:
             "correo_emisor": "",
             "telefono_emisor": "",
             "fecha_emision": "",
+            "fecha_emision_iso": "",
             "rnc_comprador": "",
             "razon_social_comprador": "",
             "monto_gravado_total": 0.0,
@@ -166,16 +186,20 @@ class ReceptorXmlService:
             "total_isr_retencion": 0.0,
             "monto_total": 0.0,
             "monto_impuesto_adicional": 0.0,
+            "monto_servicios": 0.0,
+            "monto_bienes": 0.0,
+            "ncf_modificado": "",
+            "tipo_pago": "2",
+            "forma_pago_606": "02",
             "detalle_items": [],
         }
 
     @staticmethod
     def parse_ecf_detail(xml_bytes):
-        """Parseo enriquecido del e-CF recibido para la vista de detalle.
+        """Parseo enriquecido del e-CF recibido para la vista de detalle y el 606.
 
-        Extrae fechas, totales por banda de ITBIS, retenciones e items.
-        Es tolerante a campos ausentes (devuelve "" o 0.0) para poder
-        renderizar documentos de cualquier tipo de e-CF.
+        Extrae fechas, totales por banda de ITBIS, retenciones, desglose de
+        bienes vs servicios, NCF modificado (si aplica) e items.
         """
         try:
             root = etree.fromstring(xml_bytes)
@@ -191,13 +215,19 @@ class ReceptorXmlService:
         comprador = ReceptorXmlService._find_elem(enc, "Comprador")
         totales = ReceptorXmlService._find_elem(enc, "Totales")
         detalles = ReceptorXmlService._find_elem(root, "DetallesItems")
+        info_ref = ReceptorXmlService._find_elem(root, "InformacionReferencia")
 
         items = []
+        monto_servicios_calc = 0.0
+        monto_bienes_calc = 0.0
         if detalles is not None:
             for item_elem in ReceptorXmlService._find_all(detalles, "Item"):
                 indicador_facturacion = ReceptorXmlService._find_text(
                     item_elem, "IndicadorFacturacion"
                 )
+                indicador_bien_servicio = ReceptorXmlService._find_text(
+                    item_elem, "IndicadorBienoServicio"
+                ) or "1"
                 precio_unitario = ReceptorXmlService._to_float(
                     ReceptorXmlService._find_text(item_elem, "PrecioUnitarioItem", "PrecioUnitario")
                 )
@@ -219,11 +249,18 @@ class ReceptorXmlService:
                 itbis_amount = 0.0
                 if monto_exento <= 0 and itbis_rate > 0:
                     itbis_amount = round(monto_item * itbis_rate, 2)
+
+                if indicador_bien_servicio == "2":
+                    monto_servicios_calc += monto_item
+                else:
+                    monto_bienes_calc += monto_item
+
                 item = {
                     "numero_linea": ReceptorXmlService._find_text(item_elem, "NumeroLinea"),
                     "codigo": ReceptorXmlService._find_text(item_elem, "CodigoItem"),
                     "nombre": ReceptorXmlService._find_text(item_elem, "NombreItem"),
                     "indicador_facturacion": indicador_facturacion,
+                    "indicador_bien_servicio": indicador_bien_servicio,
                     "cantidad": cantidad,
                     "precio_unitario": precio_unitario,
                     "descuento": descuento,
@@ -235,12 +272,30 @@ class ReceptorXmlService:
                 }
                 items.append(item)
 
+        raw_fecha_emision = ReceptorXmlService._find_text(emisor, "FechaEmision") if emisor is not None else ""
+        fecha_emision_iso = ReceptorXmlService.normalize_date_iso(raw_fecha_emision)
+
+        raw_fecha_venc = ReceptorXmlService._find_text(id_doc, "FechaVencimientoSecuencia") if id_doc is not None else ""
+        fecha_venc_iso = ReceptorXmlService.normalize_date_iso(raw_fecha_venc)
+
+        monto_total_val = ReceptorXmlService._to_float(
+            ReceptorXmlService._find_text(totales, "MontoTotal")
+        ) if totales is not None else 0.0
+
+        if monto_servicios_calc == 0.0 and monto_bienes_calc == 0.0:
+            monto_bienes_calc = monto_total_val
+
+        ncf_modificado = ReceptorXmlService._find_text(info_ref, "NCFModificado") if info_ref is not None else ""
+
+        tipo_pago = ReceptorXmlService._find_text(id_doc, "TipoPago") if id_doc is not None else "2"
+        forma_pago_map = {"1": "01", "2": "02", "3": "03", "4": "04", "5": "05", "6": "06", "7": "07"}
+        forma_pago_606 = forma_pago_map.get(tipo_pago, "02")
+
         detail = {
             "tipo_ecf": ReceptorXmlService._find_text(id_doc, "TipoeCF", "TipoECF", "tipoeCF") if id_doc is not None else "",
             "encf": ReceptorXmlService._find_text(id_doc, "eNCF", "ENCF") if id_doc is not None else "",
-            "fecha_vencimiento": ReceptorXmlService._find_text(
-                id_doc, "FechaVencimientoSecuencia"
-            ) if id_doc is not None else "",
+            "fecha_vencimiento": raw_fecha_venc,
+            "fecha_vencimiento_iso": fecha_venc_iso,
             "rnc_emisor": ReceptorXmlService._find_text(emisor, "RNCEmisor") if emisor is not None else "",
             "razon_social_emisor": ReceptorXmlService._find_text(
                 emisor, "RazonSocialEmisor", "RazonSocial"
@@ -249,7 +304,8 @@ class ReceptorXmlService:
             "direccion_emisor": ReceptorXmlService._find_text(emisor, "DireccionEmisor") if emisor is not None else "",
             "correo_emisor": ReceptorXmlService._find_text(emisor, "CorreoEmisor") if emisor is not None else "",
             "telefono_emisor": ReceptorXmlService._find_text(emisor, "TelefonoEmisor") if emisor is not None else "",
-            "fecha_emision": ReceptorXmlService._find_text(emisor, "FechaEmision") if emisor is not None else "",
+            "fecha_emision": raw_fecha_emision,
+            "fecha_emision_iso": fecha_emision_iso,
             "rnc_comprador": ReceptorXmlService._find_text(comprador, "RNCComprador") if comprador is not None else "",
             "razon_social_comprador": ReceptorXmlService._find_text(
                 comprador, "RazonSocialComprador", "RazonSocial"
@@ -278,12 +334,15 @@ class ReceptorXmlService:
             "total_isr_retencion": ReceptorXmlService._to_float(
                 ReceptorXmlService._find_text(totales, "TotalISRRetencion", "TotalRetencionesISR")
             ) if totales is not None else 0.0,
-            "monto_total": ReceptorXmlService._to_float(
-                ReceptorXmlService._find_text(totales, "MontoTotal")
-            ) if totales is not None else 0.0,
+            "monto_total": monto_total_val,
             "monto_impuesto_adicional": ReceptorXmlService._to_float(
                 ReceptorXmlService._find_text(totales, "MontoImpuestoAdicional")
             ) if totales is not None else 0.0,
+            "monto_servicios": round(monto_servicios_calc, 2),
+            "monto_bienes": round(monto_bienes_calc, 2),
+            "ncf_modificado": ncf_modificado,
+            "tipo_pago": tipo_pago,
+            "forma_pago_606": forma_pago_606,
             "detalle_items": items,
         }
         return detail, None

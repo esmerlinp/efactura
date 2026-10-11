@@ -50,7 +50,7 @@
 </div>
 
 <div class="card-table-wrapper">
-    <div class="table-header-row">
+    <div class="table-header-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <div>
             <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">
                 Documentos Electrónicos Recibidos
@@ -58,6 +58,17 @@
             <p style="color: var(--text-secondary); font-size: 0.88rem;">
                 Comprobantes Fiscales Electrónicos (e-CF) recibidos de otros contribuyentes.
             </p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <a href="{{ url_for('web_reports_606.reporte_606') }}" class="btn btn-outline" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; padding: 6px 14px; border-radius: 8px;">
+                <i class="fa-solid fa-file-invoice-dollar"></i> Ir al Reporte 606
+            </a>
+            <form method="POST" action="{{ url_for('web_recepcion.sync_received_to_606') }}" style="margin: 0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; padding: 6px 14px; border-radius: 8px;">
+                    <i class="fa-solid fa-arrows-rotate"></i> Sincronizar Histórico con 606
+                </button>
+            </form>
         </div>
     </div>
 
@@ -150,6 +161,7 @@
                     <th>{{ sort_link('monto_total', 'Monto', 'desc') }}</th>
                     <th>{{ sort_link('received_at', 'Recibido', 'desc') }}</th>
                     <th>{{ sort_link('status', 'Estado', 'asc') }}</th>
+                    <th style="font-size: 0.72rem; text-transform: uppercase;">Reporte 606</th>
                     <th style="text-align: right; width: 50px;"></th>
                 </tr>
             </thead>
@@ -186,6 +198,19 @@
                         <span class="badge badge-secondary" style="font-size: 0.65rem;">{{ doc.status }}</span>
                         {% endif %}
                     </td>
+                    <td>
+                        {% if doc.registeredIn606 %}
+                        <span class="badge" style="font-size: 0.65rem; background-color: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 4px; font-weight: 600;">
+                            <i class="fa-solid fa-check"></i> En 606
+                        </span>
+                        {% elif doc.status == 'recibido' %}
+                        <span class="badge" style="font-size: 0.65rem; background-color: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 4px; font-weight: 600;">
+                            <i class="fa-solid fa-check"></i> En 606
+                        </span>
+                        {% else %}
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
                     <td style="text-align: right;">
                         <div class="action-menu">
                             <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
@@ -195,6 +220,14 @@
                                 <a href="{{ url_for('web_recepcion.detail_received_ecf', ecf_id=doc.id) }}" class="action-menu-item">
                                     <i class="fa-solid fa-eye"></i> Ver Detalle
                                 </a>
+                                {% if doc.status != 'rechazado' %}
+                                {% set doc_date = doc.fecha_emision or doc.received_at or '' %}
+                                {% set doc_y = doc_date[:4] if doc_date|length >= 4 else '' %}
+                                {% set doc_m = doc_date[5:7] if doc_date|length >= 7 else '' %}
+                                <a href="{{ url_for('web_reports_606.reporte_606', search=doc.encf, year=doc_y, month=doc_m) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-file-invoice" style="color: var(--accent-purple);"></i> Ver en Reporte 606
+                                </a>
+                                {% endif %}
                                 <a href="{{ url_for('web_recepcion.download_received_xml', ecf_id=doc.id) }}" class="action-menu-item">
                                     <i class="fa-solid fa-file-code"></i> Descargar XML Recibido
                                 </a>
@@ -208,7 +241,7 @@
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                    <td colspan="9" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
                         <i class="fa-solid fa-inbox"
                             style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                         <span>No hay documentos que coincidan con los filtros aplicados.</span>
