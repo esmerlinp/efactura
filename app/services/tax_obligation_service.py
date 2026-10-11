@@ -574,6 +574,7 @@ class TaxObligationService:
         payload = {"obligation_key": key}
         for field in ("label", "description", "first_due_date", "recurrence",
                       "action_url", "action_label", "category", "is_custom",
+                      "origin", "metadata",
                       "last_notified_at", "last_notified_period",
                       "last_presented_period", "last_presented_at", "confirmation_number"):
             if field in obligation_data:
@@ -587,6 +588,127 @@ class TaxObligationService:
 
         config_ref.document(key).set(payload, merge=True)
         return True
+
+    @classmethod
+    def ensure_dgt4_alert(
+        cls,
+        company_id: str = None,
+        transaction_date=None,
+        year: int = None,
+        month: int = None,
+        owner_uid: str = None,
+    ) -> dict:
+        """
+        Garantiza que exista una alerta en el Registro de Alertas para el reporte DGT-4
+        del mes en curso correspondiente a la transacción de entrada (alta) o salida (baja)
+        de un empleado.
+
+        Regla de Idempotencia:
+        Si ya existe una alerta para ese período (clave canónica 'dgt4_YYYY_MM'),
+        no la duplica.
+
+        Vencimiento:
+        Día 5 del mes siguiente al corte (Reglamento 522-06, Art. 15), ajustado a día laborable
+        hábil oficial en República Dominicana (Ley 139-97).
+        """
+        if not company_id and not owner_uid:
+            return {"created": False, "reason": "missing_company_or_owner"}
+
+        # 1. Determinar año y mes del movimiento
+        target_year = year
+        target_month = month
+
+        if target_year is None or target_month is None:
+            tx_date = None
+            if transaction_date:
+                if isinstance(transaction_date, (date, datetime)):
+                    tx_date = transaction_date
+                elif isinstance(transaction_date, str) and len(transaction_date) >= 7:
+                    try:
+                        tx_date = datetime.strptime(transaction_date[:10], "%Y-%m-%d").date()
+                    except ValueError:
+                        try:
+                            parsed_dt = datetime.strptime(transaction_date[:7], "%Y-%m")
+                            tx_date = date(parsed_dt.year, parsed_dt.month, 1)
+                        except ValueError:
+                            tx_date = None
+            if not tx_date:
+                tx_date = date.today()
+
+            target_year = tx_date.year
+            target_month = tx_date.month
+
+        key = f"dgt4_{target_year}_{target_month:02d}"
+
+        config_ref = cls._profile_ref(owner_uid, company_id=company_id)
+        if not config_ref:
+            return {"created": False, "key": key, "reason": "database_unavailable"}
+
+        doc_ref = config_ref.document(key)
+        try:
+            doc = doc_ref.get()
+            if doc.exists:
+                return {
+                    "created": False,
+                    "key": key,
+                    "reason": "already_exists",
+                    "year": target_year,
+                    "month": target_month,
+                }
+        except Exception as err:
+            logger.warning(f"⚠️ Error verificando existencia de alerta DGT-4 ({key}): {err}")
+
+        # 2. Calcular fecha de vencimiento (día 5 del mes siguiente ajustado a hábil)
+        next_month = target_month + 1
+        next_year = target_year
+        if next_month > 12:
+            next_month = 1
+            next_year += 1
+
+        raw_due = date(next_year, next_month, 5)
+        due_date = _next_business_day(raw_due, company_id=company_id)
+
+        meses_es = [
+            "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        ]
+        mes_nombre = meses_es[target_month] if 1 <= target_month <= 12 else f"Mes {target_month}"
+
+        payload = {
+            "obligation_key": key,
+            "label": f"Reporte DGT-4: Cambios en Personal Fijo ({mes_nombre} {target_year})",
+            "description": (
+                f"Declaración obligatoria de novedades de personal (altas y/o bajas) del período "
+                f"{target_year}-{target_month:02d} ante el Ministerio de Trabajo (SIRLA)."
+            ),
+            "first_due_date": due_date.isoformat(),
+            "recurrence": "fixed_date",
+            "enabled": True,
+            "category": "monthly",
+            "action_url": f"/rrhh/dgt/dgt4?year={target_year}&month={target_month}",
+            "action_label": "Ver / Generar DGT-4",
+            "is_custom": True,
+            "origin": "rrhh_auto",
+            "metadata": {
+                "year": target_year,
+                "month": target_month,
+                "period": f"{target_year}-{target_month:02d}",
+                "auto_generated": True,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        }
+
+        saved = cls.save(owner_uid, payload, company_id=company_id)
+        if saved:
+            logger.info(f"✅ Alerta DGT-4 creada automáticamente: {key} (Vence: {due_date.isoformat()})")
+            return {
+                "created": True,
+                "key": key,
+                "due_date": due_date.isoformat(),
+                "year": target_year,
+                "month": target_month,
+            }
+        return {"created": False, "key": key, "reason": "save_failed"}
 
     @classmethod
     def delete(cls, owner_uid, obligation_key, company_id=None):

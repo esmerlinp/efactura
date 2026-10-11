@@ -302,6 +302,17 @@ class OffboardingService:
                         "terminationType": req_data.get("terminationType", ""),
                         "keepInCurrentPayroll": emp["keepInCurrentPayroll"]},
                        sandbox=self.sandbox)
+
+            # ── Alerta automática DGT-4 (Ministerio de Trabajo / SIRLA) ──
+            try:
+                from app.services.tax_obligation_service import TaxObligationService
+                term_date = emp.get("terminationDate") or req_data.get("effectiveDate") or date.today().isoformat()
+                TaxObligationService.ensure_dgt4_alert(
+                    company_id=self.company_id,
+                    transaction_date=term_date,
+                )
+            except Exception as e_dgt:
+                print(f"⚠️ Error generando alerta automática DGT-4 en baja de empleado: {e_dgt}")
         except Exception as e:
             print(f"⚠️ Offboarding.deactivate_employee: {e}")
 
