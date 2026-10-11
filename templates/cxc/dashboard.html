@@ -409,7 +409,7 @@
                                         onclick="openAiReminderModal('{{ inv.id }}', 'whatsapp', '{{ inv.clientPhone }}', '{{ inv.clientName }}', {{ inv.remainingBalance }}, '{{ inv.dueDate }}', '{{ inv.status }}')">
                                         <i class="fa-solid fa-phone"></i> Recordatorio WhatsApp
                                     </button>
-                                    <a href="{{ url_for('portal.client_portal', owner_uid=session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z'), client_id=inv.clientId, sandbox='true' if session.get('is_sandbox_mode', True) else 'false') }}"
+                                    <a href="{{ url_for('portal.client_portal', owner_uid=session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z'), client_id=inv.clientId, sandbox='true' if session.get('is_sandbox_mode', True) else 'false', company_id=session.get('selected_company_id')) }}"
                                         target="_blank" class="action-menu-item">
                                         <i class="fa-solid fa-arrow-up-right-from-square"></i> Portal Cliente
                                     </a>

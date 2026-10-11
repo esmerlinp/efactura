@@ -51,7 +51,7 @@ def get_serializer():
     secret_key = current_app.config['SECRET_KEY']
     return URLSafeSerializer(secret_key, salt='portal-access')
 
-def generate_portal_token(owner_uid, client_id, sandbox=True, company_id=None):
+def generate_portal_token(owner_uid, client_id, sandbox=True, company_id=None, doc_id=None):
     """Genera un token firmado y serializado seguro para URL conteniendo los parámetros."""
     s = get_serializer()
     data = {
@@ -60,6 +60,8 @@ def generate_portal_token(owner_uid, client_id, sandbox=True, company_id=None):
         'sandbox': bool(sandbox),
         'company_id': company_id
     }
+    if doc_id:
+        data['doc_id'] = str(doc_id)
     return s.dumps(data)
 
 def decode_portal_token(token):
@@ -71,7 +73,8 @@ def decode_portal_token(token):
             'owner_uid': data.get('owner_uid'),
             'client_id': data.get('client_id'),
             'sandbox': data.get('sandbox', True),
-            'company_id': data.get('company_id')
+            'company_id': data.get('company_id'),
+            'doc_id': data.get('doc_id')
         }
     except Exception as e:
         print(f"Error decodificando token de portal: {e}")

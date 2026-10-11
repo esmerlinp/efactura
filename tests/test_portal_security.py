@@ -39,6 +39,12 @@ class TestPortalSecurity(unittest.TestCase):
         decoded = decode_portal_token(token)
         self.assertEqual(decoded['company_id'], 'company-789')
 
+    def test_token_includes_doc_id(self):
+        token = generate_portal_token('owner-123', 'client-456', sandbox=True, company_id='company-789', doc_id='quote-999')
+        decoded = decode_portal_token(token)
+        self.assertEqual(decoded['company_id'], 'company-789')
+        self.assertEqual(decoded['doc_id'], 'quote-999')
+
     def test_invalid_token(self):
         # Intentar decodificar basura
         decoded = decode_portal_token("invalid-garbage-token")
@@ -53,6 +59,18 @@ class TestPortalSecurity(unittest.TestCase):
         tampered_token = token + "modified"
         decoded = decode_portal_token(tampered_token)
         self.assertIsNone(decoded)
+
+    def test_portal_entry_with_doc_id(self):
+        token = generate_portal_token('owner-123', 'client-456', sandbox=True, company_id='company-789', doc_id='quote-999')
+        with self.app.test_client() as client:
+            response = client.get(f'/portal/p/{token}')
+            self.assertEqual(response.status_code, 302)
+            self.assertIn('/portal', response.location)
+            with client.session_transaction() as sess:
+                self.assertEqual(sess.get('portal_owner_uid'), 'owner-123')
+                self.assertEqual(sess.get('portal_client_id'), 'client-456')
+                self.assertEqual(sess.get('portal_company_id'), 'company-789')
+                self.assertEqual(sess.get('portal_next_url'), '/portal/documento/quote-999')
 
     @patch('app.web.portal.DatabaseService.get_company_profile', return_value=None)
     @patch('app.web.portal.PortalDbService.get_client_by_id', return_value={'id': 'client-456'})
