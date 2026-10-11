@@ -103,3 +103,110 @@ class TestToSirlaTxtDgt4:
         txt = self._render(year=2026, month=1)
         header = txt.split("\n")[0]
         assert header[14:20] == "012026"
+
+
+class TestDGTServiceGetDGT4Data:
+    def test_get_dgt4_data_includes_all_change_types(self):
+        from unittest.mock import patch
+        from app.services.dgt_service import DGTService
+
+        mock_emps = [
+            {
+                "id": "emp_1",
+                "cedula": "001-1234567-8",
+                "fullName": "Pedro Martinez",
+                "contractType": "tiempo_indefinido",
+                "status": "activo",
+                "baseSalary": 50000,
+                "hireDate": "2026-10-01", # Alta en octubre 2026
+            },
+            {
+                "id": "emp_2",
+                "cedula": "001-9876543-2",
+                "fullName": "Maria Lopez",
+                "contractType": "tiempo_indefinido",
+                "status": "inactivo",
+                "baseSalary": 45000,
+                "terminationDate": "2026-10-15", # Baja en octubre 2026
+            },
+            {
+                "id": "emp_3",
+                "cedula": "001-5555555-5",
+                "fullName": "Carlos Gomez",
+                "contractType": "tiempo_indefinido",
+                "status": "activo",
+                "baseSalary": 60000,
+                "workShift": 2, # Nocturno
+                "position": "Encargado de Logística",
+            },
+            {
+                "id": "emp_4",
+                "cedula": "001-4444444-4",
+                "fullName": "Ana Perez",
+                "contractType": "tiempo_indefinido",
+                "status": "activo",
+                "baseSalary": 55000,
+                "hireDate": "2025-01-10", # Empleada previa
+            },
+        ]
+
+        mock_salaries = [
+            # Salario inicial de emp_1 (alta del mes): NO debe generar novedad de cambio
+            {
+                "employeeId": "emp_1",
+                "effectiveDate": "2026-10-01",
+                "previousAmount": 0.0,
+                "amount": 50000,
+                "reason": "Salario inicial",
+            },
+            # Aumento de sueldo de emp_3 (empleado previo)
+            {
+                "employeeId": "emp_3",
+                "effectiveDate": "2026-10-05",
+                "previousAmount": 50000,
+                "amount": 60000,
+            },
+        ]
+
+        mock_vacations = [
+            {
+                "employeeId": "emp_4",
+                "startDate": "2026-10-12",
+                "endDate": "2026-10-26",
+                "status": "aprobada", # Vacaciones
+            }
+        ]
+
+        mock_history = [
+            {
+                "employeeId": "emp_3",
+                "effectiveDate": "2026-10-20",
+                "changes": ["Turno: Diurno → Nocturno", "Sucursal: Principal → Norte"],
+            }
+        ]
+
+        with patch("app.services.dgt_service.get_employees", return_value=mock_emps), \
+             patch("app.services.dgt_service.get_all_salary_history", return_value=mock_salaries), \
+             patch("app.services.dgt_service.get_vacation_requests", return_value=mock_vacations), \
+             patch("app.services.dgt_service.get_all_employment_history", return_value=mock_history), \
+             patch("app.services.db_service.DatabaseService.get_company", return_value={"company_name": "Test SRL", "rnc": "131880681"}):
+
+            res = DGTService.get_dgt4_data(company_id="comp_1", year=2026, month=10, sandbox=True)
+
+            # Verificar que emp_1 solo aparece 1 vez como ALTA y NO como cambio
+            emp1_lines = [c for c in res["lines"] if c["documento"] == "001-1234567-8" or "Pedro Martinez" in c["nombre"]]
+            assert len(emp1_lines) == 1
+            assert emp1_lines[0]["tipo"] == "alta"
+
+            assert res["altas"] == 1
+            assert res["bajas"] == 1
+            assert res["modificaciones"] == 2  # emp_3 (sueldo + turno consolidado) y emp_4 (vacaciones)
+            assert res["totalCambios"] == 4
+
+            detalles = [c["detalle"] for c in res["lines"]]
+            assert any("Ingresó" in d for d in detalles)
+            assert any("Terminó" in d for d in detalles)
+            assert any("Salario" in d for d in detalles)
+            assert any("Vacaciones" in d for d in detalles)
+            assert any("Turno" in d for d in detalles)
+

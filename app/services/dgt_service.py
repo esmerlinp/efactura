@@ -11,7 +11,7 @@ from typing import List, Optional
 from app.services.hr_data_service import (
     get_employees, get_employee, get_payroll_periods, get_payroll_period,
     get_payroll_period_by_key, get_all_salary_history, get_vacation_requests,
-    get_overtime_records,
+    get_overtime_records, get_all_employment_history,
 )
 from app.data.occupations_catalog import get_occupation_name
 from app.data.education_catalog import is_valid_education_code, get_education_label
@@ -262,6 +262,9 @@ class DGTService:
         changes = []
         altas = bajas = modificaciones = 0
 
+        altas_emp_ids = set()
+        bajas_emp_ids = set()
+
         # Detección por fecha de contratación/terminación vs mes solicitado
         for emp in employees:
             hire = emp.get("hireDate", "")
@@ -279,6 +282,7 @@ class DGTService:
             # Alta: contratado este mes
             if hire_month == period_key:
                 altas += 1
+                altas_emp_ids.add(emp.get("id"))
                 changes.append({
                     "tipo": "alta",
                     "documento": emp.get("cedula", ""),
@@ -298,6 +302,7 @@ class DGTService:
             # Baja: terminado este mes
             if term_month == period_key and status != "activo":
                 bajas += 1
+                bajas_emp_ids.add(emp.get("id"))
                 changes.append({
                     "tipo": "baja",
                     "documento": emp.get("cedula", ""),
@@ -313,30 +318,125 @@ class DGTService:
                     "montoSueldo": 0.0,
                 })
 
+        # Diccionario para consolidar modificaciones por empleado en el período (evita duplicar registros NC)
+        mod_by_emp = {}
+
         # Modificaciones: revisar salary history del mes
         salary_history = get_all_salary_history(company_id, sandbox=sandbox)
         for sh in salary_history:
             eff = sh.get("effectiveDate", "")
-            if eff[:7] == f"{year:04d}-{month:02d}":
-                emp = next((e for e in employees if e.get("id") == sh.get("employeeId")), None)
+            if eff[:7] == period_key:
+                emp_id = sh.get("employeeId")
+                # Si el empleado ingresó o salió este mes, ya está declarado en Alta (NI) o Baja (NS)
+                if emp_id in altas_emp_ids or emp_id in bajas_emp_ids:
+                    continue
+
+                old = float(sh.get("previousAmount", 0) or 0)
+                new = float(sh.get("amount", 0) or 0)
+                # Omitir salarios iniciales de apertura o registros sin variación
+                if old <= 0 or sh.get("reason") == "Salario inicial" or new == old:
+                    continue
+
+                emp = next((e for e in employees if e.get("id") == emp_id), None)
                 if emp and emp.get("contractType") == "tiempo_indefinido":
-                    modificaciones += 1
-                    old = sh.get("previousAmount", 0)
-                    new = sh.get("amount", 0)
-                    changes.append({
-                        "tipo": "modificacion",
-                        "documento": emp.get("cedula", ""),
-                        "nombre": emp.get("fullName", ""),
-                        "detalle": f"Salario: {old:.2f} → {new:.2f}",
-                        "fechaCambio": eff,
-                        "linea": _build_dgt_line(emp, novedad_tipo=3, novedad_fecha=eff),
-                        "esEntrada": False,
-                        "esSalida": False,
-                        "esSueldo": True,
-                        "montoEntrada": 0.0,
-                        "montoSalida": 0.0,
-                        "montoSueldo": new,
-                    })
+                    if emp_id not in mod_by_emp:
+                        mod_by_emp[emp_id] = {
+                            "documento": emp.get("cedula", ""),
+                            "nombre": emp.get("fullName", ""),
+                            "detalles": [],
+                            "fechaCambio": eff,
+                            "emp": emp,
+                            "esSueldo": True,
+                            "montoSueldo": new,
+                            "vac_start": "",
+                            "vac_end": "",
+                        }
+                    mod_by_emp[emp_id]["detalles"].append(f"Salario: {old:.2f} → {new:.2f}")
+                    mod_by_emp[emp_id]["esSueldo"] = True
+                    mod_by_emp[emp_id]["montoSueldo"] = new
+
+        # Modificaciones: revisar vacaciones del mes
+        try:
+            vacations = get_vacation_requests(company_id, sandbox=sandbox)
+            for vac in vacations:
+                if vac.get("status") != "aprobada":
+                    continue
+                emp_id = vac.get("employeeId")
+                if emp_id in altas_emp_ids or emp_id in bajas_emp_ids:
+                    continue
+                v_start = vac.get("startDate", "")
+                if v_start[:7] == period_key:
+                    emp = next((e for e in employees if e.get("id") == emp_id), None)
+                    if emp and emp.get("contractType") == "tiempo_indefinido":
+                        v_end = vac.get("endDate", "")
+                        if emp_id not in mod_by_emp:
+                            mod_by_emp[emp_id] = {
+                                "documento": emp.get("cedula", ""),
+                                "nombre": emp.get("fullName", ""),
+                                "detalles": [],
+                                "fechaCambio": v_start,
+                                "emp": emp,
+                                "esSueldo": False,
+                                "montoSueldo": 0.0,
+                                "vac_start": v_start,
+                                "vac_end": v_end,
+                            }
+                        mod_by_emp[emp_id]["detalles"].append(f"Vacaciones: {_to_dgt_date(v_start)} a {_to_dgt_date(v_end)}")
+                        mod_by_emp[emp_id]["vac_start"] = v_start
+                        mod_by_emp[emp_id]["vac_end"] = v_end
+        except Exception as e_vac:
+            print(f"⚠️ get_dgt4_data: error procesando vacaciones: {e_vac}")
+
+        # Modificaciones: revisar cambios estructurales (turno, ocupación, traslado)
+        try:
+            emp_histories = get_all_employment_history(company_id, sandbox=sandbox)
+            for eh in emp_histories:
+                emp_id = eh.get("employeeId")
+                if emp_id in altas_emp_ids or emp_id in bajas_emp_ids:
+                    continue
+                eff_h = (eh.get("effectiveDate") or eh.get("changedAt") or "")[:10]
+                if eff_h[:7] == period_key:
+                    emp = next((e for e in employees if e.get("id") == emp_id), None)
+                    if emp and emp.get("contractType") == "tiempo_indefinido":
+                        ch_desc = ", ".join(eh.get("changes", [])) or "Cambio en condiciones laborales"
+                        if emp_id not in mod_by_emp:
+                            mod_by_emp[emp_id] = {
+                                "documento": emp.get("cedula", ""),
+                                "nombre": emp.get("fullName", ""),
+                                "detalles": [],
+                                "fechaCambio": eff_h,
+                                "emp": emp,
+                                "esSueldo": False,
+                                "montoSueldo": 0.0,
+                                "vac_start": "",
+                                "vac_end": "",
+                            }
+                        mod_by_emp[emp_id]["detalles"].append(ch_desc)
+        except Exception as e_hist:
+            print(f"⚠️ get_dgt4_data: error procesando employment_history: {e_hist}")
+
+        # Consolidar registros de modificación en changes
+        for emp_id, m in mod_by_emp.items():
+            modificaciones += 1
+            emp_dict = dict(m["emp"])
+            if m.get("vac_start"):
+                emp_dict["vacationStartDate"] = m["vac_start"]
+                emp_dict["vacationEndDate"] = m["vac_end"]
+
+            changes.append({
+                "tipo": "modificacion",
+                "documento": m["documento"],
+                "nombre": m["nombre"],
+                "detalle": "; ".join(m["detalles"]),
+                "fechaCambio": m["fechaCambio"],
+                "linea": _build_dgt_line(emp_dict, novedad_tipo=3, novedad_fecha=m["fechaCambio"]),
+                "esEntrada": False,
+                "esSalida": False,
+                "esSueldo": m["esSueldo"],
+                "montoEntrada": 0.0,
+                "montoSalida": 0.0,
+                "montoSueldo": m["montoSueldo"],
+            })
 
         changes.sort(key=lambda c: c.get("fechaCambio", ""))
 

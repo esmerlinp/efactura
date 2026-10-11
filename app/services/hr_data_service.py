@@ -1333,6 +1333,17 @@ def save_employment_history(company_id: str, data: dict, sandbox: bool = True):
         print(f"⚠️ save_employment_history: {e}")
 
 
+def get_all_employment_history(company_id: str, sandbox: bool = True) -> list:
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll = _hr_company_path(company_id, "employment_history", sandbox)
+        docs = db_firestore.collection(coll).get()
+        return sorted([d.to_dict() for d in docs], key=lambda x: x.get("changedAt", ""), reverse=True)
+    except Exception:
+        return []
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # EMPLOYEE STATUS EVENTS (historial de estados vacaciones/licencia)
 # ═══════════════════════════════════════════════════════════════════════════

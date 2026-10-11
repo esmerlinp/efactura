@@ -94,6 +94,18 @@ def employee_salary_add(employee_id):
     employee["salary"] = new_amount
     hr.save_employee(company_id, employee_id, employee, sandbox=sandbox)
 
+    # ── Alerta automática DGT-4 por aumento/modificación salarial (Ley 16-92 / SIRLA) ──
+    if new_amount > old_amount:
+        try:
+            from app.services.tax_obligation_service import TaxObligationService
+            TaxObligationService.ensure_dgt4_alert(
+                company_id=company_id,
+                transaction_date=eff_date,
+                owner_uid=owner_uid,
+            )
+        except Exception as e_dgt:
+            print(f"⚠️ Error generando alerta automática DGT-4 en aumento salarial: {e_dgt}")
+
     flash(f"Salario actualizado a RD$ {new_amount:,.2f} con vigencia {eff_date}.", "success")
     return redirect(url_for("web_rrhh.employee_salary_history", employee_id=employee_id))
 

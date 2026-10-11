@@ -346,3 +346,15 @@ def _execute_bulk_edit(company_id: str, job_id: str, user_email: str, sandbox: b
     job["status"] = "completed" if not job["errors"] else "partial"
     job["currentEmployee"] = ""
     _persist_job(job)
+
+    # ── Alerta automática DGT-4 por edición masiva relevante (Ley 16-92 / SIRLA) ──
+    dgt_fields = {"workShift", "occupationCode", "branchId", "weeklyHours"}
+    if job.get("success", 0) > 0 and any(f in changes for f in dgt_fields):
+        try:
+            from app.services.tax_obligation_service import TaxObligationService
+            TaxObligationService.ensure_dgt4_alert(
+                company_id=company_id,
+                transaction_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            )
+        except Exception as e_dgt:
+            print(f"⚠️ Error generando alerta automática DGT-4 en edición masiva: {e_dgt}")

@@ -287,6 +287,18 @@ def vacation_action(request_id, action):
             except Exception:
                 pass
 
+            # ── Alerta automática DGT-4 por inicio/fin de vacaciones (Ley 16-92 / SIRLA) ──
+            try:
+                from app.services.tax_obligation_service import TaxObligationService
+                vac_date = req.get("startDate") or date.today().isoformat()
+                TaxObligationService.ensure_dgt4_alert(
+                    company_id=company_id,
+                    transaction_date=vac_date,
+                    owner_uid=owner_uid,
+                )
+            except Exception as e_dgt:
+                print(f"⚠️ Error generando alerta automática DGT-4 en aprobación de vacaciones: {e_dgt}")
+
         flash(f"Solicitud {'aprobada' if action == 'approve' else 'rechazada'}.", "success")
 
     return redirect(url_for("web_rrhh.vacation_list"))

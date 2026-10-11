@@ -362,3 +362,74 @@ class TestEnsureDGT4Alert:
         assert res["created"] is False
         assert res["reason"] == "missing_company_or_owner"
 
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    def test_ensure_dgt4_alert_all_change_events_deduplicated_in_month(self, mock_ref):
+        """
+        Verifica que cuando ocurren múltiples novedades de cambio en el mismo mes
+        (1. Cambio de turno, 2. Cambio de cargo, 3. Aumento salarial, 4. Vacaciones, 5. Traslado)
+        solo la primera crea la alerta y las siguientes 4 son detectadas como ya existentes (idempotencia).
+        """
+        existing_docs = {}
+
+        def mock_document(doc_key):
+            m_doc = MagicMock()
+            m_doc.exists = doc_key in existing_docs
+            m_doc.get.return_value.exists = doc_key in existing_docs
+
+            def _set(data, **kwargs):
+                existing_docs[doc_key] = data
+            m_doc.set.side_effect = _set
+            return m_doc
+
+        mock_coll = MagicMock()
+        mock_coll.document.side_effect = mock_document
+        mock_ref.return_value = mock_coll
+
+        # Evento 1: Cambio de turno (02 de octubre)
+        res1 = TaxObligationService.ensure_dgt4_alert(
+            company_id="comp_1",
+            transaction_date="2026-10-02",
+            owner_uid="user_1",
+        )
+        assert res1["created"] is True
+        assert res1["key"] == "dgt4_2026_10"
+        assert "dgt4_2026_10" in existing_docs
+
+        # Evento 2: Cambio de ocupación/cargo (05 de octubre)
+        res2 = TaxObligationService.ensure_dgt4_alert(
+            company_id="comp_1",
+            transaction_date="2026-10-05",
+            owner_uid="user_1",
+        )
+        assert res2["created"] is False
+        assert res2["reason"] == "already_exists"
+        assert res2["key"] == "dgt4_2026_10"
+
+        # Evento 3: Aumento de salario mensual (12 de octubre)
+        res3 = TaxObligationService.ensure_dgt4_alert(
+            company_id="comp_1",
+            transaction_date="2026-10-12",
+            owner_uid="user_1",
+        )
+        assert res3["created"] is False
+        assert res3["reason"] == "already_exists"
+
+        # Evento 4: Inicio y finalización de vacaciones (18 de octubre)
+        res4 = TaxObligationService.ensure_dgt4_alert(
+            company_id="comp_1",
+            transaction_date="2026-10-18",
+            owner_uid="user_1",
+        )
+        assert res4["created"] is False
+        assert res4["reason"] == "already_exists"
+
+        # Evento 5: Traslado de establecimiento (25 de octubre)
+        res5 = TaxObligationService.ensure_dgt4_alert(
+            company_id="comp_1",
+            transaction_date="2026-10-25",
+            owner_uid="user_1",
+        )
+        assert res5["created"] is False
+        assert res5["reason"] == "already_exists"
+
+
