@@ -836,9 +836,9 @@
             <!-- Action depending on state -->
             {% if invoice.isQuotation %}
                 {% if invoice.status == 'Pendiente Aut. Cliente' %}
-                    <button class="btn btn-success" onclick="openSignatureModal()">
-                        <i class="fa-solid fa-signature"></i>
-                        <span>Firmar Aceptación</span>
+                    <button class="btn btn-success" onclick="openAcceptModal()">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span>Aceptar Cotización</span>
                     </button>
                     <button class="btn btn-danger" onclick="openRejectModal()">
                         <i class="fa-solid fa-circle-xmark"></i>
@@ -1149,14 +1149,31 @@
             <div style="margin-top:20px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                     <div style="width:36px;height:36px;background:#16a34a;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:16px;">✓</div>
-                    <div><div style="font-weight:700;color:#166534;font-size:14px;">Documento Firmado Electrónicamente</div><div style="font-size:12px;color:#16a34a;">Firma electrónica certificada</div></div>
+                    <div>
+                        <div style="font-weight:700;color:#166534;font-size:14px;">Cotización Aprobada por el Cliente</div>
+                        <div style="font-size:12px;color:#16a34a;">
+                            {% if invoice.get('signatureInfo', {}).get('method') == 'confirmacion_portal' %}
+                            Confirmación en portal de clientes
+                            {% else %}
+                            Firma electrónica certificada
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
                 <div style="padding:10px;background:white;border-radius:6px;font-size:13px;">
                     <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:#64748b;">Aceptado por:</span><span style="font-weight:600;">{{ invoice.get('signatureInfo', {}).get('signedByName', invoice.clientName) }}</span></div>
-                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:#64748b;">Fecha de Firma:</span><span>{{ invoice.get('signatureInfo', {}).get('signedAt', '') }}</span></div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:#64748b;">Fecha de Aceptación:</span><span>{{ invoice.get('signatureInfo', {}).get('signedAt', '') }}</span></div>
+                    {% if invoice.get('signatureInfo', {}).get('transactionId') %}
                     <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">ID de Transacción:</span><span style="font-family:monospace;font-size:11px;">{{ invoice.get('signatureInfo', {}).get('transactionId', '')[:16] }}</span></div>
+                    {% endif %}
                 </div>
-                <div style="margin-top:8px;text-align:center;font-size:11px;color:#16a34a;border-top:1px dashed #bbf7d0;padding-top:8px;">Documento firmado electrónicamente mediante certificado digital.</div>
+                <div style="margin-top:8px;text-align:center;font-size:11px;color:#16a34a;border-top:1px dashed #bbf7d0;padding-top:8px;">
+                    {% if invoice.get('signatureInfo', {}).get('method') == 'confirmacion_portal' %}
+                    Propuesta comercial aprobada y aceptada por el cliente desde el portal de autogestión.
+                    {% else %}
+                    Documento firmado electrónicamente mediante certificado digital.
+                    {% endif %}
+                </div>
             </div>
             {% endif %}
 
@@ -1168,35 +1185,44 @@
          MODALS (SIGNATURE, REJECT, PAYMENT)
          ========================================== -->
 
-    <!-- Modal de Firma Electrónica -->
-    <div id="signature-modal" class="modal">
-        <div class="modal-backdrop" onclick="closeSignatureModal()"></div>
-        <div class="modal-content">
+    <!-- Modal de Confirmación de Aceptación de Cotización -->
+    <div id="accept-modal" class="modal">
+        <div class="modal-backdrop" onclick="closeAcceptModal()"></div>
+        <div class="modal-content" style="max-width: 480px;">
             <div class="modal-header">
-                <h3 class="modal-title"><i class="fa-solid fa-file-signature" style="color: var(--primary);"></i> Autorizar Propuesta (Firma Certificada)</h3>
-                <button class="modal-close" onclick="closeSignatureModal()">&times;</button>
+                <h3 class="modal-title">
+                    <i class="fa-solid fa-circle-check" style="color: var(--accent-emerald);"></i>
+                    <span>Aceptar Cotización</span>
+                </h3>
+                <button class="modal-close" onclick="closeAcceptModal()">&times;</button>
             </div>
-            <form id="signature-form" onsubmit="submitSignature(event)" enctype="multipart/form-data">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px;">
-                    Para firmar legalmente esta cotización, cargue su certificado digital de pruebas (.p12 / .pfx) e ingrese su contraseña.
-                </p>
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Certificado Digital (.p12 / .pfx)</label>
-                    <input type="file" id="sig-certificate" name="certificate" accept=".p12,.pfx" required class="form-input">
+            
+            <p style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px; line-height: 1.5;">
+                ¿Desea confirmar la aceptación de esta cotización? Al aprobarla, nuestro equipo será notificado inmediatamente para proceder con los siguientes pasos.
+            </p>
+
+            <div style="background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.85rem;">
+                    <span style="color: var(--text-muted);">Cotización:</span>
+                    <strong style="color: var(--text-primary); font-family: monospace;">{{ invoice.invoiceNumber or ('#' ~ invoice.id[:8]) }}</strong>
                 </div>
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Contraseña del Certificado</label>
-                    <input type="password" id="sig-password" name="password" required placeholder="Contraseña de clave privada" class="form-input">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.85rem;">
+                    <span style="color: var(--text-muted);">Cliente:</span>
+                    <strong style="color: var(--text-primary);">{{ client.name or client.razonSocial or invoice.clientName }}</strong>
                 </div>
-                <div style="background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; font-size: 0.76rem; color: var(--text-muted); margin-bottom: 16px;">
-                    <i class="fa-solid fa-info-circle"></i> Los datos de identidad del certificado deben corresponder a la identificación fiscal registrada (RNC: {{ client.rnc }}).
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px dashed var(--border-color); font-size: 0.92rem;">
+                    <span style="font-weight: 600; color: var(--text-secondary);">Monto Total:</span>
+                    <strong style="color: var(--accent-emerald); font-size: 1.1rem;">RD$ {{ "{:,.2f}".format(invoice.total) }}</strong>
                 </div>
-                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
-                    <button type="button" class="btn btn-secondary" onclick="closeSignatureModal()">Cancelar</button>
-                    <button type="submit" id="sig-submit-btn" class="btn btn-success"><i class="fa-solid fa-check"></i> <span id="sig-submit-label">Validar y Firmar</span></button>
-                </div>
-            </form>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn btn-secondary" onclick="closeAcceptModal()">Cancelar</button>
+                <button type="button" id="accept-submit-btn" class="btn btn-success" onclick="submitAcceptQuotation()">
+                    <i class="fa-solid fa-check"></i>
+                    <span id="accept-submit-label">Confirmar Aprobación</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1238,69 +1264,64 @@
         const sandbox = {{ 'true' if sandbox else 'false' }};
         const invoiceId = '{{ invoice.id }}';
 
-        // Signature Modal controls
+        // Acceptance Modal controls
+        function openAcceptModal() {
+            const modal = document.getElementById('accept-modal');
+            if (modal) modal.style.display = 'flex';
+        }
+        function closeAcceptModal() {
+            const modal = document.getElementById('accept-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        // Backwards compatibility aliases
         function openSignatureModal() {
-            document.getElementById('sig-certificate').value = '';
-            document.getElementById('sig-password').value = '';
-            document.getElementById('signature-modal').style.display = 'flex';
+            openAcceptModal();
         }
         function closeSignatureModal() {
-            document.getElementById('signature-modal').style.display = 'none';
+            closeAcceptModal();
         }
 
-        // Payment Modal controls
-        function openPaymentOptionsModal() {
-            document.getElementById('payment-modal').style.display = 'flex';
-        }
-
-        function closePaymentModal() {
-            document.getElementById('payment-modal').style.display = 'none';
-        }
-
-        // Submit Signature
-        function submitSignature(e) {
-            e.preventDefault();
-            const certInput = document.getElementById('sig-certificate');
-            const passInput = document.getElementById('sig-password');
-
-            if (!certInput.files[0]) {
-                alert('Debe cargar un archivo de certificado digital.');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('certificate', certInput.files[0]);
-            formData.append('password', passInput.value);
-
-            const url = `/portal/cotizacion/${invoiceId}/firmar?sandbox=${sandbox}`;
-            const submitBtn = document.getElementById('sig-submit-btn');
-            const originalBtnText = submitBtn.innerHTML;
+        // Submit Acceptance
+        function submitAcceptQuotation() {
+            const submitBtn = document.getElementById('accept-submit-btn');
+            const originalBtnHtml = submitBtn.innerHTML;
             
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Aprobando...';
+
+            const url = `/portal/cotizacion/${invoiceId}/firmar?sandbox=${sandbox}`;
 
             fetch(url, {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'accept',
+                    acceptedAt: new Date().toISOString()
+                })
             })
             .then(res => res.json())
             .then(data => {
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
+                submitBtn.innerHTML = originalBtnHtml;
                 if (data.success) {
-                    alert(data.message || 'Propuesta firmada y aceptada exitosamente.');
+                    closeAcceptModal();
+                    alert(data.message || 'Cotización aceptada y aprobada exitosamente.');
                     location.reload();
                 } else {
-                    alert('Error: ' + data.error);
+                    alert('Error: ' + (data.error || 'No se pudo aceptar la cotización.'));
                 }
             })
             .catch(err => {
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
+                submitBtn.innerHTML = originalBtnHtml;
                 console.error(err);
-                alert('Error de red al intentar procesar la firma.');
+                alert('Error de red al intentar procesar la aprobación.');
             });
         }
+        const submitSignature = submitAcceptQuotation;
 
         // Reject quotation
         function openRejectModal() {

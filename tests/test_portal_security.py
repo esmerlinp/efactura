@@ -86,5 +86,110 @@ class TestPortalSecurity(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         mock_company.assert_called_once_with('owner-123')
 
+    @patch('app.web.portal.PortalDbService.save_invoice')
+    @patch('app.web.portal._notify_portal_action')
+    @patch('app.web.portal.PortalDbService.get_invoice')
+    @patch('app.web.portal.PortalDbService.get_client_by_id')
+    def test_accept_quotation_without_certificate(self, mock_client, mock_invoice, mock_notify, mock_save):
+        mock_client.return_value = {
+            'id': 'client-456',
+            'name': 'Empresa Cliente SRL',
+            'rnc': '101010101',
+            'email': 'cliente@test.com'
+        }
+        mock_invoice.return_value = {
+            'id': 'quote-123',
+            'invoiceNumber': 'COT-001',
+            'isQuotation': True,
+            'status': 'Pendiente Aut. Cliente',
+            'total': 15000.0,
+            'clientName': 'Empresa Cliente SRL'
+        }
+
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess['portal_owner_uid'] = 'owner-123'
+                sess['portal_client_id'] = 'client-456'
+                sess['portal_sandbox'] = True
+                sess['portal_company_id'] = 'company-789'
+                sess['verified_client_client-456'] = True
+
+            # POST a la ruta de aceptación sin archivo de certificado digital
+            response = client.post('/portal/cotizacion/quote-123/firmar', json={
+                'action': 'accept'
+            })
+
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()
+            self.assertTrue(data['success'])
+            self.assertIn('exitosa', data['message'])
+
+            # Verificar que se guardó la cotización con status 'Aprobada' y método 'confirmacion_portal'
+            mock_save.assert_called_once()
+            saved_inv = mock_save.call_args[0][2]
+            self.assertEqual(saved_inv['status'], 'Aprobada')
+            self.assertEqual(saved_inv['signatureInfo']['method'], 'confirmacion_portal')
+            self.assertEqual(saved_inv['signatureInfo']['signedByName'], 'Empresa Cliente SRL')
+            self.assertTrue(saved_inv.get('acceptedAt'))
+
+    @patch('app.web.portal.PortalDbService.get_invoice')
+    @patch('app.web.portal.PortalDbService.get_client_by_id')
+    def test_accept_quotation_already_approved(self, mock_client, mock_invoice):
+        mock_client.return_value = {'id': 'client-456', 'rnc': '101010101'}
+        mock_invoice.return_value = {
+            'id': 'quote-123',
+            'isQuotation': True,
+            'status': 'Aprobada'
+        }
+
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess['portal_owner_uid'] = 'owner-123'
+                sess['portal_client_id'] = 'client-456'
+                sess['verified_client_client-456'] = True
+
+            response = client.post('/portal/cotizacion/quote-123/firmar', json={})
+            self.assertEqual(response.status_code, 400)
+            data = response.get_json()
+            self.assertFalse(data['success'])
+            self.assertIn('ya fue aprobada', data['error'])
+
+    @patch('app.web.portal.PortalDbService.save_invoice')
+    @patch('app.services.notifications.NotificationService.send_portal_action_notification')
+    @patch('app.services.db_service.DatabaseService.get_team_members', return_value=[])
+    @patch('app.web.portal.PortalDbService.get_invoice')
+    @patch('app.web.portal.PortalDbService.get_client_by_id')
+    def test_sign_quotation_full_flow_with_notification(self, mock_client, mock_invoice, mock_team, mock_send_notif, mock_save):
+        mock_client.return_value = {
+            'id': 'client-456',
+            'name': 'Empresa Cliente SRL',
+            'rnc': '101010101',
+            'email': 'cliente@test.com',
+            'responsibleId': 'resp-1'
+        }
+        mock_invoice.return_value = {
+            'id': 'quote-123',
+            'invoiceNumber': 'COT-001',
+            'isQuotation': True,
+            'status': 'Pendiente Aut. Cliente',
+            'total': 15000.0,
+            'clientName': 'Empresa Cliente SRL'
+        }
+
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess['portal_owner_uid'] = 'owner-123'
+                sess['portal_client_id'] = 'client-456'
+                sess['portal_sandbox'] = True
+                sess['portal_company_id'] = 'company-789'
+                sess['verified_client_client-456'] = True
+
+            response = client.post('/portal/cotizacion/quote-123/firmar', json={'action': 'accept'})
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()
+            self.assertTrue(data['success'])
+
 if __name__ == '__main__':
     unittest.main()
+
+
