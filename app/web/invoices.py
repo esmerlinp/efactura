@@ -8638,7 +8638,7 @@ def team_settings():
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
     team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
     profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     user_limit = int(profile.get('userLimit', 2)) if profile else 2
@@ -8654,7 +8654,7 @@ def add_team_member():
         return redirect(url_for('web_invoices.team_settings'))
     
     owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
+    company_id = request.form.get('company_id') or session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
     
     profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     inviting_company_name = (profile.get("companyName") or profile.get("name", "Nueva Empresa")) if profile else "Nueva Empresa"
@@ -8690,13 +8690,14 @@ def add_team_member():
         permissions[k] = k in request.form
 
     try:
-        # Registrar usuario en Firebase Auth & Firestore
+        # Registrar usuario en Firebase Auth & Firestore asociándolo a la empresa activa
         profile = DatabaseService.register_user(
             email=email,
             password=password,
             name=name,
             role="employee",
-            owner_uid=owner_uid
+            owner_uid=owner_uid,
+            company_id=company_id
         )
         # Actualizar permisos según rol + overrides (sincroniza también company_memberships)
         DatabaseService.update_employee_permissions(profile['uid'], permissions, role=role if role != 'personalizado' else None, company_id=company_id)
@@ -8941,7 +8942,7 @@ def delete_team_member_route(employee_uid):
         return redirect(url_for('web_invoices.team_settings'))
     
     owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
     
     if DatabaseService.delete_team_member(owner_uid, employee_uid, company_id=company_id):
         from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_USUARIOS
@@ -8971,7 +8972,7 @@ def team_member_detail(employee_uid):
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
     member = DatabaseService.get_team_member_detail(owner_uid, employee_uid, company_id=company_id)
     if not member:
         flash('Colaborador no encontrado.', 'error')
@@ -8993,11 +8994,12 @@ def update_team_member_permissions_v2(employee_uid):
     for k in ALL_PERMISSION_KEYS:
         permissions[k] = k in request.form
 
-    company_id = session.get('selected_company_id')
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
     if DatabaseService.update_employee_permissions(employee_uid, permissions, role=role, company_id=company_id):
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_USUARIOS
         AuditService.log_from_request(
-            owner_uid=session['user']['ownerUID'],
+            owner_uid=owner_uid,
             action=ACTION_UPDATE,
             module=MODULE_USUARIOS,
             entity_id=employee_uid,
@@ -9018,7 +9020,7 @@ def reset_team_member_password(employee_uid):
         return jsonify({"success": False, "error": "No autorizado"}), 403
 
     owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
     member = DatabaseService.get_team_member_detail(owner_uid, employee_uid, company_id=company_id)
     if not member:
         return jsonify({"success": False, "error": "Colaborador no encontrado"}), 404
@@ -9064,7 +9066,7 @@ def toggle_team_member_status(employee_uid):
         return redirect(url_for('web_invoices.team_settings'))
 
     owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
     new_status = request.form.get('status', 'active')
     if new_status not in ('active', 'suspended', 'pending'):
         new_status = 'active'

@@ -716,9 +716,15 @@ def resolve_session_conflict():
     session['is_sandbox_mode'] = Config.DEFAULT_SANDBOX_MODE
     
     user_companies = DatabaseService.get_user_companies(user_profile['uid'])
+    default_id = user_profile.get('default_company_id', '')
     session['user_companies'] = user_companies
     if user_companies:
-        if len(user_companies) == 1:
+        if default_id and any(c['id'] == default_id for c in user_companies):
+            session['selected_company_id'] = default_id
+            default_comp = next(c for c in user_companies if c['id'] == default_id)
+            session['selected_owner_uid'] = default_comp.get('owner_uid', user_profile.get('ownerUID'))
+            session['user']['ownerUID'] = session['selected_owner_uid']
+        elif len(user_companies) == 1:
             session['selected_company_id'] = user_companies[0]['id']
             session['selected_owner_uid'] = user_companies[0].get('owner_uid', user_profile.get('ownerUID'))
             session['user']['ownerUID'] = session['selected_owner_uid']
