@@ -477,6 +477,7 @@ def validate_certificate_signature(cert_file, password, client_rnc):
     except Exception as e:
         return False, f"Error al procesar el certificado digital: {html.escape(str(e))}"
 
+@portal_bp.route('/portal/cotizacion/<invoice_id>/aceptar', methods=['POST'])
 @portal_bp.route('/portal/cotizacion/<invoice_id>/firmar', methods=['POST'])
 def sign_quotation(invoice_id):
     owner_uid, client_id, sandbox, company_id = _portal_context()
@@ -488,12 +489,6 @@ def sign_quotation(invoice_id):
     if session.get(session_key) != True:
         return jsonify({"success": False, "error": "Acceso no autorizado. Verifique su RNC primero."}), 403
         
-    cert_file = request.files.get('certificate')
-    password = request.form.get('password', '')
-    
-    if not cert_file:
-        return jsonify({"success": False, "error": "No se recibió el archivo del certificado digital."}), 400
-        
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     if not client:
         return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
@@ -503,20 +498,44 @@ def sign_quotation(invoice_id):
         return jsonify({"success": False, "error": "Cotización no encontrada."}), 404
         
     if invoice.get('status') == 'Aprobada':
-        return jsonify({"success": False, "error": "La cotización ya fue firmada y aprobada anteriormente."}), 400
+        return jsonify({"success": False, "error": "La cotización ya fue aprobada anteriormente."}), 400
         
     if invoice.get('status') != 'Pendiente Aut. Cliente':
         return jsonify({"success": False, "error": "La cotización no se encuentra en estado pendiente de autorización por el cliente."}), 400
+
+    cert_file = request.files.get('certificate')
+    password = request.form.get('password', '')
+    now_iso = datetime.now(timezone.utc).isoformat()
+    client_name = client.get('name') or client.get('razonSocial') or invoice.get('clientName') or 'Cliente'
+    client_rnc = client.get('rnc', '')
+
+    if cert_file:
+        success, result = validate_certificate_signature(cert_file, password, client_rnc)
+        if not success:
+            return jsonify({"success": False, "error": result}), 400
+        is_digital_signature = True
+    else:
+        # Aprobación mediante confirmación directa en el portal (sin certificado)
+        req_json = request.get_json(silent=True) or {}
+        notes = (request.form.get('notes') or req_json.get('notes') or '').strip()
+        approver_name = (request.form.get('approver_name') or req_json.get('approver_name') or client_name).strip()
+        result = {
+            "method": "confirmacion_portal",
+            "signedByName": approver_name,
+            "rnc": client_rnc,
+            "signedAt": now_iso,
+            "transactionId": str(uuid.uuid4()),
+            "notes": notes
+        }
+        is_digital_signature = False
         
-    success, result = validate_certificate_signature(cert_file, password, client.get('rnc', ''))
-    if not success:
-        return jsonify({"success": False, "error": result}), 400
-        
-    # Guardar metadatos de la firma
+    # Guardar metadatos de la aprobación
     before_invoice = invoice.copy()
     invoice['status'] = 'Aprobada'
     invoice['signatureInfo'] = result
     invoice['signedAt'] = result['signedAt']
+    invoice['acceptedAt'] = result['signedAt']
+    invoice['acceptedBy'] = result.get('signedByName')
     
     PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox, company_id=company_id)
 
@@ -525,13 +544,15 @@ def sign_quotation(invoice_id):
         from app.services.audit_service import AuditService, MODULE_COTIZACIONES
         ip = request.headers.get("X-Forwarded-For", request.remote_addr or "")
         ua = request.headers.get("User-Agent", "")
+        action_name = "SIGN" if is_digital_signature else "ACCEPT"
+        action_label = f"Cotización {invoice.get('invoiceNumber')} aprobada por firma del cliente" if is_digital_signature else f"Cotización {invoice.get('invoiceNumber')} aceptada por el cliente"
         AuditService.log(
             owner_uid=owner_uid,
-            action="SIGN",
+            action=action_name,
             module=MODULE_COTIZACIONES,
             entity_id=invoice_id,
-            entity_label=f"Cotización {invoice.get('invoiceNumber')} aprobada por firma del cliente",
-            performed_by_name=f"Cliente: {client.get('name')}",
+            entity_label=action_label,
+            performed_by_name=f"Cliente: {result.get('signedByName')}",
             performed_by_uid=client_id,
             performed_by_email=client.get('email', ''),
             before=before_invoice,
@@ -541,22 +562,24 @@ def sign_quotation(invoice_id):
             user_agent=ua
         )
     except Exception as ae:
-        print(f"⚠️ Error al registrar auditoría de firma: {ae}")
+        print(f"⚠️ Error al registrar auditoría de aprobación: {ae}")
 
     # --- Notificar al responsable ---
     _notify_portal_action(
         owner_uid=owner_uid,
-        action='firmada',
+        action='aprobada' if not is_digital_signature else 'firmada',
         document_type='Cotización',
         document_number=invoice.get('invoiceNumber', invoice_id),
         client=client,
         signed_at=result['signedAt'],
         invoice_or_contract=invoice,
         invoice_id=invoice_id,
-        sandbox=sandbox
+        sandbox=sandbox,
+        company_id=company_id
     )
 
-    return jsonify({"success": True, "message": "Propuesta firmada y aprobada digitalmente de forma exitosa."})
+    msg = "Cotización aceptada y aprobada exitosamente." if not is_digital_signature else "Propuesta firmada y aprobada digitalmente de forma exitosa."
+    return jsonify({"success": True, "message": msg})
 
 @portal_bp.route('/portal/contrato/<contract_id>/firmar', methods=['POST'])
 def sign_contract(contract_id):
@@ -745,9 +768,22 @@ def reject_contract(contract_id):
     return jsonify({"success": True, "message": "Contrato rechazado. Hemos notificado al equipo responsable."})
 
 
-def _notify_portal_action(owner_uid, action, document_type, document_number, client, signed_at, invoice_or_contract, invoice_id, sandbox):
-    company_id = _resolve_company_id(owner_uid)
+def _notify_portal_action(owner_uid, action, document_type, document_number, client, signed_at, invoice_or_contract, invoice_id, sandbox, company_id=None):
     """Helper interno: resuelve el responsable del cliente y envía email + notificación in-app."""
+    if not company_id:
+        company_id = session.get('portal_company_id')
+    if not company_id and client:
+        company_id = client.get('company_id')
+    if not company_id and invoice_or_contract:
+        company_id = invoice_or_contract.get('company_id')
+    if not company_id and client and client.get('id'):
+        company_id = _resolve_company_for_portal_client(owner_uid, client.get('id'), sandbox=sandbox)
+    if not company_id:
+        try:
+            from app.services.db_service import _resolve_company_id
+            company_id = _resolve_company_id(owner_uid)
+        except Exception:
+            company_id = None
     try:
         from app.services.notifications import NotificationService
         from app.services.db_service import DatabaseService
@@ -817,7 +853,7 @@ def _notify_portal_action(owner_uid, action, document_type, document_number, cli
         if responsible_uid:
             try:
                 client_name = client.get('name', 'Cliente')
-                if action == 'firmada':
+                if action in ('firmada', 'aprobada'):
                     notif_icon = '✅'
                     notif_title = f"{document_type} aprobada por cliente"
                     notif_body = f"{client_name} autorizó {document_type.lower()} {document_number}."

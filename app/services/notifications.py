@@ -469,13 +469,21 @@ class NotificationService:
             status_border = "rgba(245, 158, 11, 0.3)"
             body_text = f"<p>El cliente ha cargado un comprobante de pago para este documento. El estado de la factura ha cambiado a <strong>Revisión de Pago</strong> y requiere su validación en la sección de cuentas por cobrar para ser aprobado y aplicado.</p>"
         else:
-            is_approved = action == 'firmada'
+            is_approved = action in ('firmada', 'aprobada')
             icon = "✅" if is_approved else "❌"
-            status_label = "APROBADA y FIRMADA" if is_approved else "RECHAZADA"
+            if is_approved:
+                if document_type == 'Cotización':
+                    status_label = "COTIZACIÓN APROBADA"
+                    body_text = "<p>El cliente ha aceptado y aprobado la propuesta comercial desde el portal de autogestión. El documento ya está disponible en el sistema para proceder con la orden o facturación.</p>"
+                else:
+                    status_label = "APROBADA y FIRMADA"
+                    body_text = "<p>El documento ha sido firmado y aprobado por el cliente. Ya está disponible en el sistema para que proceda con los siguientes pasos.</p>"
+            else:
+                status_label = "RECHAZADA"
+                body_text = "<p>El cliente ha indicado que no desea proceder con esta propuesta. Se recomienda contactarle para conocer los motivos y ofrecer una alternativa.</p>"
             status_color = "#059669" if is_approved else "#dc2626"
             status_bg = "rgba(5, 150, 105, 0.07)" if is_approved else "rgba(220, 38, 38, 0.07)"
             status_border = "rgba(5, 150, 105, 0.3)" if is_approved else "rgba(220, 38, 38, 0.3)"
-            body_text = "<p>La firma electrónica ha sido validada con el certificado digital del cliente. El documento ya está disponible en el sistema para que proceda con los siguientes pasos.</p>" if is_approved else "<p>El cliente ha indicado que no desea proceder con esta propuesta. Se recomienda contactarle para conocer los motivos y ofrecer una alternativa.</p>"
 
         logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;"><br>' if logo_url else ''
         doc_link_html = f'<p style="text-align: center; margin: 28px 0;"><a href="{document_url}" style="background: {brand_color}; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; display: inline-block;">Ver {document_type} en el Sistema</a></p>' if document_url else ''

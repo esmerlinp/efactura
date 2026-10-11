@@ -998,8 +998,20 @@
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
                 <div style="width: 40px; height: 40px; background: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px;">✓</div>
                 <div>
-                    <div style="font-weight: 700; color: #166534; font-size: 13px;">Documento Firmado Electrónicamente</div>
-                    <div style="font-size: 11px; color: #16a34a;">Firma electrónica certificada</div>
+                    <div style="font-weight: 700; color: #166534; font-size: 13px;">
+                        {% if invoice.get('signatureInfo', {}).get('method') == 'confirmacion_portal' %}
+                        Cotización Aprobada por el Cliente
+                        {% else %}
+                        Documento Firmado Electrónicamente
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 11px; color: #16a34a;">
+                        {% if invoice.get('signatureInfo', {}).get('method') == 'confirmacion_portal' %}
+                        Aprobación confirmada en portal de clientes
+                        {% else %}
+                        Firma electrónica certificada
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             <div style="margin-top: 12px; padding: 12px; background: white; border-radius: 6px; font-size: 12px;">
@@ -1012,7 +1024,7 @@
                     <span>{{ invoice.clientRNC or 'N/A' }}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: #64748b;">Fecha de Firma:</span>
+                    <span style="color: #64748b;">Fecha de Aceptación:</span>
                     <span>{{ invoice.get('signatureInfo', {}).get('signedAt', '') }}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
@@ -1021,7 +1033,11 @@
                 </div>
             </div>
             <div style="margin-top: 8px; text-align: center; font-size: 10px; color: #16a34a; border-top: 1px dashed #bbf7d0; padding-top: 8px;">
+                {% if invoice.get('signatureInfo', {}).get('method') == 'confirmacion_portal' %}
+                Propuesta comercial aprobada y aceptada formalmente por el cliente a través del portal web.
+                {% else %}
                 Documento firmado electrónicamente mediante certificado digital. Válido según la legislación dominicana.
+                {% endif %}
             </div>
         </div>
         {% else %}
