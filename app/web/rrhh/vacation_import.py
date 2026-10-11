@@ -367,6 +367,7 @@ def vacation_import_process():
             pending_entries.sort(key=lambda x: (x["emp"].get("id", ""), x["start_date"], x["end_date"], x["row_num"]))
 
             imported_keys = set()
+            imported_start_dates = set()
             now_iso = date.today().isoformat()
 
             for entry in pending_entries:
@@ -407,11 +408,24 @@ def vacation_import_process():
                                sandbox=sandbox)
 
                     imported_keys.add(key)
+                    imported_start_dates.add(entry["start_date"])
                     taken_by_emp[emp_id] = taken_before + entry["days"]
                     imported += 1
                 except Exception as e:
                     errors.append({"row": entry["row_num"], "reason": f"Error al crear solicitud para {emp.get('fullName', '')}: {html.escape(str(e))}"})
                     skipped += 1
+
+            if imported_start_dates:
+                try:
+                    from app.services.tax_obligation_service import TaxObligationService
+                    for s_date in sorted(imported_start_dates):
+                        TaxObligationService.ensure_dgt4_alert(
+                            company_id=company_id,
+                            transaction_date=s_date,
+                            owner_uid=owner_uid,
+                        )
+                except Exception as e_dgt:
+                    print(f"⚠️ Error generando alerta automática DGT-4 en importación de vacaciones: {e_dgt}")
 
             final_state = {
                 "job_id": job_id, "status": "completed", "total": total,

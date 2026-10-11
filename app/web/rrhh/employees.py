@@ -757,6 +757,8 @@ def employee_edit(employee_id):
         work_schedule = parse_work_schedule_form(request.form)
         work_schedule_custom = request.form.get("workScheduleInherit") != "on"
 
+        before = dict(employee)
+
         employee.update({
             "idType": request.form.get("idType", "cedula").strip(),
             "idNumber": re.sub(r'\D', '', request.form.get("idNumber", "")),
@@ -816,25 +818,67 @@ def employee_edit(employee_id):
         })
         hr.save_employee(company_id, employee_id, employee, sandbox=sandbox)
 
-        # ── Historial de cambios estructurales ──
+        # ── Historial de cambios estructurales y novedades DGT-4 ──
         new_position = position_name
         new_department = request.form.get("department_catalog", "").strip()
         new_supervisor = request.form.get("reportsTo", "").strip()
-        old_position = employee.get("position", "")
-        old_department = employee.get("department", "") or employee.get("area", "")
-        old_supervisor = employee.get("reportsTo", "")
+        new_occupation = request.form.get("occupationCode", "").strip()
+        new_branch = request.form.get("branchId", "").strip()
+        new_shift = int(request.form.get("workShift", 1) or 1)
+        new_vac_start = request.form.get("vacationStartDate", "").strip()
+        new_vac_end = request.form.get("vacationEndDate", "").strip()
 
-        if new_position != old_position or new_department != old_department or new_supervisor != old_supervisor:
-            changes = []
-            if new_position != old_position: changes.append(f"Cargo: {old_position} → {new_position}")
-            if new_department != old_department: changes.append(f"Depto: {old_department} → {new_department}")
-            if new_supervisor != old_supervisor: changes.append(f"Supervisor: {old_supervisor} → {new_supervisor}")
+        old_position = before.get("position", "")
+        old_department = before.get("department", "") or before.get("area", "")
+        old_supervisor = before.get("reportsTo", "")
+        old_occupation = before.get("occupationCode", "")
+        old_branch = before.get("branchId", "")
+        old_shift = int(before.get("workShift", 1) or 1)
+        old_schedule = before.get("workSchedule", [])
+        old_schedule_custom = before.get("workScheduleCustom", False)
+        old_vac_start = before.get("vacationStartDate", "")
+        old_vac_end = before.get("vacationEndDate", "")
+
+        shift_changed = (old_shift != new_shift) or (old_schedule != work_schedule) or (old_schedule_custom != work_schedule_custom)
+        position_changed = (new_position != old_position) or (new_occupation != old_occupation)
+        branch_changed = bool(old_branch and new_branch and old_branch != new_branch)
+        vacation_changed = (new_vac_start and new_vac_start != old_vac_start) or (new_vac_end and new_vac_end != old_vac_end)
+
+        changes = []
+        if new_position != old_position: changes.append(f"Cargo: {old_position} → {new_position}")
+        if new_department != old_department: changes.append(f"Depto: {old_department} → {new_department}")
+        if new_supervisor != old_supervisor: changes.append(f"Supervisor: {old_supervisor} → {new_supervisor}")
+        if new_occupation != old_occupation: changes.append(f"Ocupación: {old_occupation} → {new_occupation}")
+        if old_shift != new_shift:
+            shift_names = {1: "Diurno", 2: "Nocturno", 3: "Mixto"}
+            changes.append(f"Turno: {shift_names.get(old_shift, old_shift)} → {shift_names.get(new_shift, new_shift)}")
+        elif old_schedule != work_schedule:
+            changes.append("Horario modificado")
+        if branch_changed: changes.append(f"Sucursal: {old_branch} → {new_branch}")
+        if vacation_changed: changes.append(f"Vacaciones: {new_vac_start} a {new_vac_end}")
+
+        if changes:
             hr.save_employment_history(company_id, {
                 "id": str(uuid.uuid4()), "employeeId": employee_id,
                 "changedAt": datetime.now(timezone.utc).isoformat(),
                 "changedBy": session.get("user", {}).get("email", ""),
                 "changes": changes, "newPosition": new_position, "newDepartment": new_department,
+                "newBranch": new_branch, "newShift": new_shift,
+                "effectiveDate": date.today().isoformat(),
             }, sandbox=sandbox)
+
+        # ── Alerta automática DGT-4 por novedades de cambio (Ley 16-92 / SIRLA) ──
+        if shift_changed or position_changed or branch_changed or vacation_changed:
+            try:
+                from app.services.tax_obligation_service import TaxObligationService
+                dgt_tx_date = new_vac_start if vacation_changed and new_vac_start else date.today().isoformat()
+                TaxObligationService.ensure_dgt4_alert(
+                    company_id=company_id,
+                    transaction_date=dgt_tx_date,
+                    owner_uid=owner_uid,
+                )
+            except Exception as e_dgt:
+                print(f"⚠️ Error generando alerta automática DGT-4 en edición de empleado: {e_dgt}")
 
         from app.services.payroll_audit_service import log_action
         log_action(company_id, "update", "employee", employee_id,
