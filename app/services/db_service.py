@@ -1667,6 +1667,41 @@ class DatabaseService:
         elif status_str == "suspended":
             status_str = "Suspendido"
 
+        # Resolver datos y límites del plan asociado
+        plan_id = company.get("plan_id", company.get("planId", ""))
+        plan_version = company.get("plan_version", company.get("planVersion", 0))
+        plan_data = cls.get_plan(plan_id, plan_version=plan_version) if plan_id else None
+
+        user_limit = company.get("userLimit", company.get("user_limit"))
+        if user_limit is None and plan_data:
+            user_limit = plan_data.get("userLimit")
+        if user_limit is None:
+            user_limit = 2
+
+        doc_limit = company.get("documentLimit", company.get("document_limit"))
+        if doc_limit is None and plan_data:
+            doc_limit = plan_data.get("documentLimit")
+        if doc_limit is None:
+            doc_limit = 100
+
+        storage_limit = company.get("storageLimitMB", company.get("storage_limit_mb"))
+        if storage_limit is None and plan_data:
+            storage_limit = plan_data.get("storageLimitMB")
+        if storage_limit is None:
+            storage_limit = 512
+
+        branch_limit = company.get("branchLimit", company.get("branch_limit"))
+        if branch_limit is None and plan_data:
+            branch_limit = plan_data.get("branchLimit")
+        if branch_limit is None:
+            branch_limit = 1
+
+        box_limit = company.get("boxLimit", company.get("box_limit"))
+        if box_limit is None and plan_data:
+            box_limit = plan_data.get("boxLimit")
+        if box_limit is None:
+            box_limit = 1
+
         return {
             "ownerUID": company.get("owner_uid", company.get("ownerUID", owner_uid)),
             "companyName": company.get("company_name") or company.get("name") or company.get("companyName", ""),
@@ -1700,9 +1735,18 @@ class DatabaseService:
             "certificatePassword": company.get("certificate_password", company.get("certificatePassword", "")),
             "apiKey": company.get("api_key", company.get("apiKey", "")),
             "developersEnabled": company.get("developers_enabled", company.get("developersEnabled", False)),
-            "planId": company.get("plan_id", company.get("planId", "")),
-            "plan_version": company.get("plan_version", company.get("planVersion", 0)),
+            "planId": plan_id,
+            "plan_version": plan_version,
             "status": status_str,
+            "userLimit": int(user_limit) if user_limit is not None else 2,
+            "documentLimit": int(doc_limit) if doc_limit is not None else 100,
+            "storageLimitMB": int(storage_limit) if storage_limit is not None else 512,
+            "branchLimit": int(branch_limit) if branch_limit is not None else 1,
+            "boxLimit": int(box_limit) if box_limit is not None else 1,
+            "monthlyPayment": company.get("monthlyPayment", company.get("monthly_payment", plan_data.get("monthlyPrice", plan_data.get("monthlyPayment", 0)) if plan_data else 0)),
+            "additionalDocumentCost": company.get("additionalDocumentCost", company.get("additional_document_cost", plan_data.get("additionalDocumentCost", 0) if plan_data else 0)),
+            "additionalUserCost": company.get("additionalUserCost", company.get("additional_user_cost", plan_data.get("additionalUserCost", 0) if plan_data else 0)),
+            "additionalBoxCost": company.get("additionalBoxCost", company.get("additional_box_cost", plan_data.get("additionalBoxCost", 0) if plan_data else 0)),
             "posEnabled": company.get("pos_enabled", company.get("posEnabled", True)),
             "productionEnabled": company.get("production_enabled", company.get("productionEnabled", True)),
             "sandboxEnabled": company.get("sandbox_enabled", company.get("sandboxEnabled", True)),
@@ -1856,6 +1900,9 @@ class DatabaseService:
         # Persistir la API Key solo si viene en el dict (evita sobrescribir con vacío)
         if "apiKey" in profile_dict:
             update_data["api_key"] = profile_dict.get("apiKey", "")
+        for k in ["userLimit", "documentLimit", "storageLimitMB", "branchLimit", "boxLimit", "monthlyPayment", "additionalDocumentCost", "additionalUserCost", "additionalBoxCost"]:
+            if k in profile_dict:
+                update_data[k] = profile_dict[k]
         result = cls.update_company(company_id, update_data)
         if result and owner_uid:
             try:

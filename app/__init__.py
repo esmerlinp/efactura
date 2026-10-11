@@ -231,6 +231,15 @@ def create_app():
                         'cancel_at_period_end': company.get('cancel_at_period_end', False),
                         'cancel_scheduled_date': company.get('cancel_scheduled_date', ''),
                         'offboardingMode': company.get('offboarding_mode', 'simple'),
+                        'userLimit': company.get('userLimit', company.get('user_limit')),
+                        'documentLimit': company.get('documentLimit', company.get('document_limit')),
+                        'storageLimitMB': company.get('storageLimitMB', company.get('storage_limit_mb')),
+                        'branchLimit': company.get('branchLimit', company.get('branch_limit')),
+                        'boxLimit': company.get('boxLimit', company.get('box_limit')),
+                        'monthlyPayment': company.get('monthlyPayment', company.get('monthly_payment')),
+                        'additionalDocumentCost': company.get('additionalDocumentCost', company.get('additional_document_cost')),
+                        'additionalUserCost': company.get('additionalUserCost', company.get('additional_user_cost')),
+                        'additionalBoxCost': company.get('additionalBoxCost', company.get('additional_box_cost')),
                     }
                 else:
                     company_profile = {}
@@ -285,6 +294,11 @@ def create_app():
                             if plan_limits and company_id:
                                 DatabaseService.update_company(company_id, plan_limits)
                                 company_profile.update(plan_limits)
+                        for f in ['documentLimit','userLimit','storageLimitMB','monthlyPayment',
+                                  'additionalDocumentCost','additionalUserCost','branchLimit',
+                                  'boxLimit','additionalBoxCost','posEnabled']:
+                            if company_profile.get(f) is None and f in plan_data:
+                                company_profile[f] = plan_data[f]
                     else:
                         session.pop('company_modules', None)
                         session.pop('company_plan_version', None)
