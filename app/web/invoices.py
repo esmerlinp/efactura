@@ -789,6 +789,27 @@ def manage_price_list_items(list_id):
         return redirect(url_for('web_invoices.list_price_lists'))
 
     if request.method == 'POST':
+        action = request.form.get('action', '')
+        if action == 'apply_bulk_discount':
+            bulk_disc = float(request.form.get('bulk_discount_percentage') or 0.0)
+            items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+            count = 0
+            for it in items:
+                base_p = float(it.get('price') or 0.0)
+                calc_p = round(base_p * (1.0 - (bulk_disc / 100.0)), 2)
+                p_dict = {
+                    "price": calc_p,
+                    "basePrice": base_p,
+                    "pricingMode": "discount",
+                    "discountPercentage": bulk_disc,
+                    "costPrice": float(it.get('costPrice') or 0.0),
+                    "wholesalePrice": float(it.get('wholesalePrice') or 0.0)
+                }
+                DatabaseService.save_price_list_item(owner_uid, list_id, it['id'], p_dict, company_id=company_id, sandbox=sandbox)
+                count += 1
+            flash(f'Descuento del {bulk_disc}% aplicado exitosamente a {count} productos.', 'success')
+            return redirect(url_for('web_invoices.manage_price_list_items', list_id=list_id))
+
         item_id = request.form.get('item_id', '')
 
         if not item_id:
@@ -797,11 +818,31 @@ def manage_price_list_items(list_id):
             DatabaseService.delete_price_list_item(owner_uid, list_id, item_id, company_id=company_id, sandbox=sandbox)
             flash('Precio eliminado de la lista.', 'success')
         else:
-            price = float(request.form.get('price') or 0.0)
+            pricing_mode = request.form.get('pricingMode', 'fixed')
+            discount_pct = float(request.form.get('discountPercentage') or 0.0)
+            base_price = float(request.form.get('basePrice') or 0.0)
             cost_price = float(request.form.get('costPrice') or 0.0)
             wholesale_price = float(request.form.get('wholesalePrice') or 0.0)
+
+            # Si no se pasó base_price en el form, obtener del item
+            if base_price <= 0.0:
+                item_obj = DatabaseService.get_item(owner_uid, item_id, company_id=company_id, sandbox=sandbox)
+                if item_obj:
+                    base_price = float(item_obj.get('price') or 0.0)
+
+            if pricing_mode == 'discount' or (discount_pct > 0 and 'price' not in request.form):
+                pricing_mode = 'discount'
+                price = round(base_price * (1.0 - (discount_pct / 100.0)), 2)
+            else:
+                price = float(request.form.get('price') or 0.0)
+                if base_price > 0 and price > 0:
+                    discount_pct = round(((base_price - price) / base_price) * 100.0, 2)
+
             price_dict = {
                 "price": price,
+                "basePrice": base_price,
+                "pricingMode": pricing_mode,
+                "discountPercentage": discount_pct,
                 "costPrice": cost_price,
                 "wholesalePrice": wholesale_price
             }
@@ -817,10 +858,21 @@ def manage_price_list_items(list_id):
     for item in items:
         item_copy = dict(item)
         price_data = price_list_items.get(item['id'], {})
-        item_copy['listPrice'] = price_data.get('price', 0.0)
-        item_copy['listCostPrice'] = price_data.get('costPrice', 0.0)
-        item_copy['listWholesalePrice'] = price_data.get('wholesalePrice', 0.0)
-        item_copy['hasPrice'] = item['id'] in price_list_items
+        has_price = item['id'] in price_list_items
+        item_copy['hasPrice'] = has_price
+        item_copy['pricingMode'] = price_data.get('pricingMode', 'fixed')
+        item_copy['discountPercentage'] = float(price_data.get('discountPercentage', 0.0))
+        base_p = float(item.get('price') or 0.0)
+        item_copy['basePrice'] = base_p
+
+        if has_price and item_copy['pricingMode'] == 'discount':
+            disc = item_copy['discountPercentage']
+            item_copy['listPrice'] = round(base_p * (1.0 - (disc / 100.0)), 2)
+        else:
+            item_copy['listPrice'] = float(price_data.get('price', base_p if not has_price else 0.0))
+
+        item_copy['listCostPrice'] = float(price_data.get('costPrice') or item.get('costPrice') or 0.0)
+        item_copy['listWholesalePrice'] = float(price_data.get('wholesalePrice') or item.get('wholesalePrice') or 0.0)
         catalog.append(item_copy)
 
     return render_template('price_lists/items.html', active_page='price_lists',
@@ -841,10 +893,22 @@ def ajax_get_price_list_price():
 
     price_list_items = DatabaseService.get_price_list_items(owner_uid, price_list_id, company_id=company_id, sandbox=sandbox)
     price_data = price_list_items.get(item_id, {})
+    pricing_mode = price_data.get('pricingMode', 'fixed')
+    discount_pct = float(price_data.get('discountPercentage', 0.0))
+    raw_price = float(price_data.get('price', 0.0))
+
+    if pricing_mode == 'discount':
+        item_obj = DatabaseService.get_item(owner_uid, item_id, company_id=company_id, sandbox=sandbox)
+        base_p = float(item_obj.get('price', 0.0)) if item_obj else float(price_data.get('basePrice', 0.0))
+        effective_price = round(base_p * (1.0 - (discount_pct / 100.0)), 2)
+    else:
+        effective_price = raw_price
 
     return jsonify({
         "success": True,
-        "price": price_data.get('price', 0.0),
+        "price": effective_price,
+        "pricingMode": pricing_mode,
+        "discountPercentage": discount_pct,
         "costPrice": price_data.get('costPrice', 0.0),
         "wholesalePrice": price_data.get('wholesalePrice', 0.0)
     })
@@ -2243,6 +2307,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     # Cargar listas de precios para integración en facturación
     price_lists = DatabaseService.get_price_lists(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     active_price_lists = [pl for pl in price_lists if pl.get('isActive', True)]
+    catalog_by_id = {it['id']: it for it in catalog}
     price_list_prices = {}
     for pl in price_lists:
         if pl.get('isActive', True):
@@ -2250,10 +2315,21 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             if prices:
                 price_list_prices[pl['id']] = {}
                 for item_id, price_data in prices.items():
+                    mode = price_data.get('pricingMode', 'fixed')
+                    disc = float(price_data.get('discountPercentage', 0.0))
+                    raw_price = float(price_data.get('price', 0.0))
+                    cat_item = catalog_by_id.get(item_id)
+                    if mode == 'discount' and cat_item and 'price' in cat_item:
+                        base_p = float(cat_item.get('price', 0.0))
+                        effective_price = round(base_p * (1.0 - (disc / 100.0)), 2)
+                    else:
+                        effective_price = raw_price
                     price_list_prices[pl['id']][item_id] = {
-                        "price": price_data.get('price', 0.0),
+                        "price": effective_price,
                         "costPrice": price_data.get('costPrice', 0.0),
-                        "wholesalePrice": price_data.get('wholesalePrice', 0.0)
+                        "wholesalePrice": price_data.get('wholesalePrice', 0.0),
+                        "pricingMode": mode,
+                        "discountPercentage": disc
                     }
     price_list_prices_json = json.dumps(price_list_prices)
 

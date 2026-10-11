@@ -2726,7 +2726,10 @@ class DatabaseService:
                         "id": doc.id,
                         "price": float(data.get("price", 0.0)),
                         "costPrice": float(data.get("costPrice", 0.0)),
-                        "wholesalePrice": float(data.get("wholesalePrice", 0.0))
+                        "wholesalePrice": float(data.get("wholesalePrice", 0.0)),
+                        "pricingMode": data.get("pricingMode", "fixed"),
+                        "discountPercentage": float(data.get("discountPercentage", 0.0)),
+                        "basePrice": float(data.get("basePrice", 0.0)),
                     }
             except Exception as e:
                 print(f"⚠️ Error al obtener precios de lista desde Firestore: {e}")

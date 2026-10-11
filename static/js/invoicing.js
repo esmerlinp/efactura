@@ -54,15 +54,75 @@ document.addEventListener('DOMContentLoaded', () => {
     let activePriceListId = '';
     const defaultPriceListEl = document.getElementById('default-price-list-id');
     const defaultPriceListId = defaultPriceListEl ? defaultPriceListEl.textContent.trim() : '';
-    if (defaultPriceListId) {
-        activePriceListId = defaultPriceListId;
-        const priceListSelectSide = document.getElementById('price-list-select-side');
-        if (priceListSelectSide) {
-            priceListSelectSide.value = defaultPriceListId;
-            priceListSelectSide.addEventListener('change', function() {
-                activePriceListId = this.value;
-            });
+    const priceListSelectSide = document.getElementById('price-list-select-side');
+    const hiddenPriceListInput = document.querySelector('[name=priceListId]');
+
+    const getPriceListItemData = (itemId) => {
+        if (!activePriceListId) return null;
+        const listPrices = priceListPrices[activePriceListId];
+        if (!listPrices) return null;
+        return listPrices[itemId] || null;
+    };
+
+    const getPriceListPrice = (itemId) => {
+        const itemData = getPriceListItemData(itemId);
+        return itemData ? itemData.price : null;
+    };
+
+    const applyPriceList = (listId, updateExistingRows = true) => {
+        activePriceListId = listId || '';
+        if (priceListSelectSide && priceListSelectSide.value !== activePriceListId) {
+            priceListSelectSide.value = activePriceListId;
         }
+        if (hiddenPriceListInput && hiddenPriceListInput.value !== activePriceListId) {
+            hiddenPriceListInput.value = activePriceListId;
+        }
+
+        // Si hay filas de productos ya agregadas en la tabla, refrescar sus precios
+        if (updateExistingRows && itemsTableBody) {
+            let updatedCount = 0;
+            const rows = itemsTableBody.querySelectorAll('.item-row');
+            rows.forEach(r => {
+                const catalogIdInput = r.querySelector('.item-catalog-id-hidden');
+                const priceInput = r.querySelector('.item-price-input');
+                if (catalogIdInput && catalogIdInput.value && priceInput) {
+                    const catId = catalogIdInput.value;
+                    const listPrice = getPriceListPrice(catId);
+                    if (listPrice !== null) {
+                        priceInput.value = parseFloat(listPrice).toFixed(2);
+                        updatedCount++;
+                    } else {
+                        const catItem = catalogItems.find(p => p.id === catId);
+                        if (catItem && catItem.price !== undefined) {
+                            priceInput.value = parseFloat(catItem.price).toFixed(2);
+                            updatedCount++;
+                        }
+                    }
+                }
+            });
+            if (updatedCount > 0 && typeof recalculateTotals === 'function') {
+                recalculateTotals();
+            }
+        }
+    };
+    window.applyInvoicePriceList = applyPriceList;
+
+    // Inicializar activePriceListId desde el select lateral o input oculto o default
+    if (priceListSelectSide && priceListSelectSide.value) {
+        activePriceListId = priceListSelectSide.value;
+    } else if (hiddenPriceListInput && hiddenPriceListInput.value) {
+        activePriceListId = hiddenPriceListInput.value;
+        if (priceListSelectSide) priceListSelectSide.value = activePriceListId;
+    } else if (defaultPriceListId) {
+        activePriceListId = defaultPriceListId;
+        if (priceListSelectSide) priceListSelectSide.value = defaultPriceListId;
+        if (hiddenPriceListInput) hiddenPriceListInput.value = defaultPriceListId;
+    }
+
+    if (priceListSelectSide) {
+        priceListSelectSide.addEventListener('change', function() {
+            applyPriceList(this.value, true);
+        });
     }
 
     // =========================================================================
@@ -158,7 +218,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Establecer la lista de precios activa según el cliente seleccionado
                 const client = crmClients.find(c => c.id === id);
-                activePriceListId = (client && client.priceListId) || defaultPriceListId;
+                if (client && client.priceListId) {
+                    applyPriceList(client.priceListId, true);
+                } else if (!activePriceListId && defaultPriceListId) {
+                    applyPriceList(defaultPriceListId, true);
+                }
                 if (clientForeignTaxId && client && client.foreignTaxId) {
                     clientForeignTaxId.value = client.foreignTaxId;
                 }
@@ -403,14 +467,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalProductFilter = document.getElementById('modal-product-filter');
     const modalProductListBody = document.getElementById('modal-product-list-body');
 
-    const getPriceListPrice = (itemId) => {
-        if (!activePriceListId) return null;
-        const listPrices = priceListPrices[activePriceListId];
-        if (!listPrices) return null;
-        const itemPrice = listPrices[itemId];
-        return itemPrice ? itemPrice.price : null;
-    };
-
     const renderProducts = (filterText = '') => {
         const query = filterText.toLowerCase().trim();
         const filtered = catalogItems.filter(p =>
@@ -419,11 +475,17 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         modalProductListBody.innerHTML = filtered.map(p => {
-            const listPrice = getPriceListPrice(p.id);
+            const listPriceData = getPriceListItemData(p.id);
+            const listPrice = listPriceData !== null ? listPriceData.price : null;
             const displayPrice = listPrice !== null ? listPrice : p.price;
-            const priceLabel = listPrice !== null
-                ? formatCurrencyDOP(listPrice) + ' <span style="font-size:0.7rem;color:var(--accent-emerald);font-weight:400;">(Lista)</span>'
-                : formatCurrencyDOP(p.price);
+            let priceLabel = formatCurrencyDOP(p.price);
+            if (listPrice !== null) {
+                if (listPriceData.pricingMode === 'discount' && listPriceData.discountPercentage > 0) {
+                    priceLabel = `${formatCurrencyDOP(listPrice)} <span style="font-size:0.7rem;color:var(--accent-emerald);font-weight:600;">(-${listPriceData.discountPercentage}%)</span> <span style="font-size:0.7rem;color:var(--text-muted);text-decoration:line-through;margin-left:4px;">${formatCurrencyDOP(p.price)}</span>`;
+                } else {
+                    priceLabel = `${formatCurrencyDOP(listPrice)} <span style="font-size:0.7rem;color:var(--accent-emerald);font-weight:400;">(Lista)</span>`;
+                }
+            }
             return `
             <tr class="product-select-row" data-id="${p.id}" data-name="${p.name}" data-price="${displayPrice}" data-itbis="${p.itbisRate}" data-code="${p.code || ''}" style="cursor:pointer;transition:background 0.15s;">
                 <td style="font-family: monospace; font-weight: 500;">${p.code || 'N/A'}</td>
@@ -581,7 +643,11 @@ document.addEventListener('DOMContentLoaded', () => {
             clientRncInput.value = rnc || '';
             if (typeof window.enableRncInput === 'function') window.enableRncInput();
         }
-        activePriceListId = (client && client.priceListId) || defaultPriceListId;
+        if (client && client.priceListId) {
+            applyPriceList(client.priceListId, true);
+        } else if (!activePriceListId && defaultPriceListId) {
+            applyPriceList(defaultPriceListId, true);
+        }
         if (projectIdHidden && client && client.projectId) {
             projectIdHidden.value = client.projectId;
         }
@@ -757,8 +823,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             dropdown.innerHTML = filtered.map(p => {
-                const listPrice = getPriceListPrice(p.id);
+                const listPriceData = getPriceListItemData(p.id);
+                const listPrice = listPriceData !== null ? listPriceData.price : null;
                 const displayPrice = listPrice !== null ? listPrice : p.price;
+                let priceBadge = '';
+                if (listPrice !== null) {
+                    if (listPriceData.pricingMode === 'discount' && listPriceData.discountPercentage > 0) {
+                        priceBadge = ` <span style="font-size:0.7rem;color:var(--accent-emerald);font-weight:600;">(-${listPriceData.discountPercentage}%)</span>`;
+                    } else {
+                        priceBadge = ` <span style="font-size:0.7rem;color:var(--accent-emerald);font-weight:400;">(Lista)</span>`;
+                    }
+                }
                 const stock = parseFloat(p.totalStock || 0);
                 const minStock = parseFloat(p.minStock || 0);
                 const isService = p.type === 'Servicio';
@@ -780,7 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span style="color:${stockColor}; font-weight:600;">${stockLabel}</span>
                         </div>
                     </div>
-                    <div style="font-weight:600; white-space:nowrap;">${formatCurrencyDOP(displayPrice)}</div>
+                    <div style="font-weight:600; white-space:nowrap;">${formatCurrencyDOP(displayPrice)}${priceBadge}</div>
                     <button type="button" class="autocomplete-product-pick" style="background:var(--accent-emerald); color:white; border:none; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:0.8rem; white-space:nowrap;">+ Agregar</button>
                 </div>
             `}).join('');
