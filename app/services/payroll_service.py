@@ -1826,7 +1826,7 @@ class PayrollService:
         # ── Residual: deducciones que bajan el neto pero no tienen línea propia ──
         # (recurrentes, embargos y reglas) se acreditan para cuadrar el asiento.
         residual = round(
-            total_deductions - (total_afp_emp + total_sfs_emp + total_isr
+            total_deductions - (total_afp_emp + total_sfs_emp + total_sfs_dep_adic + total_isr
                                 + total_infotep_emp + total_other_ded), 2)
         if residual != 0:
             resolved = _acc("nomina_otras_deducciones", fallback_code=r["account_other_deductions"],

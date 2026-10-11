@@ -902,3 +902,7 @@ class TestMultiTenancyAndAccounting:
         assert dep_line is not None
         assert dep_line["credit"] == 1970.42
         assert dep_line["debit"] == 0.0
+
+        total_debit = sum(l["debit"] for l in journal_lines)
+        total_credit = sum(l["credit"] for l in journal_lines)
+        assert pytest.approx(total_debit, abs=0.01) == total_credit
