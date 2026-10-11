@@ -2217,7 +2217,10 @@ class DatabaseService:
                     if doc.exists:
                         data = doc.to_dict()
                         if "cliente" in (data.get("types") or []):
-                            return _contact_to_client(doc.id, data, owner_uid)
+                            client = _contact_to_client(doc.id, data, owner_uid)
+                            if company_id:
+                                client["company_id"] = company_id
+                            return client
                 legacy = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_legacy_coll_name(sandbox))
                 if legacy is not None:
                     doc = legacy.document(client_id).get()
@@ -2244,7 +2247,60 @@ class DatabaseService:
                         for k, v in data.items():
                             if k not in client_dict:
                                 client_dict[k] = v
+                        if company_id:
+                            client_dict["company_id"] = company_id
                         return client_dict
+
+                # Fallback multi-empresa: si no se pasó company_id explícito y no se encontró
+                # en la compañía resuelta por defecto, buscar en las demás empresas asociadas a owner_uid.
+                if not company_id and owner_uid:
+                    resolved_cid = _resolve_company_id(owner_uid)
+                    candidate_cids = []
+                    for field in ("owner_uid", "ownerUID"):
+                        try:
+                            docs = db_firestore.collection("companies").where(filter=firestore.FieldFilter(field, "==", owner_uid)).get()
+                            for d in docs:
+                                if d.id != resolved_cid and d.id not in candidate_cids:
+                                    candidate_cids.append(d.id)
+                        except Exception:
+                            pass
+
+                    for cid in candidate_cids:
+                        cand_coll = db_firestore.collection("companies").document(cid).collection(_client_coll_name(sandbox))
+                        doc = cand_coll.document(client_id).get()
+                        if doc.exists:
+                            data = doc.to_dict()
+                            if "cliente" in (data.get("types") or []):
+                                client = _contact_to_client(doc.id, data, owner_uid)
+                                client["company_id"] = cid
+                                return client
+                        cand_leg = db_firestore.collection("companies").document(cid).collection(_client_legacy_coll_name(sandbox))
+                        doc_leg = cand_leg.document(client_id).get()
+                        if doc_leg.exists:
+                            data = doc_leg.to_dict()
+                            client_dict = {
+                                "id": doc_leg.id,
+                                "ownerUID": owner_uid,
+                                "company_id": cid,
+                                "rnc": data.get("rnc", ""),
+                                "razonSocial": data.get("razonSocial", ""),
+                                "email": data.get("email", ""),
+                                "telefono": data.get("telefono", ""),
+                                "direccion": data.get("direccion", ""),
+                                "crmNotes": data.get("crmNotes", ""),
+                                "responsibleId": data.get("responsibleId", ""),
+                                "nextContactDate": data.get("nextContactDate", ""),
+                                "pipelineStage": data.get("pipelineStage", "Prospecto"),
+                                "createdAt": serialize_field(data.get("createdAt")),
+                                "imageUrl": data.get("imageUrl", ""),
+                                "accessPin": data.get("accessPin", ""),
+                                "disableAutoReminders": data.get("disableAutoReminders", False),
+                                "priceListId": data.get("priceListId", "")
+                            }
+                            for k, v in data.items():
+                                if k not in client_dict:
+                                    client_dict[k] = v
+                            return client_dict
             except Exception as e:
                 print(f"⚠️ Error al obtener cliente específico desde Firestore: {e}")
         return None

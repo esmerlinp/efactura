@@ -4226,7 +4226,9 @@ def send_quotation_to_client(invoice_id):
             session['pin_missing_client'] = invoice['clientId']
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
-        portal_link = url_for('portal.client_portal', owner_uid=owner_uid, client_id=invoice['clientId'], sandbox='true' if sandbox else 'false', _external=True)
+        from app.utils.security import generate_portal_token
+        token = generate_portal_token(owner_uid, invoice['clientId'], sandbox=sandbox, company_id=company_id, doc_id=invoice_id)
+        portal_link = url_for('portal.portal_entry', token=token, _external=True)
         brand_color = company.get("colorMarca", "#1e3a8a")
         
         html_body = f"""
@@ -10967,7 +10969,9 @@ def send_invoice_cxc_reminder(invoice_id, method):
         return jsonify({"success": False, "message": "No se especificó contacto de destino."}), 400
         
     from app.services.notifications import NotificationService
-    portal_url = f"{request.host_url.rstrip('/')}/portal/cliente/{owner_uid}/{invoice.get('clientId')}?sandbox={'true' if sandbox else 'false'}"
+    from app.utils.security import generate_portal_token
+    token = generate_portal_token(owner_uid, invoice.get('clientId'), sandbox=sandbox, company_id=company_id, doc_id=invoice.get('id'))
+    portal_url = url_for('portal.portal_entry', token=token, _external=True)
     
     success, message = NotificationService.send_cxc_reminder(
         owner_uid=owner_uid,

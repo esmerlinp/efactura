@@ -19,20 +19,68 @@ from app.utils.module_gate import module_enabled
 
 portal_bp = Blueprint('portal', __name__, template_folder='templates')
 
+def _resolve_company_for_portal_client(owner_uid, client_id, sandbox=True):
+    """Resuelve la compañía correcta donde existe el cliente en un entorno multi-empresa."""
+    if not owner_uid or not client_id:
+        return None
+    try:
+        from app.services.db_service import db_firestore, firebase_initialized
+        if not firebase_initialized or db_firestore is None:
+            return None
+        cids = []
+        for field in ("owner_uid", "ownerUID"):
+            try:
+                docs = db_firestore.collection("companies").where(filter=firestore.FieldFilter(field, "==", owner_uid)).get()
+                for d in docs:
+                    if d.id not in cids:
+                        cids.append(d.id)
+            except Exception:
+                pass
+
+        colls_to_check = [
+            ("sandbox_contacts" if sandbox else "contacts"),
+            ("sandbox_clients" if sandbox else "clients"),
+            ("contacts" if sandbox else "sandbox_contacts"),
+            ("clients" if sandbox else "sandbox_clients"),
+        ]
+        for cid in cids:
+            for coll in colls_to_check:
+                try:
+                    doc = db_firestore.collection("companies").document(cid).collection(coll).document(client_id).get()
+                    if doc.exists:
+                        return cid
+                except Exception:
+                    continue
+
+        if len(cids) == 1:
+            return cids[0]
+    except Exception as e:
+        print(f"Error resolviendo compañía de portal para cliente {client_id}: {e}")
+    return None
+
 def _portal_context():
-    return (
-        session.get('portal_owner_uid'),
-        session.get('portal_client_id'),
-        session.get('portal_sandbox', True),
-        session.get('portal_company_id'),
-    )
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+    company_id = session.get('portal_company_id')
+    if not company_id and owner_uid and client_id:
+        company_id = _resolve_company_for_portal_client(owner_uid, client_id, sandbox=sandbox)
+        if company_id:
+            session['portal_company_id'] = company_id
+    return (owner_uid, client_id, sandbox, company_id)
 
 class PortalDbService:
     @classmethod
     def get_client_by_id(cls, owner_uid, client_id, sandbox=True, company_id=None):
         try:
+            if not company_id:
+                company_id = session.get('portal_company_id') or _resolve_company_for_portal_client(owner_uid, client_id, sandbox=sandbox)
+                if company_id:
+                    session['portal_company_id'] = company_id
             ref = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
             if ref:
+                if ref.get('company_id') and not session.get('portal_company_id'):
+                    session['portal_company_id'] = ref['company_id']
                 return ref
             # Fallback users-scoped (owner sin company): consulta contacts y clients.
             for coll_name in (("sandbox_contacts" if sandbox else "contacts"), ("sandbox_clients" if sandbox else "clients")):
@@ -49,6 +97,7 @@ class PortalDbService:
     def get_client_contracts(cls, owner_uid, client_id, sandbox=True, company_id=None):
         contracts = []
         try:
+            company_id = company_id or session.get('portal_company_id')
             coll_name = "sandbox_contracts" if sandbox else "contracts"
             base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
             docs = base\
@@ -66,6 +115,7 @@ class PortalDbService:
     @classmethod
     def get_contract(cls, owner_uid, contract_id, sandbox=True, company_id=None):
         try:
+            company_id = company_id or session.get('portal_company_id')
             coll_name = "sandbox_contracts" if sandbox else "contracts"
             base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
             doc = base.document(contract_id).get()
@@ -81,6 +131,7 @@ class PortalDbService:
     @classmethod
     def save_contract(cls, owner_uid, contract_id, contract_dict, sandbox=True, company_id=None):
         try:
+            company_id = company_id or session.get('portal_company_id')
             coll_name = "sandbox_contracts" if sandbox else "contracts"
             base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
             base.document(contract_id).set(contract_dict)
@@ -93,6 +144,7 @@ class PortalDbService:
     def get_client_invoices(cls, owner_uid, client_id, sandbox=True, company_id=None):
         invoices = []
         try:
+            company_id = company_id or session.get('portal_company_id')
             coll_name = "sandbox_invoices" if sandbox else "invoices"
             base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
             docs = base\
@@ -131,6 +183,7 @@ class PortalDbService:
     @classmethod
     def get_invoice(cls, owner_uid, invoice_id, sandbox=True, company_id=None):
         try:
+            company_id = company_id or session.get('portal_company_id')
             coll_name = "sandbox_invoices" if sandbox else "invoices"
             base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
             doc = base.document(invoice_id).get()
@@ -149,6 +202,7 @@ class PortalDbService:
     @classmethod
     def save_invoice(cls, owner_uid, invoice_id, inv_dict, sandbox=True, company_id=None):
         try:
+            company_id = company_id or session.get('portal_company_id')
             coll_name = "sandbox_invoices" if sandbox else "invoices"
             base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
             base.document(invoice_id).set(inv_dict)
@@ -162,6 +216,7 @@ class PortalDbService:
         """Retorna los comentarios visibles para el cliente de una factura/cotización."""
         comments = []
         try:
+            company_id = company_id or session.get('portal_company_id')
             coll_name = "sandbox_invoices" if sandbox else "invoices"
             base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
             docs = base.document(invoice_id).collection("comments").get()
@@ -186,6 +241,7 @@ class PortalDbService:
     def save_invoice_comment(cls, owner_uid, invoice_id, comment_id, comment_dict, sandbox=True, company_id=None):
         """Guarda un comentario del cliente en la factura."""
         try:
+            company_id = company_id or session.get('portal_company_id')
             coll_name = "sandbox_invoices" if sandbox else "invoices"
             base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
             base.document(invoice_id).collection("comments").document(comment_id).set(comment_dict)
@@ -205,6 +261,8 @@ def portal_entry(token):
     session['portal_client_id'] = data['client_id']
     session['portal_sandbox'] = data['sandbox']
     session['portal_company_id'] = data.get('company_id')
+    if data.get('doc_id'):
+        session['portal_next_url'] = url_for('portal.portal_document_detail', invoice_id=data['doc_id'])
     
     return redirect(url_for('portal.client_portal_main'))
 
@@ -215,7 +273,7 @@ def client_portal_main():
     if not owner_uid or not client_id:
         return "Sesión de autogestión no válida o expirada. Por favor use el enlace oficial enviado a su correo.", 403
         
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) if company_id else DatabaseService.get_company_profile(owner_uid)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     if not client:
         return "Cliente no encontrado.", 404
@@ -230,6 +288,10 @@ def client_portal_main():
             client_id=client_id,
             sandbox=sandbox
         )
+
+    next_url = session.pop('portal_next_url', None)
+    if next_url and next_url.startswith('/portal/'):
+        return redirect(next_url)
         
     invoices = PortalDbService.get_client_invoices(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     contracts = PortalDbService.get_client_contracts(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
@@ -266,7 +328,7 @@ def client_portal_verify_main():
     input_rnc = request.form.get('rnc', '').strip()
     input_pin = request.form.get('accessPin', '').strip()
     
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) if company_id else DatabaseService.get_company_profile(owner_uid)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     if not client:
         return "Cliente no encontrado.", 404
@@ -280,6 +342,9 @@ def client_portal_verify_main():
         
     if clean_rnc(input_rnc) == clean_rnc(client.get('rnc', '')) and input_pin == db_pin:
         session[f'verified_client_{client_id}'] = True
+        next_url = session.pop('portal_next_url', None)
+        if next_url and next_url.startswith('/portal/'):
+            return redirect(next_url)
         return redirect(url_for('portal.client_portal_main'))
     else:
         error = "El RNC/Cédula o el Código de Acceso ingresado es incorrecto. Por favor, intente de nuevo."
@@ -306,20 +371,30 @@ def clean_rnc(rnc_str):
 def client_portal(owner_uid, client_id):
     sandbox = request.args.get('sandbox', 'true').lower() == 'true'
     company_id = request.args.get('company_id')
+    invoice_id = request.args.get('invoice_id') or request.args.get('cotizacion_id')
+    if not company_id:
+        company_id = _resolve_company_for_portal_client(owner_uid, client_id, sandbox=sandbox)
     session['portal_owner_uid'] = owner_uid
     session['portal_client_id'] = client_id
     session['portal_sandbox'] = sandbox
     session['portal_company_id'] = company_id
+    if invoice_id:
+        session['portal_next_url'] = url_for('portal.portal_document_detail', invoice_id=invoice_id)
     return redirect(url_for('portal.client_portal_main'))
 
 @portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/verify', methods=['POST'])
 def client_portal_verify(owner_uid, client_id):
     sandbox = request.args.get('sandbox', 'true').lower() == 'true'
     company_id = request.args.get('company_id')
+    invoice_id = request.args.get('invoice_id') or request.args.get('cotizacion_id')
+    if not company_id:
+        company_id = _resolve_company_for_portal_client(owner_uid, client_id, sandbox=sandbox)
     session['portal_owner_uid'] = owner_uid
     session['portal_client_id'] = client_id
     session['portal_sandbox'] = sandbox
     session['portal_company_id'] = company_id
+    if invoice_id:
+        session['portal_next_url'] = url_for('portal.portal_document_detail', invoice_id=invoice_id)
     return redirect(url_for('portal.client_portal_verify_main'), code=307)
 
 
@@ -1736,6 +1811,7 @@ def portal_document_detail(invoice_id):
         
     session_key = f'verified_client_{client_id}'
     if session.get(session_key) != True:
+        session['portal_next_url'] = url_for('portal.portal_document_detail', invoice_id=invoice_id)
         return redirect(url_for('portal.client_portal_main'))
     
     # Capturar pago PayPal pendiente si el usuario llegó aquí sin pasar por paypal_return

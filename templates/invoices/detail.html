@@ -1048,7 +1048,7 @@
 
                 {% if invoice.clientId %}
                 {% if module_enabled('portal_cliente') %}
-                <a href="{{ url_for('portal.client_portal', owner_uid=session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z'), client_id=invoice.clientId, sandbox='true' if session.get('is_sandbox_mode', True) else 'false') }}"
+                <a href="{{ url_for('portal.client_portal', owner_uid=session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z'), client_id=invoice.clientId, sandbox='true' if session.get('is_sandbox_mode', True) else 'false', company_id=session.get('selected_company_id')) }}"
                     target="_blank" class="btn btn-secondary"
                     style="width:100%; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
                     <i class="fa-solid fa-up-right-from-square"></i>
