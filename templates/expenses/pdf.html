@@ -4,7 +4,9 @@
 {% set current_color = brand_color %}
 {% set current_light_color = brand_color if apply_brand else '#E2E8F0' %}
 {% set exp_subtotal = (expense.amount or 0) - (expense.itbisAmount or 0) %}
-{% set exp_neto = (expense.amount or 0) - (expense.retainedITBIS or 0) - (expense.retainedISR or 0) %}
+{% set ret_itbis_val = (expense.retainedITBIS or 0) | round(2) %}
+{% set ret_isr_val = (expense.retainedISR or 0) | round(2) %}
+{% set exp_neto = ((expense.amount or 0) - ret_itbis_val - ret_isr_val) | round(2) %}
 {% set exp_itbis_rate = ((expense.itbisAmount or 0) / exp_subtotal) if exp_subtotal > 0 else 0 %}
 <!DOCTYPE html>
 <html lang="es">

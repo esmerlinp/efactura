@@ -621,11 +621,17 @@
         const isrEl = document.getElementById('sum-isr');
         const itbisRetEl = document.getElementById('sum-itbis-ret');
         const netoEl = document.getElementById('sum-neto');
+        const isAsumido = document.getElementById('isrAsumido')?.checked || false;
+
+        const roundedGrandTotal = Math.round((grandTotal + Number.EPSILON) * 100) / 100;
+        const roundedSubtotal = Math.round((subtotal + Number.EPSILON) * 100) / 100;
+        const roundedDiscount = Math.round((totalDiscount + Number.EPSILON) * 100) / 100;
+        const roundedItbis = Math.round((totalItbis + Number.EPSILON) * 100) / 100;
 
         // Base imponible del ISR: Monto gravado/subtotal neto sin ITBIS (renta / ganancias)
-        const isrBase = Math.max(0, subtotal - totalDiscount);
-        const isrAmount = isrRate > 0 ? (isrBase * isrRate) : 0;
-        const itbisRetAmount = itbisRetRate > 0 ? (totalItbis * itbisRetRate) : 0;
+        const isrBase = Math.max(0, roundedSubtotal - roundedDiscount);
+        const isrAmount = isrRate > 0 ? (Math.round((isrBase * isrRate + Number.EPSILON) * 100) / 100) : 0;
+        const itbisRetAmount = itbisRetRate > 0 ? (Math.round((roundedItbis * itbisRetRate + Number.EPSILON) * 100) / 100) : 0;
 
         if (isrRate > 0 && isrRow) {
             isrRow.style.display = '';
@@ -644,7 +650,9 @@
         }
 
         if ((isrRate > 0 || itbisRetRate > 0) && netoRow) {
-            const netoAmount = Math.max(0, grandTotal - isrAmount - itbisRetAmount);
+            const netoAmount = isAsumido ?
+                Math.max(0, Math.round((roundedGrandTotal - itbisRetAmount + Number.EPSILON) * 100) / 100) :
+                Math.max(0, Math.round((roundedGrandTotal - isrAmount - itbisRetAmount + Number.EPSILON) * 100) / 100);
             netoRow.style.display = '';
             if (netoEl) netoEl.textContent = 'RD$ ' + netoAmount.toFixed(2);
         } else if (netoRow) {

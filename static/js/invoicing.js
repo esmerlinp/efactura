@@ -1175,9 +1175,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const isrRate = parseFloat(isrRateSelect.value) || 0.0;
         const itbisRetRate = parseFloat(itbisRateSelect.value) || 0.0;
 
-        const retainedISR = subtotal * isrRate;
-        const retainedITBIS = totalITBIS * itbisRetRate;
-        const netPayable = Math.max(0.0, total - retainedISR - retainedITBIS);
+        const roundedTotal = Math.round((total + Number.EPSILON) * 100) / 100;
+        const roundedSubtotal = Math.round((subtotal + Number.EPSILON) * 100) / 100;
+        const roundedITBIS = Math.round((totalITBIS + Number.EPSILON) * 100) / 100;
+
+        const retainedISR = isrRate > 0.0 ? (Math.round((roundedSubtotal * isrRate + Number.EPSILON) * 100) / 100) : 0.0;
+        const retainedITBIS = itbisRetRate > 0.0 ? (Math.round((roundedITBIS * itbisRetRate + Number.EPSILON) * 100) / 100) : 0.0;
+        const netPayable = Math.max(0.0, Math.round((roundedTotal - retainedISR - retainedITBIS + Number.EPSILON) * 100) / 100);
 
         if (lblSubtotalRaw) lblSubtotalRaw.textContent = formatCurrencyDOP(subtotalRaw);
         if (lblDiscount) lblDiscount.textContent = formatCurrencyDOP(totalDiscount);
