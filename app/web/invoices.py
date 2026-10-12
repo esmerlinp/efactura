@@ -4004,6 +4004,11 @@ def reemit_invoice_route(invoice_id):
         flash(f"Fallo en la reemisión: {str(e)}", "error")
 
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+
+@web_invoices_bp.route('/invoices/<invoice_id>/convert', methods=['POST'])
+@web_invoices_bp.route('/quotations/<invoice_id>/convert', methods=['POST'])
+def convert_quotation_route(invoice_id):
     """Convierte una Cotización (COT-) en un Comprobante Fiscal Electrónico real (FAC-)."""
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
@@ -4025,26 +4030,38 @@ def reemit_invoice_route(invoice_id):
         flash(f'Esta cotización ya fue convertida a la factura {invoice.get("convertedInvoiceNumber", "")}. No se puede convertir nuevamente.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
-    target_ecf_type = request.form.get('targetEcfType', _by_code("E32").label_with_code)
+    target_ecf_type_raw = request.form.get('targetEcfType', _by_code("E32").label_with_code)
+    try:
+        doc_type_obj = _by_code(target_ecf_type_raw)
+        target_ecf_type = doc_type_obj.label_with_code
+        target_code = doc_type_obj.code
+    except Exception:
+        target_code = "E32"
+        target_ecf_type = _by_code("E32").label_with_code
 
     # Validaciones fiscales DGII
     client_rnc = invoice.get('clientRNC', '').strip()
-    total = invoice.get('total', 0.0)
+    total = float(invoice.get('total', 0.0) or 0.0)
 
-    if target_ecf_type == 'Factura de Crédito Fiscal (E31)' and not client_rnc:
+    if target_code == 'E31' and not client_rnc:
         flash('Las facturas de Crédito Fiscal (E31) siempre requieren el RNC/Cédula del cliente. Edita la cotización y agrega un cliente antes de convertir.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
-    if target_ecf_type == 'Factura de Consumo (E32)' and total >= 250000 and not client_rnc:
+    if target_code == 'E32' and total >= 250000 and not client_rnc:
         flash(f'Por Ley 32-23 de la DGII, las facturas de consumo que superen RD$ 250,000 deben identificar al comprador. El total de esta cotización es RD$ {total:,.2f}. Agrega un cliente con RNC antes de convertir.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
+    if target_code == 'E45' and not client_rnc:
+        flash('Los comprobantes gubernamentales (E45) requieren el RNC de la institución del Estado. Edita la cotización y agrega el RNC antes de convertir.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
     # Realizar la conversión
+    import copy
     import uuid
     new_invoice_id = str(uuid.uuid4())
 
     # 1. Crear la nueva factura fiscal (FAC-) a partir de los datos de la cotización
-    new_invoice = invoice.copy()
+    new_invoice = copy.deepcopy(invoice)
     new_invoice['id'] = new_invoice_id
     random_num = f"{random.randint(1, 999999):06d}"
     new_invoice['invoiceNumber'] = f"FAC-{random_num}"
@@ -4052,6 +4069,16 @@ def reemit_invoice_route(invoice_id):
     new_invoice['isQuotation'] = False
     new_invoice['isConvertedToInvoice'] = True
     new_invoice['status'] = 'Borrador'  # Queda como borrador hasta firmarse
+    new_invoice['quotationId'] = invoice_id
+    new_invoice['convertedFromQuotationId'] = invoice_id
+    new_invoice['convertedFromQuotationNumber'] = invoice.get('invoiceNumber', '')
+    new_invoice['date'] = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")
+    new_invoice['createdAt'] = datetime.now(timezone.utc).isoformat()
+    new_invoice['updatedAt'] = datetime.now(timezone.utc).isoformat()
+
+    # Limpiar campos de emisión / firma previa para el nuevo borrador de factura
+    for fld in ('xmlSignature', 'qrCodeURL', 'encf', 'ncf', 'trackId', 'codigoSeguridad', 'dgiiError', 'isSyncedWithDGII', 'contingencyEmittedAt', 'enviadoADGII', 'signedXml', 'convertedToInvoiceId', 'convertedInvoiceNumber'):
+        new_invoice.pop(fld, None)
     
     # 2. Auto-crear productos en el catálogo si la partida no existe o no tiene catalogId
     for idx, inv_item in enumerate(new_invoice.get('items', [])):
@@ -4123,7 +4150,7 @@ def reemit_invoice_route(invoice_id):
         try:
             active_advances = DatabaseService.get_client_advances(
                 owner_uid, company_id=company_id, sandbox=sandbox, client_id=client_id, status="Activo",
-                project_id=g.get('project_id')
+                project_id=getattr(g, 'project_id', None)
             )
             if active_advances:
                 apply_ids = [a["id"] for a in active_advances]
