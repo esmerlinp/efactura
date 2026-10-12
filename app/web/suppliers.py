@@ -202,7 +202,7 @@ def ajax_create_supplier():
     rnc = "".join(filter(str.isdigit, (data.get('rnc') or '')))
 
     from app.services.contact_service import ContactService
-    existing = ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox) if rnc else None
+    existing = ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id) if rnc else None
 
     if existing:
         supplier_id = existing["id"]
@@ -216,7 +216,7 @@ def ajax_create_supplier():
         contact_dict["email"] = (data.get('email') or '').strip() or existing.get("email", "")
         contact_dict["telefono"] = (data.get('phone') or '').strip() or existing.get("telefono", "")
         contact_dict["direccion"] = (data.get('address') or '').strip() or existing.get("direccion", "")
-        ContactService.save_contact(owner_uid, supplier_id, contact_dict, sandbox=sandbox)
+        ContactService.save_contact(owner_uid, supplier_id, contact_dict, sandbox=sandbox, company_id=company_id)
         was_client = "cliente" in existing.get("types", [])
     else:
         supplier_id = str(uuid.uuid4())
@@ -228,7 +228,7 @@ def ajax_create_supplier():
             "direccion": (data.get('address') or '').strip(),
             "types": ["proveedor"],
         }
-        ContactService.save_contact(owner_uid, supplier_id, contact_dict, sandbox=sandbox)
+        ContactService.save_contact(owner_uid, supplier_id, contact_dict, sandbox=sandbox, company_id=company_id)
         was_client = False
 
     from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CXP

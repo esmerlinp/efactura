@@ -39,7 +39,7 @@ def list_contacts():
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    all_contacts = ContactService.get_contacts(owner_uid, sandbox=sandbox)
+    all_contacts = ContactService.get_contacts(owner_uid, sandbox=sandbox, company_id=company_id)
 
     total_contacts_count = len(all_contacts)
     count_clientes = sum(1 for c in all_contacts if 'cliente' in c.get('types', []))
@@ -165,7 +165,7 @@ def new_contact():
             flash('La Razón Social es obligatoria.', 'error')
             return redirect(url_for('web_contacts.new_contact'))
 
-        existing = ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox)
+        existing = ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id)
         if existing:
             flash('Ya existe un contacto con ese RNC.', 'error')
             return redirect(url_for('web_contacts.new_contact'))
@@ -245,7 +245,7 @@ def new_contact():
                     "notifyOnExpiry": (people_notify[i] if i < len(people_notify) else '') == 'on',
                 })
 
-        ContactService.save_contact(owner_uid, contact_id, contact_dict, sandbox=sandbox)
+        ContactService.save_contact(owner_uid, contact_id, contact_dict, sandbox=sandbox, company_id=company_id)
 
         from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CLIENTES
         AuditService.log_from_request(
@@ -280,6 +280,7 @@ def ajax_create_contact():
         return jsonify({"success": False, "error": "Sin permiso."}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     data = request.json or request.form
@@ -303,7 +304,7 @@ def ajax_create_contact():
         "pipelineStage": "Cliente Activo",
         "accessPin": access_pin,
     }
-    ContactService.save_contact(owner_uid, contact_id, contact_dict, sandbox=sandbox)
+    ContactService.save_contact(owner_uid, contact_id, contact_dict, sandbox=sandbox, company_id=company_id)
 
     from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CLIENTES
     AuditService.log_from_request(
@@ -339,7 +340,7 @@ def contact_detail(contact_id):
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox)
+    contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
     if not contact:
         flash('Contacto no encontrado.', 'error')
         return redirect(url_for('web_contacts.list_contacts'))
@@ -469,7 +470,7 @@ def edit_contact(contact_id):
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox)
+    contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
     if not contact:
         flash('Contacto no encontrado.', 'error')
         return redirect(url_for('web_contacts.list_contacts'))
@@ -552,7 +553,7 @@ def edit_contact(contact_id):
                     "notifyOnExpiry": (people_notify[i] if i < len(people_notify) else '') == 'on',
                 })
 
-        ContactService.save_contact(owner_uid, contact_id, contact_dict, sandbox=sandbox)
+        ContactService.save_contact(owner_uid, contact_id, contact_dict, sandbox=sandbox, company_id=company_id)
 
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_CLIENTES
         AuditService.log_from_request(
@@ -584,14 +585,15 @@ def delete_contact_route(contact_id):
     r = _check()
     if r: return r
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox)
+    contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
     if not contact:
         flash('Contacto no encontrado.', 'error')
         return redirect(url_for('web_contacts.list_contacts'))
 
-    ContactService.delete_contact(owner_uid, contact_id, sandbox=sandbox)
+    ContactService.delete_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
 
     from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_CLIENTES
     AuditService.log_from_request(
@@ -616,11 +618,12 @@ def update_contact_pipeline(contact_id):
         return jsonify({'success': False, 'error': 'Sin permisos'}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     data = request.json
     new_stage = data.get('pipelineStage')
 
-    ContactService.update_pipeline(owner_uid, contact_id, new_stage, sandbox=sandbox)
+    ContactService.update_pipeline(owner_uid, contact_id, new_stage, sandbox=sandbox, company_id=company_id)
     return jsonify({'success': True})
 
 
@@ -636,17 +639,18 @@ def toggle_contact_reminders(contact_id):
         return jsonify({"success": False, "error": "Sin permisos."}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     data = request.json or {}
     disable_reminders = data.get('disableAutoReminders') is True
 
-    contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox)
+    contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
     if not contact:
         return jsonify({"success": False, "error": "Contacto no encontrado."}), 404
 
     contact['disableAutoReminders'] = disable_reminders
-    ContactService.save_contact(owner_uid, contact_id, contact, sandbox=sandbox)
+    ContactService.save_contact(owner_uid, contact_id, contact, sandbox=sandbox, company_id=company_id)
     return jsonify({"success": True, "disableAutoReminders": disable_reminders})
 
 
@@ -668,7 +672,7 @@ def send_contact_portal_credentials(contact_id):
     data = request.json or {}
     recipient_email = data.get('email', '').strip()
 
-    contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox)
+    contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
     if not contact:
         return jsonify({"success": False, "error": "Contacto no encontrado."}), 404
 
@@ -812,10 +816,10 @@ def add_contact_interaction(contact_id):
     )
 
     if next_contact_date:
-        contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox)
+        contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
         if contact:
             contact['nextContactDate'] = next_contact_date
-            ContactService.save_contact(owner_uid, contact_id, contact, sandbox=sandbox)
+            ContactService.save_contact(owner_uid, contact_id, contact, sandbox=sandbox, company_id=company_id)
 
     flash('Interacción registrada exitosamente.', 'success')
     return redirect(url_for('web_contacts.contact_detail', contact_id=contact_id))
@@ -856,10 +860,10 @@ def complete_contact_interaction(contact_id, interaction_id):
         interaction['completed'] = True
         DatabaseService.save_client_interaction(owner_uid, contact_id, interaction_id, interaction, sandbox=sandbox, company_id=company_id)
 
-        contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox)
+        contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
         if contact and contact.get('nextContactDate') == interaction.get('nextContactDate'):
             contact['nextContactDate'] = None
-            ContactService.save_contact(owner_uid, contact_id, contact, sandbox=sandbox)
+            ContactService.save_contact(owner_uid, contact_id, contact, sandbox=sandbox, company_id=company_id)
 
         flash('Seguimiento marcado como completado.', 'success')
 
@@ -888,8 +892,9 @@ def api_contacts_list():
     if 'user' not in session:
         return jsonify({"success": False, "error": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    contacts = ContactService.get_contacts(owner_uid, sandbox=sandbox)
+    contacts = ContactService.get_contacts(owner_uid, sandbox=sandbox, company_id=company_id)
 
     filter_type = request.args.get('type', '')
     if filter_type == 'cliente':
