@@ -215,7 +215,7 @@
     <div class="meta-grid">
         <div class="meta-item">
             <span class="meta-label">Fecha y Hora</span>
-            <span class="meta-value">{{ log.timestamp.replace('T', ' ')[:19] }} UTC</span>
+            <span class="meta-value">{{ (log.timestamp or '').replace('T', ' ')[:19] }} UTC</span>
         </div>
         <div class="meta-item">
             <span class="meta-label">Usuario</span>
