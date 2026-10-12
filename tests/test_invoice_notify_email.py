@@ -264,3 +264,53 @@ def test_notify_invoice_email_fallback_to_client_email(client, app):
         args, kwargs = mock_send.call_args
         # Third positional arg is recipient_email
         assert args[2] == "perfil@cliente.com"
+
+
+def test_mailer_send_via_graph_sets_content_type_and_reply_to(app):
+    """Ensure Mailer._send_via_graph properly sets contentType on attachments and adds replyTo."""
+    from app.services.mailer import Mailer
+
+    app.config["MAIL_USE_GRAPH_API"] = True
+    app.config["MAIL_TENANT_ID"] = "tenant-test"
+    app.config["MAIL_CLIENT_ID"] = "client-test"
+    app.config["MAIL_CLIENT_SECRET"] = "secret-test"
+    app.config["MAIL_GRAPH_USER"] = "support@example.com"
+    app.config["MAIL_FROM_INVOICE"] = "efactura@example.com"
+
+    attachments = [
+        {"filename": "factura.xml", "data": b"<xml></xml>", "mimetype": "application/xml"},
+        {"filename": "factura.pdf", "data": b"%PDF-1.4", "mimetype": "application/pdf"},
+    ]
+
+    with patch.object(Mailer, "_get_graph_token", return_value="fake-token"), \
+         patch("requests.post") as mock_post:
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 202
+        mock_post.return_value = mock_resp
+
+        result = Mailer.send(
+            app=app,
+            to_email="cliente@test.com",
+            subject="Test Subject",
+            html_body="<p>Test Body</p>",
+            from_name="Empresa Test",
+            category="invoice",
+            attachments=attachments,
+        )
+
+        assert result is True
+        mock_post.assert_called_once()
+        sent_json = mock_post.call_args.kwargs["json"]
+        message = sent_json["message"]
+
+        # Check replyTo
+        assert "replyTo" in message
+        assert message["replyTo"][0]["emailAddress"]["address"] == "efactura@example.com"
+
+        # Check attachment contentTypes
+        atts = message["attachments"]
+        assert len(atts) == 2
+        assert atts[0]["contentType"] == "application/xml"
+        assert atts[1]["contentType"] == "application/pdf"
+

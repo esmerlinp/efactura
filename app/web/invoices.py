@@ -11,6 +11,20 @@ from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 import qrcode
 try:
+    import platform
+    if platform.system() == 'Darwin':
+        import ctypes.util
+        _orig_find_library = ctypes.util.find_library
+        def _mac_find_library(name):
+            res = _orig_find_library(name)
+            if not res:
+                for p in ['/opt/homebrew/lib', '/usr/local/lib']:
+                    cand = os.path.join(p, f'lib{name}.dylib')
+                    if os.path.exists(cand): return cand
+                    cand = os.path.join(p, f'{name}.dylib')
+                    if os.path.exists(cand): return cand
+            return res
+        ctypes.util.find_library = _mac_find_library
     from weasyprint import HTML as WeasyprintHTML
     WEASYPRINT_AVAILABLE = True
     print("✅ WeasyPrint cargado correctamente en invoices.py")
@@ -3229,13 +3243,21 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         attachments.append({
             'filename': f"{rnc_emisor}{encf}.xml",
             'data': xml_content.encode('utf-8'),
-            'mimetype': 'xml'
+            'mimetype': 'application/xml'
         })
+        if not pdf_bytes and invoice.get('firebasePDFURL'):
+            try:
+                import requests
+                r_pdf = requests.get(invoice['firebasePDFURL'], timeout=10)
+                if r_pdf.status_code == 200 and r_pdf.content:
+                    pdf_bytes = r_pdf.content
+            except Exception:
+                pass
         if pdf_bytes:
             attachments.append({
                 'filename': f"{encf}.pdf",
                 'data': pdf_bytes,
-                'mimetype': 'pdf'
+                'mimetype': 'application/pdf'
             })
 
         success = Mailer.send(
