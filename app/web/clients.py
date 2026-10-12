@@ -947,7 +947,7 @@ def api_clients_lookup_by_rnc():
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     from app.services.contact_service import ContactService
-    contact = ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox)
+    contact = ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id)
     if not contact:
         client = DatabaseService.get_client_by_rnc(owner_uid, rnc, company_id=company_id, sandbox=sandbox)
         if client:
