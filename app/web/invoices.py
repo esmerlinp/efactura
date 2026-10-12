@@ -90,7 +90,7 @@ def _check_invoices_module_gate():
         required_mod = 'cxc'
     elif path.startswith('/expenses') or path.startswith('/api/expenses') or path.startswith('/api/ai/classify-expense') or path.startswith('/api/ai/receipt-ocr'):
         required_mod = 'gastos'
-    elif path.startswith('/items') or path.startswith('/api/quick-create-product'):
+    elif path.startswith('/items') or path.startswith('/categories') or path.startswith('/api/quick-create-product'):
         required_mod = 'catalogo'
     elif path.startswith('/reports/export/accounting'):
         required_mod = 'exportacion_contable'
@@ -953,6 +953,53 @@ def ajax_create_price_list():
     }
     DatabaseService.save_price_list(owner_uid, list_id, list_dict, company_id=company_id, sandbox=sandbox)
     return jsonify({'success': True, 'id': list_id, 'name': name, 'tipo': tipo})
+
+
+@web_invoices_bp.route('/categories/ajax_create', methods=['POST'])
+def ajax_create_category():
+    """Endpoint AJAX para crear una categoría desde el formulario de producto."""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    if not check_permission('canClients'):
+        return jsonify({'success': False, 'error': 'Permiso insuficiente'}), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'El nombre de la categoría es obligatorio'}), 400
+
+    existing = DatabaseService.get_categories(owner_uid, company_id=company_id, sandbox=sandbox)
+    for cat in existing:
+        if cat.get('name', '').strip().lower() == name.lower():
+            return jsonify({'success': True, 'id': cat['id'], 'name': cat['name'], 'already_existed': True})
+
+    import unicodedata
+    import re
+    slug = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
+    slug = re.sub(r'[^\w\s-]', '', slug).strip().lower()
+    slug = re.sub(r'[-\s]+', '-', slug)
+    if not slug:
+        slug = str(uuid.uuid4())[:8]
+
+    existing_ids = {cat.get("id") for cat in existing}
+    if slug in existing_ids:
+        slug = f"{slug}-{uuid.uuid4().hex[:4]}"
+
+    branch_id = g.get('branch_id') or session.get('selected_branch_id') or 'default-sucursal-principal'
+    project_id = g.get('project_id') if g.get('project_id') != '__no_project__' else None
+
+    cat_dict = {
+        'id': slug,
+        'name': name,
+        'description': (data.get('description') or '').strip(),
+        'branchId': branch_id,
+        'projectId': project_id,
+        'createdAt': datetime.now(timezone.utc).isoformat()
+    }
+    DatabaseService.save_category(owner_uid, slug, cat_dict, sandbox=sandbox, company_id=company_id)
+    return jsonify({'success': True, 'id': slug, 'name': name})
 
 
 @web_invoices_bp.route('/api/quick-create-product', methods=['POST'])
