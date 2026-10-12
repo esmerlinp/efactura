@@ -3,9 +3,12 @@
 {% set company_color_marca = brand_color %}
 {% set current_color = brand_color %}
 {% set current_light_color = brand_color if apply_brand else '#E2E8F0' %}
-{% set ret_isr_amount = (invoice.total or 0) * (invoice.retainedISR or 0) %}
+{% set isr_base = (invoice.subtotal or 0) - (invoice.discount or 0) %}
+{% if isr_base <= 0 %}{% set isr_base = (invoice.total or 0) - (invoice.itbis or 0) %}{% endif %}
+{% set ret_isr_amount = isr_base * (invoice.retainedISR or 0) %}
 {% set ret_itbis_amount = (invoice.itbis or 0) * (invoice.retainedITBIS or 0) %}
-{% set neto_pagar = (invoice.total or 0) - ret_isr_amount - ret_itbis_amount %}
+{% set isr_deduct = 0 if invoice.isrAsumido else ret_isr_amount %}
+{% set neto_pagar = (invoice.total or 0) - isr_deduct - ret_itbis_amount %}
 <!DOCTYPE html>
 <html lang="es">
 

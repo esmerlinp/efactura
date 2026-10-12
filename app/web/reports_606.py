@@ -135,6 +135,24 @@ def _get_expenses_for_period(owner_uid, sandbox, year, month):
                 concept = inv.get("comentario") or inv.get("notes") or ""
                 if not concept and inv.get("supplierInvoiceNumber"):
                     concept = f"Compra {inv.get('supplierInvoiceNumber', '')} - {inv.get('supplierName', '')}"
+                inv_sub = float(inv.get("subtotal", 0) or 0)
+                inv_disc = float(inv.get("discount", 0) or 0)
+                inv_tot = float(inv.get("total", 0) or 0)
+                inv_itbis = float(inv.get("itbis", 0) or 0)
+                inv_base = max(0.0, (inv_sub - inv_disc) if inv_sub > 0 else (inv_tot - inv_itbis))
+
+                ret_isr_raw = float(inv.get("isrWithheld", 0) or inv.get("retainedISR", 0) or 0)
+                if 0 < ret_isr_raw <= 1.0 and inv_base > 0:
+                    computed_isr_withheld = round(inv_base * ret_isr_raw, 2)
+                else:
+                    computed_isr_withheld = ret_isr_raw
+
+                ret_itbis_raw = float(inv.get("itbisWithheld", 0) or inv.get("retainedITBIS", 0) or 0)
+                if 0 < ret_itbis_raw <= 1.0 and inv_itbis > 0:
+                    computed_itbis_withheld = round(inv_itbis * ret_itbis_raw, 2)
+                else:
+                    computed_itbis_withheld = ret_itbis_raw
+
                 mapped = {
                     "id": inv.get("id", ""),
                     "concept": concept,
@@ -152,8 +170,8 @@ def _get_expenses_for_period(owner_uid, sandbox, year, month):
                     "supplierId": inv.get("supplierId", ""),
                     "isDeductible": inv.get("isDeductible", True),
                     "isITBISDeductible": inv.get("isITBISDeductible", True),
-                    "isrWithheld": float(inv.get("retainedISR", 0) or 0),
-                    "itbisWithheld": float(inv.get("retainedITBIS", 0) or 0),
+                    "isrWithheld": computed_isr_withheld,
+                    "itbisWithheld": computed_itbis_withheld,
                     "formaPago": inv.get("formaPago", "02"),
                     "dgiiStatus": inv.get("dgiiStatus", ""),
                     "createdAt": inv.get("createdAt", ""),

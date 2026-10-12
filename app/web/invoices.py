@@ -6205,6 +6205,32 @@ def _build_expense_ecf_payload(expense_dict, ecf_full_type):
     date_str = expense_dict.get("date", datetime.now(timezone.utc).isoformat())
     due_str  = expense_dict.get("dueDate") or date_str
 
+    is_e41 = "E41" in ecf_full_type or "Compras" in ecf_full_type
+    ret_isr_val = float(expense_dict.get("isrWithheld", 0.0))
+    ret_isr_rate = float(expense_dict.get("retainedISR", 0.0))
+    if ret_isr_val <= 0.0 and ret_isr_rate > 0.0:
+        ret_isr_val = round(subtotal * ret_isr_rate, 2) if ret_isr_rate <= 1.0 else round(ret_isr_rate, 2)
+
+    ret_itbis_val = float(expense_dict.get("itbisWithheld", 0.0))
+    ret_itbis_rate = float(expense_dict.get("retainedITBIS", 0.0))
+    if ret_itbis_val <= 0.0 and ret_itbis_rate > 0.0:
+        ret_itbis_val = round(itbis * ret_itbis_rate, 2) if ret_itbis_rate <= 1.0 else round(ret_itbis_rate, 2)
+
+    item_dict = {
+        "id":        expense_dict.get("id", "item-gasto-1"),
+        "code":      "GASTO-01",
+        "name":      expense_dict.get("concept", "Gasto Operativo"),
+        "type":      "Servicio",
+        "quantity":  1,
+        "price":     subtotal,
+        "subtotal":  subtotal,
+        "itbisRate": 0.0 if is_e43 else (round(itbis / subtotal, 4) if subtotal > 0 else 0.0),
+        "total":     amount
+    }
+    if is_e41:
+        item_dict["retainedISR"] = ret_isr_val
+        item_dict["retainedITBIS"] = ret_itbis_val
+
     return {
         "id":             expense_dict.get("id", ""),
         "ecfType":        ecf_full_type,
@@ -6219,21 +6245,11 @@ def _build_expense_ecf_payload(expense_dict, ecf_full_type):
         "totalITBIS":     itbis,
         "total":          amount,
         "netPayable":     amount,
-        "retainedITBIS":  float(expense_dict.get("retainedITBIS", 0.0)),
-        "retainedISR":    float(expense_dict.get("retainedISR", 0.0)),
+        "retainedITBIS":  ret_itbis_val,
+        "retainedISR":    ret_isr_val,
         "notes":          expense_dict.get("notes", ""),
         "invoiceNumber":  expense_dict.get("ecfNumber") or expense_dict.get("ncf", ""),
-        "items": [{
-            "id":        expense_dict.get("id", "item-gasto-1"),
-            "code":      "GASTO-01",
-            "name":      expense_dict.get("concept", "Gasto Operativo"),
-            "type":      "Servicio",
-            "quantity":  1,
-            "price":     subtotal,
-            "subtotal":  subtotal,
-            "itbisRate": 0.0 if is_e43 else (round(itbis / subtotal, 4) if subtotal > 0 else 0.0),
-            "total":     amount
-        }]
+        "items": [item_dict]
     }
 
 
@@ -6261,6 +6277,10 @@ def _build_supplier_invoice_ecf_payload(inv_data):
     }
     ecf_type_full = ecf_type_map.get(ecf_type_raw, "Comprobante de Compras (E41)")
     is_e47 = "E47" in ecf_type_raw
+    is_e41 = "E41" in ecf_type_raw or "Compras" in ecf_type_full
+
+    ret_isr_rate = float(inv_data.get("retainedISR", 0.0))
+    ret_itbis_rate = float(inv_data.get("retainedITBIS", 0.0))
 
     items = []
     for item in inv_data.get("items", []):
@@ -6280,6 +6300,10 @@ def _build_supplier_invoice_ecf_payload(inv_data):
         if is_e47:
             item_isr_rate = float(inv_data.get("retainedISR", 0.27))
             item_data["retainedISR"] = round(item_subtotal * item_isr_rate, 2)
+        elif is_e41:
+            item_data["retainedISR"] = round(item_subtotal * ret_isr_rate, 2)
+            item_line_itbis = round(item_subtotal * itbis_rate, 2)
+            item_data["retainedITBIS"] = round(item_line_itbis * ret_itbis_rate, 2)
         items.append(item_data)
 
     if not items:
@@ -6294,12 +6318,22 @@ def _build_supplier_invoice_ecf_payload(inv_data):
         if is_e47:
             item_isr_rate = float(inv_data.get("retainedISR", 0.27))
             items[0]["retainedISR"] = round(subtotal * item_isr_rate, 2)
+        elif is_e41:
+            items[0]["retainedISR"] = round(subtotal * ret_isr_rate, 2)
+            items[0]["retainedITBIS"] = round(itbis * ret_itbis_rate, 2)
 
-    payment_map = {"Contado": "Efectivo", "Cr\u00e9dito": "Cr\u00e9dito", "credito_30d": "Cr\u00e9dito"}
+    payment_map = {"Contado": "Efectivo", "Crédito": "Crédito", "credito_30d": "Crédito"}
     payment_method = payment_map.get(inv_data.get("paymentType", "Contado"), "Efectivo")
 
-    ret_isr_rate = float(inv_data.get("retainedISR", 0.0))
-    ret_itbis_rate = float(inv_data.get("retainedITBIS", 0.0))
+    if is_e41:
+        retained_isr_total = round(sum(it.get("retainedISR", 0.0) for it in items), 2)
+        retained_itbis_total = round(sum(it.get("retainedITBIS", 0.0) for it in items), 2)
+    elif is_e47:
+        retained_isr_total = round(sum(it.get("retainedISR", 0.0) for it in items), 2)
+        retained_itbis_total = 0.0
+    else:
+        retained_isr_total = round(subtotal * ret_isr_rate, 2)
+        retained_itbis_total = round(itbis * ret_itbis_rate, 2)
 
     payload = {
         "id":                       inv_data.get("id", ""),
@@ -6316,8 +6350,8 @@ def _build_supplier_invoice_ecf_payload(inv_data):
         "totalITBIS":               itbis,
         "total":                    amount,
         "montoExento":              amount if is_e47 else 0.0,
-        "retainedITBIS":            round(itbis * ret_itbis_rate, 2),
-        "retainedISR":              round(amount * ret_isr_rate, 2),
+        "retainedITBIS":            retained_itbis_total,
+        "retainedISR":              retained_isr_total,
         "items":                    items,
         "invoiceNumber":            inv_data.get("supplierInvoiceNumber", ""),
         "internalInvoiceNumber":    inv_data.get("invoiceNumber", ""),

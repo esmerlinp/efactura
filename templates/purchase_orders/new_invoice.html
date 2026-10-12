@@ -260,7 +260,8 @@
                 <div class="tl-row"><span>ITBIS</span><span id="sum-itbis">RD$ 0.00</span></div>
                 <div class="tl-row total"><span>Total</span><span id="sum-total">RD$ 0.00</span></div>
                 <div class="tl-row" id="row-isr-retenido" style="display:none;"><span>ISR Retenido <span id="isr-rate-label"></span></span><span id="sum-isr" style="color:#ef4444;">RD$ 0.00</span></div>
-                <div class="tl-row" id="row-neto-pagar" style="display:none;border-top:2px solid var(--border-color);padding-top:6px;margin-top:4px;"><span style="font-weight:700;">Neto a Pagar</span><span id="sum-neto" style="font-weight:800;font-size:1.15rem;">RD$ 0.00</span></div>
+                <div class="tl-row" id="row-itbis-retenido" style="display:none;"><span>ITBIS Retenido <span id="itbis-rate-label"></span></span><span id="sum-itbis-ret" style="color:#ef4444;">RD$ 0.00</span></div>
+                <div class="tl-row" id="row-neto-pagar" style="display:none;border-top:2px solid var(--border-color);padding-top:6px;margin-top:4px;"><span style="font-weight:700;">Neto a Pagar</span><span id="sum-neto" style="font-weight:800;font-size:1.15rem;color:var(--accent-emerald);">RD$ 0.00</span></div>
             </div>
             <div style="margin-top:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
                 <button type="button" id="btn-add-item" class="btn btn-sm btn-secondary"><i class="fa-solid fa-plus"></i> Añadir Partida</button>
@@ -338,9 +339,9 @@
             <div class="modal-content" style="max-width:460px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
                 <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-sliders" style="color:var(--accent-emerald);margin-right:8px;"></i>Retenciones, Descuentos y Recargos</h3><button type="button" id="btn-close-retentions-modal" class="btn-close-modal" onclick="closeRetentionsModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <div class="modal-body" style="padding:22px 24px;">
-                    <div class="inp-group" style="margin-bottom:16px;"><label>Descuento Global (%)</label><input type="number" id="discount-global-modal" class="form-input" min="0" max="1" step="0.01" value="" placeholder="Ej: 0.10 = 10%" oninput="document.getElementById('discount-global').value=this.value;recalculateRetBadge();"></div>
-                    <div class="inp-group" style="margin-bottom:16px;"><label>Retención ISR</label><select id="isr-rate-select-modal" class="form-select" onchange="document.getElementById('isr-rate-select').value=this.value;recalculateRetBadge();"><option value="0.0">Sin retención (0%)</option><option value="0.27">27% — Pagos al Exterior (E47)</option><option value="0.02">2% — Bienes y servicios</option><option value="0.10">10% — Honorarios / Alquiler</option></select></div>
-                    <div class="inp-group" style="margin-bottom:16px;"><label>Retención ITBIS</label><select id="itbis-rate-select-modal" class="form-select" onchange="document.getElementById('itbis-rate-select').value=this.value;recalculateRetBadge();"><option value="0.0">Sin retención (0%)</option><option value="0.30">30% — Bienes corporativos</option><option value="0.75">75% — Servicios jurídicos</option><option value="1.00">100% — Profesionales independientes</option></select></div>
+                    <div class="inp-group" style="margin-bottom:16px;"><label>Descuento Global (%)</label><input type="number" id="discount-global-modal" class="form-input" min="0" max="1" step="0.01" value="" placeholder="Ej: 0.10 = 10%" oninput="document.getElementById('discount-global').value=this.value;recalculateRetBadge();if(typeof recalculateTotals==='function')recalculateTotals();"></div>
+                    <div class="inp-group" style="margin-bottom:16px;"><label>Retención ISR</label><select id="isr-rate-select-modal" class="form-select" onchange="document.getElementById('isr-rate-select').value=this.value;recalculateRetBadge();if(typeof recalculateTotals==='function')recalculateTotals();"><option value="0.0">Sin retención (0%)</option><option value="0.27">27% — Pagos al Exterior (E47)</option><option value="0.02">2% — Bienes y servicios</option><option value="0.10">10% — Honorarios / Alquiler</option></select></div>
+                    <div class="inp-group" style="margin-bottom:16px;"><label>Retención ITBIS</label><select id="itbis-rate-select-modal" class="form-select" onchange="document.getElementById('itbis-rate-select').value=this.value;recalculateRetBadge();if(typeof recalculateTotals==='function')recalculateTotals();"><option value="0.0">Sin retención (0%)</option><option value="0.30">30% — Bienes corporativos</option><option value="0.75">75% — Servicios jurídicos</option><option value="1.00">100% — Profesionales independientes</option></select></div>
                     <div class="inp-group e47-field" style="display:none;margin-bottom:8px;padding:12px;border-radius:8px;background:rgba(139,92,246,0.04);border:1px solid rgba(139,92,246,0.15);">
                         <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:0.78rem;cursor:pointer;">
                             <input type="checkbox" id="isrAsumido" name="isrAsumido" onchange="onIsrAsumidoChange()">
@@ -636,26 +637,45 @@
         const grandTotal = subtotal - totalDiscount + totalItbis;
         document.getElementById('sum-total').textContent = sym + grandTotal.toFixed(2);
 
-        // ISR Retenido & Neto a Pagar
+        // ISR & ITBIS Retenidos & Neto a Pagar
         const isrRate = parseFloat(document.getElementById('isr-rate-select')?.value || '0') || 0;
+        const itbisRetRate = parseFloat(document.getElementById('itbis-rate-select')?.value || '0') || 0;
         const isrRow = document.getElementById('row-isr-retenido');
+        const itbisRetRow = document.getElementById('row-itbis-retenido');
         const netoRow = document.getElementById('row-neto-pagar');
         const isrLabel = document.getElementById('isr-rate-label');
+        const itbisRetLabel = document.getElementById('itbis-rate-label');
         const isrEl = document.getElementById('sum-isr');
+        const itbisRetEl = document.getElementById('sum-itbis-ret');
         const netoEl = document.getElementById('sum-neto');
         const isAsumido = document.getElementById('isrAsumido')?.checked || false;
-        const ecfType = document.getElementById('ecfType')?.value || 'E41';
 
-        if (isrRate > 0 && ecfType !== 'E41') {
-            const isrAmount = grandTotal * isrRate;
-            const netoAmount = isAsumido ? grandTotal : grandTotal - isrAmount;
+        // Base imponible del ISR: Monto gravado/subtotal neto sin ITBIS (renta / ganancias)
+        const isrBase = Math.max(0, subtotal - totalDiscount);
+        const isrAmount = isrRate > 0 ? (isrBase * isrRate) : 0;
+        const itbisRetAmount = itbisRetRate > 0 ? (totalItbis * itbisRetRate) : 0;
+
+        if (isrRate > 0 && isrRow) {
             isrRow.style.display = '';
-            netoRow.style.display = '';
-            isrLabel.textContent = '(' + (isrRate * 100).toFixed(0) + '%)';
-            isrEl.textContent = sym + isrAmount.toFixed(2);
-            netoEl.textContent = sym + netoAmount.toFixed(2);
-        } else {
+            if (isrLabel) isrLabel.textContent = '(' + (isrRate * 100).toFixed(0) + '%)';
+            if (isrEl) isrEl.textContent = '- ' + sym + isrAmount.toFixed(2);
+        } else if (isrRow) {
             isrRow.style.display = 'none';
+        }
+
+        if (itbisRetRate > 0 && itbisRetRow) {
+            itbisRetRow.style.display = '';
+            if (itbisRetLabel) itbisRetLabel.textContent = '(' + (itbisRetRate * 100).toFixed(0) + '%)';
+            if (itbisRetEl) itbisRetEl.textContent = '- ' + sym + itbisRetAmount.toFixed(2);
+        } else if (itbisRetRow) {
+            itbisRetRow.style.display = 'none';
+        }
+
+        if ((isrRate > 0 || itbisRetRate > 0) && netoRow) {
+            const netoAmount = isAsumido ? Math.max(0, grandTotal - itbisRetAmount) : Math.max(0, grandTotal - isrAmount - itbisRetAmount);
+            netoRow.style.display = '';
+            if (netoEl) netoEl.textContent = sym + netoAmount.toFixed(2);
+        } else if (netoRow) {
             netoRow.style.display = 'none';
         }
     }
