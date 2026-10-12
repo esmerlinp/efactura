@@ -26,6 +26,172 @@ from app.utils.module_gate import module_enabled
 web_purchase_orders_bp = Blueprint('web_purchase_orders', __name__)
 
 
+def _supplier_xml_is_valid(xml_content):
+    if not xml_content:
+        return False
+    s = xml_content.strip()
+    return s.startswith('<?xml') or s.startswith('<ECF') or s.startswith('<eCF')
+
+
+def _supplier_comprobante_context(invoice, company, owner_uid, invoice_id, company_id, sandbox, build_xml=False):
+    """Resuelve XML, QR, fecha de firma y rama del comprobante de un factura
+    de proveedor. Reutilizado por las descargas PDF/XML y por el correo de la
+    carta de retención para no duplicar la lógica de auto-reparación."""
+    import io
+    import base64
+    import qrcode
+
+    doc_num = invoice.get('ncf') or invoice.get('encf') or invoice.get('invoiceNumber', '') or invoice_id
+    inv_num = doc_num.replace('/', '-').replace(' ', '_')
+
+    xml_content = invoice.get("xmlContent") or invoice.get("xmlSignature") or ""
+    if not _supplier_xml_is_valid(xml_content):
+        # Certificación paso 4: las facturas de proveedor de las corridas no
+        # guardan xmlContent; recuperarlo del XML firmado en disco.
+        try:
+            from app.services.dgii_cert_service import DgiiCertService
+            rnc = str(company.get("companyRNC", "")).replace("-", "").strip()
+            recovered = DgiiCertService.find_case_xml_on_disk(company_id, rnc, invoice.get("encf", ""))
+            if _supplier_xml_is_valid(recovered):
+                xml_content = recovered
+        except Exception:
+            pass
+
+    if not _supplier_xml_is_valid(xml_content) and build_xml:
+        try:
+            from app.services.dgii_xml_builder import DgiiXmlBuilder
+            from app.services.dgii_signer import DgiiSigner
+            from app.web.invoices import _build_supplier_invoice_ecf_payload
+
+            ecf_payload = _build_supplier_invoice_ecf_payload(invoice)
+            ecf_payload["encf"] = invoice.get("encf", "PENDIENTE")
+            raw_xml = DgiiXmlBuilder.build_invoice_xml(company, ecf_payload)
+            signed_xml_bytes = DgiiSigner.sign_xml(raw_xml, company)
+            xml_content = signed_xml_bytes.decode('utf-8')
+        except Exception:
+            xml_content = invoice.get('xmlSignature') or invoice.get('xmlContent') or ''
+
+    qr_url = invoice.get("qrCodeURL")
+    fecha_firma_str = ""
+    if invoice.get("encf"):
+        try:
+            from app.services.dgii_cert_service import DgiiCertService
+            qr_url = DgiiCertService.qr_reparado_con_disco(company, invoice, company_id) \
+                or invoice.get("qrCodeURL")
+        except Exception:
+            pass
+        if xml_content:
+            try:
+                from app.services.dgii_signer import DgiiSigner
+                fhf_real = DgiiSigner.extract_fecha_hora_firma(xml_content)
+                if fhf_real:
+                    fecha_firma_str = fhf_real
+            except Exception:
+                pass
+        if not fecha_firma_str:
+            try:
+                fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
+                fecha_firma_str = fecha_emision_dt.strftime("%d-%m-%Y") + " 12:00:00"
+            except Exception:
+                pass
+        if not qr_url:
+            codigo_seg = invoice.get("xmlSignature", "")[:6]
+            try:
+                from app.services.dgii_direct import DgiiDirectService
+                qr_payload = {
+                    "encf": invoice.get("encf"),
+                    "ecfType": invoice.get("ecfType", "") or "Pagos al Exterior (E47)",
+                    "total": float(invoice.get("total", 0.0) or 0.0),
+                    "clientRNC": invoice.get("supplierRnc", ""),
+                    "date": invoice.get("date", ""),
+                    "fechaHoraFirma": fecha_firma_str,
+                    "xmlContent": xml_content,
+                }
+                qr_url = DgiiDirectService.build_qr_url(company, qr_payload, codigo_seg)
+            except Exception:
+                pass
+        # Persistir la auto-reparación para futuras descargas.
+        if qr_url and (qr_url != invoice.get("qrCodeURL") or (xml_content and not invoice.get("xmlContent"))):
+            try:
+                update_fields = {"qrCodeURL": qr_url}
+                if xml_content:
+                    update_fields["xmlContent"] = xml_content
+                SupplierInvoiceService.update(owner_uid, invoice_id, update_fields,
+                                              sandbox=sandbox, company_id=company_id)
+            except Exception:
+                pass
+
+    if not qr_url:
+        qr_url = "https://dgii.gov.do/validaecf"
+
+    qr = qrcode.QRCode(version=1, box_size=10, border=0)
+    qr.add_data(qr_url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    stream = io.BytesIO()
+    img.save(stream, format="PNG")
+    qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
+
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
+    branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
+    if not branch and branches:
+        branch = branches[0]
+
+    return {
+        "doc_num": doc_num,
+        "inv_num": inv_num,
+        "xml_content": xml_content,
+        "qr_url": qr_url,
+        "qr_base64": qr_base64,
+        "fecha_firma_str": fecha_firma_str,
+        "branch": branch,
+    }
+
+
+def _resolve_supplier_email(owner_uid, invoice, sandbox, company_id):
+    """Correo registrado del proveedor/contacto de una factura de proveedor.
+
+    La factura de proveedor no guarda el email; se resuelve desde el contacto
+    o proveedor por supplierId y, si no, por RNC/cédula. Devuelve '' si no hay.
+    """
+    def _email_of(record):
+        return (record.get('email') or '').strip() if record else ''
+
+    email = (invoice.get('email') or '').strip()
+    if email:
+        return email
+
+    supplier_id = invoice.get('supplierId')
+    if supplier_id:
+        try:
+            from app.services.contact_service import ContactService
+            email = _email_of(ContactService.get_contact(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id))
+        except Exception:
+            email = ''
+        if not email:
+            try:
+                email = _email_of(SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id))
+            except Exception:
+                email = ''
+        if email:
+            return email
+
+    rnc = invoice.get('supplierRnc') or invoice.get('supplierCedula')
+    if rnc:
+        try:
+            email = _email_of(SupplierService.get_supplier_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id))
+        except Exception:
+            email = ''
+        if not email:
+            try:
+                from app.services.contact_service import ContactService
+                email = _email_of(ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id))
+            except Exception:
+                email = ''
+
+    return email or ''
+
+
 @web_purchase_orders_bp.before_request
 def _check_purchase_module():
     if 'user' not in session:
@@ -883,11 +1049,24 @@ def list_purchase_cxp():
 
     status_filter = request.args.get('status', '').strip()
     search_query = request.args.get('search', '').strip().lower()
+    dgii_filter = request.args.get('dgii_status', '').strip()
+
+    def _dgii_state(inv):
+        if inv.get('status') == 'rechazado_dgii' or inv.get('dgiiError'):
+            return 'rechazado'
+        if inv.get('status') == 'emitida' or (inv.get('isSyncedWithDGII') and inv.get('encf') and not inv.get('dgiiError')):
+            return 'aceptado'
+        return 'pendiente'
+
+    for inv in invoices:
+        inv['dgiiState'] = _dgii_state(inv)
 
     filtered = []
     for inv in invoices:
         st = inv.get('cxpStatus', 'Pendiente')
         if status_filter and st != status_filter:
+            continue
+        if dgii_filter and inv.get('dgiiState') != dgii_filter:
             continue
         if search_query:
             haystack = f"{inv.get('supplierName', '')} {inv.get('supplierRnc', '')} {inv.get('invoiceNumber', '')} {inv.get('ncf', '')}".lower()
@@ -900,7 +1079,8 @@ def list_purchase_cxp():
         from flask import send_file
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
-        writer.writerow(["Factura#", "OC#", "Proveedor", "RNC", "NCF", "Fecha Emisión", "Vencimiento", "Total (RD$)", "Balance (RD$)", "Estado"])
+        _dgii_labels = {'aceptado': 'Aceptado', 'rechazado': 'Rechazado', 'pendiente': 'Pendiente'}
+        writer.writerow(["Factura#", "OC#", "Proveedor", "RNC", "NCF", "Fecha Emisión", "Vencimiento", "Total (RD$)", "Balance (RD$)", "Estado", "Estado DGII"])
         for inv in filtered:
             writer.writerow([
                 inv.get("invoiceNumber", ""), inv.get("poNumber", ""),
@@ -910,6 +1090,7 @@ def list_purchase_cxp():
                 f"{float(inv.get('total', 0)):.2f}",
                 f"{float(inv.get('cxpRemainingBalance', inv.get('total', 0))):.2f}",
                 inv.get("cxpStatus", "Pendiente"),
+                _dgii_labels.get(inv.get("dgiiState", "pendiente"), "Pendiente"),
             ])
         dest = io.BytesIO()
         dest.write(b'\xef\xbb\xbf')
@@ -926,7 +1107,8 @@ def list_purchase_cxp():
                            total_month_purchases=total_month_purchases,
                            today_str=today_str,
                            status_filter=status_filter,
-                           search_query=search_query)
+                           search_query=search_query,
+                           dgii_filter=dgii_filter)
 
 
 @web_purchase_orders_bp.route('/purchase-orders/invoices/new', methods=['GET', 'POST'])
@@ -1907,6 +2089,8 @@ def supplier_invoice_detail(invoice_id):
         except Exception as qr_err:
             print(f"⚠️ Error al generar QR de factura proveedor {invoice_id}: {qr_err}")
 
+    supplier_email = _resolve_supplier_email(owner_uid, invoice, sandbox, company_id)
+
     return render_template('purchase_orders/supplier_invoice_detail.html',
                            invoice=invoice, payments=payments,
                            bank_accounts=bank_accounts,
@@ -1918,6 +2102,7 @@ def supplier_invoice_detail(invoice_id):
                            history_logs=history_logs,
                            qr_base64=qr_base64,
                            qr_code_url=qr_code_url,
+                           supplier_email=supplier_email,
                            active_page='purchase_cxp')
 
 
@@ -1936,90 +2121,11 @@ def supplier_invoice_pdf(invoice_id):
 
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
-    import io
-    import base64
-    import qrcode
-    import urllib.parse
-    from datetime import datetime
-
-    doc_num = invoice.get('ncf') or invoice.get('encf') or invoice.get('invoiceNumber', '') or invoice_id
-    inv_num = doc_num.replace('/', '-').replace(' ', '_')
-
-    qr_url = invoice.get("qrCodeURL")
-    fecha_firma_str = ""
-    xml_content = invoice.get("xmlContent") or ""
-    if invoice.get("encf"):
-        try:
-            from app.services.dgii_cert_service import DgiiCertService
-            qr_url = DgiiCertService.qr_reparado_con_disco(company, invoice, company_id) \
-                or invoice.get("qrCodeURL")
-        except Exception:
-            pass
-        if not xml_content:
-            # Certificación paso 4: las facturas de proveedor de las corridas
-            # no guardan xmlContent; recuperarlo del XML firmado en disco.
-            try:
-                from app.services.dgii_cert_service import DgiiCertService
-                rnc = str(company.get("companyRNC", "")).replace("-", "").strip()
-                xml_content = DgiiCertService.find_case_xml_on_disk(
-                    company_id, rnc, invoice.get("encf", ""))
-            except Exception:
-                pass
-        if xml_content:
-            try:
-                from app.services.dgii_signer import DgiiSigner
-                fhf_real = DgiiSigner.extract_fecha_hora_firma(xml_content)
-                if fhf_real:
-                    fecha_firma_str = fhf_real
-            except Exception:
-                pass
-        if not fecha_firma_str:
-            try:
-                fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
-                fecha_firma_str = fecha_emision_dt.strftime("%d-%m-%Y") + " 12:00:00"
-            except Exception:
-                pass
-        if not qr_url:
-            codigo_seg = invoice.get("xmlSignature", "")[:6]
-            try:
-                qr_payload = {
-                    "encf": invoice.get("encf"),
-                    "ecfType": invoice.get("ecfType", "") or "Pagos al Exterior (E47)",
-                    "total": float(invoice.get("total", 0.0) or 0.0),
-                    "clientRNC": invoice.get("supplierRnc", ""),
-                    "date": invoice.get("date", ""),
-                    "fechaHoraFirma": fecha_firma_str,
-                    "xmlContent": xml_content,
-                }
-                qr_url = DgiiDirectService.build_qr_url(company, qr_payload, codigo_seg)
-            except Exception:
-                pass
-        # Persistir la auto-reparación para futuras descargas.
-        if qr_url and (qr_url != invoice.get("qrCodeURL") or (xml_content and not invoice.get("xmlContent"))):
-            try:
-                update_fields = {"qrCodeURL": qr_url}
-                if xml_content:
-                    update_fields["xmlContent"] = xml_content
-                SupplierInvoiceService.update(owner_uid, invoice_id, update_fields,
-                                              sandbox=sandbox, company_id=company_id)
-            except Exception:
-                pass
-
-    if not qr_url:
-        qr_url = "https://dgii.gov.do/validaecf"
-
-    qr = qrcode.QRCode(version=1, box_size=10, border=0)
-    qr.add_data(qr_url)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    stream = io.BytesIO()
-    img.save(stream, format="PNG")
-    qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
-
-    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
-    branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
-    if not branch and branches:
-        branch = branches[0]
+    ctx = _supplier_comprobante_context(invoice, company, owner_uid, invoice_id, company_id, sandbox)
+    inv_num = ctx["inv_num"]
+    qr_base64 = ctx["qr_base64"]
+    fecha_firma_str = ctx["fecha_firma_str"]
+    branch = ctx["branch"]
 
     action = request.args.get('action', 'download')
 
@@ -2248,22 +2354,9 @@ def supplier_invoice_xml_download(invoice_id):
     if not invoice:
         return "Factura no encontrada", 404
 
-    xml_content = invoice.get('xmlSignature') or invoice.get('xmlContent') or ''
-
-    if not xml_content or not (xml_content.strip().startswith('<?xml') or xml_content.strip().startswith('<ECF') or xml_content.strip().startswith('<eCF')):
-        try:
-            from app.services.dgii_xml_builder import DgiiXmlBuilder
-            from app.services.dgii_signer import DgiiSigner
-            from app.web.invoices import _build_supplier_invoice_ecf_payload
-
-            company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
-            ecf_payload = _build_supplier_invoice_ecf_payload(invoice)
-            ecf_payload["encf"] = invoice.get("encf", "PENDIENTE")
-            raw_xml = DgiiXmlBuilder.build_invoice_xml(company, ecf_payload)
-            signed_xml_bytes = DgiiSigner.sign_xml(raw_xml, company)
-            xml_content = signed_xml_bytes.decode('utf-8')
-        except Exception:
-            xml_content = invoice.get('xmlSignature') or invoice.get('xmlContent') or ''
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    ctx = _supplier_comprobante_context(invoice, company, owner_uid, invoice_id, company_id, sandbox, build_xml=True)
+    xml_content = ctx["xml_content"]
 
     filename = f"eCF_{invoice.get('encf', invoice.get('invoiceNumber', invoice_id))}.xml"
     resp = make_response(xml_content)
@@ -2939,6 +3032,7 @@ def supplier_retention_letter(invoice_id):
             retained_total=retained_total, retention_percent=retention_percent,
             net_amount=net_amount, payment_method=payment_method,
             representative_name=representative_name, representative_id=representative_id,
+            beneficiary_id=invoice.get('supplierCedula') or invoice.get('supplierRnc', ''),
             auto_print=False)
         pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
         response = make_response(pdf_bytes)
@@ -2952,6 +3046,7 @@ def supplier_retention_letter(invoice_id):
             retained_total=retained_total, retention_percent=retention_percent,
             net_amount=net_amount, payment_method=payment_method,
             representative_name=representative_name, representative_id=representative_id,
+            beneficiary_id=invoice.get('supplierCedula') or invoice.get('supplierRnc', ''),
             auto_print=True)
         response = make_response(rendered_html)
         response.headers['Content-Type'] = 'text/html; charset=utf-8'
@@ -3019,6 +3114,7 @@ def supplier_retention_letter_email(invoice_id):
         retained_total=retained_total, retention_percent=retention_percent,
         net_amount=net_amount, payment_method=payment_method,
         representative_name=representative_name, representative_id=representative_id,
+        beneficiary_id=invoice.get('supplierCedula') or invoice.get('supplierRnc', ''),
         auto_print=False)
 
     pdf_bytes = None
@@ -3031,9 +3127,34 @@ def supplier_retention_letter_email(invoice_id):
         except:
             pdf_bytes = rendered_html.encode('utf-8')
 
+    # Adjuntar también el comprobante del proveedor: representación impresa (PDF)
+    # y XML firmado (si el comprobante fue emitido), igual que el correo de factura.
+    comprobante_assets = []
+    try:
+        ctx = _supplier_comprobante_context(invoice, company, owner_uid, invoice_id, company_id, sandbox,
+                                            build_xml=bool(invoice.get('encf')))
+        if WEASYPRINT_AVAILABLE:
+            comprobante_html = render_template('purchase_orders/supplier_invoice_pdf.html',
+                invoice=invoice, company=company, branch=ctx['branch'], auto_print=False,
+                qr_base64=ctx['qr_base64'], fecha_firma_str=ctx['fecha_firma_str'], sandbox=sandbox)
+            comprobante_pdf = WeasyprintHTML(string=comprobante_html, base_url=request.host_url).write_pdf(**pdf_write_options())
+            comprobante_assets.append({
+                "filename": "Factura_{}.pdf".format(ctx['inv_num']),
+                "data": comprobante_pdf,
+                "mimetype": "application/pdf",
+            })
+        if invoice.get('encf') and ctx['xml_content']:
+            comprobante_assets.append({
+                "filename": "eCF_{}.xml".format(invoice.get('encf')),
+                "data": ctx['xml_content'].encode('utf-8'),
+                "mimetype": "application/xml",
+            })
+    except Exception:
+        comprobante_assets = []
+
     recipient_email = request.form.get('email', '').strip()
     if not recipient_email:
-        recipient_email = invoice.get('email', '')
+        recipient_email = _resolve_supplier_email(owner_uid, invoice, sandbox, company_id)
     if not recipient_email:
         return jsonify(success=False, error="No se encontró correo del proveedor. Especifica un correo electrónico."), 400
 
@@ -3045,12 +3166,19 @@ def supplier_retention_letter_email(invoice_id):
 
         company_name = company.get('companyName', 'Mi Empresa')
 
+        extra_attach_html = (
+            "<p>Adicionalmente, se adjunta el comprobante del proveedor en formato PDF "
+            "(representación impresa) y su archivo XML firmado.</p>"
+            if invoice.get('encf') else ""
+        )
+
         email_html = f"""
         <html><body style="font-family:Arial,sans-serif;padding:20px;">
         <h2 style="color:{company.get('colorMarca', '#10b981')};">Carta de Retención — {company_name}</h2>
         <p>Estimado(a) <strong>{invoice.get('supplierName', 'Proveedor')}</strong>,</p>
         <p>Adjunto encontrará la Carta de Retención correspondiente al comprobante <strong>{doc_num}</strong> por un monto retenido de <strong>RD$ {retained_total:,.2f}</strong>.</p>
-        <p>Puede descargar el documento adjunto para sus registros contables.</p>
+        {extra_attach_html}
+        <p>Puede descargar los documentos adjuntos para sus registros contables.</p>
         <hr>
         <p style="font-size:12px;color:#888;">Este mensaje fue generado automáticamente por {company_name}. Favor no responder a este correo.</p>
         </body></html>
@@ -3058,7 +3186,10 @@ def supplier_retention_letter_email(invoice_id):
 
         from app.services.mailer import Mailer
         mailer = Mailer()
-        attachments = [{"filename": "Carta_Retencion_{}.pdf".format(inv_num), "data": pdf_bytes, "mimetype": "application/pdf"}] if pdf_bytes else []
+        attachments = []
+        if pdf_bytes:
+            attachments.append({"filename": "Carta_Retencion_{}.pdf".format(inv_num), "data": pdf_bytes, "mimetype": "application/pdf"})
+        attachments.extend(comprobante_assets)
 
         mailer.send(
             app=app._get_current_object(),

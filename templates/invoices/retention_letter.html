@@ -6,127 +6,163 @@
     <style>
         @page {
             size: A4;
-            margin: 1.8cm 2cm 1.8cm 2cm;
+            margin: 1.2cm 1.6cm;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Arial', 'Helvetica', sans-serif;
-            font-size: 11pt;
-            line-height: 1.6;
+            font-size: 10pt;
+            line-height: 1.3;
             color: #1a1a1a;
-            padding: 0 0.5cm;
         }
         .header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 40px;
-            padding-bottom: 20px;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
             border-bottom: 2px solid {{ company.get('colorMarca', '#10b981') }};
         }
         .header .company-info {
             flex: 1;
         }
         .header .company-info h1 {
-            font-size: 16pt;
+            font-size: 14pt;
             font-weight: 800;
             color: {{ company.get('colorMarca', '#10b981') }};
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
         .header .company-info p {
-            font-size: 9pt;
+            font-size: 8.5pt;
             color: #555;
-            margin: 2px 0;
+            margin: 1px 0;
         }
         .header .logo {
-            max-width: 120px;
-            max-height: 80px;
-            margin-left: 20px;
+            max-width: 110px;
+            max-height: 66px;
+            margin-left: 16px;
         }
         .header .logo img {
-            max-width: 120px;
-            max-height: 80px;
+            max-width: 110px;
+            max-height: 66px;
         }
         .date-line {
             text-align: right;
             font-size: 10pt;
             color: #333;
-            margin-bottom: 30px;
+            margin-bottom: 12px;
         }
         .recipient {
-            margin-bottom: 30px;
+            margin-bottom: 12px;
         }
         .recipient p {
-            margin: 2px 0;
+            margin: 1px 0;
             font-size: 10pt;
         }
         .subject {
-            text-align: center;
             font-weight: 700;
-            font-size: 11pt;
-            margin: 30px 0;
-            text-transform: uppercase;
-        }
-        .title {
-            text-align: center;
-            font-weight: 800;
-            font-size: 13pt;
-            margin: 30px 0 40px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: {{ company.get('colorMarca', '#10b981') }};
+            font-size: 10.5pt;
+            margin: 10px 0;
         }
         .body-text {
             text-align: justify;
-            margin-bottom: 40px;
+            font-size: 10pt;
         }
         .body-text p {
-            margin-bottom: 16px;
-            text-indent: 0;
+            margin-bottom: 8px;
         }
-        .body-text .highlight {
+        .section-heading {
             font-weight: 700;
+            font-size: 10pt;
+            margin: 10px 0 6px;
+        }
+        .beneficiary-list {
+            list-style: none;
+            margin: 0 0 6px;
+            padding-left: 0;
+        }
+        .beneficiary-list li {
+            font-size: 10pt;
+            margin: 1px 0;
+        }
+        table.details {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 6px 0 10px;
+            font-size: 9.5pt;
+        }
+        table.details td {
+            border: 1px solid #cfcfcf;
+            padding: 3px 8px;
+            vertical-align: top;
+        }
+        table.details td.label {
+            font-weight: 600;
+            color: #444;
+            width: 60%;
+        }
+        table.details td.value {
+            text-align: right;
+            white-space: nowrap;
         }
         .signature {
-            margin-top: 60px;
+            margin-top: 22px;
             text-align: center;
         }
+        .signature .sign-off {
+            font-size: 10pt;
+            margin-bottom: 18px;
+        }
+        .signature .sig-area {
+            position: relative;
+            width: 260px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .signature .sig-img {
+            display: block;
+            max-height: 60px;
+            margin: 0 auto 2px;
+        }
+        .signature .stamp-img {
+            position: absolute;
+            right: -70px;
+            top: -6px;
+            max-height: 80px;
+            max-width: 80px;
+        }
         .signature .line {
-            width: 250px;
+            width: 220px;
             border-top: 1px solid #333;
-            margin: 0 auto 10px;
-            padding-top: 40px;
+            margin: 0 auto 6px;
+            padding-top: 28px;
         }
         .signature .name {
             font-weight: 700;
-            font-size: 11pt;
+            font-size: 10.5pt;
         }
         .signature .title {
-            font-size: 10pt;
+            font-size: 9.5pt;
             color: #555;
-            margin-top: 2px;
+            margin-top: 1px;
         }
-        .footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            text-align: center;
-            font-size: 8pt;
-            color: #999;
-            padding: 10px 0;
-            border-top: 1px solid #ddd;
+        .signature .company {
+            font-size: 9.5pt;
+            margin-top: 4px;
+        }
+        .signature .rnc {
+            font-size: 9.5pt;
+            color: #555;
         }
         @media print {
             .no-print { display: none; }
-            body { padding: 0; }
         }
         .print-toolbar {
             text-align: center;
             padding: 16px;
             background: #f8f9fa;
             border-bottom: 1px solid #dee2e6;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
         .print-toolbar button {
             padding: 10px 24px;
@@ -139,28 +175,6 @@
         }
         .print-toolbar button:hover {
             opacity: 0.9;
-        }
-        table.details {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            font-size: 10pt;
-        }
-        table.details td {
-            padding: 4px 8px;
-            vertical-align: top;
-        }
-        table.details td.label {
-            font-weight: 600;
-            width: 140px;
-            color: #555;
-        }
-        table.details td.value {
-            font-weight: 400;
-        }
-        .amount-highlight {
-            font-weight: 700;
-            color: {{ company.get('colorMarca', '#10b981') }};
         }
     </style>
 </head>
@@ -187,69 +201,124 @@
     {% endif %}
 </div>
 
-{% set months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'] %}
-{% set d = now.day %}
-{% set m = now.month %}
-{% set y = now.year %}
+{% set months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'] %}
+
+{% macro fmt_date(ds) -%}
+{%- set ds = (ds or '')|string -%}
+{%- if ds|length >= 10 -%}
+{{ ds[8:10]|int }} de {{ months[ds[5:7]|int - 1] }} de {{ ds[0:4] }}
+{%- else -%}{{ ds }}{%- endif -%}
+{%- endmacro %}
 
 {% set total = invoice.get('total', 0) | float %}
 {% set total_itbis = invoice.get('totalITBIS', 0) | float %}
-{% set has_isr = retained_isr | float > 0 %}
-{% set has_itbis_ret = retained_itbis | float > 0 %}
-{% set isr_pct = (retained_isr / total * 100) | round if has_isr and total > 0 else 0 %}
-{% set itbis_pct = (retained_itbis / total_itbis * 100) | round if has_itbis_ret and total_itbis > 0 else 0 %}
+{% set base = (subtotal_before_itbis | float) if (subtotal_before_itbis is defined and subtotal_before_itbis) else (total - total_itbis) %}
+{% set retained_isr = retained_isr | float %}
+{% set retained_itbis = retained_itbis | float %}
+{% set isr_pct = (retained_isr / base * 100) | round | int if base > 0 and retained_isr > 0 else 0 %}
 
-{% if has_isr and has_itbis_ret %}
-  {% set subject_text = "Certificación de Retención de ISR (" ~ isr_pct ~ "%) + ITBIS (" ~ itbis_pct ~ "%)" %}
-{% elif has_isr %}
-  {% set subject_text = "Certificación de Retención de ISR (" ~ isr_pct ~ "%)" %}
-{% else %}
-  {% set subject_text = "Certificación de Retención del " ~ itbis_pct ~ "% de ITBIS" %}
-{% endif %}
+{% set b_name = invoice.get('clientName', '') %}
+{% set b_commercial = beneficiary_commercial_name if (beneficiary_commercial_name is defined and beneficiary_commercial_name) else 'No especificado' %}
+{% set b_id = (beneficiary_id if (beneficiary_id is defined and beneficiary_id) else invoice.get('clientRNC', '')) %}
+
+{% set signer_name = company.get('certificateSignerName') or representative_name or 'Representante Autorizado' %}
+{% set signer_position = company.get('certificateSignerPosition') or 'Representante Autorizado' %}
+{% set signature_img = image_src(company.get('signatureUrl')) if company.get('signatureUrl') else '' %}
+{% set stamp_img = image_src(company.get('stampUrl')) if company.get('stampUrl') else '' %}
 
 <div class="date-line">
-    Santo Domingo, R.D.<br>
-    {{ d }} de {{ months[m - 1] }} del {{ y }}
+    Santo Domingo, República Dominicana<br>
+    {% set _inv_date = (invoice.get('date') or '')|string %}
+    {% if _inv_date|length >= 10 %}
+    {{ fmt_date(_inv_date) }}
+    {% else %}
+    {{ now.day }} de {{ months[now.month - 1] }} de {{ now.year }}
+    {% endif %}
 </div>
 
 <div class="recipient">
     <p><strong>Señores:</strong></p>
-    <p>Dirección General de Impuestos Internos</p>
-    <p>Ave. México No. 58</p>
-    <p>Ciudad</p>
+    <p>Dirección General de Impuestos Internos (DGII)</p>
+    <p>Su despacho.</p>
 </div>
 
 <div class="subject">
-    Asunto: {{ subject_text }}
-</div>
-
-<div class="title">
-    Certificación
+    Asunto: Certificación de Retención de Impuestos
 </div>
 
 <div class="body-text">
+    <p>Distinguidos señores:</p>
+
     <p>
-        <strong>{{ company.get('companyName', '') }}</strong>, sociedad comercial constituida de acuerdo a las leyes de la República Dominicana, con su domicilio social sito en <strong>{{ company.get('companyAddress', '') }}</strong>, con RNC No. <strong>{{ company.get('companyRNC', '') }}</strong>, debidamente representada por su <strong>Presidente Ejecutivo</strong>, el/la señor(a) <strong>{{ representative_name }}</strong>, portador(a) de la cédula no. <strong>{{ representative_id or '__________' }}</strong>,
+        Por medio de la presente, hacemos constar que nuestra empresa, en su calidad de agente de
+        retención y de conformidad con las disposiciones tributarias aplicables en la República
+        Dominicana, ha efectuado las retenciones de impuestos correspondientes a los pagos realizados
+        a la beneficiaria que se detalla a continuación:
     </p>
+
+    <div class="section-heading">Datos de la beneficiaria</div>
+    <ul class="beneficiary-list">
+        <li><strong>Nombre:</strong> {{ b_name }}</li>
+        <li><strong>Nombre comercial:</strong> {{ b_commercial }}</li>
+        <li><strong>Cédula de identidad:</strong> {{ b_id }}</li>
+    </ul>
+
+    <div class="section-heading">Detalle de la factura y las retenciones efectuadas</div>
+    <table class="details">
+        <tr>
+            <td class="label">Número de factura</td>
+            <td class="value">{{ invoice.get('invoiceNumber', '') }}</td>
+        </tr>
+        <tr>
+            <td class="label">Fecha de factura</td>
+            <td class="value">{{ fmt_date(invoice.get('date', '')) }}</td>
+        </tr>
+        <tr>
+            <td class="label">Fecha de pago</td>
+            <td class="value">{{ fmt_date(invoice.get('paymentDate') or invoice.get('date', '')) }}</td>
+        </tr>
+        <tr>
+            <td class="label">Fecha de retención</td>
+            <td class="value">{{ fmt_date(invoice.get('paymentDate') or invoice.get('date', '')) }}</td>
+        </tr>
+        <tr>
+            <td class="label">Valor de la factura antes de ITBIS</td>
+            <td class="value">RD${{ "{:,.2f}".format(base) }}</td>
+        </tr>
+        <tr>
+            <td class="label">ITBIS facturado</td>
+            <td class="value">RD${{ "{:,.2f}".format(total_itbis) }}</td>
+        </tr>
+        <tr>
+            <td class="label">ITBIS retenido</td>
+            <td class="value">RD${{ "{:,.2f}".format(retained_itbis) }}</td>
+        </tr>
+        <tr>
+            <td class="label">ISR retenido ({{ isr_pct }} %)</td>
+            <td class="value">RD${{ "{:,.2f}".format(retained_isr) }}</td>
+        </tr>
+    </table>
+
     <p>
-        por medio de la presente certifica que mediante <strong>{{ payment_method }}</strong>, de fecha <strong>{{ invoice.get('paymentDate', invoice.get('date', ''))[:10] }}</strong>, por valor de <strong>RD$ {{ "{:,.2f}".format(net_amount) }}</strong>, procedimos a pagar la factura no. <strong>{{ invoice.get('invoiceNumber', '') }}</strong>, de fecha <strong>{{ invoice.get('date', '')[:10] }}</strong>, por un monto de <strong>RD$ {{ "{:,.2f}".format(total) }}</strong>{% if total_itbis > 0 %}, más un ITBIS de <strong>RD$ {{ "{:,.2f}".format(total_itbis) }}</strong>{% endif %}, emitida por el/la señor(a) <strong>{{ invoice.get('clientName', '') }}</strong>, portador(a) de la cédula/RNC No. <strong>{{ invoice.get('clientRNC', '') }}</strong>, por concepto de <strong>{{ invoice.get('concept', '') or 'Servicios prestados' }}</strong>,
+        La presente certificación se expide a solicitud de la parte interesada, para los fines que
+        estime pertinentes. Nos reiteramos a su disposición para suministrar cualquier información o
+        documentación adicional que resulte necesaria.
     </p>
-    <p>
-        y en tal virtud procedimos a retener la suma de <strong class="amount-highlight">RD$ {{ "{:,.2f}".format(retained_total) }}</strong>{% if has_isr and has_itbis_ret %}, correspondiente al <strong>{{ isr_pct }}% de ISR</strong> y al <strong>{{ itbis_pct }}% de ITBIS</strong> facturado{% elif has_isr %}, correspondiente al <strong>{{ isr_pct }}% de ISR</strong> sobre el monto facturado{% else %}, correspondiente al <strong>{{ itbis_pct }}% del ITBIS</strong> facturado{% endif %}.
-    </p>
+
+    <p>Sin otro particular, les saludamos atentamente.</p>
 </div>
 
 <div class="signature">
-    <div class="line"></div>
-    <div class="name">{{ representative_name }}</div>
-    <div class="title">Presidente Ejecutivo</div>
-    <div style="margin-top: 6px; font-size: 9pt; color: #888;">
-        {{ company.get('companyName', '') }}
+    <p class="sign-off">Atentamente,</p>
+    <div class="sig-area">
+        {% if signature_img %}<img class="sig-img" src="{{ signature_img }}" alt="Firma">{% endif %}
+        {% if stamp_img %}<img class="stamp-img" src="{{ stamp_img }}" alt="Sello">{% endif %}
+        <div class="line"></div>
+        <div class="name">{{ signer_name }}</div>
+        <div class="title">{{ signer_position }}</div>
+        <div class="company">{{ company.get('companyName', '') }}</div>
+        <div class="rnc">RNC: {{ company.get('companyRNC', '') }}</div>
     </div>
-</div>
-
-<div class="footer">
-    Documento generado electrónicamente por {{ company.get('companyName', '') }} — RNC {{ company.get('companyRNC', '') }}
 </div>
 
 </body>
