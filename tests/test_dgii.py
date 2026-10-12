@@ -50,6 +50,9 @@ class TestRegimenRules:
         rules = REGIMEN_RULES["rst_income"]
         assert rules["rst_limit"] is not None
         assert rules["rst_limit"] > 0
+        assert "E31" in rules["allowed_ecf_types"]
+        assert "E32" in rules["allowed_ecf_types"]
+        assert "E31" in REGIMEN_RULES["rst_purchases"]["allowed_ecf_types"]
 
 
 class TestCalculateInvoiceTotals:
