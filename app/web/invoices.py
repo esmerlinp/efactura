@@ -3198,7 +3198,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
                 <div class="content">
                     <div class="greeting">Estimado cliente: {client_name},</div>
                     <div class="message">
-                        Ha generado un comprobante electrónico utilizando el nuevo sistema de Factura Electrónica de República Dominicana.<br><br>
+                        <strong>{company_name}</strong> ha generado un comprobante electrónico utilizando el nuevo sistema de Factura Electrónica de República Dominicana.<br><br>
                         Adjunto podrá descargar un archivo XML el cual está firmado electrónicamente y aceptado en la DGII. Adicionalmente su representación impresa en formato PDF.<br><br>
                         En <a href="{qr_url}" class="verify-link">este enlace</a> podrá verificar la aceptación en la DGII del comprobante electrónico adjunto.
                     </div>
