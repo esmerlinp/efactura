@@ -918,6 +918,15 @@ def create_pos_sale():
             invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
 
+            # Auto-notificar e-CF al cliente si fue aceptada por DGII y posee correo
+            try:
+                from app.web.invoices import auto_notify_invoice_if_accepted
+                invoice_dict["id"] = invoice_id
+                auto_notify_invoice_if_accepted(owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox)
+            except Exception as auto_email_err:
+                import logging
+                logging.getLogger(__name__).warning(f"Error auto enviando email POS {invoice_id}: {auto_email_err}")
+
             # Generar asiento contable automático para POS
             try:
                 from app.services.accounting_service import AccountingService

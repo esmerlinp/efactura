@@ -314,3 +314,155 @@ def test_mailer_send_via_graph_sets_content_type_and_reply_to(app):
         assert atts[0]["contentType"] == "application/xml"
         assert atts[1]["contentType"] == "application/pdf"
 
+
+# =========================================================================
+# TESTS: Auto-notificación e-CF al ser Aceptado por DGII
+# =========================================================================
+
+def test_auto_notify_success_when_accepted_and_email_present(app):
+    """Verifica que auto_notify envía email y marca emailNotified cuando dgiiStatus es ACCEPTED y el cliente tiene correo."""
+    from app.web.invoices import auto_notify_invoice_if_accepted
+
+    invoice = {
+        "id": "inv-auto-1",
+        "encf": "E3100000001",
+        "dgiiStatus": "ACCEPTED",
+        "status": "Emitida",
+        "emisionMode": "API",
+        "clientEmail": "cliente@valido.com",
+        "clientName": "Cliente VIP SRL",
+    }
+
+    with app.app_context():
+        with patch("app.web.invoices.send_invoice_email", return_value=(True, "OK")) as mock_send, \
+             patch("app.web.invoices.DatabaseService.save_invoice") as mock_save:
+
+            ok, msg = auto_notify_invoice_if_accepted(
+                owner_uid="user-1",
+                invoice=invoice,
+                company_id="comp-1",
+                sandbox=True,
+            )
+
+            assert ok is True
+            assert "enviada automáticamente" in msg
+            mock_send.assert_called_once()
+            assert mock_send.call_args.kwargs["recipient_email"] == "cliente@valido.com"
+
+            assert invoice.get("emailNotified") is True
+            assert invoice.get("autoEmailNotified") is True
+            assert invoice.get("emailNotifiedTo") == "cliente@valido.com"
+            mock_save.assert_called_once_with("user-1", "inv-auto-1", invoice, company_id="comp-1", sandbox=True)
+
+
+def test_auto_notify_skips_when_no_client_email(app):
+    """Verifica que auto_notify omite el envío si el cliente no posee correo registrado."""
+    from app.web.invoices import auto_notify_invoice_if_accepted
+
+    invoice = {
+        "id": "inv-auto-2",
+        "encf": "E3200000002",
+        "dgiiStatus": "ACCEPTED",
+        "status": "Emitida",
+        "emisionMode": "API",
+        "clientId": "client-no-email",
+    }
+
+    with app.app_context():
+        with patch("app.web.invoices._get_client_email", return_value=""), \
+             patch("app.web.invoices.send_invoice_email") as mock_send:
+
+            ok, msg = auto_notify_invoice_if_accepted(
+                owner_uid="user-1",
+                invoice=invoice,
+                company_id="comp-1",
+                sandbox=True,
+            )
+
+            assert ok is False
+            assert "no posee correo electrónico registrado" in msg
+            mock_send.assert_not_called()
+            assert "emailNotified" not in invoice
+
+
+def test_auto_notify_skips_when_pending_dgii(app):
+    """Verifica que auto_notify omite si la factura está en estado PENDING o Pendiente DGII."""
+    from app.web.invoices import auto_notify_invoice_if_accepted
+
+    invoice_pending_status = {
+        "id": "inv-auto-3",
+        "encf": "E3100000003",
+        "dgiiStatus": "PENDING",
+        "status": "Pendiente DGII",
+        "clientEmail": "cliente@valido.com",
+    }
+
+    with app.app_context():
+        with patch("app.web.invoices.send_invoice_email") as mock_send:
+            ok, msg = auto_notify_invoice_if_accepted("user-1", invoice_pending_status)
+            assert ok is False
+            assert "no aceptado por DGII" in msg
+            mock_send.assert_not_called()
+
+
+def test_auto_notify_skips_when_rejected_dgii(app):
+    """Verifica que auto_notify omite si la factura fue rechazada por la DGII."""
+    from app.web.invoices import auto_notify_invoice_if_accepted
+
+    invoice_rejected = {
+        "id": "inv-auto-4",
+        "encf": "E3100000004",
+        "dgiiStatus": "REJECTED",
+        "status": "Rechazado DGII",
+        "clientEmail": "cliente@valido.com",
+    }
+
+    with app.app_context():
+        with patch("app.web.invoices.send_invoice_email") as mock_send:
+            ok, msg = auto_notify_invoice_if_accepted("user-1", invoice_rejected)
+            assert ok is False
+            assert "no aceptado por DGII" in msg
+            mock_send.assert_not_called()
+
+
+def test_auto_notify_skips_when_contingency_fallback(app):
+    """Verifica que auto_notify omite si la factura está en modo contingencia (FALLBACK)."""
+    from app.web.invoices import auto_notify_invoice_if_accepted
+
+    invoice_fallback = {
+        "id": "inv-auto-5",
+        "encf": "E3100000005",
+        "dgiiStatus": "CONTINGENCY",
+        "status": "Pendiente DGII",
+        "emisionMode": "FALLBACK",
+        "clientEmail": "cliente@valido.com",
+    }
+
+    with app.app_context():
+        with patch("app.web.invoices.send_invoice_email") as mock_send:
+            ok, msg = auto_notify_invoice_if_accepted("user-1", invoice_fallback)
+            assert ok is False
+            mock_send.assert_not_called()
+
+
+def test_auto_notify_idempotent_skips_already_notified(app):
+    """Verifica idempotencia: no reenvía correo si emailNotified ya es True."""
+    from app.web.invoices import auto_notify_invoice_if_accepted
+
+    invoice_notified = {
+        "id": "inv-auto-6",
+        "encf": "E3100000006",
+        "dgiiStatus": "ACCEPTED",
+        "status": "Emitida",
+        "clientEmail": "cliente@valido.com",
+        "emailNotified": True,
+    }
+
+    with app.app_context():
+        with patch("app.web.invoices.send_invoice_email") as mock_send:
+            ok, msg = auto_notify_invoice_if_accepted("user-1", invoice_notified)
+            assert ok is False
+            assert "ya fue notificado previamente" in msg
+            mock_send.assert_not_called()
+
+

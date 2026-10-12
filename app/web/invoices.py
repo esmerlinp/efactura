@@ -2281,6 +2281,14 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     if res.get("mode") == "FALLBACK":
                         msg = f"⚠️ ¡Comprobante emitido en modalidad de contingencia (sin conexión a DGII)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
                     flash(msg, "success")
+
+                    # Notificación automática por correo si fue aceptado por DGII
+                    if not pending_dgii:
+                        auto_ok, auto_msg = auto_notify_invoice_if_accepted(
+                            owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox
+                        )
+                        if auto_ok:
+                            flash("📧 Factura enviada automáticamente al cliente por correo.", "info")
                 else:
                     # DGII rechazó — marcar como rechazado, NO como emitido
                     error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
@@ -3081,9 +3089,54 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
 
         rnc_emisor = (company.get("companyRNC") or company.get("rnc") or "").replace("-", "").strip()
 
-        from flask import current_app as app
-        if not app.config.get("SMTP_USER") or not app.config.get("SMTP_PASSWORD"):
-            return False, "Servidor de correo no configurado (SMTP)."
+        from flask import current_app, has_app_context
+        if not has_app_context():
+            app_to_use = None
+            try:
+                from app.services.scheduler import _flask_app
+                app_to_use = _flask_app
+            except Exception:
+                pass
+            if not app_to_use:
+                try:
+                    from app import app as root_app
+                    app_to_use = root_app
+                except Exception:
+                    pass
+            if not app_to_use:
+                try:
+                    from app import create_app
+                    app_to_use = create_app()
+                except Exception:
+                    pass
+            if app_to_use:
+                with app_to_use.app_context():
+                    return send_invoice_email(
+                        owner_uid=owner_uid,
+                        invoice=invoice,
+                        recipient_email=recipient_email,
+                        sandbox=sandbox,
+                        base_url=base_url,
+                        company_id=company_id
+                    )
+            return False, "Contexto de aplicación Flask no disponible."
+
+        app = current_app._get_current_object()
+        use_graph = app.config.get("MAIL_USE_GRAPH_API", False)
+        if use_graph:
+            if not (app.config.get("MAIL_TENANT_ID") and app.config.get("MAIL_CLIENT_ID") and app.config.get("MAIL_CLIENT_SECRET")):
+                return False, "Servidor de correo no configurado (Microsoft Graph API)."
+        else:
+            if not app.config.get("SMTP_USER") or not app.config.get("SMTP_PASSWORD"):
+                return False, "Servidor de correo no configurado (SMTP)."
+
+        if not base_url:
+            try:
+                from flask import has_request_context, request
+                if has_request_context():
+                    base_url = request.host_url
+            except Exception:
+                base_url = None
 
         # 2. Generar XML
         xml_content = invoice.get('xmlContent') or ''
@@ -3261,7 +3314,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
             })
 
         success = Mailer.send(
-            app=app._get_current_object(),
+            app=app._get_current_object() if hasattr(app, '_get_current_object') else app,
             to_email=recipient_email,
             subject=subject,
             html_body=html_body,
@@ -3279,6 +3332,97 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         logging.exception("Error enviando factura por email")
         print(f"⚠️ Error enviando factura por email: {e}")
         return False, str(e)
+
+
+def auto_notify_invoice_if_accepted(owner_uid, invoice, company_id=None, sandbox=True, base_url=None):
+    """
+    Envía automáticamente la factura electrónica (PDF y XML) por correo al cliente
+    únicamente si:
+    1. El comprobante fue aceptado por la DGII (dgiiStatus in ACCEPTED, ACEPTADO, ACCEPTED_PREVIOUSLY)
+       y no se encuentra en estado pendiente, contingencia ni rechazado.
+    2. El cliente tiene un correo electrónico registrado en el sistema.
+    3. No ha sido enviada previamente de forma automática (evita duplicidad).
+    """
+    try:
+        if not invoice:
+            return False, "Factura no especificada."
+
+        # 1. Validar que cuente con eNCF asignado
+        encf = invoice.get("encf")
+        if not encf:
+            return False, "Comprobante sin eNCF asignado."
+
+        # 2. Validar que el estado sea estrictamente ACEPTADO por la DGII
+        dgii_status = str(invoice.get("dgiiStatus") or "").strip().upper()
+        status_field = str(invoice.get("status") or "").strip()
+        emision_mode = str(invoice.get("emisionMode") or "").strip().upper()
+
+        # Descartar estados no aprobados
+        if status_field in ("Pendiente DGII", "Rechazado DGII", "Rechazada", "Borrador", "Anulada"):
+            return False, f"Documento en estado '{status_field}', no aceptado por DGII."
+
+        if emision_mode == "FALLBACK":
+            return False, "Comprobante emitido en contingencia (FALLBACK), aún no aceptado por DGII."
+
+        if dgii_status not in ("ACCEPTED", "ACEPTADO", "ACCEPTED_PREVIOUSLY"):
+            if not (invoice.get("isSyncedWithDGII") and dgii_status not in ("PENDING", "REJECTED", "CONTINGENCY")):
+                return False, f"Estado DGII '{dgii_status or 'desconocido'}' no es aceptado."
+
+        # 3. Evitar envíos duplicados (idempotencia)
+        if invoice.get("emailNotified") or invoice.get("autoEmailNotified"):
+            return False, "El comprobante ya fue notificado previamente por correo."
+
+        # 4. Resolver company_id y owner_uid si faltan
+        if not company_id:
+            company_id = invoice.get("companyId") or invoice.get("company_id")
+        if not owner_uid:
+            owner_uid = invoice.get("ownerUID")
+
+        # 5. Obtener email del cliente registrado
+        recipient_email = _get_client_email(owner_uid, invoice, sandbox=sandbox, company_id=company_id)
+        if not recipient_email or "@" not in recipient_email:
+            return False, "Cliente no posee correo electrónico registrado en el sistema."
+
+        # 6. Enviar correo usando el servicio centralizado
+        success, message = send_invoice_email(
+            owner_uid=owner_uid,
+            invoice=invoice,
+            recipient_email=recipient_email,
+            sandbox=sandbox,
+            base_url=base_url,
+            company_id=company_id
+        )
+
+        if success:
+            invoice["emailNotified"] = True
+            invoice["autoEmailNotified"] = True
+            invoice["emailNotifiedAt"] = datetime.now(timezone.utc).isoformat()
+            invoice["emailNotifiedTo"] = recipient_email
+
+            inv_id = invoice.get("id")
+            if inv_id and owner_uid:
+                try:
+                    DatabaseService.save_invoice(owner_uid, inv_id, invoice, company_id=company_id, sandbox=sandbox)
+                except Exception as save_err:
+                    import logging
+                    logging.getLogger(__name__).warning("No se pudo marcar emailNotified en Firestore: %s", save_err)
+
+            import logging
+            logging.getLogger(__name__).info(
+                "📧 Factura %s enviada automáticamente a %s", encf, recipient_email
+            )
+            return True, f"Factura {encf} enviada automáticamente a {recipient_email}."
+        else:
+            import logging
+            logging.getLogger(__name__).warning(
+                "⚠️ Notificación automática de %s a %s falló: %s", encf, recipient_email, message
+            )
+            return False, message
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).exception("Error en auto_notify_invoice_if_accepted: %s", exc)
+        return False, str(exc)
+
 
 @web_invoices_bp.route('/invoices/<invoice_id>/notify-email', methods=['POST'])
 def notify_invoice_email(invoice_id):
@@ -3998,6 +4142,14 @@ def sign_invoice_route(invoice_id):
             if res.get("mode") == "FALLBACK":
                 msg = f"⚠️ ¡Comprobante firmado en modalidad de contingencia (sin conexión a DGII)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
             flash(msg, "success")
+
+            # Notificación automática por correo si fue aceptado por DGII
+            if not pending_dgii:
+                auto_ok, auto_msg = auto_notify_invoice_if_accepted(
+                    owner_uid, invoice, company_id=company_id, sandbox=sandbox
+                )
+                if auto_ok:
+                    flash("📧 Factura enviada automáticamente al cliente por correo.", "info")
         else:
             error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
             invoice["status"] = "Rechazado DGII"
@@ -4080,6 +4232,14 @@ def reemit_invoice_route(invoice_id):
             if res.get("mode") == "FALLBACK":
                 msg = f"⚠️ Comprobante reemitido en contingencia. Sincronizar con DGII en 72h."
             flash(msg, "success")
+
+            # Notificación automática por correo si fue aceptado por DGII
+            if not pending_dgii:
+                auto_ok, auto_msg = auto_notify_invoice_if_accepted(
+                    owner_uid, invoice, company_id=company_id, sandbox=sandbox
+                )
+                if auto_ok:
+                    flash("📧 Factura enviada automáticamente al cliente por correo.", "info")
         else:
             error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
             invoice["dgiiError"] = str(error_msg)[:200]
@@ -5994,6 +6154,11 @@ def sync_contingency_invoices():
                         )
 
                 synced_count += 1
+                try:
+                    target_invoice["id"] = inv_id
+                    auto_notify_invoice_if_accepted(owner_uid, target_invoice, company_id=company_id, sandbox=sandbox)
+                except Exception as auto_e:
+                    print(f"⚠️ Error auto enviando email post-sync batch factura {inv_id}: {auto_e}")
                 results.append({"encf": target_invoice.get("encf"), "status": "synced"})
             else:
                 failed_count += 1
@@ -6052,6 +6217,8 @@ def sync_single_invoice_route(invoice_id):
             )
             if outcome == "accepted":
                 flash(f"¡Factura {invoice.get('invoiceNumber')} sincronizada: la DGII confirmó el comprobante! e-NCF: {invoice.get('encf')}", 'success')
+                if invoice.get("emailNotified"):
+                    flash("📧 Factura enviada automáticamente al cliente por correo.", "info")
             elif outcome == "rejected":
                 flash(f"La DGII rechazó el comprobante {invoice.get('encf')}: {invoice.get('dgiiError', 'Rechazado')}", 'error')
             else:
@@ -6110,6 +6277,9 @@ def sync_single_invoice_route(invoice_id):
                 }, company_id=company_id, sandbox=sandbox)
                 
             flash(f"¡Factura {invoice.get('invoiceNumber')} sincronizada con la DGII exitosamente! e-NCF: {invoice.get('encf')}", 'success')
+            auto_ok, auto_msg = auto_notify_invoice_if_accepted(owner_uid, invoice, company_id=company_id, sandbox=sandbox)
+            if auto_ok:
+                flash("📧 Factura enviada automáticamente al cliente por correo.", "info")
         else:
             flash(f"No se pudo sincronizar: {res.get('message') or 'Sigue en modalidad de contingencia (sin conexión a DGII).'}", 'warning')
     except Exception as e:

@@ -605,7 +605,7 @@ def create_app():
                 if color_marca:
                     from app.utils.color_utils import _contrast_text_color
                     color_on_accent = _contrast_text_color(color_marca)
-        user_companies = session.get('user_companies', [])
+        user_companies = session.get('user_companies', []) if has_request_context() else []
         has_multiple = len(user_companies) > 1
         return dict(
             product_name=product_name,

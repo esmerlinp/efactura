@@ -260,6 +260,15 @@ def emit_invoice():
             # Guardamos con el estado final actualizado
             DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
 
+            # Auto-notificar e-CF al cliente si fue aceptada por DGII y posee correo
+            try:
+                from app.web.invoices import auto_notify_invoice_if_accepted
+                invoice_dict["id"] = invoice_id
+                auto_notify_invoice_if_accepted(g.owner_uid, invoice_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
+            except Exception as auto_email_err:
+                import logging
+                logging.getLogger(__name__).warning(f"Error auto enviando email API factura {invoice_id}: {auto_email_err}")
+
             # Generar asiento contable automático
             try:
                 from app.services.accounting_service import AccountingService
