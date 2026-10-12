@@ -2873,7 +2873,10 @@ def supplier_retention_letter(invoice_id):
 
     total = float(invoice.get('total', 0) or 0)
     total_itbis = float(invoice.get('itbis', 0) or 0)
-    retained_isr = round(total * retained_isr_rate, 2)
+    subtotal = float(invoice.get('subtotal', 0) or 0)
+    discount = float(invoice.get('discount', 0) or 0)
+    isr_base = max(0, (subtotal - discount) if subtotal > 0 else (total - total_itbis))
+    retained_isr = round(isr_base * retained_isr_rate, 2)
     retained_itbis = round(total_itbis * retained_itbis_rate, 2)
     retention_percent = round((retained_itbis / total_itbis) * 100) if total_itbis > 0 else 0
     retained_total = retained_isr + retained_itbis
@@ -2954,7 +2957,10 @@ def supplier_retention_letter_email(invoice_id):
 
     total = float(invoice.get('total', 0) or 0)
     total_itbis = float(invoice.get('itbis', 0) or 0)
-    retained_isr = round(total * retained_isr_rate, 2)
+    subtotal = float(invoice.get('subtotal', 0) or 0)
+    discount = float(invoice.get('discount', 0) or 0)
+    isr_base = max(0, (subtotal - discount) if subtotal > 0 else (total - total_itbis))
+    retained_isr = round(isr_base * retained_isr_rate, 2)
     retained_itbis = round(total_itbis * retained_itbis_rate, 2)
     retention_percent = round((retained_itbis / total_itbis) * 100) if total_itbis > 0 else 0
     retained_total = retained_isr + retained_itbis

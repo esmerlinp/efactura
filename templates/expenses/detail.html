@@ -257,18 +257,28 @@
                     </div>
                     {% set ret_isr = expense.retainedISR|default(0) %}
                     {% set ret_itbis = expense.retainedITBIS|default(0) %}
-                    {% set isr_amt = expense.isrWithheld|default(0) or ((expense.amount|default(0)) * ret_isr) %}
-                    {% set itbis_amt = expense.itbisWithheld|default(0) or ((expense.itbisAmount or expense.itbis or 0) * ret_itbis) %}
+                    {% set itbis_val = expense.itbisAmount or expense.itbis or 0 %}
+                    {% set isr_base = (expense.amount|default(0)) - (itbis_val) - (expense.discount|default(0)) %}
+                    {% if isr_base <= 0 %}{% set isr_base = (expense.amount|default(0)) - (itbis_val) %}{% endif %}
+                    {% set isr_amt = expense.isrWithheld|default(0) or (isr_base * ret_isr) %}
+                    {% set itbis_amt = expense.itbisWithheld|default(0) or ((itbis_val) * ret_itbis) %}
                     {% if isr_amt > 0 %}
                     <div style="display: flex; justify-content: space-between; font-size: 0.88rem; color: #d97706;">
-                        <span><i class="fa-solid fa-hand-holding-dollar"></i> Ret. ISR ({{ "%.0f"|format(ret_isr * 100) }}%):</span>
+                        <span><i class="fa-solid fa-hand-holding-dollar"></i> Ret. ISR ({{ "%.0f"|format(ret_isr * 100) if ret_isr <= 1.0 else "" }}):</span>
                         <span>-RD$ {{ "{:,.2f}".format(isr_amt) }}</span>
                     </div>
                     {% endif %}
                     {% if itbis_amt > 0 %}
                     <div style="display: flex; justify-content: space-between; font-size: 0.88rem; color: #d97706;">
-                        <span><i class="fa-solid fa-hand-holding-dollar"></i> Ret. ITBIS ({{ "%.0f"|format(ret_itbis * 100) }}%):</span>
+                        <span><i class="fa-solid fa-hand-holding-dollar"></i> Ret. ITBIS ({{ "%.0f"|format(ret_itbis * 100) if ret_itbis <= 1.0 else "" }}):</span>
                         <span>-RD$ {{ "{:,.2f}".format(itbis_amt) }}</span>
+                    </div>
+                    {% endif %}
+                    {% if isr_amt > 0 or itbis_amt > 0 %}
+                    {% set net_payable = (expense.amount|default(0)) - isr_amt - itbis_amt %}
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1.15rem; font-weight: 800; color: var(--accent-emerald); background-color: rgba(16, 185, 129, 0.06); border: 1px dashed var(--accent-emerald); border-radius: var(--radius-sm); padding: 10px 14px; margin-top: 6px;">
+                        <span style="font-size: 0.82rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.02em;">Neto a Pagar:</span>
+                        <span>RD$ {{ "{:,.2f}".format(net_payable) }}</span>
                     </div>
                     {% endif %}
                 </div>

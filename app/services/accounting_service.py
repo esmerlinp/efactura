@@ -1358,10 +1358,16 @@ class AccountingService:
             retained_isr_rate = float(expense.get("retainedISR", 0))
             retained_itbis_amount = 0.0
             retained_itbis_rate = float(expense.get("retainedITBIS", 0))
+            # Base imponible del ISR: Renta bruta neta sin ITBIS
+            net_base = sum(float(it.get("value", 0)) for it in account_items)
+            if net_base <= 0:
+                net_base = max(0, total - float(expense.get("itbisAmount", expense.get("itbis", 0))))
             if retained_isr_rate > 0:
-                retained_isr_amount = round(total * retained_isr_rate, 2)
+                retained_isr_amount = round(net_base * retained_isr_rate, 2)
             if retained_itbis_rate > 0:
                 tax_total = sum(max(0, round(float(it.get("total", 0)) - float(it.get("value", 0)), 2)) for it in account_items)
+                if tax_total <= 0:
+                    tax_total = float(expense.get("itbisAmount", expense.get("itbis", 0)))
                 retained_itbis_amount = round(tax_total * retained_itbis_rate, 2)
 
             if retained_isr_amount > 0 and isr_retenido_acc:
@@ -1420,7 +1426,7 @@ class AccountingService:
             retained_isr_rate = float(expense.get("retainedISR", 0))
             retained_itbis_rate = float(expense.get("retainedITBIS", 0))
             if retained_isr_rate > 0:
-                retained_isr_amount = round(total * retained_isr_rate, 2)
+                retained_isr_amount = round(net * retained_isr_rate, 2)
             if retained_itbis_rate > 0:
                 retained_itbis_amount = round(itbis * retained_itbis_rate, 2)
             if retained_isr_amount > 0 and isr_retenido_acc:
