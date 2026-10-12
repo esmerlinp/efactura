@@ -2412,17 +2412,54 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     )
 
 
-def _get_client_email(owner_uid, invoice, sandbox):
+def _get_client_email(owner_uid, invoice, sandbox=True, company_id=None):
     """Retorna el email del cliente de la factura, si está disponible."""
     try:
+        # 1. Si la factura ya trae el email registrado directamente
+        for field in ("clientEmail", "email", "recipient_email", "correo"):
+            val = (invoice.get(field) or "").strip()
+            if val and "@" in val:
+                return val
+
+        # 2. Resolver company_id si no fue pasado
+        if not company_id:
+            company_id = invoice.get("companyId") or invoice.get("company_id")
+        if not company_id:
+            try:
+                from flask import has_request_context, session
+                if has_request_context():
+                    company_id = session.get("selected_company_id")
+            except Exception:
+                pass
+
+        # 3. Buscar en el perfil del cliente por clientId
         client_id = invoice.get("clientId", "")
-        if client_id:
-            clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-            client = next((c for c in clients if c["id"] == client_id), None)
+        if client_id and client_id != "default":
+            client = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
             if client:
-                return client.get("email", "")
-    except Exception:
-        pass
+                email = (client.get("email") or client.get("correo") or "").strip()
+                if email and "@" in email:
+                    return email
+
+            clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox)
+            client = next((c for c in clients if c.get("id") == client_id), None)
+            if client:
+                email = (client.get("email") or client.get("correo") or "").strip()
+                if email and "@" in email:
+                    return email
+
+        # 4. Fallback por RNC del comprador/cliente
+        client_rnc = (invoice.get("clientRNC") or invoice.get("rncComprador") or "").replace("-", "").strip()
+        if client_rnc:
+            clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox)
+            client = next((c for c in clients if (c.get("rnc") or "").replace("-", "").strip() == client_rnc), None)
+            if client:
+                email = (client.get("email") or client.get("correo") or "").strip()
+                if email and "@" in email:
+                    return email
+    except Exception as e:
+        import logging
+        logging.warning(f"Error obteniendo email del cliente: {e}")
     return ""
 
 def _enrich_invoice_totals(invoice):
@@ -2680,7 +2717,7 @@ def invoice_detail(invoice_id):
 
     invoice = _enrich_invoice_totals(invoice)
 
-    return render_template('invoices/detail.html', active_page='quotations' if invoice.get('isQuotation') else 'invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs, bank_accounts=bank_accounts, projects=projects)
+    return render_template('invoices/detail.html', active_page='quotations' if invoice.get('isQuotation') else 'invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox=sandbox, company_id=company_id), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs, bank_accounts=bank_accounts, projects=projects)
 
 @web_invoices_bp.route('/invoices/<invoice_id>/comments/new', methods=['POST'])
 def add_invoice_comment(invoice_id):
@@ -2892,7 +2929,7 @@ def send_receipt_email(invoice_id):
     if not invoice:
         return jsonify({"success": False, "message": "Factura no encontrada."}), 404
 
-    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
 
     # Payment data sent from the client
     payment_id      = data.get("paymentId", "")
@@ -3011,10 +3048,24 @@ def send_receipt_email(invoice_id):
     else:
         return jsonify({"success": False, "message": "Error al enviar el correo."}), 500
 
-def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_url=None):
+def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_url=None, company_id=None):
     """Función auxiliar para enviar factura electrónica por correo usando SMTP y Weasyprint."""
     try:
-        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+        if not company_id:
+            company_id = invoice.get('companyId') or invoice.get('company_id')
+        if not company_id:
+            try:
+                from flask import has_request_context, session
+                if has_request_context():
+                    company_id = session.get('selected_company_id')
+            except Exception:
+                pass
+
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+        if not company_id and company.get("id"):
+            company_id = company.get("id")
+
+        rnc_emisor = (company.get("companyRNC") or company.get("rnc") or "").replace("-", "").strip()
 
         from flask import current_app as app
         if not app.config.get("SMTP_USER") or not app.config.get("SMTP_PASSWORD"):
@@ -3216,16 +3267,18 @@ def notify_invoice_email(invoice_id):
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    data = request.get_json(silent=True) or {}
-    recipient_email = (data.get("email") or "").strip()
-    if not recipient_email:
-        return jsonify({"success": False, "message": "Dirección de correo no especificada."}), 400
-
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         return jsonify({"success": False, "message": "Factura no encontrada."}), 404
 
-    success, message = send_invoice_email(owner_uid, invoice, recipient_email, sandbox=sandbox, base_url=request.host_url)
+    data = request.get_json(silent=True) or {}
+    recipient_email = (data.get("email") or "").strip()
+    if not recipient_email:
+        recipient_email = _get_client_email(owner_uid, invoice, sandbox=sandbox, company_id=company_id)
+    if not recipient_email:
+        return jsonify({"success": False, "message": "Dirección de correo no especificada."}), 400
+
+    success, message = send_invoice_email(owner_uid, invoice, recipient_email, sandbox=sandbox, base_url=request.host_url, company_id=company_id)
     if success:
         return jsonify({"success": True, "message": message})
     else:
@@ -4243,7 +4296,7 @@ def send_quotation_to_client(invoice_id):
         return redirect(url_for('web_invoices.list_quotations'))
         
     if not recipient_email:
-        recipient_email = _get_client_email(owner_uid, invoice, sandbox)
+        recipient_email = _get_client_email(owner_uid, invoice, sandbox=sandbox, company_id=company_id)
         
     if not recipient_email:
         flash('El cliente no tiene un correo registrado. Especifique un correo de destino.', 'error')
@@ -4950,7 +5003,7 @@ def invoice_retention_letter_email(invoice_id):
 
     recipient_email = request.form.get('email', '').strip()
     if not recipient_email:
-        recipient_email = _get_client_email(owner_uid, invoice, sandbox)
+        recipient_email = _get_client_email(owner_uid, invoice, sandbox=sandbox, company_id=company_id)
     if not recipient_email:
         return jsonify(success=False, error="No se encontró correo del cliente. Especifica un correo electrónico."), 400
 
