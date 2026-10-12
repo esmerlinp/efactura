@@ -65,7 +65,9 @@ class Mailer:
 
         if attachments:
             for a in attachments:
-                part = MIMEApplication(a['data'], _subtype=a.get('mimetype', 'octet-stream'))
+                ctype = a.get('mimetype') or 'application/octet-stream'
+                subtype = ctype.split('/')[-1] if '/' in ctype else ctype
+                part = MIMEApplication(a['data'], _subtype=subtype)
                 part.add_header('Content-Disposition', 'attachment',
                                 filename=a['filename'])
                 msg.attach(part)
@@ -150,6 +152,16 @@ class Mailer:
             "saveToSentItems": True
         }
 
+        if from_addr:
+            message["message"]["replyTo"] = [
+                {
+                    "emailAddress": {
+                        "address": from_addr,
+                        "name": from_name
+                    }
+                }
+            ]
+
         if attachments:
             file_attachments = []
             for a in attachments:
@@ -157,9 +169,21 @@ class Mailer:
                 if isinstance(data_bytes, str):
                     data_bytes = data_bytes.encode('utf-8')
                 b64_content = base64.b64encode(data_bytes).decode('utf-8')
+                ctype = a.get('mimetype') or ''
+                fname = a.get('filename', '').lower()
+                if not ctype or ctype == 'xml' or fname.endswith('.xml'):
+                    ctype = 'application/xml'
+                elif ctype == 'pdf' or fname.endswith('.pdf'):
+                    ctype = 'application/pdf'
+                elif ctype == 'zip' or fname.endswith('.zip'):
+                    ctype = 'application/zip'
+                elif '/' not in ctype:
+                    ctype = 'application/octet-stream'
+
                 file_attachments.append({
                     "@odata.type": "#microsoft.graph.fileAttachment",
                     "name": a['filename'],
+                    "contentType": ctype,
                     "contentBytes": b64_content
                 })
             message["message"]["attachments"] = file_attachments
