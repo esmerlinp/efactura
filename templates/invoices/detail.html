@@ -1903,6 +1903,7 @@ function closeDraftPaymentModal() {
                     style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Email
                     del Cliente</label>
                 <input type="email" id="notify-email-input" class="form-input" placeholder="cliente@ejemplo.com"
+                    value="{{ client_email or '' }}"
                     style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;" required>
                 <small style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">Si no
                     especifica ninguno, se usará el correo registrado en el documento.</small>
@@ -2601,8 +2602,11 @@ function closeDraftPaymentModal() {
         // =========================================================================
         function openNotifyEmailModal() {
             const emailInput = document.getElementById('notify-email-input');
-            // Pre-rellenar con el email del cliente
-            emailInput.value = {{ client_email | tojson }};
+            // Pre-rellenar con el email del cliente si posee uno registrado
+            const clientEmail = {{ client_email | tojson }} || '';
+            if (clientEmail) {
+                emailInput.value = clientEmail;
+            }
 
             // Resetear estado del modal
             const status = document.getElementById('notify-email-status');

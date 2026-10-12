@@ -455,18 +455,18 @@ def trigger_contract_billing(contract_id):
                     flask_app = current_app._get_current_object()
                     import threading
                     
-                    def send_invoice_email_bg(app_instance, o_uid, inv, email_to, sb, base):
+                    def send_invoice_email_bg(app_instance, o_uid, inv, email_to, sb, base, cid=None):
                         with app_instance.app_context():
                             try:
                                 from app.web.invoices import send_invoice_email
-                                send_invoice_email(o_uid, inv, email_to, sb, base)
+                                send_invoice_email(o_uid, inv, email_to, sandbox=sb, base_url=base, company_id=cid)
                             except Exception as th_err:
                                 print(f"❌ Error en hilo de envío de correo Contrato: {th_err}")
                                 
                     host_url = request.host_url
                     threading.Thread(
                         target=send_invoice_email_bg,
-                        args=(flask_app, owner_uid, invoice_dict, recipient_email, sandbox, host_url)
+                        args=(flask_app, owner_uid, invoice_dict, recipient_email, sandbox, host_url, company_id)
                     ).start()
                     print(f"📧 [Contratos] Correo programado para {recipient_email} para factura {invoice_number}", flush=True)
         except Exception as email_err:

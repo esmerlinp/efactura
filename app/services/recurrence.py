@@ -544,7 +544,7 @@ class RecurrenceService:
                     if not recipient:
                         return
                     from app.web.invoices import send_invoice_email
-                    ok, msg = send_invoice_email(o_uid, invoice, recipient, sandbox=sb)
+                    ok, msg = send_invoice_email(o_uid, invoice, recipient, sandbox=sb, company_id=cid)
                     status = "✅" if ok else "⚠️"
                     print(f"{status} Email contrato [{inv_id}] → {recipient}: {msg}")
                 except Exception as exc:
