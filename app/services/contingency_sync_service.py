@@ -162,6 +162,12 @@ class ContingencySyncService:
         DatabaseService.save_invoice(owner_uid, inv_id, invoice, sandbox=sandbox, company_id=company_id)
         cls._sync_consolidated_children(owner_uid, invoice, sandbox, company_id=company_id)
         cls._update_sequence_log(owner_uid, invoice, res, sandbox, company_id=company_id)
+        try:
+            from app.web.invoices import auto_notify_invoice_if_accepted
+            invoice["id"] = inv_id
+            auto_notify_invoice_if_accepted(owner_uid, invoice, company_id=company_id, sandbox=sandbox)
+        except Exception as auto_err:
+            logger.warning(f"Error auto enviando email post-sync factura {inv_id}: {auto_err}")
 
     @classmethod
     def _sync_consolidated_children(cls, owner_uid, invoice, sandbox, company_id=None):
@@ -250,6 +256,12 @@ class ContingencySyncService:
                 f"Regularizado por consulta de estado. TrackID: {res.get('trackId', 'N/A')[:12]}",
                 resp=response_body, sandbox=sandbox, company_id=company_id,
             )
+            try:
+                from app.web.invoices import auto_notify_invoice_if_accepted
+                invoice["id"] = inv_id
+                auto_notify_invoice_if_accepted(owner_uid, invoice, company_id=company_id, sandbox=sandbox)
+            except Exception as auto_err:
+                logger.warning(f"Error auto enviando email post-status-resolution factura {inv_id}: {auto_err}")
             return "accepted"
 
         if dgii_status == "REJECTED":
