@@ -73,6 +73,26 @@
         height: 100%;
         object-fit: cover;
     }
+
+    .btn-new-category {
+        font-size: 0.75rem;
+        color: var(--accent-emerald);
+        background: none;
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 6px;
+        border-radius: var(--radius-sm);
+        font-weight: 600;
+        transition: all 0.15s ease;
+    }
+
+    .btn-new-category:hover {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--accent-emerald);
+    }
 </style>
 
 <div style="max-width: 800px; margin: 0 auto 50px auto;">
@@ -127,7 +147,12 @@
                             <!-- Fila 2: Categoría y Nombre/Descripción -->
                             <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px; margin-bottom: 20px;">
                                 <div class="form-group" style="margin-bottom: 0;">
-                                    <label for="category_id">Categoría</label>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <label for="category_id" style="margin-bottom: 0;">Categoría</label>
+                                        <button type="button" id="btn-open-cat-modal" onclick="openCategoryModal()" class="btn-new-category" title="Crear nueva categoría">
+                                            <i class="fa-solid fa-plus"></i> Nuevo
+                                        </button>
+                                    </div>
                                     <select id="category_id" name="categoryId" class="form-select">
                                         {% if categories %}
                                         {% for cat in categories %}
@@ -436,6 +461,40 @@
     </div>
 </div>
 
+<!-- Modal: Nueva Categoría -->
+<div id="category-modal" class="search-modal" style="display: none; align-items: center; justify-content: center; z-index: 1050;">
+    <div class="modal-backdrop" onclick="closeCategoryModal()"></div>
+    <div class="modal-content" style="max-width: 460px; width: 92%; border-radius: var(--radius-lg); overflow: hidden; position: relative;">
+        <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--border-color);">
+            <h3 class="modal-title" style="margin: 0; font-size: 0.95rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-folder-plus" style="color: var(--accent-emerald);"></i>
+                <span>Nueva Categoría de Productos</span>
+            </h3>
+            <button type="button" class="modal-close" onclick="closeCategoryModal()" aria-label="Cerrar modal">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body" style="padding: 22px;">
+            <div id="cat-modal-alert" style="display: none; padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 0.85rem;"></div>
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="new-cat-name" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px;">Nombre de la Categoría <span style="color: var(--accent-red);">*</span></label>
+                <input type="text" id="new-cat-name" class="form-input" placeholder="Ej: Herramientas, Calzados, Informática..." style="width: 100%;" autocomplete="off">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="new-cat-desc" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px;">Descripción <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">(Opcional)</span></label>
+                <textarea id="new-cat-desc" class="form-textarea" rows="2" placeholder="Notas o descripción para organización interna..." style="width: 100%; resize: vertical;"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--border-color);">
+            <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btn-save-cat" onclick="saveNewCategory()">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span id="btn-save-cat-text">Guardar Categoría</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     {% include 'components/_accordion_js.html' %}
 
@@ -567,5 +626,135 @@
             alert("Error al conectar con el servidor.");
         });
     }
+
+    // Lógica del Modal de Creación de Categoría
+    function openCategoryModal() {
+        const modal = document.getElementById('category-modal');
+        const nameInput = document.getElementById('new-cat-name');
+        const descInput = document.getElementById('new-cat-desc');
+        const alertBox = document.getElementById('cat-modal-alert');
+        const saveBtn = document.getElementById('btn-save-cat');
+        const btnText = document.getElementById('btn-save-cat-text');
+
+        if (nameInput) nameInput.value = '';
+        if (descInput) descInput.value = '';
+        if (alertBox) {
+            alertBox.style.display = 'none';
+            alertBox.textContent = '';
+        }
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            if (btnText) btnText.textContent = 'Guardar Categoría';
+        }
+
+        if (modal) {
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                if (nameInput) nameInput.focus();
+            }, 100);
+        }
+    }
+
+    function closeCategoryModal() {
+        const modal = document.getElementById('category-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function saveNewCategory() {
+        const nameInput = document.getElementById('new-cat-name');
+        const descInput = document.getElementById('new-cat-desc');
+        const alertBox = document.getElementById('cat-modal-alert');
+        const saveBtn = document.getElementById('btn-save-cat');
+        const btnText = document.getElementById('btn-save-cat-text');
+
+        const name = (nameInput?.value || '').trim();
+        const desc = (descInput?.value || '').trim();
+
+        if (!name) {
+            if (alertBox) {
+                alertBox.textContent = 'El nombre de la categoría es obligatorio.';
+                alertBox.style.display = 'block';
+                alertBox.style.background = 'rgba(239, 68, 68, 0.1)';
+                alertBox.style.color = 'var(--accent-red)';
+                alertBox.style.border = '1px solid rgba(239, 68, 68, 0.25)';
+            }
+            if (nameInput) nameInput.focus();
+            return;
+        }
+
+        if (alertBox) alertBox.style.display = 'none';
+        if (saveBtn) saveBtn.disabled = true;
+        if (btnText) btnText.textContent = 'Guardando...';
+
+        const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+
+        fetch('/categories/ajax_create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ name: name, description: desc })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('category_id');
+                if (select) {
+                    let existingOption = Array.from(select.options).find(opt => opt.value === data.id);
+                    if (!existingOption) {
+                        const newOption = new Option(data.name, data.id, true, true);
+                        select.appendChild(newOption);
+                    }
+                    select.value = data.id;
+                    select.dispatchEvent(new Event('change'));
+                }
+                closeCategoryModal();
+            } else {
+                if (alertBox) {
+                    alertBox.textContent = data.error || 'Error al guardar la categoría.';
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = 'rgba(239, 68, 68, 0.1)';
+                    alertBox.style.color = 'var(--accent-red)';
+                    alertBox.style.border = '1px solid rgba(239, 68, 68, 0.25)';
+                }
+                if (saveBtn) saveBtn.disabled = false;
+                if (btnText) btnText.textContent = 'Guardar Categoría';
+            }
+        })
+        .catch(err => {
+            console.error('Error al crear categoría:', err);
+            if (alertBox) {
+                alertBox.textContent = 'Error de conexión con el servidor.';
+                alertBox.style.display = 'block';
+                alertBox.style.background = 'rgba(239, 68, 68, 0.1)';
+                alertBox.style.color = 'var(--accent-red)';
+                alertBox.style.border = '1px solid rgba(239, 68, 68, 0.25)';
+            }
+            if (saveBtn) saveBtn.disabled = false;
+            if (btnText) btnText.textContent = 'Guardar Categoría';
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('category-modal');
+            if (modal && modal.style.display === 'flex') {
+                closeCategoryModal();
+            }
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const catNameInput = document.getElementById('new-cat-name');
+        if (catNameInput) {
+            catNameInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveNewCategory();
+                }
+            });
+        }
+    });
 </script>
 {% endblock %}
