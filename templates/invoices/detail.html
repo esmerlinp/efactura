@@ -1376,12 +1376,6 @@
             {% endif %}
 
             {% if invoice.retainedISR|default(0.0) > 0 or invoice.retainedITBIS|default(0.0) > 0 %}
-            <a href="{{ url_for('web_invoices.invoice_retention_letter', invoice_id=invoice.id) }}?action=print" target="_blank"
-                class="btn btn-secondary"
-                style="width: 100%; border-color: var(--accent-blue); color: var(--accent-blue); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="fa-solid fa-file-invoice"></i>
-                <span>Imprimir Carta de Retención</span>
-            </a>
             <a href="{{ url_for('web_invoices.invoice_retention_letter', invoice_id=invoice.id) }}?action=download"
                 class="btn btn-secondary"
                 style="width: 100%; border-color: var(--accent-blue); color: var(--accent-blue); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
