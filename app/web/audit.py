@@ -13,6 +13,7 @@ from datetime import datetime
 from flask import (Blueprint, render_template, request, session,
                    redirect, url_for, jsonify, flash, Response)
 from app.services.audit_service import AuditService
+from app.services.db_service import DatabaseService, _resolve_company_id
 from app.utils.module_gate import gate_blueprint_module
 
 web_audit_bp = Blueprint('web_audit', __name__)
@@ -41,7 +42,6 @@ def audit_log():
     owner_uid = session['user']['ownerUID']
 
     # Obtener lista de usuarios de la compañía (propietario + colaboradores)
-    from app.services.db_service import DatabaseService, _resolve_company_id
     company_id = _resolve_company_id(owner_uid)
     company_users = []
     owner_profile = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
