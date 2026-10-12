@@ -1040,9 +1040,18 @@ def new_supplier_invoice_direct():
             flash('Debe agregar al menos una partida.', 'error')
             return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
-        total = subtotal - total_discount + total_itbis
+        total = round(subtotal - total_discount + total_itbis, 2)
+        ret_isr_rate = float(request.form.get('retainedISRRate', 0) or 0)
+        ret_itbis_rate = float(request.form.get('retainedITBISRate', 0) or 0)
+        is_asumido = request.form.get('isrAsumido') == 'on'
+
+        isr_base = max(0.0, round(subtotal, 2) - round(total_discount, 2))
+        calc_isr_amt = round(isr_base * ret_isr_rate, 2) if ret_isr_rate > 0 else 0.0
+        calc_itbis_amt = round(round(total_itbis, 2) * ret_itbis_rate, 2) if ret_itbis_rate > 0 else 0.0
+        calc_net_payable = round(total - (0.0 if is_asumido else calc_isr_amt) - calc_itbis_amt, 2)
+
         cxp_status = "Pagado" if payment_type == 'Contado' else "Pendiente"
-        cxp_remaining = 0.0 if payment_type == 'Contado' else total
+        cxp_remaining = 0.0 if payment_type == 'Contado' else (calc_net_payable if (calc_isr_amt > 0 or calc_itbis_amt > 0) else total)
 
         sinv_number = SupplierInvoiceService.get_next_invoice_number(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
 
@@ -1083,7 +1092,7 @@ def new_supplier_invoice_direct():
             "supplierType": request.form.get('supplierType', 'formal'),
             "ecfType": ecf_type,
             "paisDestino": request.form.get('paisDestino', 'US'),
-            "isrAsumido": request.form.get('isrAsumido') == 'on',
+            "isrAsumido": is_asumido,
             "cne": request.form.get('cne', ''),
             "isAutoEmitted": is_e41 or is_e43 or is_e47,
             "date": inv_date,
@@ -1095,6 +1104,9 @@ def new_supplier_invoice_direct():
             "itbis": round(total_itbis, 2),
             "discount": round(total_discount, 2),
             "total": round(total, 2),
+            "netPayable": calc_net_payable,
+            "retainedISRAmount": calc_isr_amt,
+            "retainedITBISAmount": calc_itbis_amt,
             "items": items,
             "attachmentUrls": [],
             "notes": request.form.get('notes', ''),
@@ -1105,8 +1117,8 @@ def new_supplier_invoice_direct():
             "paymentType": payment_type,
             "paymentMethod": request.form.get('paymentMethod', 'transferencia'),
             "bankAccountId": bank_account_id,
-            "retainedISR": float(request.form.get('retainedISRRate', 0) or 0),
-            "retainedITBIS": float(request.form.get('retainedITBISRate', 0) or 0),
+            "retainedISR": ret_isr_rate,
+            "retainedITBIS": ret_itbis_rate,
             "createdBy": session['user'].get('displayName', 'Usuario'),
             "branchId": g.get('branch_id', 'default-sucursal-principal'),
             "projectId": request.form.get('projectId') or g.get('project_id'),
@@ -2431,12 +2443,21 @@ def edit_supplier_invoice(invoice_id):
                     "types": ["proveedor"],
                 }, sandbox=sandbox, company_id=company_id)
 
+        ret_isr_rate = float(request.form.get('retainedISRRate', 0) or 0)
+        ret_itbis_rate = float(request.form.get('retainedITBISRate', 0) or 0)
+        is_asumido = request.form.get('isrAsumido') == 'on' or invoice.get('isrAsumido', False)
+
+        isr_base = max(0.0, round(subtotal, 2) - round(total_discount, 2))
+        calc_isr_amt = round(isr_base * ret_isr_rate, 2) if ret_isr_rate > 0 else 0.0
+        calc_itbis_amt = round(round(total_itbis, 2) * ret_itbis_rate, 2) if ret_itbis_rate > 0 else 0.0
+        calc_net_payable = round(round(total, 2) - (0.0 if is_asumido else calc_isr_amt) - calc_itbis_amt, 2)
+
         cxp_status = "Pagado" if payment_type == 'Contado' else invoice.get('cxpStatus', 'Pendiente')
         if cxp_status == 'Vencido' and payment_type == 'Crédito':
             cxp_status = 'Vencido'
         elif payment_type == 'Crédito' and old_payment_type == 'Contado':
             cxp_status = 'Pendiente'
-        cxp_remaining = 0.0 if payment_type == 'Contado' else total
+        cxp_remaining = 0.0 if payment_type == 'Contado' else (calc_net_payable if (calc_isr_amt > 0 or calc_itbis_amt > 0) else round(total, 2))
 
         updates = {
             "supplierInvoiceNumber": inv_number,
@@ -2456,6 +2477,9 @@ def edit_supplier_invoice(invoice_id):
             "itbis": round(total_itbis, 2),
             "discount": round(total_discount, 2),
             "total": round(total, 2),
+            "netPayable": calc_net_payable,
+            "retainedISRAmount": calc_isr_amt,
+            "retainedITBISAmount": calc_itbis_amt,
             "items": items,
             "notes": request.form.get('notes', ''),
             "comentario": request.form.get('comentario', ''),
@@ -2465,8 +2489,8 @@ def edit_supplier_invoice(invoice_id):
             "paymentType": payment_type,
             "paymentMethod": request.form.get('paymentMethod', 'transferencia'),
             "bankAccountId": bank_account_id,
-            "retainedISR": float(request.form.get('retainedISRRate', 0) or 0),
-            "retainedITBIS": float(request.form.get('retainedITBISRate', 0) or 0),
+            "retainedISR": ret_isr_rate,
+            "retainedITBIS": ret_itbis_rate,
             "projectId": request.form.get('projectId') or g.get('project_id'),
             "costCenterId": request.form.get('costCenterId', ''),
             "updatedAt": datetime.now(timezone.utc).isoformat(),

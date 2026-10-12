@@ -270,8 +270,8 @@
                     {% set ret_itbis = invoice.retainedITBIS|default(0) %}
                     {% set isr_base = (invoice.subtotal|default(0)) - (invoice.discount|default(0)) %}
                     {% if isr_base <= 0 %}{% set isr_base = (invoice.total|default(0)) - (invoice.itbis|default(0)) %}{% endif %}
-                    {% set isr_amt = isr_base * ret_isr %}
-                    {% set itbis_amt = (invoice.itbis|default(0)) * ret_itbis %}
+                    {% set isr_amt = (isr_base * ret_isr) | round(2) %}
+                    {% set itbis_amt = ((invoice.itbis|default(0)) * ret_itbis) | round(2) %}
                     {% if ret_isr > 0 %}
                     <div style="display: flex; justify-content: space-between; font-size: 0.88rem; color: #d97706;">
                         <span><i class="fa-solid fa-hand-holding-dollar"></i> Ret. ISR ({{ "%.0f"|format(ret_isr * 100) }}%):</span>
@@ -285,7 +285,7 @@
                     </div>
                     {% endif %}
                     {% if ret_isr > 0 or ret_itbis > 0 %}
-                    {% set net_payable = (invoice.total|default(0)) - (0 if invoice.isrAsumido else isr_amt) - itbis_amt %}
+                    {% set net_payable = ((invoice.total|default(0)) - (0 if invoice.isrAsumido else isr_amt) - itbis_amt) | round(2) %}
                     <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1.15rem; font-weight: 800; color: var(--accent-emerald); background-color: rgba(16, 185, 129, 0.06); border: 1px dashed var(--accent-emerald); border-radius: var(--radius-sm); padding: 10px 14px; margin-top: 6px;">
                         <span style="font-size: 0.82rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.02em;">Neto a Pagar:</span>
                         <span>RD$ {{ "{:,.2f}".format(net_payable) }}</span>

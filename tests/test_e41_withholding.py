@@ -119,3 +119,31 @@ def test_e41_xml_builder_cuadratura_retenciones():
 
     assert round(item_isr_sum, 2) == total_isr_ret, f"Suma ítems ISR ({item_isr_sum}) ≠ TotalISRRetencion ({total_isr_ret})"
     assert round(item_itbis_sum, 2) == total_itbis_ret, f"Suma ítems ITBIS ({item_itbis_sum}) ≠ TotalITBISRetenido ({total_itbis_ret})"
+
+
+def test_e41_cuadratura_centavos_20000():
+    """Verifica el caso de 20,000 con ITBIS 18% incluido:
+    Subtotal: 16,949.15
+    ITBIS: 3,050.85
+    Total: 20,000.00
+    ISR Retenido (10%): 1,694.92
+    ITBIS Retenido (100%): 3,050.85
+    Neto a Pagar: 15,254.23 (la suma no debe dar 1 centavo de más).
+    """
+    subtotal = 16949.15
+    discount = 0.00
+    itbis = 3050.85
+    total = 20000.00
+    ret_isr_rate = 0.10
+    ret_itbis_rate = 1.00
+
+    isr_base = max(0.0, subtotal - discount)
+    isr_amt = round(isr_base * ret_isr_rate, 2)
+    itbis_amt = round(itbis * ret_itbis_rate, 2)
+    net_payable = round(total - isr_amt - itbis_amt, 2)
+
+    assert isr_amt == 1694.92
+    assert itbis_amt == 3050.85
+    assert net_payable == 15254.23
+    assert round(net_payable + isr_amt + itbis_amt, 2) == total
+

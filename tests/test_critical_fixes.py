@@ -208,7 +208,7 @@ class TestExpenseFallbackRetentions:
                                                 accounting_service):
         """ISR retention line is added when retainedISR rate > 0."""
         mock_db.get_chart_of_accounts.return_value = list(BASE_ACCOUNTS)
-        expense = self._build_expense(retainedISR=0.10)  # 10% de 11000 = 1100
+        expense = self._build_expense(retainedISR=0.10)  # 10% de 10000 (neto ex-ITBIS) = 1000
 
         entry_data = {}
 
@@ -225,7 +225,7 @@ class TestExpenseFallbackRetentions:
         isr_lines = [l for l in lines if l.get("accountId") == ISR_RETEN["id"]]
         assert len(isr_lines) == 1
         assert isr_lines[0]["debit"] == 0.0
-        assert isr_lines[0]["credit"] == 1100.0
+        assert isr_lines[0]["credit"] == 1000.0
 
     def test_fallback_calculates_itbis_retention(self, mock_db, mock_provider,
                                                   accounting_service):
@@ -254,7 +254,7 @@ class TestExpenseFallbackRetentions:
         """The credit (CXP/banco) amount is total minus both retentions."""
         mock_db.get_chart_of_accounts.return_value = list(BASE_ACCOUNTS)
         expense = self._build_expense(retainedISR=0.10, retainedITBIS=0.30)
-        # total=11000, retained_isr=1100, retained_itbis=300, credit_amount=9600
+        # total=11000, subtotal=10000, retained_isr=1000, retained_itbis=300, credit_amount=9700
 
         entry_data = {}
 
@@ -269,7 +269,7 @@ class TestExpenseFallbackRetentions:
         lines = entry_data.get("lines", [])
         credit_lines = [l for l in lines if l.get("accountId") == CXP_ACC["id"] and l["credit"] > 0]
         assert len(credit_lines) == 1
-        assert credit_lines[0]["credit"] == 9600.0
+        assert credit_lines[0]["credit"] == 9700.0
 
     def test_fallback_no_retentions_when_rates_zero(self, mock_db, mock_provider,
                                                      accounting_service):
