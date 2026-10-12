@@ -458,8 +458,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================================
-    // GESTIÓN DEL MODAL DE PRODUCTOS
+    // GESTIÓN DEL MODAL DE PRODUCTOS Y SELECTORES DE ITBIS
     // =========================================================================
+    const _isZeroItbisType = () => {
+        if (!ecfTypeSelect) return false;
+        const val = ecfTypeSelect.value;
+        return val.includes('E44') || val.includes('Regímenes Especiales') || val.includes('Regimenes Especiales')
+            || val.includes('E46') || val.includes('Exportación');
+    };
+
+    function setItbisSelectValue(selectEl, rate) {
+        if (!selectEl) return;
+        const numRate = (rate !== undefined && rate !== null && rate !== '') ? parseFloat(rate) : 0.18;
+        const targetRate = isNaN(numRate) ? 0.18 : numRate;
+        let matched = false;
+        for (let i = 0; i < selectEl.options.length; i++) {
+            const optVal = parseFloat(selectEl.options[i].value);
+            if (!isNaN(optVal) && Math.abs(optVal - targetRate) < 0.0001) {
+                selectEl.selectedIndex = i;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
+            selectEl.value = (Math.abs(targetRate) < 0.0001) ? '0.0' : targetRate.toString();
+        }
+    }
+
     let activeProductRow = null;
     const productSearchModal = document.getElementById('product-search-modal');
     const btnCloseProductModal = document.getElementById('btn-close-product-modal');
@@ -536,7 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (searchInput) searchInput.value = '';
                         if (nameInput) nameInput.value = '';
                         if (priceInput) priceInput.value = '0.00';
-                        if (itbisSelect) itbisSelect.value = '0.18';
+                        if (itbisSelect) setItbisSelectValue(itbisSelect, '0.18');
                     }
                     closeProductModal();
                     recalculateTotals();
@@ -555,9 +580,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const codeInput = activeProductRow.querySelector('.item-code-input');
                 if (codeInput) codeInput.value = code || '';
                 priceInput.value = parseFloat(price).toFixed(2);
-                itbisSelect.value = (typeof ecfTypeSelect !== 'undefined' && ecfTypeSelect && _isZeroItbisType()) ? '0.0' : itbis;
-
                 const product = catalogItems.find(p => p.id === id || p.code === code);
+                const productItbis = (product && product.itbisRate !== undefined && product.itbisRate !== null) ? product.itbisRate : itbis;
+                const targetItbis = (typeof ecfTypeSelect !== 'undefined' && ecfTypeSelect && _isZeroItbisType()) ? 0.0 : productItbis;
+                setItbisSelectValue(itbisSelect, targetItbis);
+
                 if (product) {
                     activeProductRow.dataset.codigoImpuesto = product.codigoImpuesto || "";
                     activeProductRow.dataset.tasaImpuestoAdicional = product.tasaImpuestoAdicional || 0.0;
@@ -755,7 +782,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const codeInput = row.querySelector('.item-code-input');
         if (codeInput) codeInput.value = (product && product.code) || '';
         if (priceInput) priceInput.value = parseFloat(price).toFixed(2);
-        if (itbisSelect) itbisSelect.value = (_isZeroItbisType()) ? '0.0' : itbis;
+        const productItbis = (product && product.itbisRate !== undefined && product.itbisRate !== null) ? product.itbisRate : itbis;
+        const targetItbis = (_isZeroItbisType()) ? 0.0 : productItbis;
+        setItbisSelectValue(itbisSelect, targetItbis);
         if (product) {
             row.dataset.codigoImpuesto = product.codigoImpuesto || '';
             row.dataset.tasaImpuestoAdicional = product.tasaImpuestoAdicional || 0.0;
@@ -907,17 +936,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     // AGREGAR PARTIDA DINÁMICA A LA TABLA
     // =========================================================================
-    const _isZeroItbisType = () => {
-        if (!ecfTypeSelect) return false;
-        const val = ecfTypeSelect.value;
-        return val.includes('E44') || val.includes('Regímenes Especiales') || val.includes('Regimenes Especiales')
-            || val.includes('E46') || val.includes('Exportación');
-    };
     const _itbisOpts = (selected) => {
-        const rates = ['0.18', '0.16', '0.0108', '0.0'];
-        return rates.map(r =>
-            `<option value="${r}"${r === selected ? ' selected' : ''}>${r === '0.0108' ? '1.08%' : (parseFloat(r) * 100).toFixed(0) + '%'}</option>`
-        ).join('');
+        const numSelected = (selected !== undefined && selected !== null && selected !== '') ? parseFloat(selected) : 0.18;
+        const rates = [
+            { val: '0.18', num: 0.18, label: '18%' },
+            { val: '0.16', num: 0.16, label: '16%' },
+            { val: '0.0108', num: 0.0108, label: '1.08%' },
+            { val: '0.0', num: 0.0, label: '0%' }
+        ];
+        return rates.map(r => {
+            const isSel = !isNaN(numSelected) ? Math.abs(r.num - numSelected) < 0.0001 : (r.val === selected);
+            return `<option value="${r.val}"${isSel ? ' selected' : ''}>${r.label}</option>`;
+        }).join('');
     };
     const _syncItbisForZeroItbis = () => {
         const isZero = _isZeroItbisType();
@@ -1459,7 +1489,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (si) si.value = np.name + ' (' + (np.code || 'Nuevo') + ')';
                             if (ni) ni.value = np.name;
                             if (pi) pi.value = parseFloat(np.price).toFixed(2);
-                            if (is) is.value = np.itbisRate;
+                            setItbisSelectValue(is, np.itbisRate);
                             targetProductRow.dataset.codigoImpuesto = '';
                             targetProductRow.dataset.tasaImpuestoAdicional = 0;
                             targetProductRow.dataset.gradosAlcohol = 0;

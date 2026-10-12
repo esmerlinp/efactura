@@ -355,7 +355,7 @@ class QuotationWizard {
             name: item.name || '',
             quantity: item.quantity || 1,
             price: item.price || 0,
-            itbisRate: item.itbisRate || 0.18,
+            itbisRate: (item.itbisRate !== undefined && item.itbisRate !== null) ? item.itbisRate : 0.18,
             discountRate: item.discountRate || 0,
             catalogId: item.catalogId || ''
         }));
@@ -497,7 +497,8 @@ class QuotationWizard {
             const row = document.createElement('div');
             row.className = 'wz-item-row';
             row.dataset.catalogId = item.catalogId || '';
-            const itbisLabel = (item.itbisRate || 0.18) === 0.18 ? '18%' : '0%';
+            const itemRate = (item.itbisRate !== undefined && item.itbisRate !== null) ? item.itbisRate : 0.18;
+            const itbisLabel = (itemRate === 0.18) ? '18%' : (itemRate === 0.16 ? '16%' : (itemRate === 0 ? '0%' : `${itemRate * 100}%`));
             const discount = parseFloat(item.discountRate) || 0;
             row.innerHTML = `
                 <span class="wz-item-name-display" title="${this._escapeAttr(item.code || '')}">${this._escapeHtml(item.name || '—')}</span>
@@ -545,7 +546,8 @@ class QuotationWizard {
         document.getElementById('edit-item-name').value = item.name || '';
         document.getElementById('edit-item-qty').value = item.quantity || 1;
         document.getElementById('edit-item-price').value = item.price || 0;
-        document.getElementById('edit-item-itbis').value = (item.itbisRate || 0.18).toString();
+        const editRate = (item.itbisRate !== undefined && item.itbisRate !== null) ? item.itbisRate : 0.18;
+        document.getElementById('edit-item-itbis').value = editRate === 0 ? '0.0' : editRate.toString();
         document.getElementById('edit-item-discount').value = item.discountRate || 0;
 
         const addCatBtn = document.getElementById('edit-add-catalog-btn');
@@ -567,7 +569,8 @@ class QuotationWizard {
         this.formData.items[idx].name = document.getElementById('edit-item-name').value.trim();
         this.formData.items[idx].quantity = parseFloat(document.getElementById('edit-item-qty').value) || 1;
         this.formData.items[idx].price = parseFloat(document.getElementById('edit-item-price').value) || 0;
-        this.formData.items[idx].itbisRate = parseFloat(document.getElementById('edit-item-itbis').value) || 0.18;
+        const editItbisVal = document.getElementById('edit-item-itbis')?.value;
+        this.formData.items[idx].itbisRate = (editItbisVal !== undefined && editItbisVal !== '') ? parseFloat(editItbisVal) : 0.18;
         this.formData.items[idx].discountRate = parseFloat(document.getElementById('edit-item-discount').value) || 0;
 
         this._closeEditModal();
@@ -584,7 +587,8 @@ class QuotationWizard {
         const name = document.getElementById('edit-item-name').value.trim();
         const price = parseFloat(document.getElementById('edit-item-price').value) || 0;
         const code = document.getElementById('edit-item-code').value.trim();
-        const itbis = parseFloat(document.getElementById('edit-item-itbis').value) || 0.18;
+        const addItbisVal = document.getElementById('edit-item-itbis')?.value;
+        const itbis = (addItbisVal !== undefined && addItbisVal !== '') ? parseFloat(addItbisVal) : 0.18;
 
         if (!name || price <= 0) {
             this._showToast('Complete nombre y precio antes de agregar al catálogo', 'warning');
@@ -673,7 +677,7 @@ class QuotationWizard {
                     <button type="button" class="btn-select-item" data-catalog-id="${it.id || it._id || ''}"
                         data-name="${this._escapeAttr(it.name || '')}"
                         data-price="${it.price || 0}"
-                        data-itbis="${it.itbisRate || 0.18}"
+                        data-itbis="${(it.itbisRate !== undefined && it.itbisRate !== null) ? it.itbisRate : 0.18}"
                         data-code="${this._escapeAttr(it.code || '')}"
                         data-unit="${this._escapeAttr(it.unit || 'Unidad')}">
                         <i class="fa-solid fa-plus"></i> Seleccionar
@@ -687,7 +691,8 @@ class QuotationWizard {
         const id = btn.dataset.catalogId;
         const name = btn.dataset.name;
         const price = parseFloat(btn.dataset.price) || 0;
-        const itbis = parseFloat(btn.dataset.itbis) || 0.18;
+        const rawItbis = btn.dataset.itbis;
+        const itbis = (rawItbis !== undefined && rawItbis !== '') ? parseFloat(rawItbis) : 0.18;
         const code = btn.dataset.code || '';
         const item = { code, name, quantity: 1, price, itbisRate: itbis, discountRate: 0, catalogId: id };
 

@@ -153,7 +153,8 @@ class DGIIService:
         for item in items:
             price = float(item.get('price', 0.0))
             quantity = float(item.get('quantity', 1.0))
-            itbis_rate = float(item.get('itbisRate', 0.18))
+            itbis_val = item.get('itbisRate') if item.get('itbisRate') is not None else item.get('itbis_rate')
+            itbis_rate = float(itbis_val if itbis_val is not None and str(itbis_val).strip() != '' else 0.18)
             item_discount_rate = float(item.get('discountRate', 0.0))
 
             codigo_impuesto = str(item.get('codigoImpuesto', '')).strip().zfill(3)
@@ -251,6 +252,7 @@ class DGIIService:
                 'isc_advalorem_amount': isc_advalorem,
                 'otros_impuestos_amount': otros_impuestos,
                 'itbis_amount': item_itbis,
+                'itbisAmount': item_itbis,
                 'total': item_total
             })
 

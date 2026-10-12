@@ -391,7 +391,7 @@ def _cached_items(owner_uid, sandbox, company_id=None):
                     "barcode": data.get("barcode", ""),
                     "categoryId": data.get("categoryId", "general"),
                     "unit": data.get("unit", "Unidad"),
-                    "itbisRate": float(data.get("itbisRate", 0.18)),
+                    "itbisRate": float(data.get("itbisRate") if data.get("itbisRate") is not None and str(data.get("itbisRate")).strip() != "" else 0.18),
                     "minStock": float(data.get("minStock", 0.0)),
                     "rackLocation": data.get("rackLocation", ""),
                     "totalStock": float(data.get("totalStock", 0.0)),
@@ -479,7 +479,7 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all, company_i
                         "name": it.get("name", ""),
                         "price": float(it.get("price", 0.0)),
                         "quantity": int(it.get("quantity", 1)),
-                        "itbisRate": float(it.get("itbisRate", 0.18)),
+                        "itbisRate": float(it.get("itbisRate") if it.get("itbisRate") is not None and str(it.get("itbisRate")).strip() != "" else 0.18),
                         "discountRate": float(it.get("discountRate", 0.0)),
                         "subtotal": float(it.get("subtotal", 0.0)),
                         "itbisAmount": float(it.get("itbisAmount", it.get("itbis_amount", 0.0))),
@@ -647,7 +647,7 @@ def _cached_contingency_invoices(owner_uid, sandbox, company_id=None):
                         "name": it.get("name", ""),
                         "price": float(it.get("price", 0.0)),
                         "quantity": int(it.get("quantity", 1)),
-                        "itbisRate": float(it.get("itbisRate", 0.18)),
+                        "itbisRate": float(it.get("itbisRate") if it.get("itbisRate") is not None and str(it.get("itbisRate")).strip() != "" else 0.18),
                         "discountRate": float(it.get("discountRate", 0.0)),
                         "subtotal": float(it.get("subtotal", 0.0)),
                         "itbisAmount": float(it.get("itbisAmount", it.get("itbis_amount", 0.0))),
@@ -2538,7 +2538,7 @@ class DatabaseService:
         item_dict["costPrice"] = float(item_dict.get("costPrice", 0.0))
         item_dict["barcode"] = item_dict.get("barcode", "")
         item_dict["categoryId"] = item_dict.get("categoryId", "general")
-        item_dict["itbisRate"] = float(item_dict.get("itbisRate", 0.18))
+        item_dict["itbisRate"] = float(item_dict.get("itbisRate") if item_dict.get("itbisRate") is not None and str(item_dict.get("itbisRate")).strip() != "" else 0.18)
         item_dict["minStock"] = float(item_dict.get("minStock", 0.0))
         item_dict["rackLocation"] = item_dict.get("rackLocation", "")
         item_dict["totalStock"] = float(item_dict.get("totalStock", 0.0))
@@ -3110,7 +3110,7 @@ class DatabaseService:
                             "unit": it.get("unit", "Unidad"),
                             "price": float(it.get("price", 0.0)),
                             "quantity": int(it.get("quantity", 1)),
-                            "itbisRate": float(it.get("itbisRate", 0.18)),
+                            "itbisRate": float(it.get("itbisRate") if it.get("itbisRate") is not None and str(it.get("itbisRate")).strip() != "" else 0.18),
                             "discountRate": float(it.get("discountRate", 0.0)),
                             "subtotal": float(it.get("subtotal", 0.0)),
                             "itbisAmount": float(it.get("itbisAmount", it.get("itbis_amount", 0.0))),
@@ -3397,7 +3397,7 @@ class DatabaseService:
                 "unit": item.get("unit", "Unidad"),
                 "price": _price,
                 "quantity": _quantity,
-                "itbisRate": float(item.get("itbisRate", 0.18)),
+                "itbisRate": float(item.get("itbisRate") if item.get("itbisRate") is not None and str(item.get("itbisRate")).strip() != "" else 0.18),
                 "discountRate": float(item.get("discountRate", 0.0)),
                 "subtotal_raw": _subtotal_raw,
                 "discount_amount": _discount_amount,
