@@ -467,3 +467,116 @@ def test_db_service_blocks_rejected_invoice_payment():
             DatabaseService.register_invoice_payment(
                 "owner-1", "inv-1", {"amount": 1000.0, "paymentMethod": "Efectivo"}, sandbox=True
             )
+
+
+def test_save_draft_invoice_with_exempt_item(client):
+    mock_login(client)
+    
+    saved_invoice_dict = {}
+    def fake_save_invoice(owner_uid, invoice_id, invoice_dict, company_id=None, sandbox=True):
+        saved_invoice_dict.update(invoice_dict)
+        return invoice_id
+
+    exempt_item = {
+        "id": "prod-exento-1",
+        "name": "Servicio de Capacitación Exento",
+        "code": "CAP-01",
+        "price": 10000.0,
+        "itbisRate": 0.0,
+        "isActive": True
+    }
+
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_items', return_value=[exempt_item]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_clients', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_warehouses', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_price_lists', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.save_invoice', side_effect=fake_save_invoice))
+        stack.enter_context(patch('app.services.audit_service.AuditService.log_from_request'))
+
+        post_data = {
+            "action": "guardar",
+            "ecfType": "Factura de Consumo (E32)",
+            "clientId": "client-1",
+            "clientName": "Juan Perez",
+            "clientRNC": "00100000000",
+            "currency": "DOP",
+            "paymentMethod": "Efectivo",
+            "dueDate": "2026-10-12",
+            "items[0][catalog_id]": "prod-exento-1",
+            "items[0][name]": "Servicio de Capacitación Exento",
+            "items[0][price]": "10000.00",
+            "items[0][quantity]": "1",
+            "items[0][itbisRate]": "0.0",
+            "items[0][discountRate]": "0.0"
+        }
+
+        resp = client.post('/invoices/new', data=post_data, follow_redirects=False)
+        assert resp.status_code == 302
+        assert '/invoices/' in resp.headers['Location']
+
+        assert saved_invoice_dict["status"] == "Borrador"
+        assert saved_invoice_dict["totalITBIS"] == 0.0
+        assert saved_invoice_dict["montoExento"] == 10000.0
+        assert saved_invoice_dict["subtotal"] == 10000.0
+        assert saved_invoice_dict["total"] == 10000.0
+        assert saved_invoice_dict["items"][0]["itbisRate"] == 0.0
+        assert saved_invoice_dict["items"][0]["itbisAmount"] == 0.0
+
+
+def test_save_draft_invoice_with_exempt_item_from_catalog_fallback(client):
+    mock_login(client)
+    
+    saved_invoice_dict = {}
+    def fake_save_invoice(owner_uid, invoice_id, invoice_dict, company_id=None, sandbox=True):
+        saved_invoice_dict.update(invoice_dict)
+        return invoice_id
+
+    exempt_item = {
+        "id": "prod-exento-2",
+        "name": "Pan Integral Exento",
+        "code": "PAN-01",
+        "price": 200.0,
+        "itbisRate": 0.0,
+        "isActive": True
+    }
+
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_items', return_value=[exempt_item]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_clients', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_warehouses', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_price_lists', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.save_invoice', side_effect=fake_save_invoice))
+        stack.enter_context(patch('app.services.audit_service.AuditService.log_from_request'))
+
+        post_data = {
+            "action": "guardar",
+            "ecfType": "Factura de Consumo (E32)",
+            "clientId": "client-1",
+            "clientName": "Maria Gomez",
+            "clientRNC": "00100000000",
+            "currency": "DOP",
+            "paymentMethod": "Efectivo",
+            "dueDate": "2026-10-12",
+            "items[0][catalog_id]": "prod-exento-2",
+            "items[0][name]": "Pan Integral Exento",
+            "items[0][price]": "200.00",
+            "items[0][quantity]": "2",
+            "items[0][discountRate]": "0.0"
+        }
+
+        resp = client.post('/invoices/new', data=post_data, follow_redirects=False)
+        assert resp.status_code == 302
+        assert '/invoices/' in resp.headers['Location']
+
+        assert saved_invoice_dict["status"] == "Borrador"
+        assert saved_invoice_dict["totalITBIS"] == 0.0
+        assert saved_invoice_dict["montoExento"] == 400.0
+        assert saved_invoice_dict["subtotal"] == 400.0
+        assert saved_invoice_dict["total"] == 400.0
+        assert saved_invoice_dict["items"][0]["itbisRate"] == 0.0
+        assert saved_invoice_dict["items"][0]["itbisAmount"] == 0.0

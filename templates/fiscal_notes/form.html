@@ -517,7 +517,7 @@ function selectProduct(product) {
     if (nameInput) nameInput.value = product.name || '';
     if (priceInput) priceInput.value = parseFloat(product.salePrice || product.price || 0).toFixed(2);
     if (itbisSelect) {
-        var rate = parseFloat(product.itbisRate || 0.18);
+        var rate = (product.itbisRate !== undefined && product.itbisRate !== null && product.itbisRate !== '') ? parseFloat(product.itbisRate) : 0.18;
         for (var i = 0; i < itbisSelect.options.length; i++) {
             if (Math.abs(parseFloat(itbisSelect.options[i].value) - rate) < 0.01) {
                 itbisSelect.selectedIndex = i;
