@@ -33,7 +33,7 @@ REGIMEN_RULES = {
     },
     REGIMEN_RST_INCOME: {
         "label": "RST basado en ingresos",
-        "allowed_ecf_types": ["E32", "E33", "E34", "E41", "E43"],
+        "allowed_ecf_types": ["E31", "E32", "E33", "E34", "E41", "E43"],
         "itbis_enabled": True,
         "default_ecf_type": "E32",
         "rst_limit": 12060000,
@@ -41,7 +41,7 @@ REGIMEN_RULES = {
     },
     REGIMEN_RST_PURCHASES: {
         "label": "RST basado en compras",
-        "allowed_ecf_types": ["E32", "E33", "E34", "E41", "E43"],
+        "allowed_ecf_types": ["E31", "E32", "E33", "E34", "E41", "E43"],
         "itbis_enabled": True,
         "default_ecf_type": "E32",
         "rst_limit": 12060000,
