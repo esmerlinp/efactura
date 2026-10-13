@@ -11,6 +11,7 @@ from app.services.supplier_invoice_service import SupplierInvoiceService, ALLOWE
 from app.services.purchase_credit_note_service import PurchaseCreditNoteService
 from app.utils.decorators import check_permission
 from app.utils.pdf import pdf_write_options
+from app.utils.tax_utils import isr_withholding_options, itbis_withholding_options
 from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDATE, ACTION_DELETE
 from app.services.dgii import DGIIService
 from app.web.invoices import format_mentions, _get_taggable_users, process_resource_comment_mentions
@@ -1774,6 +1775,8 @@ def new_supplier_invoice_direct():
     tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
+    isr_opts = isr_withholding_options(tax_rules, include_payments_abroad=True)
+    itbis_opts = itbis_withholding_options(tax_rules)
 
     e41_sequences = []
     e43_sequences = []
@@ -1816,6 +1819,8 @@ def new_supplier_invoice_direct():
                            accounting_accounts=accounting_accounts,
                            itbis_general=itbis_general,
                            itbis_reduced=itbis_reduced,
+                           isr_withholding_options=isr_opts,
+                           itbis_withholding_options=itbis_opts,
                             e41_sequences=e41_sequences,
                             e43_sequences=e43_sequences,
                             e47_sequences=e47_sequences,
@@ -2669,6 +2674,8 @@ def edit_supplier_invoice(invoice_id):
     tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
+    isr_opts = isr_withholding_options(tax_rules, include_payments_abroad=True)
+    itbis_opts = itbis_withholding_options(tax_rules)
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
     projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox, company_id=company_id) if selected_bid else []
     cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox, company_id=company_id)
@@ -2681,6 +2688,8 @@ def edit_supplier_invoice(invoice_id):
                            accounting_accounts=accounting_accounts,
                            itbis_general=itbis_general,
                            itbis_reduced=itbis_reduced,
+                           isr_withholding_options=isr_opts,
+                           itbis_withholding_options=itbis_opts,
                            projects=projects,
                            cost_centers=active_cost_centers,
                            active_page='purchase_cxp')

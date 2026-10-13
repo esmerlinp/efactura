@@ -1,31 +1,65 @@
 {% extends "layout.html" %}
 {% block title %}Nuevo Conteo Físico — {{ product_name }}{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1 class="page-title"><i class="fa-solid fa-clipboard-check"></i> Nuevo Conteo Físico</h1>
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 class="page-title" style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-clipboard-check" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Nuevo Conteo Físico
+    </h1>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+        Toma una foto del stock actual de un almacén para auditar existencias y aplicar ajustes.
+    </p>
 </div>
 
-<div class="card" style="max-width:500px;">
+{% if not warehouses %}
+<div class="card-table-wrapper" style="text-align:center; padding:60px 24px; max-width:720px; margin:0 auto;">
+    <i class="fa-solid fa-warehouse" style="font-size:3rem; color:var(--text-muted); opacity:0.5; display:block; margin-bottom:16px;"></i>
+    <h3 style="font-family:var(--font-heading); font-size:1.1rem; margin-bottom:8px;">No hay almacenes registrados</h3>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:20px;">
+        Debes registrar al menos un almacén antes de iniciar un conteo físico.
+    </p>
+    <a href="{{ url_for('web_invoices.new_warehouse') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i>
+        <span>Crear Almacén</span>
+    </a>
+</div>
+{% else %}
+<div class="card-table-wrapper" style="max-width:720px; margin:0 auto;">
+    <h3 style="font-size:1.1rem; font-family:var(--font-heading); margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:14px;">
+        <i class="fa-solid fa-warehouse" style="color:var(--accent-purple);"></i>
+        <span>Almacén a Contar</span>
+    </h3>
+
     <form method="POST">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="card-body">
+        <div class="form-grid" style="grid-template-columns:1fr;">
             <div class="form-group">
-                <label>Almacén a contar</label>
-                <select name="warehouseId" class="form-control" required>
-                    <option value="">Seleccione...</option>
+                <label for="warehouseId">Almacén a contar</label>
+                <select id="warehouseId" name="warehouseId" class="form-select" required>
+                    <option value="">Seleccione un almacén...</option>
                     {% for w in warehouses %}
                     <option value="{{ w.id }}">{{ w.name }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <p class="text-muted" style="margin-top:12px;">
-                <i class="fa-solid fa-info-circle"></i> Se tomará una foto del stock actual al iniciar. Podrá registrar cantidades por producto y finalizar cuando termine.
-            </p>
         </div>
-        <div class="card-footer" style="display:flex; gap:12px; justify-content: flex-end;">
-            <a href="{{ url_for('web_inventory.physical_count_list') }}" class="btn btn-ghost">Cancelar</a>
-            <button type="submit" class="btn btn-accent">Iniciar Conteo</button>
+
+        <div style="display:flex; gap:10px; align-items:flex-start; margin-top:4px; padding:12px 14px; border-radius:var(--radius-md); background:var(--color-info-light); border:1px solid rgba(59,130,246,0.25); color:var(--text-secondary); font-size:0.82rem;">
+            <i class="fa-solid fa-circle-info" style="color:var(--color-info); margin-top:1px;"></i>
+            <span>Se tomará una foto del stock actual al iniciar. Podrás registrar cantidades por producto y finalizar cuando termines.</span>
+        </div>
+
+        <div style="margin-top:32px; display:flex; justify-content:flex-end; gap:12px; border-top:1px solid var(--border-color); padding-top:20px;">
+            <a href="{{ url_for('web_inventory.physical_count_list') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-xmark"></i>
+                <span>Cancelar</span>
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-play"></i>
+                <span>Iniciar Conteo</span>
+            </button>
         </div>
     </form>
 </div>
+{% endif %}
 {% endblock %}

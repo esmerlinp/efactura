@@ -351,18 +351,15 @@
                 <div class="inp-group" style="max-width:220px;">
                     <label for="retainedISR">Retención ISR</label>
                     <select id="retainedISR" name="retainedISRRate" class="form-select">
-                        <option value="0.0" {% if expense_data.retainedISR == 0 or expense_data.retainedISR == 0.0 or (not is_edit) %}selected{% endif %}>Sin retención (0%)</option>
-                        <option value="0.02" {% if expense_data.retainedISR == 0.02 %}selected{% endif %}>2% — Bienes y servicios</option>
-                        <option value="0.10" {% if expense_data.retainedISR == 0.10 %}selected{% endif %}>10% — Honorarios / Alquiler</option>
+                        <option value="0.0" {% if (not is_edit) or not expense_data.retainedISR %}selected{% endif %}>Sin retención (0%)</option>
+                        {% for opt in isr_withholding_options %}<option value="{{ opt.value }}" {% if is_edit and expense_data.retainedISR == opt.value %}selected{% endif %}>{{ opt.label }}</option>{% endfor %}
                     </select>
                 </div>
                 <div class="inp-group" style="max-width:220px;">
                     <label for="retainedITBIS">Retención ITBIS</label>
                     <select id="retainedITBIS" name="retainedITBISRate" class="form-select">
-                        <option value="0.0" {% if expense_data.retainedITBIS == 0 or expense_data.retainedITBIS == 0.0 or (not is_edit) %}selected{% endif %}>Sin retención (0%)</option>
-                        <option value="0.30" {% if expense_data.retainedITBIS == 0.30 %}selected{% endif %}>30% — Bienes corporativos</option>
-                        <option value="0.75" {% if expense_data.retainedITBIS == 0.75 %}selected{% endif %}>75% — Servicios jurídicos</option>
-                        <option value="1.00" {% if expense_data.retainedITBIS == 1.00 %}selected{% endif %}>100% — Profesionales independientes</option>
+                        <option value="0.0" {% if (not is_edit) or not expense_data.retainedITBIS %}selected{% endif %}>Sin retención (0%)</option>
+                        {% for opt in itbis_withholding_options %}<option value="{{ opt.value }}" {% if is_edit and expense_data.retainedITBIS == opt.value %}selected{% endif %}>{{ opt.label }}</option>{% endfor %}
                     </select>
                 </div>
             </div>

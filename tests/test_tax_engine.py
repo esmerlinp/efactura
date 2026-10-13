@@ -28,7 +28,7 @@ class TestTaxEngineDefaults:
         assert self.engine.get_withholding_isr_rate("goods_services") == 0.02
 
     def test_withholding_isr_professional(self):
-        assert self.engine.get_withholding_isr_rate("professional_fees") == 0.10
+        assert self.engine.get_withholding_isr_rate("professional_fees") == 0.15
 
     def test_withholding_isr_digital_abroad(self):
         assert self.engine.get_withholding_isr_rate("digital_services_abroad") == 0.15

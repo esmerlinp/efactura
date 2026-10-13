@@ -38,14 +38,15 @@ de usuario. Los tutoriales están organizados por módulo.
 
 ## Inventario
 
-1. [Tablero de inventario](inventario/01-tablero-inventario.md)
-2. [Almacenes](inventario/02-almacenes.md)
-3. [Transferencias entre almacenes](inventario/03-transferencias.md)
-4. [Conteos físicos](inventario/04-conteos-fisicos.md)
-5. [Ajustes de inventario y kárdex](inventario/05-ajustes-kardex.md)
-6. [Recepciones de mercancía](inventario/06-recepciones-mercancia.md)
-7. [Alertas de stock y reorden](inventario/07-alertas-stock.md)
-8. [Lotes de inventario](inventario/08-lotes.md)
+1. [Flujo completo de inventario (end-to-end)](inventario/00-flujo-completo-inventario.md)
+2. [Tablero de inventario](inventario/01-tablero-inventario.md)
+3. [Almacenes](inventario/02-almacenes.md)
+4. [Transferencias entre almacenes](inventario/03-transferencias.md)
+5. [Conteos físicos](inventario/04-conteos-fisicos.md)
+6. [Ajustes de inventario y kárdex](inventario/05-ajustes-kardex.md)
+7. [Recepciones de mercancía](inventario/06-recepciones-mercancia.md)
+8. [Alertas de stock y reorden](inventario/07-alertas-stock.md)
+9. [Lotes de inventario](inventario/08-lotes.md)
 
 ## Compras y Gastos
 
