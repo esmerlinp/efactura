@@ -96,7 +96,7 @@
             <thead><tr><th>Producto</th><th>Lote</th><th>Cantidad</th><th>Vence</th><th>Días</th></tr></thead>
             <tbody>
                 {% for e in expirations.alert_90d %}
-                <tr><td>{{ e.itemName }}</td><td>{{ e.lotNumber }}</td><td>{{ "%.2f"|format(e.quantity) }}</td><td>{{ e.expirationDate }}</td><td><span class="badge badge-info">{{ e.daysLeft }}d</span></td></tr>
+                <tr><td>{{ e.itemName }}</td><td>{{ e.lotNumber }}</td><td>{{ "%.2f"|format(e.quantity) }}</td><td>{{ e.expirationDate }}</td><td><span class="badge badge-secondary">{{ e.daysLeft }}d</span></td></tr>
                 {% endfor %}
             </tbody>
         </table>

@@ -113,6 +113,17 @@ def transfer_new():
     company_id = _company_id()
     warehouses = DatabaseService.get_warehouses(owner_uid=owner_uid, company_id=company_id, sandbox=sb)
     items = [it for it in DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sb, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get("type", "Bien") == "Bien"]
+    stocks = DatabaseService.get_inventory_stock(owner_uid=owner_uid, company_id=company_id, sandbox=sb)
+    items_json = [
+        {
+            "id": it.get("id"),
+            "name": it.get("name", ""),
+            "code": it.get("code", ""),
+            "unit": it.get("unit", "Unidad"),
+            "totalStock": float(it.get("totalStock", 0) or 0),
+        }
+        for it in items
+    ]
 
     if request.method == "POST":
         lines = []
@@ -131,16 +142,20 @@ def transfer_new():
                 })
 
         if not lines:
-            flash("Debe especificar al menos un producto con cantidad > 0.", "error")
+            flash("Agrega al menos un producto con cantidad mayor a cero.", "error")
             return render_template("inventario/transfer_form.html", active_page="inventory_transfers",
-                                   warehouses=warehouses, items=items)
+                                   warehouses=warehouses, items=items, stocks=stocks, items_json=items_json)
 
         origin_id = request.form.get("originWarehouseId", "")
         dest_id = request.form.get("destinationWarehouseId", "")
-        if origin_id == dest_id:
-            flash("El almacén origen y destino deben ser diferentes.", "error")
+        if not origin_id or not dest_id:
+            flash("Debes seleccionar el almacén origen y el almacén destino.", "error")
             return render_template("inventario/transfer_form.html", active_page="inventory_transfers",
-                                   warehouses=warehouses, items=items)
+                                   warehouses=warehouses, items=items, stocks=stocks, items_json=items_json)
+        if origin_id == dest_id:
+            flash("El almacén origen y el destino deben ser diferentes.", "error")
+            return render_template("inventario/transfer_form.html", active_page="inventory_transfers",
+                                   warehouses=warehouses, items=items, stocks=stocks, items_json=items_json)
 
         wh_map = {w["id"]: w["name"] for w in warehouses}
         transfer_dict = {
@@ -160,7 +175,7 @@ def transfer_new():
         return redirect(url_for("web_inventory.transfer_list"))
 
     return render_template("inventario/transfer_form.html", active_page="inventory_transfers",
-                           warehouses=warehouses, items=items)
+                           warehouses=warehouses, items=items, stocks=stocks, items_json=items_json)
 
 
 @web_inventory_bp.route("/inventory/transfers/<transfer_id>/approve", methods=["POST"])

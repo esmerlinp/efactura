@@ -31,7 +31,7 @@
                     <td>
                         {% if c.status == 'en_progreso' %}<span class="badge badge-warning">En Progreso</span>
                         {% elif c.status == 'finalizado' %}<span class="badge badge-success">Finalizado</span>
-                        {% else %}<span class="badge badge-info">Ajustado</span>
+                        {% else %}<span class="badge badge-secondary">Ajustado</span>
                         {% endif %}
                     </td>
                     <td>{{ c.totalLines }}</td>
@@ -47,7 +47,13 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="8" class="text-center text-muted">No hay conteos físicos.</td></tr>
+                <tr>
+                    <td colspan="8" style="text-align:center; padding:40px; color:var(--text-muted);">
+                        <i class="fa-solid fa-clipboard-check" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
+                        No hay conteos físicos registrados.
+                        <div style="margin-top:10px; font-size:0.85rem;">Inicia un conteo para auditar las existencias de un almacén.</div>
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>

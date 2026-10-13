@@ -340,8 +340,8 @@
                 <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-sliders" style="color:var(--accent-emerald);margin-right:8px;"></i>Retenciones, Descuentos y Recargos</h3><button type="button" id="btn-close-retentions-modal" class="btn-close-modal" onclick="closeRetentionsModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <div class="modal-body" style="padding:22px 24px;">
                     <div class="inp-group" style="margin-bottom:16px;"><label>Descuento Global (%)</label><input type="number" id="discount-global-modal" class="form-input" min="0" max="1" step="0.01" value="" placeholder="Ej: 0.10 = 10%" oninput="document.getElementById('discount-global').value=this.value;recalculateRetBadge();if(typeof recalculateTotals==='function')recalculateTotals();"></div>
-                    <div class="inp-group" style="margin-bottom:16px;"><label>Retención ISR</label><select id="isr-rate-select-modal" class="form-select" onchange="document.getElementById('isr-rate-select').value=this.value;recalculateRetBadge();if(typeof recalculateTotals==='function')recalculateTotals();"><option value="0.0">Sin retención (0%)</option><option value="0.27">27% — Pagos al Exterior (E47)</option><option value="0.02">2% — Bienes y servicios</option><option value="0.10">10% — Honorarios / Alquiler</option></select></div>
-                    <div class="inp-group" style="margin-bottom:16px;"><label>Retención ITBIS</label><select id="itbis-rate-select-modal" class="form-select" onchange="document.getElementById('itbis-rate-select').value=this.value;recalculateRetBadge();if(typeof recalculateTotals==='function')recalculateTotals();"><option value="0.0">Sin retención (0%)</option><option value="0.30">30% — Bienes corporativos</option><option value="0.75">75% — Servicios jurídicos</option><option value="1.00">100% — Profesionales independientes</option></select></div>
+                    <div class="inp-group" style="margin-bottom:16px;"><label>Retención ISR</label><select id="isr-rate-select-modal" class="form-select" onchange="document.getElementById('isr-rate-select').value=this.value;recalculateRetBadge();if(typeof recalculateTotals==='function')recalculateTotals();"><option value="0.0">Sin retención (0%)</option>{% for opt in isr_withholding_options %}<option value="{{ opt.value }}">{{ opt.label }}</option>{% endfor %}</select></div>
+                    <div class="inp-group" style="margin-bottom:16px;"><label>Retención ITBIS</label><select id="itbis-rate-select-modal" class="form-select" onchange="document.getElementById('itbis-rate-select').value=this.value;recalculateRetBadge();if(typeof recalculateTotals==='function')recalculateTotals();"><option value="0.0">Sin retención (0%)</option>{% for opt in itbis_withholding_options %}<option value="{{ opt.value }}">{{ opt.label }}</option>{% endfor %}</select></div>
                     <div class="inp-group e47-field" style="display:none;margin-bottom:8px;padding:12px;border-radius:8px;background:rgba(139,92,246,0.04);border:1px solid rgba(139,92,246,0.15);">
                         <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:0.78rem;cursor:pointer;">
                             <input type="checkbox" id="isrAsumido" name="isrAsumido" onchange="onIsrAsumidoChange()">
@@ -360,8 +360,8 @@
         <!-- Hidden fields for retenciones (synced from modal) -->
         <div style="display:none !important;">
             <input type="number" id="discount-global" name="discountRate" min="0" max="1" step="0.01" value="0.00">
-            <select id="isr-rate-select" name="retainedISRRate"><option value="0.0" selected>0%</option><option value="0.27">27%</option><option value="0.02">2%</option><option value="0.10">10%</option></select>
-            <select id="itbis-rate-select" name="retainedITBISRate"><option value="0.0" selected>0%</option><option value="0.30">30%</option><option value="0.75">75%</option><option value="1.00">100%</option></select>
+            <select id="isr-rate-select" name="retainedISRRate"><option value="0.0" selected>0%</option>{% for opt in isr_withholding_options %}<option value="{{ opt.value }}">{{ opt.label }}</option>{% endfor %}</select>
+            <select id="itbis-rate-select" name="retainedITBISRate"><option value="0.0" selected>0%</option>{% for opt in itbis_withholding_options %}<option value="{{ opt.value }}">{{ opt.label }}</option>{% endfor %}</select>
         </div>
 
         <!-- Hidden fields for sidebar -->
@@ -1197,12 +1197,20 @@
             if (rncInput) rncInput.placeholder = '101001011';
         }
 
-        // Force ISR to 27% for E47
+        // Force ISR to the configured "Pagos al Exterior" rate for E47
         var isrSelect = document.getElementById('isr-rate-select');
         var isrSelectModal = document.getElementById('isr-rate-select-modal');
         if (isE47) {
-            if (isrSelect) isrSelect.value = '0.27';
-            if (isrSelectModal) isrSelectModal.value = '0.27';
+            var e47Opt = null;
+            if (isrSelect) {
+                for (var oi = 0; oi < isrSelect.options.length; oi++) {
+                    if (isrSelect.options[oi].text.indexOf('Pagos al Exterior') !== -1) { e47Opt = isrSelect.options[oi]; break; }
+                }
+            }
+            if (e47Opt) {
+                if (isrSelect) isrSelect.value = e47Opt.value;
+                if (isrSelectModal) isrSelectModal.value = e47Opt.value;
+            }
             recalculateRetBadge();
         }
 

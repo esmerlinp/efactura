@@ -32,7 +32,7 @@
                     <td>{{ t.lines|length }}</td>
                     <td>
                         {% if t.status == 'pendiente' %}<span class="badge badge-warning">Pendiente</span>
-                        {% elif t.status == 'en_transito' %}<span class="badge badge-info">En Tránsito</span>
+                        {% elif t.status == 'en_transito' %}<span class="badge badge-secondary">En Tránsito</span>
                         {% elif t.status == 'completada' %}<span class="badge badge-success">Completada</span>
                         {% else %}<span class="badge badge-danger">Rechazada</span>
                         {% endif %}
@@ -55,7 +55,13 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="7" class="text-center text-muted">No hay transferencias.</td></tr>
+                <tr>
+                    <td colspan="7" style="text-align:center; padding:40px; color:var(--text-muted);">
+                        <i class="fa-solid fa-truck-fast" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
+                        No hay transferencias registradas.
+                        <div style="margin-top:10px; font-size:0.85rem;">Crea una transferencia para mover mercancía entre almacenes.</div>
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>

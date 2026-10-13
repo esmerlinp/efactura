@@ -1,57 +1,317 @@
 {% extends "layout.html" %}
 {% block title %}Nueva Transferencia — {{ product_name }}{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1 class="page-title"><i class="fa-solid fa-truck-fast"></i> Nueva Transferencia</h1>
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 class="page-title" style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-truck-fast" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Nueva Transferencia entre Almacenes
+    </h1>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+        Solicita el traslado interno de mercancía de un almacén a otro. La transferencia queda
+        <strong>pendiente</strong> hasta que sea aprobada.
+    </p>
 </div>
 
-<div class="card">
-    <form method="POST">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="card-body">
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
-                <div class="form-group">
-                    <label>Almacén Origen</label>
-                    <select name="originWarehouseId" class="form-control" required>
-                        <option value="">Seleccione...</option>
-                        {% for w in warehouses %}
-                        <option value="{{ w.id }}">{{ w.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Almacén Destino</label>
-                    <select name="destinationWarehouseId" class="form-control" required>
-                        <option value="">Seleccione...</option>
-                        {% for w in warehouses %}
-                        <option value="{{ w.id }}">{{ w.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
+{% if warehouses|length < 2 %}
+<div class="card-table-wrapper" style="text-align:center; padding:60px 24px;">
+    <i class="fa-solid fa-warehouse" style="font-size:3rem; color:var(--text-muted); opacity:0.5; display:block; margin-bottom:16px;"></i>
+    <h3 style="font-family:var(--font-heading); font-size:1.1rem; margin-bottom:8px;">Necesitas al menos dos almacenes</h3>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:20px;">
+        Para transferir mercancía entre ubicaciones primero debes registrar un segundo almacén.
+    </p>
+    <a href="{{ url_for('web_invoices.inventory_warehouses') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i>
+        <span>Administrar Almacenes</span>
+    </a>
+</div>
+{% elif not items %}
+<div class="card-table-wrapper" style="text-align:center; padding:60px 24px;">
+    <i class="fa-solid fa-box-open" style="font-size:3rem; color:var(--text-muted); opacity:0.5; display:block; margin-bottom:16px;"></i>
+    <h3 style="font-family:var(--font-heading); font-size:1.1rem; margin-bottom:8px;">No hay bienes en el catálogo</h3>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:20px;">
+        Solo los artículos marcados como <strong>Bien / Producto Físico</strong> pueden transferirse.
+    </p>
+    <a href="{{ url_for('web_invoices.new_item') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i>
+        <span>Crear Producto</span>
+    </a>
+</div>
+{% else %}
+<form method="POST" id="transfer-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-            <table class="data-grid data-grid--editable">
-                <thead><tr><th>Producto</th><th>Stock Total</th><th style="width:120px;">Cantidad</th></tr></thead>
-                <tbody>
-                    {% for item in items %}
-                    <tr>
-                        <td>{{ item.name }}</td>
-                        <td>{{ "%.2f"|format(item.totalStock|float) }}</td>
-                        <td><input type="number" step="0.01" name="qty_{{ item.id }}" class="form-control small" value="0" min="0"></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-
+    <!-- Origen y Destino -->
+    <div class="card-table-wrapper" style="margin-bottom:24px;">
+        <h3 style="font-size:1.1rem; font-family:var(--font-heading); margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:14px;">
+            <i class="fa-solid fa-route" style="color:var(--accent-purple);"></i>
+            <span>Ruta de la Transferencia</span>
+        </h3>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;">
             <div class="form-group">
-                <label>Notas</label>
-                <input type="text" name="notes" class="form-control">
+                <label for="originWarehouseId"><i class="fa-solid fa-warehouse" style="color:var(--text-muted); margin-right:4px;"></i> Almacén Origen</label>
+                <select id="originWarehouseId" name="originWarehouseId" class="form-select" required>
+                    <option value="">Seleccionar almacén...</option>
+                    {% for w in warehouses %}
+                    <option value="{{ w.id }}">{{ w.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="destinationWarehouseId"><i class="fa-solid fa-truck-arrow-right" style="color:var(--text-muted); margin-right:4px;"></i> Almacén Destino</label>
+                <select id="destinationWarehouseId" name="destinationWarehouseId" class="form-select" required>
+                    <option value="">Seleccionar almacén...</option>
+                    {% for w in warehouses %}
+                    <option value="{{ w.id }}">{{ w.name }}</option>
+                    {% endfor %}
+                </select>
             </div>
         </div>
-        <div class="card-footer" style="display:flex; gap:12px; justify-content: flex-end;">
-            <a href="{{ url_for('web_inventory.transfer_list') }}" class="btn btn-ghost">Cancelar</a>
-            <button type="submit" class="btn btn-accent">Solicitar Transferencia</button>
+    </div>
+
+    <!-- Productos -->
+    <div class="card-table-wrapper" style="margin-bottom:24px;">
+        <h3 style="font-size:1.1rem; font-family:var(--font-heading); margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:14px;">
+            <i class="fa-solid fa-boxes-stacked" style="color:var(--accent-purple);"></i>
+            <span>Productos a Transferir</span>
+        </h3>
+
+        <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:20px;">
+            <div class="form-group" style="flex:1; min-width:280px; margin-bottom:0;">
+                <label for="product-picker">Agregar producto del catálogo</label>
+                <select id="product-picker" class="form-select">
+                    <option value="">Buscar producto por nombre o SKU...</option>
+                    {% for it in items %}
+                    <option value="{{ it.id }}">{{ it.name }}{% if it.code %} (SKU: {{ it.code }}){% endif %} — Stock: {{ "%.2f"|format(it.totalStock|float) }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="button" id="add-line" class="btn btn-secondary" style="height:34px;">
+                <i class="fa-solid fa-plus"></i>
+                <span>Agregar</span>
+            </button>
         </div>
-    </form>
-</div>
+
+        <div class="table-responsive">
+            <table class="data-grid data-grid--editable" style="width:100%;">
+                <thead>
+                    <tr>
+                        <th style="min-width:220px;">Producto</th>
+                        <th style="width:130px;">SKU</th>
+                        <th style="width:100px;">Unidad</th>
+                        <th style="text-align:right; width:140px;">Disponible (origen)</th>
+                        <th style="text-align:right; width:150px;">Cantidad</th>
+                        <th style="width:60px; text-align:center;"></th>
+                    </tr>
+                </thead>
+                <tbody id="lines-body"></tbody>
+            </table>
+        </div>
+
+        <div id="lines-empty" style="text-align:center; padding:32px 0; color:var(--text-muted); font-size:0.85rem;">
+            <i class="fa-solid fa-box-open" style="font-size:1.6rem; display:block; margin-bottom:10px; opacity:0.4;"></i>
+            Aún no has agregado productos. Usa el selector de arriba para añadir líneas.
+        </div>
+    </div>
+
+    <!-- Notas -->
+    <div class="card-table-wrapper" style="margin-bottom:24px;">
+        <h3 style="font-size:1.1rem; font-family:var(--font-heading); margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:14px;">
+            <i class="fa-solid fa-note-sticky" style="color:var(--accent-purple);"></i>
+            <span>Notas</span>
+        </h3>
+        <div class="form-group" style="margin-bottom:0;">
+            <label for="notes">Comentario interno (opcional)</label>
+            <textarea id="notes" name="notes" class="form-input" placeholder="Ej: Reposición de sucursal norte..." style="min-height:80px; resize:vertical; padding:12px;"></textarea>
+        </div>
+    </div>
+
+    <div id="form-error" style="display:none; margin-bottom:20px; padding:12px 16px; border-radius:var(--radius-md); background:var(--color-error-light); border:1px solid var(--color-error); color:var(--color-error); font-size:0.85rem;">
+        <i class="fa-solid fa-triangle-exclamation"></i> <span id="form-error-text"></span>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:12px;">
+        <a href="{{ url_for('web_inventory.transfer_list') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-xmark"></i>
+            <span>Cancelar</span>
+        </a>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-truck-fast"></i>
+            <span>Solicitar Transferencia</span>
+        </button>
+    </div>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% if warehouses|length >= 2 and items %}
+<script>
+    const ALL_ITEMS = {{ items_json|tojson }};
+    const STOCKS = {{ stocks|tojson }};
+
+    const stockIndex = {};
+    STOCKS.forEach(function (s) {
+        stockIndex[s.itemId + '|' + s.warehouseId] = Number(s.quantity) || 0;
+    });
+    const itemById = {};
+    ALL_ITEMS.forEach(function (i) { itemById[String(i.id)] = i; });
+
+    const originSel = document.getElementById('originWarehouseId');
+    const destSel = document.getElementById('destinationWarehouseId');
+    const picker = document.getElementById('product-picker');
+    const addBtn = document.getElementById('add-line');
+    const tbody = document.getElementById('lines-body');
+    const linesEmpty = document.getElementById('lines-empty');
+    const errorBox = document.getElementById('form-error');
+    const errorText = document.getElementById('form-error-text');
+    const form = document.getElementById('transfer-form');
+    const addedIds = new Set();
+
+    function fmt(n) {
+        return (Number(n) || 0).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function availableFor(itemId) {
+        const wh = originSel.value;
+        if (!wh) return null;
+        return stockIndex[itemId + '|' + wh] || 0;
+    }
+
+    function refreshAvailability() {
+        tbody.querySelectorAll('tr').forEach(function (tr) {
+            const itemId = tr.dataset.itemId;
+            const cell = tr.querySelector('.avail-cell');
+            const avail = availableFor(itemId);
+            cell.textContent = avail === null ? '—' : fmt(avail);
+            cell.style.color = avail !== null && avail <= 0 ? 'var(--accent-red)' : 'inherit';
+        });
+    }
+
+    function updateEmptyState() {
+        linesEmpty.style.display = addedIds.size ? 'none' : 'block';
+    }
+
+    function addLine(itemId) {
+        if (!itemId || addedIds.has(itemId)) return;
+        const item = itemById[itemId];
+        if (!item) return;
+        addedIds.add(itemId);
+
+        const tr = document.createElement('tr');
+        tr.dataset.itemId = itemId;
+
+        const tdName = document.createElement('td');
+        tdName.style.fontWeight = '600';
+        tdName.textContent = item.name;
+
+        const tdCode = document.createElement('td');
+        const codeSpan = document.createElement('span');
+        codeSpan.style.cssText = 'font-family:var(--font-mono); font-size:0.78rem; color:var(--text-secondary);';
+        codeSpan.textContent = item.code || '—';
+        tdCode.appendChild(codeSpan);
+
+        const tdUnit = document.createElement('td');
+        tdUnit.textContent = item.unit || 'Unidad';
+
+        const tdAvail = document.createElement('td');
+        tdAvail.className = 'avail-cell';
+        tdAvail.style.textAlign = 'right';
+
+        const tdQty = document.createElement('td');
+        tdQty.style.textAlign = 'right';
+        const qty = document.createElement('input');
+        qty.type = 'number';
+        qty.name = 'qty_' + itemId;
+        qty.min = '0';
+        qty.step = '0.01';
+        qty.value = '0';
+        qty.className = 'form-input';
+        qty.style.textAlign = 'right';
+        qty.style.width = '110px';
+        qty.style.marginLeft = 'auto';
+        tdQty.appendChild(qty);
+
+        const tdRemove = document.createElement('td');
+        tdRemove.style.textAlign = 'center';
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-sm btn-ghost';
+        removeBtn.title = 'Quitar línea';
+        removeBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+        removeBtn.addEventListener('click', function () {
+            addedIds.delete(itemId);
+            tr.remove();
+            refreshAvailability();
+            updateEmptyState();
+        });
+        tdRemove.appendChild(removeBtn);
+
+        tr.appendChild(tdName);
+        tr.appendChild(tdCode);
+        tr.appendChild(tdUnit);
+        tr.appendChild(tdAvail);
+        tr.appendChild(tdQty);
+        tr.appendChild(tdRemove);
+        tbody.appendChild(tr);
+
+        refreshAvailability();
+        updateEmptyState();
+        qty.focus();
+        qty.select();
+    }
+
+    addBtn.addEventListener('click', function () {
+        if (!picker.value) return;
+        addLine(picker.value);
+        picker.value = '';
+    });
+
+    originSel.addEventListener('change', refreshAvailability);
+
+    function showError(msg) {
+        errorText.textContent = msg;
+        errorBox.style.display = 'block';
+        errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function validateForm() {
+        if (!originSel.value || !destSel.value) {
+            return 'Debes seleccionar el almacén origen y el almacén destino.';
+        }
+        if (originSel.value === destSel.value) {
+            return 'El almacén origen y el destino deben ser diferentes.';
+        }
+        if (addedIds.size === 0) {
+            return 'Agrega al menos un producto a la transferencia.';
+        }
+        let anyQty = false;
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        for (const tr of rows) {
+            const qty = tr.querySelector('input[name^="qty_"]');
+            const val = Number(qty.value) || 0;
+            if (val <= 0) continue;
+            anyQty = true;
+            const avail = availableFor(tr.dataset.itemId);
+            if (avail !== null && val > avail) {
+                const item = itemById[tr.dataset.itemId];
+                qty.focus();
+                return 'La cantidad de "' + item.name + '" supera lo disponible en el almacén origen (' + fmt(avail) + ').';
+            }
+        }
+        if (!anyQty) {
+            return 'Indica una cantidad mayor a cero para al menos un producto.';
+        }
+        return null;
+    }
+
+    form.addEventListener('submit', function (e) {
+        errorBox.style.display = 'none';
+        const msg = validateForm();
+        if (msg) {
+            showError(msg);
+            e.preventDefault();
+        }
+    });
+</script>
+{% endif %}
 {% endblock %}

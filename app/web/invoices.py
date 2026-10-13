@@ -40,6 +40,7 @@ from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
 from app.utils.currency import CurrencyService
 from app.utils.pdf import pdf_write_options
+from app.utils.tax_utils import isr_withholding_options, itbis_withholding_options
 from app.services.ecf_emission import EcfEmissionService
 from app.utils.country_context import get_current_country
 from app.services.dgii_direct import DgiiDirectService
@@ -2423,6 +2424,10 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     cost_centers = DatabaseService.get_cost_centers(owner_uid, company_id=company_id, sandbox=sandbox)
     active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
 
+    _tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
+    _isr_withholding_options = isr_withholding_options(_tax_rules)
+    _itbis_withholding_options = itbis_withholding_options(_tax_rules)
+
     default_date = (existing_invoice.get('date', datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S"))[:10] if existing_invoice else datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d"))
     default_due_date = existing_invoice.get('dueDate', (datetime.now(timezone(timedelta(hours=-4))) + timedelta(days=30)).strftime("%Y-%m-%d")) if existing_invoice else (datetime.now(timezone(timedelta(hours=-4))) + timedelta(days=30)).strftime("%Y-%m-%d")
 
@@ -2478,6 +2483,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         ecf_types=_ecf_types,
         available_ecf_codes=[t.code for t in _ecf_types],
         client_ecf_rules=CLIENT_ECF_RULES,
+        isr_withholding_options=_isr_withholding_options,
+        itbis_withholding_options=_itbis_withholding_options,
     )
 
 
@@ -7035,6 +7042,8 @@ def payments_new_route():
         projects=projects,
         active_project_id=active_project_id,
         cost_centers=active_cost_centers,
+        isr_withholding_options=isr_withholding_options(tax_rules),
+        itbis_withholding_options=itbis_withholding_options(tax_rules),
     )
 
 
@@ -7401,6 +7410,8 @@ def minor_new_route():
         e43_sequences=e43_sequences,
         projects=projects,
         active_project_id=active_project_id,
+        isr_withholding_options=isr_withholding_options(tax_rules),
+        itbis_withholding_options=itbis_withholding_options(tax_rules),
     )
 
 
@@ -7978,6 +7989,8 @@ def edit_expense_route(expense_id):
         'cost_centers': active_cost_centers,
         'suppliers': [],
         'e43_sequences': [],
+        'isr_withholding_options': isr_withholding_options(tax_rules),
+        'itbis_withholding_options': itbis_withholding_options(tax_rules),
     }
 
     try:
@@ -8523,6 +8536,7 @@ def tax_settings():
                     "goods_services": float(request.form.get("w_isr_goods", 0) or 0) / 100.0,
                     "professional_fees": float(request.form.get("w_isr_professional", 0) or 0) / 100.0,
                     "digital_services_abroad": float(request.form.get("w_isr_digital", 0) or 0) / 100.0,
+                    "payments_abroad": float(request.form.get("w_isr_payments", 0) or 0) / 100.0,
                 },
                 "withholding_itbis": {
                     "corporate_goods": float(request.form.get("w_itbis_corp", 0) or 0) / 100.0,

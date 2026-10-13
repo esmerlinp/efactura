@@ -162,9 +162,14 @@
                     <input type="number" step="0.01" name="w_isr_digital" class="form-input"
                            value="{{ "%.2f" % (rules['withholding_isr']['digital_services_abroad'] * 100) }}">
                 </div>
+                <div class="form-group">
+                    <label>Pagos al Exterior / E47 (%)</label>
+                    <input type="number" step="0.01" name="w_isr_payments" class="form-input"
+                           value="{{ "%.2f" % (rules['withholding_isr'].get('payments_abroad', 0.27) * 100) }}">
+                </div>
             </div>
             <p style="color:var(--text-muted); font-size:0.75rem; margin:12px 0 0; font-style:italic; border-top:1px solid var(--border-color); padding-top:8px;">
-                <i class="fa-solid fa-circle-info"></i> Las <strong>Retenciones ISR</strong> son el porcentaje que el comprador retiene al proveedor como anticipo del impuesto sobre la renta. Se aplican en facturas de compra. Bienes y servicios: 2%, honorarios profesionales: 10%, servicios digitales del exterior: 15%. Se configuran por proveedor usando estas tasas como base.
+                <i class="fa-solid fa-circle-info"></i> Las <strong>Retenciones ISR</strong> son el porcentaje que el comprador retiene al proveedor como anticipo del impuesto sobre la renta. Se aplican en facturas de compra. Bienes y servicios: 2%, honorarios profesionales: 15%, servicios digitales del exterior: 15%, pagos al exterior (E47): 27%. Se configuran por proveedor usando estas tasas como base. Estas tasas alimentan los formularios de facturas, gastos menores y pagos.
             </p>
         </div>
     </div>

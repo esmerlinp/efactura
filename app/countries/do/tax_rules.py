@@ -7,8 +7,9 @@ ISR_LARGE_TAXPAYER_RATE = 0.27
 
 WITHHOLDING_ISR_RATES = {
     "goods_services": 0.02,
-    "professional_fees": 0.10,
+    "professional_fees": 0.15,
     "digital_services_abroad": 0.15,
+    "payments_abroad": 0.27,
 }
 
 WITHHOLDING_ITBIS_RATES = {
