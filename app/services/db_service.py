@@ -1500,6 +1500,7 @@ class DatabaseService:
                         "canHRAuthorizations": bool(perms.get("canHRAuthorizations", perms.get("canHR", True))),
                         "canHRDevelopment": bool(perms.get("canHRDevelopment", perms.get("canHR", True))),
                         "canHRSettings": bool(perms.get("canHRSettings", perms.get("canHR", True))),
+                        "canManageClientPortal": bool(perms.get("canManageClientPortal", perms.get("canClients", perms.get("canModifySettings", True)))),
                         **{k: bool(v) for k, v in perms.items() if k not in (
                             "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
                             "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
@@ -1522,7 +1523,8 @@ class DatabaseService:
                             "canAccountingSettings",
                             "canHRDashboard", "canHREmployees", "canHRAttendance",
                             "canHRVacations", "canHRPayroll", "canHROffboarding",
-                            "canHRAuthorizations", "canHRDevelopment", "canHRSettings"
+                            "canHRAuthorizations", "canHRDevelopment", "canHRSettings",
+                            "canManageClientPortal"
                         )}
                     },
                     "createdAt": created_at,
@@ -1623,6 +1625,7 @@ class DatabaseService:
                         "canHRAuthorizations": True,
                         "canHRDevelopment": True,
                         "canHRSettings": True,
+                        "canManageClientPortal": True,
                     },
                     "createdAt": datetime.now(timezone.utc).isoformat(),
                     "two_factor_enabled": False,

@@ -900,6 +900,8 @@ def contract_detail(contract_id):
 @require_module('contratos')
 def add_contract_comment(contract_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageContracts'):
+        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts"), 403
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     company_id = _resolve_company_id(owner_uid)
@@ -953,6 +955,8 @@ def add_contract_comment(contract_id):
 @require_module('contratos')
 def edit_contract_comment(contract_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageContracts'):
+        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts"), 403
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     company_id = _resolve_company_id(owner_uid)
@@ -1009,6 +1013,8 @@ def edit_contract_comment(contract_id, comment_id):
 @require_module('contratos')
 def delete_contract_comment(contract_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageContracts'):
+        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts"), 403
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     company_id = _resolve_company_id(owner_uid)
@@ -1038,12 +1044,14 @@ def trigger_contract_billing_route():
     de facturación recurrente de contratos.
     """
     if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageContracts'):
+        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts"), 403
     sandbox = session.get('sandbox', False)
     if not sandbox:
         flash('Esta acción solo está permitida en modo Sandbox.', 'error')
         return redirect(url_for('web_operations.contracts_list'))
         
-    owner_uid = session['user']['uid']
+    owner_uid = session['user'].get('ownerUID') or session['user']['uid']
     
     try:
         # Ejecutar facturación para el owner actual

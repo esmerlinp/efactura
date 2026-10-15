@@ -234,6 +234,17 @@ def check_permission(permission_name):
             return bool(user_perms['canHR'])
         return True
 
+    # Permiso de Portal de Clientes
+    if permission_name == 'canManageClientPortal':
+        if 'canManageClientPortal' in user_perms:
+            return bool(user_perms['canManageClientPortal'])
+        # Compatibilidad hacia atrás: si no está definido, hereda de canClients o canModifySettings
+        if 'canClients' in user_perms:
+            return bool(user_perms['canClients'])
+        if 'canModifySettings' in user_perms:
+            return bool(user_perms['canModifySettings'])
+        return True
+
     default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot', 'canAssignApprovers', 'canManageAPI', 'canAccountingExport') else True
     return user_perms.get(permission_name, default_val)
 
@@ -394,7 +405,11 @@ def get_user_landing_url():
 
     # 15. Contratos & Recurrencia
     if module_enabled('contratos') and check_permission('canManageContracts'):
-        return url_for('web_invoices.list_contracts')
+        return url_for('web_operations.list_contracts')
+
+    # 15.1 Portal de Clientes (Administración)
+    if module_enabled('portal_cliente') and check_permission('canManageClientPortal'):
+        return url_for('portal.portal_admin')
 
     # 16. Comisiones & Metas
     if module_enabled('comisiones') and check_permission('canManageCommissions'):
