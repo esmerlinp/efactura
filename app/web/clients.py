@@ -45,8 +45,8 @@ def _check_clients_module_gate():
 @require_module('crm')
 def list_clients():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="CRM Clientes", required_permission="canClients"), 403
+    if not (check_permission('canClients') or check_permission('canCRMContacts')):
+        return render_template('auth/restricted.html', feature_name="CRM Clientes", required_permission="canCRMContacts"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)

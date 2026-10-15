@@ -216,10 +216,14 @@ def get_user_landing_url():
 
     # 5. Clientes / CRM
     if module_enabled('crm'):
-        if check_permission('canClients') or check_permission('canCRM') or check_permission('canCRMContacts'):
-            return url_for('web_clients.list_clients')
+        if check_permission('canCRM') or check_permission('canCRMReports'):
+            return url_for('web_crm.dashboard')
         if check_permission('canCRMOpportunities'):
             return url_for('web_crm.pipeline')
+        if check_permission('canCRMActivities'):
+            return url_for('web_crm.activities')
+        if check_permission('canCRMContacts') or check_permission('canClients'):
+            return url_for('web_contacts.list_contacts')
 
     # 6. Catálogo de Productos
     if module_enabled('catalogo') and check_permission('canManageCatalog'):
@@ -292,7 +296,7 @@ def get_user_landing_url():
 
     # 16. Comisiones & Metas
     if module_enabled('comisiones') and check_permission('canManageCommissions'):
-        return url_for('web_invoices.commissions_dashboard')
+        return url_for('web_operations.list_commissions')
 
     # 17. Business Intelligence / Presupuestos
     if module_enabled('ia_bi') and check_permission('canViewBI'):
