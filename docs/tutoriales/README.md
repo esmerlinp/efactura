@@ -50,15 +50,16 @@ de usuario. Los tutoriales están organizados por módulo.
 
 ## Compras y Gastos
 
-1. [Crear un proveedor](compras/01-crear-proveedor.md)
-2. [Registrar un gasto](compras/02-registrar-gasto.md)
-3. [Workflows y aprobaciones](compras/03-workflow-aprobaciones.md)
-4. [Órdenes de compra](compras/04-ordenes-de-compra.md)
-5. [Facturas de proveedor (CxP)](compras/05-facturas-de-proveedor.md)
-6. [Notas de crédito en compras](compras/06-notas-de-credito-en-compras.md)
-7. [Pagos recurrentes](compras/07-pagos-recurrentes.md)
-8. [e-CF Recibidos (recepción DGII)](compras/08-ecf-recibidos.md)
-9. [Estado de cuentas por pagar](compras/09-estado-cuentas-por-pagar.md)
+1. [Flujo completo de compras (end-to-end)](compras/00-flujo-completo-compras.md)
+2. [Crear un proveedor](compras/01-crear-proveedor.md)
+3. [Registrar un gasto](compras/02-registrar-gasto.md)
+4. [Workflows y aprobaciones](compras/03-workflow-aprobaciones.md)
+5. [Órdenes de compra](compras/04-ordenes-de-compra.md)
+6. [Facturas de proveedor (CxP)](compras/05-facturas-de-proveedor.md)
+7. [Notas de crédito en compras](compras/06-notas-de-credito-en-compras.md)
+8. [Pagos recurrentes](compras/07-pagos-recurrentes.md)
+9. [e-CF Recibidos (recepción DGII)](compras/08-ecf-recibidos.md)
+10. [Estado de cuentas por pagar](compras/09-estado-cuentas-por-pagar.md)
 
 ## Contabilidad
 

@@ -1,6 +1,5 @@
 """Blueprint de Inventario Avanzado: transferencias, conteos físicos, costeo, lotes, alertas, recepciones de mercancía."""
 
-import uuid
 from datetime import datetime, timezone, date
 
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, g, send_file, make_response, jsonify
@@ -370,7 +369,6 @@ def new_receipt():
         return redirect(url_for("web_purchase_orders.purchase_order_detail", po_id=po_id))
 
     if request.method == "POST":
-        receipt_id = str(uuid.uuid4())
         receipt_number = GoodsReceiptService.get_next_receipt_number(company_id, sandbox=sandbox)
         warehouse_id = request.form.get("warehouseId", "")
         warehouse_name = request.form.get("warehouseName", "")
@@ -381,7 +379,10 @@ def new_receipt():
             item_id = item.get("id", "")
             rqty_str = request.form.get(f"received_qty_{item_id}", "0")
             cat_item_id = request.form.get(f"catalog_item_{item_id}", "")
-            rqty = float(rqty_str) if rqty_str else 0
+            try:
+                rqty = float(rqty_str) if rqty_str else 0.0
+            except (TypeError, ValueError):
+                rqty = 0.0
             if rqty <= 0:
                 continue
             receipt_items.append({
@@ -415,22 +416,45 @@ def new_receipt():
             "status": "completada",
             "notes": request.form.get("notes", ""),
             "createdBy": user,
-            "createdAt": datetime.now(timezone.utc).isoformat(),
         }
 
-        GoodsReceiptService.create_receipt(company_id, receipt_data, sandbox=sandbox)
-        GoodsReceiptService.register_receipt_inventory(company_id, receipt_data, sandbox=sandbox, owner_uid=owner_uid)
+        # ① Pre-validar TODO antes de persistir (almacén, catálogo, sobre-recepción)
+        try:
+            GoodsReceiptService.validate_receipt(
+                company_id, receipt_data, sandbox=sandbox, owner_uid=owner_uid
+            )
+        except ValueError as val_err:
+            flash(str(val_err), "error")
+            return redirect(url_for("web_inventory.new_receipt", po_id=po_id))
 
-        po_items_map = {item["poItemId"]: item for item in receipt_items}
+        # ② Persistir recibo
+        receipt_data = GoodsReceiptService.create_receipt(company_id, receipt_data, sandbox=sandbox)
+        receipt_id = receipt_data.get("id", receipt_number)
+
+        # ③ Mover inventario; si falla a mitad, revertir y descartar el recibo
+        registered = []
+        try:
+            registered = GoodsReceiptService.register_receipt_inventory(
+                company_id, receipt_data, sandbox=sandbox, owner_uid=owner_uid
+            )
+        except Exception as inv_err:
+            GoodsReceiptService.reverse_registered_transactions(
+                company_id, registered, sandbox=sandbox, owner_uid=owner_uid
+            )
+            GoodsReceiptService.delete_receipt(company_id, receipt_id, sandbox=sandbox)
+            print(f"⚠️ Error al registrar inventario de recepción {receipt_number}: {inv_err}")
+            flash(f"No se pudo registrar la recepción: {inv_err}. Intente nuevamente.", "error")
+            return redirect(url_for("web_inventory.new_receipt", po_id=po_id))
+
+        # ④ Actualizar OC por línea (el incremento usa el id de cada partida)
+        received_by_line = {i.get("poItemId"): float(i.get("receivedQuantity", 0)) for i in receipt_items}
+        all_complete = True
         for item in po.get("items", []):
-            item_id = item.get("id", "")
-            received_here = po_items_map.get(item_id, {}).get("receivedQuantity", 0)
-            item["receivedQuantity"] = float(item.get("receivedQuantity", 0)) + received_here
+            line_id = item.get("id", "")
+            item["receivedQuantity"] = float(item.get("receivedQuantity", 0)) + received_by_line.get(line_id, 0.0)
+            if float(item["receivedQuantity"]) + 1e-9 < float(item.get("quantity", 0)):
+                all_complete = False
 
-        all_complete = all(
-            float(it.get("receivedQuantity", 0)) >= float(it.get("quantity", 0))
-            for it in po.get("items", [])
-        )
         po["status"] = "recibida_completa" if all_complete else "recibida_parcial"
         po["receivedBy"] = user
         po["receivedAt"] = datetime.now(timezone.utc).isoformat()

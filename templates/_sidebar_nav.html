@@ -233,7 +233,7 @@
     <ul class="sidebar-section-content">
         {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManagePurchaseCXP', True)) %}
         <li class="nav-item {% if active_page == 'purchase_cxp' %}active{% endif %}"
-            data-tooltip="Registra las compras que realizas a tus proveedores y actualiza tu inventario de forma automática con solo registrar la factura.">
+            data-tooltip="Registra las facturas de tus proveedores y su saldo por pagar (CxP). El inventario se actualiza al recibir la mercancía.">
             <a href="{{ url_for('web_purchase_orders.list_purchase_cxp') }}">
                 <span>Facturas de proveedores</span>
             </a>
