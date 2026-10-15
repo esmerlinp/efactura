@@ -147,8 +147,8 @@ def test_purchases_presets_matrix_and_permission_groups():
     for p in expected_group_perms:
         assert p in group_perms, f"{p} must be in 'Compras y Proveedores' group"
 
-    # Verify Financiero does NOT contain canExpenses or canManagePurchaseCXP
-    financiero_group = next((g for g in PERMISSION_GROUPS if g.get("name") == "Financiero"), None)
+    # Verify Financiero / Finanzas y Tesorería does NOT contain canExpenses or canManagePurchaseCXP
+    financiero_group = next((g for g in PERMISSION_GROUPS if g.get("name") in ("Financiero", "Finanzas y Tesorería")), None)
     assert financiero_group is not None
     assert "canExpenses" not in financiero_group.get("perms", [])
     assert "canManagePurchaseCXP" not in financiero_group.get("perms", [])

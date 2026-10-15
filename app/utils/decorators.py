@@ -168,6 +168,32 @@ def check_permission(permission_name):
             return bool(user_perms['canManagePurchaseCXP'])
         return True
 
+    # Permisos granulares de Finanzas y Tesorería
+    finance_granular = (
+        'canManageCXCAdvances',
+        'canManageBanks',
+        'canBankReconciliation',
+    )
+    if permission_name in finance_granular:
+        if permission_name in user_perms:
+            return bool(user_perms[permission_name])
+        # Compatibilidad hacia atrás:
+        if permission_name == 'canManageCXCAdvances':
+            if 'canManageCXC' in user_perms:
+                return bool(user_perms['canManageCXC'])
+            return True
+        if permission_name == 'canManageBanks':
+            if 'canExpenses' in user_perms:
+                return bool(user_perms['canExpenses'])
+            return True
+        if permission_name == 'canBankReconciliation':
+            if 'canManageBanks' in user_perms:
+                return bool(user_perms['canManageBanks'])
+            if 'canExpenses' in user_perms:
+                return bool(user_perms['canExpenses'])
+            return True
+        return True
+
     default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot', 'canAssignApprovers', 'canManageAPI', 'canAccountingExport') else True
     return user_perms.get(permission_name, default_val)
 
@@ -274,13 +300,19 @@ def get_user_landing_url():
         if check_permission('canManageSuppliers') or check_permission('canCreateSupplier') or check_permission('canManageCXP'):
             return url_for('web_suppliers.list_suppliers')
 
-    # 11. Cuentas por Cobrar (CxC)
-    if module_enabled('cxc') and check_permission('canManageCXC'):
-        return url_for('web_invoices.cxc_dashboard')
+    # 11. Cuentas por Cobrar (CxC) y Anticipos
+    if module_enabled('cxc'):
+        if check_permission('canManageCXC'):
+            return url_for('web_invoices.cxc_dashboard')
+        if check_permission('canManageCXCAdvances'):
+            return url_for('web_invoices.cxc_advances_list')
 
     # 12. Bancos & Conciliación
-    if module_enabled('banks') and (check_permission('canBanks') or check_permission('canExpenses')):
-        return url_for('web_banks.banks_dashboard')
+    if module_enabled('banks'):
+        if check_permission('canManageBanks'):
+            return url_for('web_banks.list_banks')
+        if check_permission('canBankReconciliation'):
+            return url_for('web_banks.reconcile_list')
 
     # 13. Contabilidad & Catálogo
     if module_enabled('contabilidad') and check_permission('canAccounting'):

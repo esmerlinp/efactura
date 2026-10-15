@@ -180,6 +180,9 @@ def _cached_user_profile(uid):
                     "canCRMOpportunities": bool(perms.get("canCRMOpportunities", perms.get("canClients", True))),
                     "canCRMActivities": bool(perms.get("canCRMActivities", perms.get("canClients", True))),
                     "canCRMReports": bool(perms.get("canCRMReports", perms.get("canClients", False))),
+                    "canManageCXCAdvances": bool(perms.get("canManageCXCAdvances", perms.get("canManageCXC", True))),
+                    "canManageBanks": bool(perms.get("canManageBanks", perms.get("canExpenses", True))),
+                    "canBankReconciliation": bool(perms.get("canBankReconciliation", perms.get("canManageBanks", perms.get("canExpenses", True)))),
                     **{k: bool(v) for k, v in perms.items() if k not in (
                         "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
                         "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
@@ -193,7 +196,8 @@ def _cached_user_profile(uid):
                         "canReportsFiscal", "canReportsHR", "canAccountingExport", "canManageAPI",
                         "canManagePurchaseOrders", "canManagePurchaseCreditNotes", "canManageMinorExpenses",
                         "canManageRecurringExpenses", "canManageReceivedECF",
-                        "canCRM", "canCRMContacts", "canCRMOpportunities", "canCRMActivities", "canCRMReports"
+                        "canCRM", "canCRMContacts", "canCRMOpportunities", "canCRMActivities", "canCRMReports",
+                        "canManageCXCAdvances", "canManageBanks", "canBankReconciliation"
                     )}
                 },
                 "createdAt": serialize_field(data.get("createdAt")),
@@ -1460,6 +1464,9 @@ class DatabaseService:
                         "canCRMOpportunities": bool(perms.get("canCRMOpportunities", perms.get("canClients", True))),
                         "canCRMActivities": bool(perms.get("canCRMActivities", perms.get("canClients", True))),
                         "canCRMReports": bool(perms.get("canCRMReports", perms.get("canClients", False))),
+                        "canManageCXCAdvances": bool(perms.get("canManageCXCAdvances", perms.get("canManageCXC", True))),
+                        "canManageBanks": bool(perms.get("canManageBanks", perms.get("canExpenses", True))),
+                        "canBankReconciliation": bool(perms.get("canBankReconciliation", perms.get("canManageBanks", perms.get("canExpenses", True)))),
                         **{k: bool(v) for k, v in perms.items() if k not in (
                             "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
                             "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
@@ -1475,7 +1482,8 @@ class DatabaseService:
                             "canReportsFiscal", "canReportsHR", "canAccountingExport", "canManageAPI",
                             "canManagePurchaseOrders", "canManagePurchaseCreditNotes", "canManageMinorExpenses",
                             "canManageRecurringExpenses", "canManageReceivedECF",
-                            "canCRM", "canCRMContacts", "canCRMOpportunities", "canCRMActivities", "canCRMReports"
+                            "canCRM", "canCRMContacts", "canCRMOpportunities", "canCRMActivities", "canCRMReports",
+                            "canManageCXCAdvances", "canManageBanks", "canBankReconciliation"
                         )}
                     },
                     "createdAt": created_at,
@@ -1557,6 +1565,9 @@ class DatabaseService:
                         "canCRMOpportunities": True,
                         "canCRMActivities": True,
                         "canCRMReports": True,
+                        "canManageCXCAdvances": True,
+                        "canManageBanks": True,
+                        "canBankReconciliation": True,
                     },
                     "createdAt": datetime.now(timezone.utc).isoformat(),
                     "two_factor_enabled": False,
