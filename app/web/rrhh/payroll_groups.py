@@ -4,14 +4,22 @@ from flask import render_template, request, redirect, url_for, session, flash, j
 from datetime import datetime, timezone
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
-    _is_hr_role, _sanitize_for_role, MONTHS_ES,
+    _is_hr_role, _sanitize_for_role, _hr_restricted, MONTHS_ES,
     _filter_employees_by_period, _generate_periods,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
 from app.utils.hr_utils import is_active_equivalent
 from app.extensions import limiter
 from uuid import uuid4
 import os, json, threading
+
+
+def _can_manage_payroll_groups() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHRPayroll") or check_permission("canHRSettings")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -22,6 +30,8 @@ import os, json, threading
 def payroll_groups_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_payroll_groups():
+        return _hr_restricted("Grupos de Nómina", "canHRPayroll")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
@@ -39,6 +49,8 @@ def payroll_groups_list():
 def payroll_groups_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_payroll_groups():
+        return _hr_restricted("Grupos de Nómina", "canHRPayroll")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 

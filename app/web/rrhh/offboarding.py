@@ -12,8 +12,9 @@ from flask import render_template, request, redirect, url_for, session, flash, j
 from werkzeug.utils import secure_filename
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
-    _is_hr_role, _sanitize_for_role,
+    _is_hr_role, _sanitize_for_role, _hr_restricted,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
 from app.services.offboarding_service import OffboardingService
 from app.services.payroll_audit_service import log_action
@@ -24,6 +25,13 @@ from app.utils.hr_utils import is_active_equivalent
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
+def _can_manage_offboarding() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHROffboarding")
+
 
 def _service():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
@@ -270,6 +278,8 @@ def _refresh_pending_auth_metadata(company_id: str, auth_id: str,
 def offboarding_dashboard():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_offboarding():
+        return _hr_restricted("Desvinculaciones y Liquidaciones", "canHROffboarding")
     svc, owner_uid, sandbox, company_id = _service()
 
     all_requests = svc.list_requests(limit=500)
@@ -344,6 +354,8 @@ def offboarding_dashboard():
 def offboarding_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_offboarding():
+        return _hr_restricted("Desvinculaciones y Liquidaciones", "canHROffboarding")
     svc, owner_uid, sandbox, company_id = _service()
     status_filter = request.args.get("status", "")
     search = request.args.get("search", "").strip().lower()

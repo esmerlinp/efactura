@@ -8,11 +8,19 @@ from datetime import date, datetime, timezone
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
-    _is_hr_role, _sanitize_for_role, MONTHS_ES,
+    _is_hr_role, _sanitize_for_role, _hr_restricted, MONTHS_ES,
     _filter_employees_by_period, _generate_periods,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
 from app.utils.hr_utils import is_active_equivalent
+
+
+def _can_manage_attendance() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHRAttendance")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -23,6 +31,8 @@ from app.utils.hr_utils import is_active_equivalent
 def attendance():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_attendance():
+        return _hr_restricted("Control de Asistencia", "canHRAttendance")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     now = datetime.now(timezone.utc)
@@ -155,6 +165,8 @@ def attendance_export():
     """Exporta la asistencia en formato grilla (empleado × día) o listado largo."""
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_attendance():
+        return _hr_restricted("Control de Asistencia", "canHRAttendance")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     now = datetime.now(timezone.utc)

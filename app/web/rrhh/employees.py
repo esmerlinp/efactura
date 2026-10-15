@@ -8,9 +8,10 @@ from datetime import date, datetime, timezone
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
-    _is_hr_role, _sanitize_for_role, MONTHS_ES,
+    _is_hr_role, _sanitize_for_role, _hr_restricted, _can_view_salary, MONTHS_ES,
     _filter_employees_by_period, _generate_periods,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
 from app.services.payroll_static_data import DEFAULT_PAYROLL_CONFIG
 from app.services.payroll_service import PayrollService
@@ -19,6 +20,13 @@ from app.services.payroll_audit_service import log_action, get_audit_log
 from app.data.occupations_catalog import OCCUPATIONS
 from app.data.nationality_catalog import SIRLA_NATIONALITIES
 from app.data.disability_catalog import SIRLA_DISABILITIES, normalize_disability
+
+
+def _can_manage_employees() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHREmployees")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -439,8 +447,8 @@ def _resolve_position(company_id, position_id, position_name, sandbox):
 def employee_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    if not _is_hr_role():
-        return render_template("auth/restricted.html", feature_name="Nómina y Recursos Humanos", required_permission="canHR"), 403
+    if not _can_manage_employees():
+        return _hr_restricted("Gestión de Empleados", "canHREmployees")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.db_service import DatabaseService
@@ -542,6 +550,8 @@ def employee_list_columns():
     """Lee o guarda la visibilidad de columnas del grid para el usuario actual."""
     if _login_required():
         return jsonify({"error": "No autorizado"}), 401
+    if not _can_manage_employees():
+        return _hr_restricted("Gestión de Empleados", "canHREmployees")
     from app.web.rrhh.employee_columns import (
         EMPLOYEE_GRID_COLUMNS, get_employee_list_columns, save_employee_list_columns,
         DEFAULT_VISIBLE_COLUMNS, FIXED_COLUMNS,
@@ -570,6 +580,8 @@ def employee_list_columns():
 def employee_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_employees():
+        return _hr_restricted("Gestión de Empleados", "canHREmployees")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_static_data import (
@@ -728,6 +740,8 @@ def employee_new():
 def employee_edit(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_employees():
+        return _hr_restricted("Gestión de Empleados", "canHREmployees")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_static_data import (
@@ -1139,6 +1153,8 @@ def _load_employee_context(company_id: str, employee_id: str, owner_uid: str,
 def employee_view(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_employees():
+        return _hr_restricted("Gestión de Empleados", "canHREmployees")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     ctx = _load_employee_context(company_id, employee_id, owner_uid, sandbox=sandbox)
     if not ctx:
@@ -1161,6 +1177,8 @@ def _timeline_export_query() -> dict:
 def employee_actions_export_csv(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_employees():
+        return _hr_restricted("Gestión de Empleados", "canHREmployees")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
@@ -1189,6 +1207,8 @@ def employee_actions_export_csv(employee_id):
 def employee_actions_export_pdf(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_employees():
+        return _hr_restricted("Gestión de Empleados", "canHREmployees")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
@@ -1220,6 +1240,8 @@ def employee_rehire_form(employee_id):
     """Formulario de reincorporación: muestra relación anterior + nueva relación + movimientos."""
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_employees():
+        return _hr_restricted("Gestión de Empleados", "canHREmployees")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
@@ -1316,6 +1338,8 @@ def employee_rehire(employee_id):
     """Ejecuta la reincorporación delegando al dominio (RehireService). Conserva endpoint legacy."""
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_employees():
+        return _hr_restricted("Gestión de Empleados", "canHREmployees")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.rehire_service import RehireService, RehireValidationError
 
@@ -1488,6 +1512,8 @@ def employee_rehire(employee_id):
 def employee_photo_upload(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_employees():
+        return _hr_restricted("Gestión de Empleados", "canHREmployees")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     

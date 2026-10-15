@@ -214,6 +214,26 @@ def check_permission(permission_name):
             return bool(user_perms['canAccounting'])
         return True
 
+    # Permisos granulares de Nómina y Recursos Humanos
+    hr_granular = (
+        'canHRDashboard',
+        'canHREmployees',
+        'canHRAttendance',
+        'canHRVacations',
+        'canHRPayroll',
+        'canHROffboarding',
+        'canHRAuthorizations',
+        'canHRDevelopment',
+        'canHRSettings',
+    )
+    if permission_name in hr_granular:
+        if permission_name in user_perms:
+            return bool(user_perms[permission_name])
+        # Compatibilidad hacia atrás: si no está definido, consultar canHR
+        if 'canHR' in user_perms:
+            return bool(user_perms['canHR'])
+        return True
+
     default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot', 'canAssignApprovers', 'canManageAPI', 'canAccountingExport') else True
     return user_perms.get(permission_name, default_val)
 
@@ -352,8 +372,25 @@ def get_user_landing_url():
             return url_for('web_accounting.list_cost_centers')
 
     # 14. Nómina y Recursos Humanos
-    if module_enabled('nomina') and check_permission('canHR'):
-        return url_for('web_rrhh.employees_list')
+    if module_enabled('nomina'):
+        if check_permission('canHR') or check_permission('canHRDashboard'):
+            return url_for('web_rrhh.payroll_dashboard')
+        if check_permission('canHREmployees'):
+            return url_for('web_rrhh.employee_list')
+        if check_permission('canHRAttendance'):
+            return url_for('web_rrhh.attendance')
+        if check_permission('canHRVacations'):
+            return url_for('web_rrhh.vacation_list')
+        if check_permission('canHRPayroll'):
+            return url_for('web_rrhh.payroll_new')
+        if check_permission('canHROffboarding'):
+            return url_for('web_rrhh.offboarding_dashboard')
+        if check_permission('canHRAuthorizations'):
+            return url_for('web_rrhh.authorization_queue')
+        if check_permission('canHRDevelopment'):
+            return url_for('web_rrhh.evaluation_list')
+        if check_permission('canHRSettings'):
+            return url_for('web_rrhh.position_list')
 
     # 15. Contratos & Recurrencia
     if module_enabled('contratos') and check_permission('canManageContracts'):

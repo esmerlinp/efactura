@@ -5,7 +5,7 @@ from datetime import datetime, date
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
-    _is_hr_role, _sanitize_for_role, MONTHS_ES,
+    _is_hr_role, _sanitize_for_role, _hr_restricted, _can_view_salary, MONTHS_ES,
     _filter_employees_by_period, _generate_periods,
     get_locked_periods,
 )
@@ -22,6 +22,32 @@ from app.services.payroll_service import PayrollService
 def payroll_dashboard():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+
+    user = session.get("user", {})
+    role = user.get("role", "")
+    from app.utils.decorators import check_permission, get_user_landing_url
+    if not (role == "owner" or check_permission("canHR") or check_permission("canHRDashboard")):
+        if check_permission("canHREmployees"):
+            return redirect(url_for("web_rrhh.employee_list"))
+        if check_permission("canHRAttendance"):
+            return redirect(url_for("web_rrhh.attendance"))
+        if check_permission("canHRVacations"):
+            return redirect(url_for("web_rrhh.vacation_list"))
+        if check_permission("canHRPayroll"):
+            return redirect(url_for("web_rrhh.payroll_new"))
+        if check_permission("canHROffboarding"):
+            return redirect(url_for("web_rrhh.offboarding_dashboard"))
+        if check_permission("canHRAuthorizations"):
+            return redirect(url_for("web_rrhh.authorization_queue"))
+        if check_permission("canHRDevelopment"):
+            return redirect(url_for("web_rrhh.evaluation_list"))
+        if check_permission("canHRSettings"):
+            return redirect(url_for("web_rrhh.position_list"))
+        target_url = get_user_landing_url()
+        if target_url and target_url != request.path:
+            return redirect(target_url)
+        return _hr_restricted("Dashboard de Nómina y RRHH", "canHRDashboard")
+
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     # Verificar onboarding
@@ -399,6 +425,10 @@ def payroll_redirect():
 def employees_index():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    user = session.get("user", {})
+    from app.utils.decorators import check_permission
+    if not (user.get("role") == "owner" or check_permission("canHR") or check_permission("canHREmployees")):
+        return _hr_restricted("Personal y Empleados", "canHREmployees")
     return render_template("rrhh/employees_index.html", active_page="rrhh_employees")
 
 
@@ -406,6 +436,10 @@ def employees_index():
 def attendance_index():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    user = session.get("user", {})
+    from app.utils.decorators import check_permission
+    if not (user.get("role") == "owner" or check_permission("canHR") or check_permission("canHRAttendance")):
+        return _hr_restricted("Control de Asistencia", "canHRAttendance")
     return render_template("rrhh/attendance_index.html", active_page="rrhh_attendance")
 
 
@@ -413,6 +447,10 @@ def attendance_index():
 def payroll_index():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    user = session.get("user", {})
+    from app.utils.decorators import check_permission
+    if not (user.get("role") == "owner" or check_permission("canHR") or check_permission("canHRPayroll")):
+        return _hr_restricted("Procesamiento de Nómina", "canHRPayroll")
     return render_template("rrhh/payroll_index.html", active_page="rrhh_payroll")
 
 
@@ -420,6 +458,10 @@ def payroll_index():
 def development_index():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    user = session.get("user", {})
+    from app.utils.decorators import check_permission
+    if not (user.get("role") == "owner" or check_permission("canHR") or check_permission("canHRDevelopment")):
+        return _hr_restricted("Desarrollo y Evaluaciones", "canHRDevelopment")
     return render_template("rrhh/development_index.html", active_page="rrhh_development")
 
 
@@ -427,6 +469,10 @@ def development_index():
 def settings_index():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    user = session.get("user", {})
+    from app.utils.decorators import check_permission
+    if not (user.get("role") == "owner" or check_permission("canHR") or check_permission("canHRSettings")):
+        return _hr_restricted("Configuración de RRHH", "canHRSettings")
     return render_template("rrhh/settings_index.html", active_page="rrhh_settings")
 
 

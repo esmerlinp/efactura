@@ -5,11 +5,19 @@ from datetime import date
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
-    _is_hr_role, _sanitize_for_role, MONTHS_ES,
+    _is_hr_role, _sanitize_for_role, _hr_restricted, MONTHS_ES,
     _filter_employees_by_period, _generate_periods,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
 from app.services.hr_notifications import notify_vacation_approved, notify_leave_approved
+
+
+def _can_manage_vacations() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHRVacations")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -20,6 +28,8 @@ from app.services.hr_notifications import notify_vacation_approved, notify_leave
 def vacation_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_vacations():
+        return _hr_restricted("Gestión de Vacaciones", "canHRVacations")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
@@ -132,6 +142,8 @@ def vacation_list():
 def vacation_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_vacations():
+        return _hr_restricted("Gestión de Vacaciones", "canHRVacations")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
@@ -200,6 +212,8 @@ def vacation_new():
 def vacation_employee_summary(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_vacations():
+        return _hr_restricted("Gestión de Vacaciones", "canHRVacations")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
@@ -244,6 +258,8 @@ def vacation_employee_summary(employee_id):
 def vacation_action(request_id, action):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_vacations():
+        return _hr_restricted("Gestión de Vacaciones", "canHRVacations")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
@@ -308,6 +324,8 @@ def vacation_action(request_id, action):
 def vacation_cancel(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_vacations():
+        return _hr_restricted("Gestión de Vacaciones", "canHRVacations")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     cancel_date = request.form.get("cancelDate", "").strip()

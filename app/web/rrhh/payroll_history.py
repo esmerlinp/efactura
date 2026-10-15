@@ -5,11 +5,19 @@ from datetime import date
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
-    _is_hr_role, _sanitize_for_role, MONTHS_ES,
+    _is_hr_role, _sanitize_for_role, _hr_restricted, _can_view_salary, MONTHS_ES,
     _filter_employees_by_period, _generate_periods,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
 from app.services.payroll_service import PayrollService
+
+
+def _can_manage_payroll() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHRPayroll")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -20,6 +28,8 @@ from app.services.payroll_service import PayrollService
 def payroll_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_payroll():
+        return _hr_restricted("Historial de Nóminas", "canHRPayroll")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
@@ -79,6 +89,8 @@ def payroll_list():
 def payroll_view(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_payroll():
+        return _hr_restricted("Detalle de Nómina", "canHRPayroll")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
@@ -154,6 +166,8 @@ def payroll_view(period_id):
 def payroll_tss_export(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_payroll():
+        return _hr_restricted("Exportación TSS de Nómina", "canHRPayroll")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
@@ -176,6 +190,8 @@ def payroll_tss_export(period_id):
 def payroll_tss_autodeterminacion(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_payroll():
+        return _hr_restricted("Exportación TSS Autodeterminación", "canHRPayroll")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
@@ -223,6 +239,8 @@ def payroll_tss_autodeterminacion(period_id):
 def payroll_tss_novedades(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_payroll():
+        return _hr_restricted("Exportación TSS Novedades", "canHRPayroll")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
@@ -281,6 +299,8 @@ def payroll_tss_novedades(period_id):
 def payroll_tss_rectificativa(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_payroll():
+        return _hr_restricted("Exportación TSS Rectificativa", "canHRPayroll")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService

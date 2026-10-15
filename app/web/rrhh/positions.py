@@ -2,11 +2,19 @@
 
 import uuid
 
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, session
 from app.web.rrhh import (
-    web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
+    web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required, _hr_restricted,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
+
+
+def _can_manage_settings() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHRSettings")
 
 # Días de la semana para el editor de horario: (código, índice 0=Lun..6=Dom)
 _SCHEDULE_DAYS = [
@@ -63,6 +71,8 @@ def _get_position(company_id: str, item_id: str, sandbox: bool) -> dict | None:
 def position_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Posiciones y Cargos", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     items = hr.get_catalog(company_id, "positions", sandbox=sandbox)
     departments = hr.get_catalog(company_id, "departments", sandbox=sandbox)
@@ -109,6 +119,8 @@ def position_save():
     """Crea una nueva posición (nombre + reporta a) y redirige a su ficha."""
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Posiciones y Cargos", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     item_id = str(uuid.uuid4())
     name = request.form.get("name", "").strip()
@@ -127,6 +139,8 @@ def position_save():
 def position_detail(item_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Posiciones y Cargos", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     items = hr.get_catalog(company_id, "positions", sandbox=sandbox)
     item = next((p for p in items if p.get("id") == item_id), None)
@@ -211,6 +225,8 @@ def position_detail_save(item_id):
 def position_delete(item_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Posiciones y Cargos", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     hr.delete_catalog_item(company_id, "positions", item_id, sandbox=sandbox)
     flash("Posición eliminada.", "success")

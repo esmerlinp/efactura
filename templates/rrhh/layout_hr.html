@@ -52,6 +52,7 @@
                 <div class="sidebar-divider"></div>
 
                 <!-- ── Dashboard ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRDashboard') %}
                 <div class="sidebar-section {% if active_page == 'rrhh_dashboard' %}active-parent{% endif %}">
                     <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="sidebar-section-header" style="text-decoration: none;">
                         <div class="header-left">
@@ -60,8 +61,10 @@
                         </div>
                     </a>
                 </div>
+                {% endif %}
 
                 <!-- ── Autorizaciones (aplica a empleados y nómina) ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRAuthorizations') %}
                 <div class="sidebar-section {% if active_page == 'rrhh_authorizations' %}active-parent{% endif %}">
                     <a href="{{ url_for('web_rrhh.authorization_queue') }}" class="sidebar-section-header" style="text-decoration: none;">
                         <div class="header-left">
@@ -73,8 +76,10 @@
                         {% endif %}
                     </a>
                 </div>
+                {% endif %}
 
                 <!-- ── Personal ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHREmployees') or check_permission('canHRAttendance') or check_permission('canHRVacations') or check_permission('canHROffboarding') %}
                 <div class="sidebar-section" id="sidebar-section-rrhh-personal">
                     <div class="sidebar-section-header">
                         <div class="header-left">
@@ -84,6 +89,7 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHREmployees') %}
                         <li class="nav-item {% if active_page == 'rrhh_employees' %}active{% endif %}"
                             data-tooltip="Empleados">
                             <a href="{{ url_for('web_rrhh.employee_list') }}"><span>Empleados</span></a>
@@ -100,14 +106,20 @@
                             data-tooltip="Organigrama">
                             <a href="{{ url_for('web_rrhh.org_chart') }}"><span>Organigrama</span></a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHREmployees') or check_permission('canHRVacations') %}
                         <li class="nav-item {% if active_page == 'rrhh_team_calendar' %}active{% endif %}"
                             data-tooltip="Calendario">
                             <a href="{{ url_for('web_rrhh.team_calendar') }}"><span>Calendario del equipo</span></a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRAttendance') %}
                         <li class="nav-item {% if active_page == 'rrhh_attendance' %}active{% endif %}"
                             data-tooltip="Asistencia">
                             <a href="{{ url_for('web_rrhh.attendance') }}"><span>Asistencia</span></a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRVacations') %}
                         <li class="nav-item {% if active_page == 'rrhh_vacations' %}active{% endif %}"
                             data-tooltip="Vacaciones">
                             <a href="{{ url_for('web_rrhh.vacation_list') }}"><span>Vacaciones</span></a>
@@ -116,18 +128,25 @@
                             data-tooltip="Permisos">
                             <a href="{{ url_for('web_rrhh.leave_list') }}"><span>Permisos / Licencias</span></a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRVacations') or check_permission('canHRAuthorizations') %}
                         <li class="nav-item {% if active_page == 'rrhh_mass_actions' %}active{% endif %}"
                             data-tooltip="Historial de solicitudes">
                             <a href="{{ url_for('web_rrhh.mass_action_pending_list') }}"><span>Historial de Solicitudes</span></a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHROffboarding') %}
                         <li class="nav-item {% if active_page == 'rrhh_offboarding' %}active{% endif %}"
                             data-tooltip="Desvinculaciones">
                             <a href="{{ url_for('web_rrhh.offboarding_dashboard') }}"><span>Desvinculaciones</span></a>
                         </li>
+                        {% endif %}
                     </ul>
                 </div>
+                {% endif %}
 
                 <!-- ── Nómina ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRPayroll') or check_permission('canHRSettings') %}
                 <div class="sidebar-section" id="sidebar-section-rrhh-nomina">
                     <div class="sidebar-section-header">
                         <div class="header-left">
@@ -137,6 +156,7 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRPayroll') %}
                         <li class="nav-item {% if active_page == 'rrhh_payroll' %}active{% endif %}"
                             data-tooltip="Procesar nómina">
                             <a href="{{ url_for('web_rrhh.payroll_new') }}"><span>Procesar nómina</span></a>
@@ -157,6 +177,8 @@
                             data-tooltip="Movimientos Recurrentes">
                             <a href="{{ url_for('web_rrhh.recurring_list') }}"><span>Movimientos recurrentes</span></a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRSettings') %}
                         <li class="nav-item {% if active_page == 'rrhh_concepts' %}active{% endif %}"
                             data-tooltip="Conceptos">
                             <a href="{{ url_for('web_rrhh.concept_list') }}"><span>Conceptos de nómina</span></a>
@@ -169,10 +191,13 @@
                             data-tooltip="Configuración de nómina">
                             <a href="{{ url_for('web_rrhh.payroll_settings') }}"><span>Configuración de nómina</span></a>
                         </li>
+                        {% endif %}
                     </ul>
                 </div>
+                {% endif %}
 
                 <!-- ── Desarrollo ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRDevelopment') %}
                 <div class="sidebar-section" id="sidebar-section-rrhh-desarrollo">
                     <div class="sidebar-section-header">
                         <div class="header-left">
@@ -192,11 +217,12 @@
                         </li>
                     </ul>
                 </div>
+                {% endif %}
 
                 <div class="sidebar-divider"></div>
 
                 <!-- ── Administración ── -->
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageTools', True) %}
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRSettings') or session.get('user', {}).get('permissions', {}).get('canManageTools', True) %}
                 <div class="sidebar-section" id="sidebar-section-rrhh-config">
                     <div class="sidebar-section-header">
                         <div class="header-left">
@@ -206,6 +232,7 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRSettings') %}
                         <li class="nav-item {% if active_page == 'rrhh_positions' %}active{% endif %}"
                             data-tooltip="Posiciones">
                             <a href="{{ url_for('web_rrhh.position_list') }}"><span>Posiciones</span></a>
@@ -222,24 +249,33 @@
                             data-tooltip="Planes de seguro">
                             <a href="{{ url_for('web_rrhh.insurance_plan_list') }}"><span>Planes de seguro</span></a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canViewAuditLog') %}
                         <li class="nav-item {% if active_page == 'rrhh_audit' %}active{% endif %}"
                             data-tooltip="Auditoría">
                             <a href="{{ url_for('web_rrhh.audit_log') }}"><span>Auditoría</span></a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRSettings') or check_permission('canHRAuthorizations') %}
                         <li class="nav-item {% if active_page == 'rrhh_authorization_rules' %}active{% endif %}"
                             data-tooltip="Reglas de autorización">
                             <a href="{{ url_for('web_rrhh.authorization_rules_list') }}"><span>Reglas de autorización</span></a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canManageBanks') or session.get('user', {}).get('permissions', {}).get('canManageTools', True) %}
                         <li class="nav-item {% if active_page == 'bank_entities' %}active{% endif %}"
                             data-tooltip="Entidades Bancarias">
                             <a href="{{ url_for('web_bank_entities.list_bank_entities') }}">
                                 <span>Entidades Bancarias</span>
                             </a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageTools', True) %}
                         <li class="nav-item {% if active_page == 'herramientas' %}active{% endif %}"
                             data-tooltip="Activos y Herramientas">
                             <a href="{{ url_for('web_herramientas.list_herramientas') }}"><span>Activos y Herramientas</span></a>
                         </li>
+                        {% endif %}
                     </ul>
                 </div>
                 {% endif %}

@@ -5,10 +5,18 @@ from datetime import date, datetime
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
-    _is_hr_role, _sanitize_for_role, MONTHS_ES,
+    _is_hr_role, _sanitize_for_role, _hr_restricted, MONTHS_ES,
     _filter_employees_by_period, _generate_periods,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
+
+
+def _can_manage_leaves() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHRVacations")
 
 
 LEAVE_TYPE_LABELS = {
@@ -34,6 +42,8 @@ LEAVE_TYPE_LABELS = {
 def leave_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_leaves():
+        return _hr_restricted("Gestión de Permisos y Licencias", "canHRVacations")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
@@ -145,6 +155,8 @@ def leave_list():
 def leave_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_leaves():
+        return _hr_restricted("Gestión de Permisos y Licencias", "canHRVacations")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
@@ -215,6 +227,8 @@ def leave_new():
 def leave_action(request_id, action):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_leaves():
+        return _hr_restricted("Gestión de Permisos y Licencias", "canHRVacations")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 

@@ -12,8 +12,7 @@
     </a>
     {% endif %}
 
-    {% if module_enabled('nomina') and (session.get('user', {}).get('role') == 'owner' or session.get('user',
-    {}).get('permissions', {}).get('canHR', True)) %}
+    {% if module_enabled('nomina') and (session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRDashboard') or check_permission('canHREmployees') or check_permission('canHRAttendance') or check_permission('canHRVacations') or check_permission('canHRPayroll') or check_permission('canHROffboarding') or check_permission('canHRAuthorizations') or check_permission('canHRDevelopment') or check_permission('canHRSettings')) %}
     <a href="{{ url_for('web_rrhh.payroll_dashboard') }}"
         class="sidebar-discover-item {% if active_page and active_page.startswith('rrhh_') %}active{% endif %}"
         data-tooltip="Nómina y RRHH">
