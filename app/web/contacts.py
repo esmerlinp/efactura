@@ -19,10 +19,14 @@ gate_blueprint_module(web_contacts_bp, 'crm')
 # UTILITY: check authed + permission
 # =========================================================================
 
-def _check(perm='canClients', feature='Contactos'):
+def _check(perm='canCRMContacts', feature='Contactos'):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission(perm):
+    if session.get('user', {}).get('role') == 'owner':
+        return None
+    if request.args.get('tab') == 'proveedores' and (check_permission('canManageSuppliers') or check_permission('canCreateSupplier')):
+        return None
+    if not (check_permission(perm) or check_permission('canClients')):
         return render_template('auth/restricted.html', feature_name=feature, required_permission=perm), 403
     return None
 

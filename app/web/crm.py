@@ -58,10 +58,22 @@ def _get_active_company_context():
 def _check(feature="CRM", required_permission="canCRM"):
     if "user" not in session:
         return redirect(url_for("web_auth.login")), None
+    if session.get("user", {}).get("role") == "owner":
+        ctx = _get_active_company_context()
+        if not ctx:
+            flash("Debe seleccionar una empresa activa para acceder al CRM.", "warning")
+            return redirect(url_for("web_auth.select_company")), None
+        return None, ctx
     if not module_enabled("crm"):
         return (render_template("auth/restricted.html", feature_name=feature, required_permission="module_crm", custom_message=f"El módulo <strong>{feature}</strong> no está incluido en tu plan actual."), 403), None
-    if not check_permission(required_permission):
-        return (render_template("auth/restricted.html", feature_name=feature, required_permission=required_permission), 403), None
+    if isinstance(required_permission, (list, tuple)):
+        has_perm = any(check_permission(p) for p in required_permission)
+        perm_label = " / ".join(required_permission)
+    else:
+        has_perm = check_permission(required_permission)
+        perm_label = required_permission
+    if not has_perm:
+        return (render_template("auth/restricted.html", feature_name=feature, required_permission=perm_label), 403), None
     ctx = _get_active_company_context()
     if not ctx:
         flash("Debe seleccionar una empresa activa para acceder al CRM.", "warning")
@@ -159,7 +171,7 @@ def _activity_from_form(company_id=""):
 
 @web_crm_bp.route("/crm")
 def dashboard():
-    r, ctx = _check("Dashboard CRM", required_permission="canCRMReports")
+    r, ctx = _check("Dashboard CRM", required_permission=("canCRM", "canCRMReports"))
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()

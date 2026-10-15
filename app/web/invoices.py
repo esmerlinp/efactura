@@ -212,6 +212,9 @@ ALL_PERMISSION_KEYS = [
     "canManagePurchaseOrders", "canManagePurchaseCreditNotes",
     "canManageMinorExpenses", "canManageRecurringExpenses",
     "canManageReceivedECF",
+    # Permisos granulares de CRM y Contactos
+    "canCRM", "canCRMContacts", "canCRMOpportunities",
+    "canCRMActivities", "canCRMReports",
     # Permisos granulares de Reportería y Análisis
     "canReportsSales", "canReportsAdmin", "canReportsFinancial",
     "canReportsAccounting", "canReportsFiscal", "canReportsHR",
@@ -245,6 +248,9 @@ ROLES_PRESETS = {
         "canManagePurchaseOrders": False, "canManagePurchaseCreditNotes": False,
         "canManageMinorExpenses": False, "canManageRecurringExpenses": False,
         "canManageReceivedECF": False,
+        # CRM y Contactos para Vendedor
+        "canCRM": True, "canCRMContacts": True, "canCRMOpportunities": True,
+        "canCRMActivities": True, "canCRMReports": False,
         # Reportería para Vendedor
         "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
         "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
@@ -273,6 +279,9 @@ ROLES_PRESETS = {
         "canManagePurchaseOrders": True, "canManagePurchaseCreditNotes": True,
         "canManageMinorExpenses": True, "canManageRecurringExpenses": True,
         "canManageReceivedECF": True,
+        # CRM y Contactos para Contador
+        "canCRM": False, "canCRMContacts": True, "canCRMOpportunities": False,
+        "canCRMActivities": False, "canCRMReports": False,
         # Reportería para Contador
         "canReportsSales": True, "canReportsAdmin": True, "canReportsFinancial": True,
         "canReportsAccounting": True, "canReportsFiscal": True, "canReportsHR": True,
@@ -301,6 +310,9 @@ ROLES_PRESETS = {
         "canManagePurchaseOrders": False, "canManagePurchaseCreditNotes": False,
         "canManageMinorExpenses": False, "canManageRecurringExpenses": False,
         "canManageReceivedECF": False,
+        # CRM y Contactos para Consulta
+        "canCRM": False, "canCRMContacts": False, "canCRMOpportunities": False,
+        "canCRMActivities": False, "canCRMReports": False,
         # Reportería para Consulta
         "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
         "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
@@ -311,10 +323,30 @@ ROLES_PRESETS = {
 PERMISSION_GROUPS = [
     {
         "name": "Módulos Principales",
-        "perms": ["canViewDashboard", "canClients"],
+        "perms": ["canViewDashboard"],
         "labels": {
             "canViewDashboard": "Dashboard general",
-            "canClients": "Clientes (CRM)",
+        },
+    },
+    {
+        "name": "CRM y Contactos",
+        "perms": [
+            "canClients",
+            "canCRM",
+            "canCRMContacts",
+            "canCRMOpportunities",
+            "canCRMActivities",
+            "canCRMReports",
+            "canManageCommissions",
+        ],
+        "labels": {
+            "canClients": "Control general de clientes (maestro)",
+            "canCRM": "Acceso general a CRM",
+            "canCRMContacts": "Directorio de contactos y clientes (ficha 360°)",
+            "canCRMOpportunities": "Pipeline de ventas y oportunidades comerciales",
+            "canCRMActivities": "Agenda comercial (llamadas, tareas y reuniones)",
+            "canCRMReports": "Dashboard CRM y métricas de conversión",
+            "canManageCommissions": "Comisiones y metas de ventas",
         },
     },
     {
@@ -392,12 +424,10 @@ PERMISSION_GROUPS = [
     },
     {
         "name": "Financiero",
-        "perms": ["canManageCXC", "canManageCXP",
-                  "canManageCommissions", "canAccounting", "canManageContracts"],
+        "perms": ["canManageCXC", "canManageCXP", "canAccounting", "canManageContracts"],
         "labels": {
             "canManageCXC": "Cuentas por cobrar (CxC)",
             "canManageCXP": "Cuentas por pagar (CxP general)",
-            "canManageCommissions": "Comisiones y metas",
             "canAccounting": "Contabilidad",
             "canManageContracts": "Contratos y recurrencia",
         },

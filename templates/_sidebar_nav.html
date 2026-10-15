@@ -115,7 +115,7 @@
 {% endif %}
 
 <!-- SECCIÓN: CRM Y CONTACTOS -->
-{% if module_enabled('crm') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canClients', True) or session.get('user', {}).get('permissions', {}).get('canManageCommissions', True)) %}
+{% if (module_enabled('crm') and (session.get('user', {}).get('role') == 'owner' or check_permission('canCRM') or check_permission('canCRMReports') or check_permission('canCRMOpportunities') or check_permission('canCRMActivities') or check_permission('canCRMContacts') or check_permission('canClients'))) or (module_enabled('comisiones') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCommissions'))) %}
 <div class="sidebar-section" id="sidebar-section-crm">
     <div class="sidebar-section-header">
         <div class="header-left">
@@ -125,25 +125,31 @@
         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
     </div>
     <ul class="sidebar-section-content">
-        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canClients', True) %}
+        {% if module_enabled('crm') and (session.get('user', {}).get('role') == 'owner' or check_permission('canCRM') or check_permission('canCRMReports')) %}
         <li class="nav-item {% if active_page == 'crm_dashboard' %}active{% endif %}"
             data-tooltip="Dashboard CRM">
             <a href="{{ url_for('web_crm.dashboard') }}">
                 <span>Dashboard CRM</span>
             </a>
         </li>
+        {% endif %}
+        {% if module_enabled('crm') and (session.get('user', {}).get('role') == 'owner' or check_permission('canCRMOpportunities')) %}
         <li class="nav-item {% if active_page == 'crm_pipeline' %}active{% endif %}"
             data-tooltip="Pipeline">
             <a href="{{ url_for('web_crm.pipeline') }}">
                 <span>Pipeline</span>
             </a>
         </li>
+        {% endif %}
+        {% if module_enabled('crm') and (session.get('user', {}).get('role') == 'owner' or check_permission('canCRMActivities')) %}
         <li class="nav-item {% if active_page == 'crm_activities' %}active{% endif %}"
             data-tooltip="Agenda CRM">
             <a href="{{ url_for('web_crm.activities') }}">
                 <span>Agenda CRM</span>
             </a>
         </li>
+        {% endif %}
+        {% if module_enabled('crm') and (session.get('user', {}).get('role') == 'owner' or check_permission('canCRMContacts') or check_permission('canClients')) %}
         <li class="nav-item {% if active_page == 'contacts' %}active{% endif %}"
             data-tooltip="Contactos">
             <a href="{{ url_for('web_contacts.list_contacts') }}">
@@ -151,7 +157,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('comisiones') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageCommissions', True)) %}
+        {% if module_enabled('comisiones') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCommissions')) %}
         <li class="nav-item {% if active_page == 'commissions' %}active{% endif %}"
             data-tooltip="Comisiones y Metas">
             <a href="{{ url_for('web_operations.list_commissions') }}">

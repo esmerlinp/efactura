@@ -175,6 +175,11 @@ def _cached_user_profile(uid):
                     "canManageMinorExpenses": bool(perms.get("canManageMinorExpenses", perms.get("canExpenses", True))),
                     "canManageRecurringExpenses": bool(perms.get("canManageRecurringExpenses", perms.get("canExpenses", True))),
                     "canManageReceivedECF": bool(perms.get("canManageReceivedECF", perms.get("canExpenses", True))),
+                    "canCRM": bool(perms.get("canCRM", perms.get("canClients", True))),
+                    "canCRMContacts": bool(perms.get("canCRMContacts", perms.get("canClients", True))),
+                    "canCRMOpportunities": bool(perms.get("canCRMOpportunities", perms.get("canClients", True))),
+                    "canCRMActivities": bool(perms.get("canCRMActivities", perms.get("canClients", True))),
+                    "canCRMReports": bool(perms.get("canCRMReports", perms.get("canClients", False))),
                     **{k: bool(v) for k, v in perms.items() if k not in (
                         "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
                         "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
@@ -187,7 +192,8 @@ def _cached_user_profile(uid):
                         "canReportsSales", "canReportsAdmin", "canReportsFinancial", "canReportsAccounting",
                         "canReportsFiscal", "canReportsHR", "canAccountingExport", "canManageAPI",
                         "canManagePurchaseOrders", "canManagePurchaseCreditNotes", "canManageMinorExpenses",
-                        "canManageRecurringExpenses", "canManageReceivedECF"
+                        "canManageRecurringExpenses", "canManageReceivedECF",
+                        "canCRM", "canCRMContacts", "canCRMOpportunities", "canCRMActivities", "canCRMReports"
                     )}
                 },
                 "createdAt": serialize_field(data.get("createdAt")),
@@ -1449,6 +1455,11 @@ class DatabaseService:
                         "canManageMinorExpenses": bool(perms.get("canManageMinorExpenses", perms.get("canExpenses", True))),
                         "canManageRecurringExpenses": bool(perms.get("canManageRecurringExpenses", perms.get("canExpenses", True))),
                         "canManageReceivedECF": bool(perms.get("canManageReceivedECF", perms.get("canExpenses", True))),
+                        "canCRM": bool(perms.get("canCRM", perms.get("canClients", True))),
+                        "canCRMContacts": bool(perms.get("canCRMContacts", perms.get("canClients", True))),
+                        "canCRMOpportunities": bool(perms.get("canCRMOpportunities", perms.get("canClients", True))),
+                        "canCRMActivities": bool(perms.get("canCRMActivities", perms.get("canClients", True))),
+                        "canCRMReports": bool(perms.get("canCRMReports", perms.get("canClients", False))),
                         **{k: bool(v) for k, v in perms.items() if k not in (
                             "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
                             "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
@@ -1463,7 +1474,8 @@ class DatabaseService:
                             "canReportsSales", "canReportsAdmin", "canReportsFinancial", "canReportsAccounting",
                             "canReportsFiscal", "canReportsHR", "canAccountingExport", "canManageAPI",
                             "canManagePurchaseOrders", "canManagePurchaseCreditNotes", "canManageMinorExpenses",
-                            "canManageRecurringExpenses", "canManageReceivedECF"
+                            "canManageRecurringExpenses", "canManageReceivedECF",
+                            "canCRM", "canCRMContacts", "canCRMOpportunities", "canCRMActivities", "canCRMReports"
                         )}
                     },
                     "createdAt": created_at,
@@ -1540,6 +1552,11 @@ class DatabaseService:
                         "canManageMinorExpenses": True,
                         "canManageRecurringExpenses": True,
                         "canManageReceivedECF": True,
+                        "canCRM": True,
+                        "canCRMContacts": True,
+                        "canCRMOpportunities": True,
+                        "canCRMActivities": True,
+                        "canCRMReports": True,
                     },
                     "createdAt": datetime.now(timezone.utc).isoformat(),
                     "two_factor_enabled": False,
