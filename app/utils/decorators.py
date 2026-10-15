@@ -145,6 +145,29 @@ def check_permission(permission_name):
             return bool(user_perms['canManageAPI'])
         return False
 
+    # Permisos granulares de Compras y Proveedores
+    purchases_from_expenses = (
+        'canManagePurchaseOrders',
+        'canManageMinorExpenses',
+        'canManageRecurringExpenses',
+        'canManageReceivedECF',
+    )
+    if permission_name in purchases_from_expenses:
+        if permission_name in user_perms:
+            return bool(user_perms[permission_name])
+        # Compatibilidad hacia atrás: si no está definido, consultar canExpenses
+        if 'canExpenses' in user_perms:
+            return bool(user_perms['canExpenses'])
+        return True
+
+    if permission_name == 'canManagePurchaseCreditNotes':
+        if 'canManagePurchaseCreditNotes' in user_perms:
+            return bool(user_perms['canManagePurchaseCreditNotes'])
+        # Compatibilidad hacia atrás: si no está definido, consultar canManagePurchaseCXP
+        if 'canManagePurchaseCXP' in user_perms:
+            return bool(user_perms['canManagePurchaseCXP'])
+        return True
+
     default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot', 'canAssignApprovers', 'canManageAPI', 'canAccountingExport') else True
     return user_perms.get(permission_name, default_val)
 
@@ -177,6 +200,8 @@ def get_user_landing_url():
             return url_for('web_invoices.list_invoices')
         if check_permission('canManageFiscalNotes'):
             return url_for('web_fiscal_notes.list_fiscal_notes')
+        if check_permission('canManageReceivedECF'):
+            return url_for('web_recepcion.list_received_ecf')
 
     # 3. Punto de Venta (POS) y RUI
     if module_enabled('pos'):
@@ -226,12 +251,24 @@ def get_user_landing_url():
         return url_for('web_invoices.list_price_lists')
 
     # 9. Control de Gastos
-    if module_enabled('gastos') and check_permission('canExpenses'):
-        return url_for('web_invoices.list_expenses')
+    if module_enabled('gastos'):
+        if check_permission('canExpenses'):
+            return url_for('web_invoices.list_expenses')
+        if check_permission('canManageMinorExpenses'):
+            return url_for('web_invoices.minor_list')
+        if check_permission('canManageRecurringExpenses'):
+            return url_for('web_invoices.recurring_list')
 
     # 10. CxP / Compras / Proveedores
-    if module_enabled('cxp_compras') and (check_permission('canManageSuppliers') or check_permission('canCreateSupplier') or check_permission('canManageCXP') or check_permission('canManagePurchaseCXP')):
-        return url_for('web_suppliers.list_suppliers')
+    if module_enabled('cxp_compras'):
+        if check_permission('canManagePurchaseCXP'):
+            return url_for('web_purchase_orders.list_supplier_invoices')
+        if check_permission('canManagePurchaseOrders'):
+            return url_for('web_purchase_orders.list_purchase_orders')
+        if check_permission('canManagePurchaseCreditNotes'):
+            return url_for('web_purchase_orders.list_credit_notes')
+        if check_permission('canManageSuppliers') or check_permission('canCreateSupplier') or check_permission('canManageCXP'):
+            return url_for('web_suppliers.list_suppliers')
 
     # 11. Cuentas por Cobrar (CxC)
     if module_enabled('cxc') and check_permission('canManageCXC'):
