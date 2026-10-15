@@ -12,7 +12,7 @@ gate_blueprint_module(web_rui_bp, 'pos')
 
 
 @web_rui_bp.route('/list')
-@require_permission('canManagePOS', 'RUI')
+@require_permission('canManageRUI', 'RUI')
 def rui_list():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -42,7 +42,7 @@ def rui_list():
 
 
 @web_rui_bp.route('/<rui_id>')
-@require_permission('canManagePOS', 'RUI')
+@require_permission('canManageRUI', 'RUI')
 def rui_detail(rui_id):
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -69,7 +69,7 @@ def rui_detail(rui_id):
 
 
 @web_rui_bp.route('/generate', methods=['POST'])
-@require_permission('canManagePOS', 'RUI')
+@require_permission('canManageRUI', 'RUI')
 def rui_generate():
     owner_uid = session['user']['ownerUID']
     user_email = session['user'].get('email', '')
@@ -100,7 +100,7 @@ def rui_generate():
 
 
 @web_rui_bp.route('/<rui_id>/cancel', methods=['POST'])
-@require_permission('canManagePOS', 'RUI')
+@require_permission('canManageRUI', 'RUI')
 def rui_cancel(rui_id):
     owner_uid = session['user']['ownerUID']
     user_uid = session['user'].get('uid', '')
@@ -165,7 +165,7 @@ def api_rui_generate():
 
 
 @web_rui_bp.route('/<rui_id>/pdf')
-@require_permission('canManagePOS', 'RUI')
+@require_permission('canManageRUI', 'RUI')
 def rui_pdf(rui_id):
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -187,7 +187,7 @@ def rui_pdf(rui_id):
 
 
 @web_rui_bp.route('/check')
-@require_permission('canManagePOS', 'RUI')
+@require_permission('canManageRUI', 'RUI')
 def rui_check():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)

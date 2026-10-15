@@ -39,6 +39,45 @@ def test_granular_quotations_permission_logic(app):
         assert check_permission("canManageQuotations") is False
 
 
+def test_granular_sales_permissions_logic(app):
+    with app.test_request_context():
+        # 1. Owner always has permission
+        session["user"] = {"role": "owner", "permissions": {}}
+        assert check_permission("canManageFiscalNotes") is True
+        assert check_permission("canFiscalNotes") is True
+        assert check_permission("canManageCreditNotes") is True
+        assert check_permission("canManageRUI") is True
+
+        # 2. Explicitly True
+        session["user"] = _setup_session(app, {"canManageFiscalNotes": True, "canInvoice": False})
+        assert check_permission("canManageFiscalNotes") is True
+
+        session["user"] = _setup_session(app, {"canManageRUI": True, "canManagePOS": False})
+        assert check_permission("canManageRUI") is True
+
+        # 3. Explicitly False
+        session["user"] = _setup_session(app, {"canManageFiscalNotes": False, "canInvoice": True})
+        assert check_permission("canManageFiscalNotes") is False
+
+        session["user"] = _setup_session(app, {"canManageRUI": False, "canManagePOS": True})
+        assert check_permission("canManageRUI") is False
+
+        # 4. Backward compatibility fallback: key absent -> fallback to canInvoice / canManagePOS
+        session["user"] = _setup_session(app, {"canInvoice": True})
+        assert check_permission("canManageFiscalNotes") is True
+        assert check_permission("canFiscalNotes") is True
+        assert check_permission("canManageCreditNotes") is True
+
+        session["user"] = _setup_session(app, {"canInvoice": False})
+        assert check_permission("canManageFiscalNotes") is False
+
+        session["user"] = _setup_session(app, {"canManagePOS": True})
+        assert check_permission("canManageRUI") is True
+
+        session["user"] = _setup_session(app, {"canManagePOS": False})
+        assert check_permission("canManageRUI") is False
+
+
 def test_granular_inventory_permissions_logic(app):
     with app.test_request_context():
         # 1. Owner always has permission
@@ -100,7 +139,8 @@ def test_granular_inventory_permissions_logic(app):
 
 def test_presets_matrix_contains_granular_permissions():
     for key in (
-        "canManageQuotations", "canManageCatalog", "canViewInventoryDashboard",
+        "canManageFiscalNotes", "canManageQuotations", "canManageRUI",
+        "canManageCatalog", "canViewInventoryDashboard",
         "canInventoryKardex", "canInventoryReceipts", "canInventoryTransfers",
         "canInventoryCounts", "canInventoryLots", "canManageWarehouses",
         "canInventoryAdjustments", "canManagePriceLists"
@@ -112,21 +152,29 @@ def test_presets_matrix_contains_granular_permissions():
         assert key in ROLES_PRESETS["consulta"]
 
     # Role specific validations
+    assert ROLES_PRESETS["administrador"]["canManageFiscalNotes"] is True
     assert ROLES_PRESETS["administrador"]["canManageQuotations"] is True
+    assert ROLES_PRESETS["administrador"]["canManageRUI"] is True
     assert ROLES_PRESETS["administrador"]["canInventoryKardex"] is True
 
     assert ROLES_PRESETS["vendedor"]["canManageQuotations"] is True
+    assert ROLES_PRESETS["vendedor"]["canManageFiscalNotes"] is True
+    assert ROLES_PRESETS["vendedor"]["canManageRUI"] is False
     assert ROLES_PRESETS["vendedor"]["canManageCatalog"] is True
     assert ROLES_PRESETS["vendedor"]["canViewInventoryDashboard"] is True
     assert ROLES_PRESETS["vendedor"]["canInventoryKardex"] is False
     assert ROLES_PRESETS["vendedor"]["canInventoryReceipts"] is False
 
+    assert ROLES_PRESETS["contador"]["canManageFiscalNotes"] is True
     assert ROLES_PRESETS["contador"]["canManageQuotations"] is False
+    assert ROLES_PRESETS["contador"]["canManageRUI"] is True
     assert ROLES_PRESETS["contador"]["canInventoryKardex"] is True
     assert ROLES_PRESETS["contador"]["canInventoryCounts"] is True
     assert ROLES_PRESETS["contador"]["canManageCatalog"] is False
 
+    assert ROLES_PRESETS["consulta"]["canManageFiscalNotes"] is False
     assert ROLES_PRESETS["consulta"]["canManageQuotations"] is False
+    assert ROLES_PRESETS["consulta"]["canManageRUI"] is False
     assert ROLES_PRESETS["consulta"]["canViewInventoryDashboard"] is True
     assert ROLES_PRESETS["consulta"]["canInventoryKardex"] is False
 
@@ -134,17 +182,24 @@ def test_presets_matrix_contains_granular_permissions():
 def test_permission_groups_structure():
     group_names = [g["name"] for g in PERMISSION_GROUPS]
     assert "Módulos Principales" in group_names
+    assert "Ventas y Facturación" in group_names
     assert "Productos e Inventario" in group_names
 
-    main_group = next(g for g in PERMISSION_GROUPS if g["name"] == "Módulos Principales")
-    assert "canManageQuotations" in main_group["perms"]
+    ventas_group = next(g for g in PERMISSION_GROUPS if g["name"] == "Ventas y Facturación")
+    expected_ventas_perms = [
+        "canInvoice", "canManageFiscalNotes", "canManageQuotations",
+        "canManagePOS", "canManageRUI", "canManagePriceLists", "canVoidInvoice"
+    ]
+    for p in expected_ventas_perms:
+        assert p in ventas_group["perms"]
+        assert p in ventas_group["labels"]
 
     inv_group = next(g for g in PERMISSION_GROUPS if g["name"] == "Productos e Inventario")
     expected_inv_perms = [
         "canManageCatalog", "canViewInventoryDashboard", "canInventoryKardex",
         "canInventoryReceipts", "canInventoryTransfers", "canInventoryCounts",
         "canInventoryLots", "canManageWarehouses", "canInventoryAdjustments",
-        "canManagePriceLists", "canManageInventory"
+        "canManageInventory"
     ]
     for p in expected_inv_perms:
         assert p in inv_group["perms"]
@@ -161,7 +216,11 @@ def test_http_route_protection_quotations_and_inventory(client):
         "email": "collab@example.com",
         "name": "Collab Test",
         "permissions": {
+            "canInvoice": False,
+            "canManageFiscalNotes": False,
             "canManageQuotations": False,
+            "canManagePOS": False,
+            "canManageRUI": False,
             "canManageCatalog": False,
             "canViewInventoryDashboard": False,
             "canInventoryKardex": False,
@@ -202,6 +261,12 @@ def test_http_route_protection_quotations_and_inventory(client):
         # Blocked routes (403)
         res_quotations = client.get("/quotations")
         assert res_quotations.status_code == 403
+
+        res_fiscal_notes = client.get("/fiscal-notes")
+        assert res_fiscal_notes.status_code == 403
+
+        res_rui = client.get("/rui/list")
+        assert res_rui.status_code == 403
 
         res_items = client.get("/items")
         assert res_items.status_code == 403
@@ -295,4 +360,51 @@ def test_user_with_only_inventory_counts_redirects_to_counts_page(app, client):
         # 3. Acceder a /inventory/physical-counts debe responder 200 OK
         res_counts = client.get("/inventory/physical-counts")
         assert res_counts.status_code == 200
+
+
+def test_user_with_only_fiscal_notes_redirects_to_fiscal_notes(app):
+    from app.utils.decorators import get_user_landing_url
+
+    user_data = {
+        "uid": "collab_fn_only",
+        "ownerUID": "owner_01",
+        "role": "employee",
+        "email": "fn@example.com",
+        "permissions": {
+            "canViewDashboard": False,
+            "canInvoice": False,
+            "canManageFiscalNotes": True,
+            "canManagePOS": False,
+            "canClients": False,
+        }
+    }
+    with app.test_request_context():
+        session["user"] = user_data
+        session["company_modules"] = {'e_cf': {'enabled': True}}
+        landing = get_user_landing_url()
+        assert landing == "/fiscal-notes"
+
+
+def test_user_with_only_rui_redirects_to_rui_list(app):
+    from app.utils.decorators import get_user_landing_url
+
+    user_data = {
+        "uid": "collab_rui_only",
+        "ownerUID": "owner_01",
+        "role": "employee",
+        "email": "rui@example.com",
+        "permissions": {
+            "canViewDashboard": False,
+            "canInvoice": False,
+            "canManagePOS": False,
+            "canManageRUI": True,
+            "canClients": False,
+        }
+    }
+    with app.test_request_context():
+        session["user"] = user_data
+        session["company_modules"] = {'pos': {'enabled': True}}
+        landing = get_user_landing_url()
+        assert landing == "/rui/list"
+
 

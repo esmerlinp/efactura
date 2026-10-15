@@ -260,17 +260,9 @@ class TestMultiCompanyRoleIsolation:
             # user_profile NO debe haber sido actualizado con role='vendedor'
             user_doc_ref.collection.return_value.document.return_value.update.assert_not_called()
             # La membresía en comp_a SÍ debe haberse actualizado
+            from app.web.invoices import ROLES_PRESETS
             mock_upd_mem.assert_called_once_with(collab_uid, "comp_a", {
-                "permissions": {"canInvoice": True, "canExpenses": False, "canClients": True,
-                                "canModifySettings": False, "canManageInventory": False, "canManagePOS": True,
-                                "canViewDashboard": True, "canManageCXC": False, "canManageCXP": False,
-                                "canManageContracts": False, "canManageCommissions": True, "canViewBI": False,
-                                "canViewAuditLog": False, "canAccounting": False, "isPosSupervisor": False,
-                                "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
-                                "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
-                                "canManageTools": False, "canHR": False, "canVoidInvoice": False,
-                                "canCreateSupplier": False, "canApprovePayments": False, "canApprovePayroll": False,
-                                "canApproveExpenses": False, "canSupervisePOS": False, "canAssignApprovers": False},
+                "permissions": ROLES_PRESETS["vendedor"],
                 "role": "vendedor",
             })
             # El equipo de comp_a SÍ debe haberse actualizado

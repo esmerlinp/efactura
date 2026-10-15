@@ -44,7 +44,7 @@ def check_permission(permission_name):
             return bool(user_perms['canClients'])
         return True
 
-    # Permisos granulares de Cotizaciones
+    # Permisos granulares de Cotizaciones y Notas Fiscales (Ventas)
     if permission_name in ('canManageQuotations', 'canCreateQuotation'):
         if 'canManageQuotations' in user_perms:
             return bool(user_perms['canManageQuotations'])
@@ -53,6 +53,26 @@ def check_permission(permission_name):
         # Compatibilidad hacia atrás: si no está definido, consultar canInvoice
         if 'canInvoice' in user_perms:
             return bool(user_perms['canInvoice'])
+        return True
+
+    if permission_name in ('canManageFiscalNotes', 'canFiscalNotes', 'canManageCreditNotes'):
+        if 'canManageFiscalNotes' in user_perms:
+            return bool(user_perms['canManageFiscalNotes'])
+        if 'canFiscalNotes' in user_perms:
+            return bool(user_perms['canFiscalNotes'])
+        if 'canManageCreditNotes' in user_perms:
+            return bool(user_perms['canManageCreditNotes'])
+        # Compatibilidad hacia atrás: si no está definido, consultar canInvoice
+        if 'canInvoice' in user_perms:
+            return bool(user_perms['canInvoice'])
+        return True
+
+    if permission_name == 'canManageRUI':
+        if 'canManageRUI' in user_perms:
+            return bool(user_perms['canManageRUI'])
+        # Compatibilidad hacia atrás: si no está definido, consultar canManagePOS
+        if 'canManagePOS' in user_perms:
+            return bool(user_perms['canManagePOS'])
         return True
 
     # Permisos granulares de Productos e Inventario
@@ -114,13 +134,19 @@ def get_user_landing_url():
     if check_permission('canViewDashboard'):
         return url_for('web_dashboard.dashboard')
 
-    # 2. Facturación e-CF
-    if module_enabled('e_cf') and check_permission('canInvoice'):
-        return url_for('web_invoices.list_invoices')
+    # 2. Facturación e-CF y Notas Fiscales
+    if module_enabled('e_cf'):
+        if check_permission('canInvoice'):
+            return url_for('web_invoices.list_invoices')
+        if check_permission('canManageFiscalNotes'):
+            return url_for('web_fiscal_notes.list_fiscal_notes')
 
-    # 3. Punto de Venta (POS)
-    if module_enabled('pos') and check_permission('canManagePOS'):
-        return url_for('web_pos.pos_dashboard')
+    # 3. Punto de Venta (POS) y RUI
+    if module_enabled('pos'):
+        if check_permission('canManagePOS'):
+            return url_for('web_pos.pos_dashboard')
+        if check_permission('canManageRUI'):
+            return url_for('web_rui.rui_list')
 
     # 4. Cotizaciones
     if module_enabled('cotizaciones') and check_permission('canManageQuotations'):

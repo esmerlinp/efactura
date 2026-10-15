@@ -129,6 +129,8 @@ def _cached_user_profile(uid):
                 "permissions": {
                     "canInvoice": bool(perms.get("canInvoice", True)),
                     "canManageQuotations": bool(perms.get("canManageQuotations", perms.get("canInvoice", True))),
+                    "canManageFiscalNotes": bool(perms.get("canManageFiscalNotes", perms.get("canInvoice", True))),
+                    "canManageRUI": bool(perms.get("canManageRUI", perms.get("canManagePOS", True))),
                     "canExpenses": bool(perms.get("canExpenses", True)),
                     "canClients": bool(perms.get("canClients", True)),
                     "canModifySettings": bool(perms.get("canModifySettings", True)),
@@ -161,7 +163,7 @@ def _cached_user_profile(uid):
                     "canInventoryAdjustments": bool(perms.get("canInventoryAdjustments", perms.get("canManageInventory", True))),
                     "canManagePriceLists": bool(perms.get("canManagePriceLists", perms.get("canManageInventory", perms.get("canInvoice", True)))),
                     **{k: bool(v) for k, v in perms.items() if k not in (
-                        "canInvoice", "canManageQuotations", "canExpenses", "canClients", "canModifySettings",
+                        "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
                         "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
                         "canManageContracts", "canManageCommissions", "canViewBI", "canViewAuditLog", "isPosSupervisor",
                         "canViewSubscription", "canToggleSandbox", "canManageNotes", "canManageSuppliers",
@@ -1376,6 +1378,8 @@ class DatabaseService:
                     "permissions": {
                         "canInvoice": bool(perms.get("canInvoice", True)),
                         "canManageQuotations": bool(perms.get("canManageQuotations", perms.get("canInvoice", True))),
+                        "canManageFiscalNotes": bool(perms.get("canManageFiscalNotes", perms.get("canInvoice", True))),
+                        "canManageRUI": bool(perms.get("canManageRUI", perms.get("canManagePOS", True))),
                         "canExpenses": bool(perms.get("canExpenses", True)),
                         "canClients": bool(perms.get("canClients", True)),
                         "canModifySettings": bool(perms.get("canModifySettings", True)),
@@ -1416,7 +1420,7 @@ class DatabaseService:
                         "canInventoryAdjustments": bool(perms.get("canInventoryAdjustments", perms.get("canManageInventory", True))),
                         "canManagePriceLists": bool(perms.get("canManagePriceLists", perms.get("canManageInventory", perms.get("canInvoice", True)))),
                         **{k: bool(v) for k, v in perms.items() if k not in (
-                            "canInvoice", "canManageQuotations", "canExpenses", "canClients", "canModifySettings",
+                            "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
                             "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
                             "canManageContracts", "canManageCommissions", "canViewBI", "canViewAuditLog", "isPosSupervisor",
                             "canViewSubscription", "canToggleSandbox", "canManageNotes", "canManageSuppliers",
@@ -1448,6 +1452,8 @@ class DatabaseService:
                     "permissions": {
                         "canInvoice": True,
                         "canManageQuotations": True,
+                        "canManageFiscalNotes": True,
+                        "canManageRUI": True,
                         "canExpenses": True,
                         "canClients": True,
                         "canModifySettings": True,

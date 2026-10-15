@@ -52,7 +52,7 @@
 </div>
 
 <!-- SECCIÓN: VENTAS -->
-{% if (module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or check_permission('canInvoice'))) or (module_enabled('cotizaciones') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageQuotations'))) or (module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePOS')) and session.get('company_profile_pos_enabled', True)) or (module_enabled('price_lists') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePriceLists'))) %}
+{% if (module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or check_permission('canInvoice') or check_permission('canManageFiscalNotes'))) or (module_enabled('cotizaciones') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageQuotations'))) or (module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePOS') or check_permission('canManageRUI')) and session.get('company_profile_pos_enabled', True)) or (module_enabled('price_lists') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePriceLists'))) %}
 <div class="sidebar-section" id="sidebar-section-ventas">
     <div class="sidebar-section-header">
         <div class="header-left">
@@ -69,6 +69,8 @@
                 <span>Facturación Electrónica</span>
             </a>
         </li>
+        {% endif %}
+        {% if module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageFiscalNotes')) %}
         <li class="nav-item {% if active_page == 'fiscal_notes' %}active{% endif %}"
             data-tooltip="Notas de Crédito/Débito">
             <a href="{{ url_for('web_fiscal_notes.list_fiscal_notes') }}">
@@ -91,6 +93,8 @@
                 <span>Punto de Venta (POS)</span>
             </a>
         </li>
+        {% endif %}
+        {% if module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageRUI')) and session.get('company_profile_pos_enabled', True) %}
         <li class="nav-item {% if active_page == 'rui' %}active{% endif %}"
             data-tooltip="Registro Único de Ingresos">
             <a href="{{ url_for('web_rui.rui_list') }}">
