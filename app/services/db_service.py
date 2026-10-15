@@ -1501,6 +1501,13 @@ class DatabaseService:
                         "canHRDevelopment": bool(perms.get("canHRDevelopment", perms.get("canHR", True))),
                         "canHRSettings": bool(perms.get("canHRSettings", perms.get("canHR", True))),
                         "canManageClientPortal": bool(perms.get("canManageClientPortal", perms.get("canClients", perms.get("canModifySettings", True)))),
+                        "canManageCompanySettings": bool(perms.get("canManageCompanySettings", perms.get("canModifySettings", True))),
+                        "canManageTaxes": bool(perms.get("canManageTaxes", perms.get("canModifySettings", True))),
+                        "canManageSequences": bool(perms.get("canManageSequences", perms.get("canModifySettings", True))),
+                        "canCertifyDGII": bool(perms.get("canCertifyDGII", perms.get("canModifySettings", True))),
+                        "canManageUsers": bool(perms.get("canManageUsers", perms.get("canModifySettings", False))),
+                        "canViewSystemJobs": bool(perms.get("canViewSystemJobs", perms.get("canViewAuditLog", perms.get("canModifySettings", False)))),
+                        "canExportData": bool(perms.get("canExportData", perms.get("canModifySettings", True))),
                         **{k: bool(v) for k, v in perms.items() if k not in (
                             "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
                             "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
@@ -1524,7 +1531,9 @@ class DatabaseService:
                             "canHRDashboard", "canHREmployees", "canHRAttendance",
                             "canHRVacations", "canHRPayroll", "canHROffboarding",
                             "canHRAuthorizations", "canHRDevelopment", "canHRSettings",
-                            "canManageClientPortal"
+                            "canManageClientPortal",
+                            "canManageCompanySettings", "canManageTaxes", "canManageSequences",
+                            "canCertifyDGII", "canManageUsers", "canViewSystemJobs", "canExportData"
                         )}
                     },
                     "createdAt": created_at,
@@ -1626,6 +1635,13 @@ class DatabaseService:
                         "canHRDevelopment": True,
                         "canHRSettings": True,
                         "canManageClientPortal": True,
+                        "canManageCompanySettings": True,
+                        "canManageTaxes": True,
+                        "canManageSequences": True,
+                        "canCertifyDGII": True,
+                        "canManageUsers": True,
+                        "canViewSystemJobs": True,
+                        "canExportData": True,
                     },
                     "createdAt": datetime.now(timezone.utc).isoformat(),
                     "two_factor_enabled": False,

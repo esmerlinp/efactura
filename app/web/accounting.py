@@ -2341,9 +2341,9 @@ def tax_obligations():
     if not user:
         return redirect(url_for('web_auth.login'))
     is_owner = session.get('user', {}).get('role') == 'owner'
-    has_perm = is_owner or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')
+    has_perm = is_owner or check_permission('canManageTaxes') or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')
     if not has_perm:
-        return render_template('auth/restricted.html', required_permission="canModifySettings"), 403
+        return render_template('auth/restricted.html', required_permission="canManageTaxes"), 403
 
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
@@ -2368,7 +2368,7 @@ def tax_obligations_save():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     is_owner = session.get('user', {}).get('role') == 'owner'
-    if not (is_owner or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')):
+    if not (is_owner or check_permission('canManageTaxes') or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')):
         return jsonify(success=False, error="Permiso denegado"), 403
 
     owner_uid = _owner_uid()
@@ -2430,7 +2430,7 @@ def tax_obligations_delete():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     is_owner = session.get('user', {}).get('role') == 'owner'
-    if not (is_owner or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')):
+    if not (is_owner or check_permission('canManageTaxes') or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')):
         return jsonify(success=False, error="Permiso denegado"), 403
 
     owner_uid = _owner_uid()
@@ -2456,7 +2456,7 @@ def tax_obligations_apply_preset():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     is_owner = session.get('user', {}).get('role') == 'owner'
-    if not (is_owner or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')):
+    if not (is_owner or check_permission('canManageTaxes') or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')):
         return jsonify(success=False, error="Permiso denegado"), 403
 
     owner_uid = _owner_uid()

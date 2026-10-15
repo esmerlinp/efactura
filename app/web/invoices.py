@@ -233,6 +233,9 @@ ALL_PERMISSION_KEYS = [
     "canManageClientPortal",
     # Permisos de API y Desarrolladores
     "canManageAPI",
+    # Permisos granulares de Configuración y Sistema
+    "canManageCompanySettings", "canManageTaxes", "canManageUsers",
+    "canManageSequences", "canCertifyDGII", "canViewSystemJobs", "canExportData",
 ]
 
 ROLES_PRESETS = {
@@ -279,6 +282,10 @@ ROLES_PRESETS = {
         "canAccountingExport": False, "canManageAPI": False,
         # Operaciones y Portal para Vendedor
         "canManageClientPortal": False,
+        # Configuración y Sistema para Vendedor
+        "canManageCompanySettings": False, "canManageTaxes": False, "canManageUsers": False,
+        "canManageSequences": False, "canCertifyDGII": False, "canViewSystemJobs": False,
+        "canExportData": False,
     },
     "contador": {
         "canInvoice": True, "canManageFiscalNotes": True, "canManageQuotations": False,
@@ -322,6 +329,10 @@ ROLES_PRESETS = {
         "canAccountingExport": True, "canManageAPI": False,
         # Operaciones y Portal para Contador
         "canManageClientPortal": False,
+        # Configuración y Sistema para Contador
+        "canManageCompanySettings": False, "canManageTaxes": True, "canManageUsers": False,
+        "canManageSequences": True, "canCertifyDGII": False, "canViewSystemJobs": False,
+        "canExportData": True,
     },
     "consulta": {
         "canInvoice": False, "canManageFiscalNotes": False, "canManageQuotations": False,
@@ -365,6 +376,10 @@ ROLES_PRESETS = {
         "canAccountingExport": False, "canManageAPI": False,
         # Operaciones y Portal para Consulta
         "canManageClientPortal": False,
+        # Configuración y Sistema para Consulta
+        "canManageCompanySettings": False, "canManageTaxes": False, "canManageUsers": False,
+        "canManageSequences": False, "canCertifyDGII": False, "canViewSystemJobs": False,
+        "canExportData": False,
     },
 }
 
@@ -572,24 +587,54 @@ PERMISSION_GROUPS = [
         },
     },
     {
-        "name": "Administración",
-        "perms": ["canModifySettings", "canViewAuditLog", "canViewSubscription",
-                  "canToggleSandbox", "canManageNotes",
-                  "canUseChatbot", "isPosSupervisor", "canSupervisePOS",
-                  "canApprovePayments", "canApprovePayroll", "canApproveExpenses",
-                  "canManageAPI"],
+        "name": "Configuración y Empresa",
+        "perms": [
+            "canModifySettings",
+            "canManageCompanySettings",
+            "canManageTaxes",
+            "canManageSequences",
+            "canManageUsers",
+            "canCertifyDGII",
+            "canExportData",
+            "canViewSubscription",
+        ],
         "labels": {
-            "canModifySettings": "Ajustes de empresa",
-            "canViewAuditLog": "Registro de auditoría",
-            "canViewSubscription": "Plan y consumo",
-            "canToggleSandbox": "Modo sandbox",
-            "canManageNotes": "Gestor de notas",
-            "canUseChatbot": "Asistente IA",
+            "canModifySettings": "Ajustes generales y control maestro de configuración",
+            "canManageCompanySettings": "Datos de la empresa, sucursales, proyectos y logo",
+            "canManageTaxes": "Configuración de impuestos, tasas ITBIS, retenciones y alertas",
+            "canManageSequences": "Secuencias de comprobantes fiscales (NCF / e-NCF)",
+            "canManageUsers": "Gestión de equipo, colaboradores y permisos",
+            "canCertifyDGII": "Certificación de comprobantes electrónicos (e-CF)",
+            "canExportData": "Exportación masiva de datos de empresa (CSV)",
+            "canViewSubscription": "Consulta de plan, suscripción y consumo",
+        },
+    },
+    {
+        "name": "Sistema y Auditoría",
+        "perms": [
+            "canViewAuditLog",
+            "canViewSystemJobs",
+            "canToggleSandbox",
+            "canManageNotes",
+            "canUseChatbot",
+            "isPosSupervisor",
+            "canSupervisePOS",
+            "canApprovePayments",
+            "canApprovePayroll",
+            "canApproveExpenses",
+            "canManageAPI",
+        ],
+        "labels": {
+            "canViewAuditLog": "Registro de auditoría y trazabilidad de eventos",
+            "canViewSystemJobs": "Monitor de procesos y tareas en segundo plano (Jobs)",
+            "canToggleSandbox": "Modo de pruebas (Sandbox / Producción)",
+            "canManageNotes": "Gestor de notas y recordatorios rápidos",
+            "canUseChatbot": "Asistente inteligente con IA",
             "isPosSupervisor": "Supervisor de caja (POS)",
             "canSupervisePOS": "Supervisión avanzada de POS",
-            "canApprovePayments": "Aprobar pagos",
+            "canApprovePayments": "Aprobar pagos a proveedores",
             "canApprovePayroll": "Autorizar pagos de nómina",
-            "canApproveExpenses": "Aprobar gastos",
+            "canApproveExpenses": "Aprobar gastos de empresa",
             "canManageAPI": "API y Desarrolladores (acceso al portal, documentación y credenciales API REST)",
         },
     },
@@ -8628,8 +8673,8 @@ def pay_cxp_route(expense_id):
 @web_invoices_bp.route('/sequences')
 def list_sequences():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canModifySettings'):
-        return render_template('auth/restricted.html', feature_name="Secuencias Fiscales", required_permission="canModifySettings"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageSequences')):
+        return render_template('auth/restricted.html', feature_name="Secuencias Fiscales", required_permission="canManageSequences"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -8679,8 +8724,8 @@ def new_sequence_route():
     if request.method == 'GET':
         return redirect(url_for('web_invoices.list_sequences'))
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canModifySettings'):
-        return render_template('auth/restricted.html', feature_name="Crear Secuencia Fiscal", required_permission="canModifySettings"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageSequences')):
+        return render_template('auth/restricted.html', feature_name="Crear Secuencia Fiscal", required_permission="canManageSequences"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -8709,7 +8754,7 @@ def new_sequence_route():
 def toggle_sequence_block(seq_id):
     if 'user' not in session:
         return jsonify({"success": False, "message": "No autorizado"}), 401
-    if not check_permission('canModifySettings'):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageSequences')):
         return jsonify({"success": False, "message": "No autorizado"}), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -8729,8 +8774,8 @@ def toggle_sequence_block(seq_id):
 @web_invoices_bp.route('/cancellations/new', methods=['POST'])
 def new_cancellation_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canModifySettings'):
-        return render_template('auth/restricted.html', feature_name="Anulación de Rangos", required_permission="canModifySettings"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageSequences')):
+        return render_template('auth/restricted.html', feature_name="Anulación de Rangos", required_permission="canManageSequences"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -8771,9 +8816,9 @@ def new_cancellation_route():
 def tax_settings():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canModifySettings'):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageTaxes')):
         return render_template('auth/restricted.html', feature_name="Configuración de Impuestos",
-                               required_permission="canModifySettings"), 403
+                               required_permission="canManageTaxes"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
@@ -8860,8 +8905,8 @@ def tax_settings():
 @web_invoices_bp.route('/settings/company', methods=['GET', 'POST'])
 def company_settings():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canModifySettings'):
-        return render_template('auth/restricted.html', feature_name="Configuración de la Empresa", required_permission="canModifySettings"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCompanySettings')):
+        return render_template('auth/restricted.html', feature_name="Configuración de la Empresa", required_permission="canManageCompanySettings"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     
@@ -9418,8 +9463,8 @@ def save_certification_settings():
 @web_invoices_bp.route('/settings/team', methods=['GET'])
 def team_settings():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
-        flash('No tienes permisos de propietario.', 'error')
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageUsers')):
+        flash('No tienes permisos para administrar usuarios.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
@@ -9433,8 +9478,8 @@ def team_settings():
 @web_invoices_bp.route('/settings/team/new', methods=['POST'])
 def add_team_member():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
-        flash('No tienes permisos de propietario.', 'error')
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageUsers')):
+        flash('No tienes permisos para administrar usuarios.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
     
     owner_uid = session['user']['ownerUID']
@@ -9522,7 +9567,7 @@ def add_team_member():
 @web_invoices_bp.route('/settings/branches/save', methods=['POST'])
 def save_branch_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canModifySettings'):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCompanySettings')):
         flash('No tienes permisos.', 'error')
         return redirect(url_for('web_invoices.company_settings'))
     
@@ -9553,7 +9598,7 @@ def save_branch_route():
 @web_invoices_bp.route('/settings/branches/<branch_id>/delete', methods=['POST'])
 def delete_branch_route(branch_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canModifySettings'):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCompanySettings')):
         flash('No tienes permisos.', 'error')
         return redirect(url_for('web_invoices.company_settings'))
     
@@ -9583,7 +9628,7 @@ def delete_branch_route(branch_id):
 @web_invoices_bp.route('/settings/projects/save', methods=['POST'])
 def save_project_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canModifySettings'):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCompanySettings')):
         flash('No tienes permisos.', 'error')
         return redirect(url_for('web_invoices.company_settings'))
     
@@ -9625,7 +9670,7 @@ def save_project_route():
 @web_invoices_bp.route('/settings/projects/<project_id>/toggle-status', methods=['POST'])
 def toggle_project_status(project_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canModifySettings'):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCompanySettings')):
         flash('No tienes permisos.', 'error')
         return redirect(url_for('web_invoices.company_settings'))
     
@@ -9649,7 +9694,7 @@ def toggle_project_status(project_id):
 @web_invoices_bp.route('/settings/projects/<project_id>/delete', methods=['POST'])
 def delete_project_route(project_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canModifySettings'):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCompanySettings')):
         flash('No tienes permisos.', 'error')
         return redirect(url_for('web_invoices.company_settings'))
     
@@ -9664,7 +9709,7 @@ def delete_project_route(project_id):
 @web_invoices_bp.route('/settings/team/<employee_uid>/permissions', methods=['POST'])
 def update_team_member_permissions(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageUsers')):
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
     
@@ -9721,8 +9766,8 @@ def update_team_member_permissions(employee_uid):
 @web_invoices_bp.route('/settings/team/<employee_uid>/delete', methods=['POST'])
 def delete_team_member_route(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
-        flash('No tienes permisos de propietario.', 'error')
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageUsers')):
+        flash('No tienes permisos para administrar usuarios.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
     
     owner_uid = session['user']['ownerUID']
@@ -9752,8 +9797,8 @@ def delete_team_member_route(employee_uid):
 @web_invoices_bp.route('/settings/team/<employee_uid>', methods=['GET'])
 def team_member_detail(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
-        flash('No tienes permisos de propietario.', 'error')
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageUsers')):
+        flash('No tienes permisos para administrar usuarios.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
@@ -9769,8 +9814,8 @@ def team_member_detail(employee_uid):
 @web_invoices_bp.route('/settings/team/<employee_uid>/permissions', methods=['POST'])
 def update_team_member_permissions_v2(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
-        flash('No tienes permisos de propietario.', 'error')
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageUsers')):
+        flash('No tienes permisos para administrar usuarios.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
 
     role = request.form.get('role', 'personalizado')
@@ -9800,7 +9845,7 @@ def update_team_member_permissions_v2(employee_uid):
 @web_invoices_bp.route('/settings/team/<employee_uid>/reset-password', methods=['POST'])
 def reset_team_member_password(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageUsers')):
         return jsonify({"success": False, "error": "No autorizado"}), 403
 
     owner_uid = session['user']['ownerUID']
@@ -9845,8 +9890,8 @@ def reset_team_member_password(employee_uid):
 @web_invoices_bp.route('/settings/team/<employee_uid>/toggle-status', methods=['POST'])
 def toggle_team_member_status(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
-        flash('No tienes permisos de propietario.', 'error')
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageUsers')):
+        flash('No tienes permisos para administrar usuarios.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
 
     owner_uid = session['user']['ownerUID']
@@ -9877,7 +9922,7 @@ def toggle_team_member_status(employee_uid):
 def team_member_activity(employee_uid):
     """API endpoint para obtener actividad de un usuario (futura expansión)."""
     if 'user' not in session: return jsonify({"error": "No autorizado"}), 401
-    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageUsers')):
         return jsonify({"error": "No autorizado"}), 403
     from app.services.audit_service import AuditService
     limit = request.args.get('limit', 10, type=int)
@@ -9887,8 +9932,8 @@ def team_member_activity(employee_uid):
 @web_invoices_bp.route('/settings/company/export', methods=['POST'])
 def export_company_data():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canModifySettings'):
-        return render_template('auth/restricted.html', feature_name="Exportación de Datos", required_permission="canModifySettings"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canExportData')):
+        return render_template('auth/restricted.html', feature_name="Exportación de Datos", required_permission="canExportData"), 403
     
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')

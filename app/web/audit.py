@@ -15,6 +15,7 @@ from flask import (Blueprint, render_template, request, session,
 from app.services.audit_service import AuditService
 from app.services.db_service import DatabaseService, _resolve_company_id
 from app.utils.module_gate import gate_blueprint_module
+from app.utils.decorators import check_permission
 
 web_audit_bp = Blueprint('web_audit', __name__)
 gate_blueprint_module(web_audit_bp, 'auditoria')
@@ -26,8 +27,8 @@ def _require_audit_access():
         return redirect(url_for('web_auth.login'))
     user = session['user']
     is_owner = user.get('role') == 'owner'
-    has_perm = user.get('permissions', {}).get('canViewAuditLog', False)
-    if not is_owner and not has_perm:
+    has_perm = is_owner or check_permission('canViewAuditLog')
+    if not has_perm:
         return render_template('auth/restricted.html', feature_name="Registro de Auditoría", required_permission="canViewAuditLog"), 403
     return None
 
@@ -47,15 +48,15 @@ def audit_log():
     owner_profile = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_profile:
         company_users.append({
-            "uid": owner_profile["uid"],
-            "name": owner_profile["name"] or owner_profile["email"].split('@')[0],
-            "email": owner_profile["email"]
+            "uid": owner_profile.get("uid", ""),
+            "name": owner_profile.get("name") or owner_profile.get("email", "").split('@')[0],
+            "email": owner_profile.get("email", "")
         })
     for member in DatabaseService.get_team_members(owner_uid, company_id=company_id):
         company_users.append({
-            "uid": member["uid"],
-            "name": member["name"] or member["email"].split('@')[0],
-            "email": member["email"]
+            "uid": member.get("uid", ""),
+            "name": member.get("name") or member.get("email", "").split('@')[0],
+            "email": member.get("email", "")
         })
 
     # Leer parámetros de filtro desde URL (user es ahora una lista)

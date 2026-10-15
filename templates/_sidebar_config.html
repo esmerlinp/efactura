@@ -1,5 +1,5 @@
 <!-- SECCIÓN: CONFIGURACIÓN -->
-{% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) or session.get('user', {}).get('permissions', {}).get('canViewSubscription', True) or (module_enabled('auditoria') and session.get('user', {}).get('permissions', {}).get('canViewAuditLog', False)) or (module_enabled('certificacion') and dgii_environment == 'certecf' and session.get('user', {}).get('permissions', {}).get('canCertifyDGII', True)) or (module_enabled('exportacion_contable') and check_permission('canAccountingExport')) or (module_enabled('api') and check_permission('canManageAPI')) %}
+{% if session.get('user', {}).get('role') == 'owner' or check_permission('canManageCompanySettings') or check_permission('canManageTaxes') or check_permission('canManageUsers') or check_permission('canManageSequences') or (module_enabled('certificacion') and dgii_environment == 'certecf' and check_permission('canCertifyDGII')) or (module_enabled('auditoria') and check_permission('canViewAuditLog')) or (module_enabled('auditoria') and check_permission('canViewSystemJobs')) or (module_enabled('exportacion_contable') and check_permission('canAccountingExport')) or (module_enabled('api') and check_permission('canManageAPI')) or check_permission('canExportData') or check_permission('canViewSubscription') %}
 <div class="sidebar-section" id="sidebar-section-configuracion">
     <div class="sidebar-section-header">
         <div class="header-left">
@@ -9,13 +9,15 @@
         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
     </div>
     <ul class="sidebar-section-content">
-        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canManageCompanySettings') %}
         <li class="nav-item {% if active_page == 'settings' %}active{% endif %}"
             data-tooltip="Configuración de Empresa">
             <a href="{{ url_for('web_invoices.company_settings') }}">
                 <span>Configuración de Empresa</span>
             </a>
         </li>
+        {% endif %}
+        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canManageTaxes') %}
         <li class="nav-item {% if active_page == 'settings' %}active{% endif %}"
             data-tooltip="Impuestos">
             <a href="{{ url_for('web_invoices.tax_settings') }}">
@@ -29,7 +31,7 @@
             </a>
         </li>
         {% endif %}
-        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', False) %}
+        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canManageUsers') %}
         <li class="nav-item {% if active_page == 'team_settings' %}active{% endif %}"
             data-tooltip="Usuarios y Permisos">
             <a href="{{ url_for('web_invoices.team_settings') }}">
@@ -37,7 +39,7 @@
             </a>
         </li>
         {% endif %}
-        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canManageSequences') %}
         <li class="nav-item {% if active_page == 'sequences' %}active{% endif %}"
             data-tooltip="Secuencias Fiscales (NCF)">
             <a href="{{ url_for('web_invoices.list_sequences') }}">
@@ -45,7 +47,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('certificacion') and dgii_environment == 'certecf' and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canCertifyDGII', True)) %}
+        {% if module_enabled('certificacion') and dgii_environment == 'certecf' and (session.get('user', {}).get('role') == 'owner' or check_permission('canCertifyDGII')) %}
         <li class="nav-item {% if active_page == 'certificacion' %}active{% endif %}"
             data-tooltip="Certificación DGII">
             <a href="{{ url_for('web_certificacion.wizard') }}">
@@ -53,7 +55,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('auditoria') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewAuditLog', False)) %}
+        {% if module_enabled('auditoria') and (session.get('user', {}).get('role') == 'owner' or check_permission('canViewAuditLog')) %}
         <li class="nav-item {% if active_page == 'audit' %}active{% endif %}"
             data-tooltip="Auditoría">
             <a href="{{ url_for('web_audit.audit_log') }}">
@@ -61,7 +63,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('auditoria') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewAuditLog', False) or session.get('user', {}).get('permissions', {}).get('canModifySettings', True)) %}
+        {% if module_enabled('auditoria') and (session.get('user', {}).get('role') == 'owner' or check_permission('canViewSystemJobs')) %}
         <li class="nav-item {% if active_page == 'system_jobs' %}active{% endif %}"
             data-tooltip="Jobs y Procesos">
             <a href="{{ url_for('web_system_jobs.dashboard') }}">
@@ -85,7 +87,7 @@
             </a>
         </li>
         {% endif %}
-        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canExportData') %}
         <li class="nav-item"
             data-tooltip="Exportar Datos (CSV)">
             <a href="javascript:void(0)" onclick="document.getElementById('global-export-modal').style.display='flex'">
@@ -93,7 +95,7 @@
             </a>
         </li>
         {% endif %}
-        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewSubscription', True) %}
+        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canViewSubscription') %}
         <li class="nav-item {% if active_page == 'subscription' %}active{% endif %}"
             data-tooltip="Mi Plan y Consumo">
             <a href="{{ url_for('web_invoices.client_subscription_page') }}">
