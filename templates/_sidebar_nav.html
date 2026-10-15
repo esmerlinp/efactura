@@ -389,7 +389,7 @@
 {% endif %}
 
 <!-- SECCIÓN: CONTRATOS Y RECURRENCIA -->
-{% if module_enabled('contratos') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageContracts', True)) %}
+{% if module_enabled('contratos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageContracts')) %}
 <div class="sidebar-section {% if active_page == 'contracts' %}active-parent{% endif %}" id="sidebar-section-contratos">
     <a href="{{ url_for('web_operations.list_contracts') }}" class="sidebar-section-header" style="text-decoration: none;">
         <div class="header-left">
@@ -401,7 +401,7 @@
 {% endif %}
 
 <!-- SECCIÓN: PORTAL DE CLIENTES -->
-{% if module_enabled('portal_cliente') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canClients', True)) %}
+{% if module_enabled('portal_cliente') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageClientPortal')) %}
 <div class="sidebar-section {% if active_page == 'portal_admin' %}active-parent{% endif %}" id="sidebar-section-portal">
     <a href="{{ url_for('portal.portal_admin') }}" class="sidebar-section-header" style="text-decoration: none;">
         <div class="header-left">

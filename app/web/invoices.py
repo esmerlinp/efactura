@@ -229,6 +229,8 @@ ALL_PERMISSION_KEYS = [
     "canReportsSales", "canReportsAdmin", "canReportsFinancial",
     "canReportsAccounting", "canReportsFiscal", "canReportsHR",
     "canAccountingExport",
+    # Permisos de Operaciones y Portal
+    "canManageClientPortal",
     # Permisos de API y Desarrolladores
     "canManageAPI",
 ]
@@ -275,6 +277,8 @@ ROLES_PRESETS = {
         "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
         "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
         "canAccountingExport": False, "canManageAPI": False,
+        # Operaciones y Portal para Vendedor
+        "canManageClientPortal": False,
     },
     "contador": {
         "canInvoice": True, "canManageFiscalNotes": True, "canManageQuotations": False,
@@ -316,6 +320,8 @@ ROLES_PRESETS = {
         "canReportsSales": True, "canReportsAdmin": True, "canReportsFinancial": True,
         "canReportsAccounting": True, "canReportsFiscal": True, "canReportsHR": True,
         "canAccountingExport": True, "canManageAPI": False,
+        # Operaciones y Portal para Contador
+        "canManageClientPortal": False,
     },
     "consulta": {
         "canInvoice": False, "canManageFiscalNotes": False, "canManageQuotations": False,
@@ -357,6 +363,8 @@ ROLES_PRESETS = {
         "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
         "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
         "canAccountingExport": False, "canManageAPI": False,
+        # Operaciones y Portal para Consulta
+        "canManageClientPortal": False,
     },
 }
 
@@ -470,7 +478,6 @@ PERMISSION_GROUPS = [
             "canManageBanks",
             "canBankReconciliation",
             "canManageCXP",
-            "canManageContracts",
         ],
         "labels": {
             "canManageCXC": "Cuentas por cobrar (CxC)",
@@ -478,7 +485,17 @@ PERMISSION_GROUPS = [
             "canManageBanks": "Bancos y cajas (cuentas, movimientos y transferencias)",
             "canBankReconciliation": "Conciliación bancaria (carga de extractos y cuadre)",
             "canManageCXP": "Cuentas por pagar (CxP general)",
-            "canManageContracts": "Contratos y recurrencia",
+        },
+    },
+    {
+        "name": "Operaciones y Portal",
+        "perms": [
+            "canManageContracts",
+            "canManageClientPortal",
+        ],
+        "labels": {
+            "canManageContracts": "Contratos de servicio y facturación recurrente automática",
+            "canManageClientPortal": "Administración del portal de clientes (autoservicio y PIN)",
         },
     },
     {

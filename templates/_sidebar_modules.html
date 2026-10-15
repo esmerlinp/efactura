@@ -46,7 +46,7 @@
     </a>
     {% endif %}
     {% if module_enabled('portal_cliente') and (session.get('user', {}).get('role') == 'owner' or
-    session.get('user', {}).get('permissions', {}).get('canClients', True)) %}
+    check_permission('canManageClientPortal')) %}
     <a href="{{ url_for('portal.portal_admin') }}"
         class="sidebar-discover-item {% if active_page == 'portal_admin' %}active{% endif %}"
         data-tooltip="Portal de Clientes">

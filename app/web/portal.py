@@ -2052,9 +2052,9 @@ def portal_admin():
     if 'user' not in session:
         flash('Debe iniciar sesión para acceder a esta página.', 'error')
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canClients'):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageClientPortal')):
         return render_template('auth/restricted.html', feature_name='Portal de Clientes',
-                               required_permission='canClients'), 403
+                               required_permission='canManageClientPortal'), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
