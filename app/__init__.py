@@ -138,8 +138,20 @@ def create_app():
                         session['selected_company_id']
                     )
                     session['company_context'] = ctx
-                    if ctx and ctx.get('permissions'):
-                        fresh_profile.setdefault('permissions', {}).update(ctx['permissions'])
+                    if ctx:
+                        active_role = ctx.get('role', 'employee')
+                        fresh_profile['role'] = active_role
+                        fresh_profile['ownerUID'] = ctx.get('owner_uid', fresh_profile.get('ownerUID'))
+                        
+                        ctx_perms = ctx.get('permissions', {})
+                        if active_role == 'owner':
+                            from app.web.invoices import resolve_permissions
+                            fresh_profile['permissions'] = resolve_permissions('owner', None)
+                        elif ctx_perms:
+                            fresh_profile['permissions'] = dict(ctx_perms)
+                        else:
+                            from app.web.invoices import resolve_permissions
+                            fresh_profile['permissions'] = resolve_permissions(active_role, None)
                 else:
                     session.pop('company_context', None)
 

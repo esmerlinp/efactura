@@ -9191,7 +9191,7 @@ def add_team_member():
             company_id=company_id
         )
         # Actualizar permisos según rol + overrides (sincroniza también company_memberships)
-        DatabaseService.update_employee_permissions(profile['uid'], permissions, role=role if role != 'personalizado' else None, company_id=company_id)
+        DatabaseService.update_employee_permissions(profile['uid'], permissions, role=role, company_id=company_id)
         
         from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_USUARIOS
         AuditService.log_from_request(

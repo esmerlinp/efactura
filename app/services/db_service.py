@@ -1506,29 +1506,63 @@ class DatabaseService:
                 if legacy_docs:
                     team_docs = legacy_docs
             team_data_map = {d.id: d.to_dict() for d in team_docs if d.exists}
-            from app.web.invoices import resolve_permissions
+            from app.web.invoices import resolve_permissions, detect_role_from_permissions
             for emp_uid in team_data_map:
                 emp_doc = db_firestore.collection("users").document(emp_uid).collection("config").document("user_profile").get()
-                if emp_doc.exists:
-                    emp_data = emp_doc.to_dict()
+                emp_data = emp_doc.to_dict() if emp_doc.exists else {}
+                
+                team_member_data = team_data_map[emp_uid]
+                
+                # Rol y permisos en esta empresa específica:
+                role = team_member_data.get("role")
+                comp_perms = team_member_data.get("permissions")
+                
+                # Si falta rol o permisos, o si tiene 'owner' siendo colaborador, consultar membresía
+                if not role or (role == "owner" and emp_uid != owner_uid) or not comp_perms:
+                    if company_id:
+                        mem = cls.get_membership(emp_uid, company_id)
+                        if mem:
+                            if not role or (role == "owner" and emp_uid != owner_uid):
+                                m_role = mem.get("role")
+                                if m_role and m_role != "owner":
+                                    role = m_role
+                            if not comp_perms:
+                                comp_perms = mem.get("permissions")
+                
+                # Un colaborador (emp_uid != owner_uid) nunca puede tener rol 'owner' en esta empresa
+                if not role or (role == "owner" and emp_uid != owner_uid):
+                    if comp_perms:
+                        role = detect_role_from_permissions(comp_perms)
+                    else:
+                        role = "personalizado"
+                    # Auto-sanar en Firestore si estaba guardado como 'owner'
+                    try:
+                        ref.document(emp_uid).update({"role": role})
+                        if company_id:
+                            cls.update_membership(emp_uid, company_id, {"role": role})
+                    except Exception:
+                        pass
+                
+                if not comp_perms:
                     raw_perms = emp_data.get("permissions", {})
-                    role = emp_data.get("role", "consulta")
                     overrides = emp_data.get("permissions_overrides", {})
                     if isinstance(raw_perms, dict) and not overrides:
                         overrides = raw_perms
-                    created_at = team_data_map[emp_uid].get("createdAt", emp_data.get("createdAt", ""))
-                    if hasattr(created_at, 'strftime'):
-                        created_at = created_at.strftime('%Y-%m-%dT%H:%M:%S')
-                    team.append({
-                        "uid": emp_uid,
-                        "name": emp_data.get("name", ""),
-                        "email": emp_data.get("email", ""),
-                        "profileImageUrl": emp_data.get("profileImageUrl", ""),
-                        "role": role,
-                        "status": team_data_map[emp_uid].get("status", "active"),
-                        "createdAt": created_at,
-                        "permissions": resolve_permissions(role, overrides or None),
-                    })
+                    comp_perms = resolve_permissions(role, overrides or None)
+                
+                created_at = team_member_data.get("createdAt", emp_data.get("createdAt", ""))
+                if hasattr(created_at, 'strftime'):
+                    created_at = created_at.strftime('%Y-%m-%dT%H:%M:%S')
+                team.append({
+                    "uid": emp_uid,
+                    "name": emp_data.get("name") or team_member_data.get("name", ""),
+                    "email": emp_data.get("email") or team_member_data.get("email", ""),
+                    "profileImageUrl": emp_data.get("profileImageUrl", ""),
+                    "role": role,
+                    "status": team_member_data.get("status", "active"),
+                    "createdAt": created_at,
+                    "permissions": comp_perms,
+                })
             if owner_uid not in team_data_map:
                 owner_doc = db_firestore.collection("users").document(owner_uid).collection("config").document("user_profile").get()
                 if owner_doc.exists:
@@ -1565,7 +1599,7 @@ class DatabaseService:
         if not firebase_initialized:
             return None
         try:
-            from app.web.invoices import resolve_permissions
+            from app.web.invoices import resolve_permissions, detect_role_from_permissions, ROLES_PRESETS
             ref = cls._company_team_coll(owner_uid, company_id=company_id)
             if not ref:
                 return None
@@ -1574,28 +1608,61 @@ class DatabaseService:
                 return None
             team_data = team_doc.to_dict()
             emp_doc = db_firestore.collection("users").document(employee_uid).collection("config").document("user_profile").get()
-            if not emp_doc.exists:
-                return None
-            emp_data = emp_doc.to_dict()
-            raw_perms = emp_data.get("permissions", {})
-            role = emp_data.get("role", "consulta")
-            overrides = emp_data.get("permissions_overrides", {})
-            if isinstance(raw_perms, dict) and not overrides:
-                overrides = raw_perms
+            emp_data = emp_doc.to_dict() if emp_doc.exists else {}
+
+            role = team_data.get("role")
+            comp_perms = team_data.get("permissions")
+            if not role or (role == "owner" and employee_uid != owner_uid) or not comp_perms:
+                if company_id:
+                    mem = cls.get_membership(employee_uid, company_id)
+                    if mem:
+                        if not role or (role == "owner" and employee_uid != owner_uid):
+                            m_role = mem.get("role")
+                            if m_role and m_role != "owner":
+                                role = m_role
+                        if not comp_perms:
+                            comp_perms = mem.get("permissions")
+
+            if not role or (role == "owner" and employee_uid != owner_uid):
+                if comp_perms:
+                    role = detect_role_from_permissions(comp_perms)
+                else:
+                    role = "personalizado"
+                try:
+                    ref.document(employee_uid).update({"role": role})
+                    if company_id:
+                        cls.update_membership(employee_uid, company_id, {"role": role})
+                except Exception:
+                    pass
+
+            if not comp_perms:
+                raw_perms = emp_data.get("permissions", {})
+                overrides = emp_data.get("permissions_overrides", {})
+                if isinstance(raw_perms, dict) and not overrides:
+                    overrides = raw_perms
+                comp_perms = resolve_permissions(role, overrides or None)
+
+            overrides = {}
+            if role in ROLES_PRESETS:
+                preset = ROLES_PRESETS[role]
+                overrides = {k: v for k, v in comp_perms.items() if k in preset and v != preset[k]}
+            else:
+                overrides = comp_perms
+
             created_at = team_data.get("createdAt", emp_data.get("createdAt", ""))
             if hasattr(created_at, 'strftime'):
                 created_at = created_at.strftime('%Y-%m-%dT%H:%M:%S')
             return {
                 "uid": employee_uid,
-                "name": emp_data.get("name", ""),
-                "email": emp_data.get("email", ""),
+                "name": emp_data.get("name") or team_data.get("name", ""),
+                "email": emp_data.get("email") or team_data.get("email", ""),
                 "phone": emp_data.get("phone", ""),
                 "address": emp_data.get("address", ""),
                 "profileImageUrl": emp_data.get("profileImageUrl", ""),
                 "role": role,
                 "status": team_data.get("status", "active"),
                 "createdAt": created_at,
-                "permissions": resolve_permissions(role, overrides or None),
+                "permissions": comp_perms,
                 "permissions_overrides": overrides or {},
             }
         except Exception as e:
@@ -1615,45 +1682,59 @@ class DatabaseService:
             return False
         try:
             from app.web.invoices import ROLES_PRESETS
+            effective_role = role or "personalizado"
             if role and role in ROLES_PRESETS:
                 preset = ROLES_PRESETS[role]
                 overrides = {k: v for k, v in permissions.items() if k in preset and v != preset[k]}
-                db_firestore.collection("users").document(employee_uid).collection("config").document("user_profile").update({
-                    "role": role,
-                    "permissions_overrides": overrides,
-                })
                 resolved_perms = dict(preset)
                 resolved_perms.update(overrides)
             else:
-                db_firestore.collection("users").document(employee_uid).collection("config").document("user_profile").update({
-                    "permissions": permissions,
-                })
+                overrides = dict(permissions)
                 resolved_perms = dict(permissions)
+
+            # Verificar si el usuario es dueño independiente de su propia empresa
+            is_independent_owner = False
+            try:
+                prof_doc = db_firestore.collection("users").document(employee_uid).collection("config").document("user_profile").get()
+                if prof_doc.exists:
+                    p_data = prof_doc.to_dict()
+                    if p_data.get("ownerUID") == employee_uid or p_data.get("canManageOwnCompany"):
+                        is_independent_owner = True
+            except Exception:
+                pass
+
+            # Si NO es dueño de su propia empresa (o no hay company_id), actualizar user_profile
+            if not is_independent_owner or not company_id:
+                upd_payload = {
+                    "role": effective_role,
+                    "permissions": resolved_perms,
+                    "permissions_overrides": overrides,
+                }
+                db_firestore.collection("users").document(employee_uid).collection("config").document("user_profile").update(upd_payload)
 
             if company_id:
                 updated = cls.update_membership(employee_uid, company_id, {
                     "permissions": resolved_perms,
-                    "role": role or "personalizado",
+                    "role": effective_role,
                 })
                 if not updated:
                     cls.create_membership(
                         uid=employee_uid,
                         company_id=company_id,
-                        role=role or "personalizado",
+                        role=effective_role,
                         permissions=resolved_perms
                     )
                 try:
                     team_ref = cls._company_team_coll(None, company_id=company_id)
                     if team_ref:
-                        team_doc = team_ref.document(employee_uid).get()
-                        if team_doc.exists:
-                            team_ref.document(employee_uid).update({
-                                "role": role or "personalizado",
-                                "permissions": resolved_perms,
-                            })
+                        team_ref.document(employee_uid).set({
+                            "role": effective_role,
+                            "permissions": resolved_perms,
+                        }, merge=True)
                 except Exception:
                     pass
 
+            cache.delete_memoized(_cached_user_profile, employee_uid)
             return True
         except Exception as e:
             print(f"⚠️ Fallo al actualizar permisos del empleado: {e}")
@@ -7720,12 +7801,18 @@ class DatabaseService:
                 mem_data = mem.to_dict()
                 company = cls.get_company(mem_data["company_id"])
                 if company:
+                    comp_owner_uid = company.get("owner_uid", "")
+                    mem_role = mem_data.get("role")
+                    if comp_owner_uid == uid:
+                        mem_role = "owner"
+                    elif mem_role == "owner":
+                        mem_role = "personalizado"
                     companies.append({
                         "id": company.get("id", mem_data["company_id"]),
                         "name": company.get("company_name") or company.get("name", ""),
                         "trade_name": company.get("trade_name", ""),
                         "rnc": company.get("rnc", ""),
-                        "owner_uid": company.get("owner_uid", ""),
+                        "owner_uid": comp_owner_uid,
                         "is_default": company.get("is_default", False),
                         "configured": company.get("configured", False),
                         "country": company.get("country", ""),
@@ -7740,7 +7827,7 @@ class DatabaseService:
                         "production_enabled": company.get("production_enabled", True),
                         "sandbox_enabled": company.get("sandbox_enabled", True),
                         "_membership": {
-                            "role": mem_data.get("role"),
+                            "role": mem_role,
                             "permissions": mem_data.get("permissions", {}),
                             "assigned_branches": mem_data.get("assigned_branches", []),
                         },
@@ -7858,7 +7945,35 @@ class DatabaseService:
         else:
             return None
 
-        from flask import session
+        # Si el usuario es el dueño de la compañía, su rol siempre es 'owner'
+        if company.get("owner_uid") == uid:
+            member_role = "owner"
+            member_owner_uid = uid
+        elif member_role == "owner":
+            # Un colaborador en una empresa ajena no puede ser 'owner'
+            team_role = None
+            try:
+                team_ref = cls._company_team_coll(company.get("owner_uid"), company_id=company_id)
+                if team_ref:
+                    t_doc = team_ref.document(uid).get()
+                    if getattr(t_doc, "exists", False) is True:
+                        t_data = t_doc.to_dict() or {}
+                        r = t_data.get("role")
+                        if r and isinstance(r, str) and r != "owner":
+                            team_role = r
+                        if not member_permissions and t_data.get("permissions") and isinstance(t_data.get("permissions"), dict):
+                            member_permissions = t_data.get("permissions")
+            except Exception:
+                pass
+            if team_role and isinstance(team_role, str):
+                member_role = team_role
+            elif member_permissions and isinstance(member_permissions, dict):
+                from app.web.invoices import detect_role_from_permissions
+                member_role = detect_role_from_permissions(member_permissions)
+            else:
+                member_role = "personalizado"
+
+        from flask import session, has_request_context
 
         plan_name = ""
         plan_id = company.get("plan_id", "")
@@ -7870,6 +7985,9 @@ class DatabaseService:
             except Exception:
                 pass
 
+        is_sb = session.get("is_sandbox_mode", False) if has_request_context() else False
+        b_id = session.get("selected_branch_id") if has_request_context() else None
+
         return {
             "company_id": company_id,
             "owner_uid": member_owner_uid,
@@ -7879,6 +7997,6 @@ class DatabaseService:
             "plan_name": plan_name,
             "role": member_role,
             "permissions": member_permissions,
-            "is_sandbox": session.get("is_sandbox_mode", False),
-            "branch_id": session.get("selected_branch_id"),
+            "is_sandbox": is_sb,
+            "branch_id": b_id,
         }

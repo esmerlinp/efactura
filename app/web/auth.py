@@ -578,12 +578,23 @@ def login():
                     session['selected_owner_uid'] = user_profile.get('ownerUID')
                     session['user']['ownerUID'] = session['selected_owner_uid']
 
-                # Inyectar permisos de membresía de la compañía seleccionada
+                # Inyectar rol y permisos de membresía de la compañía seleccionada
                 selected_comp = next((c for c in user_companies if c['id'] == session.get('selected_company_id')), None)
                 if selected_comp:
-                    membership_perms = selected_comp.get('_membership', {}).get('permissions', {})
-                    if membership_perms:
-                        session['user']['permissions'].update(membership_perms)
+                    membership = selected_comp.get('_membership', {})
+                    comp_role = membership.get('role')
+                    if selected_comp.get('owner_uid') == uid:
+                        comp_role = 'owner'
+                    elif comp_role == 'owner':
+                        comp_role = 'personalizado'
+                    if comp_role:
+                        session['user']['role'] = comp_role
+                    membership_perms = membership.get('permissions', {})
+                    if comp_role == 'owner':
+                        from app.web.invoices import resolve_permissions
+                        session['user']['permissions'] = resolve_permissions('owner', None)
+                    elif membership_perms:
+                        session['user']['permissions'] = dict(membership_perms)
 
                 # ── Cargar plan de la empresa en la sesión ──
                 try:
@@ -735,12 +746,23 @@ def resolve_session_conflict():
         session['selected_owner_uid'] = user_profile.get('ownerUID')
         session['user']['ownerUID'] = session['selected_owner_uid']
 
-    # Inyectar permisos de membresía de la compañía seleccionada
+    # Inyectar rol y permisos de membresía de la compañía seleccionada
     selected_comp = next((c for c in user_companies if c['id'] == session.get('selected_company_id')), None)
     if selected_comp:
-        membership_perms = selected_comp.get('_membership', {}).get('permissions', {})
-        if membership_perms:
-            session['user']['permissions'].update(membership_perms)
+        membership = selected_comp.get('_membership', {})
+        comp_role = membership.get('role')
+        if selected_comp.get('owner_uid') == user_profile['uid']:
+            comp_role = 'owner'
+        elif comp_role == 'owner':
+            comp_role = 'personalizado'
+        if comp_role:
+            session['user']['role'] = comp_role
+        membership_perms = membership.get('permissions', {})
+        if comp_role == 'owner':
+            from app.web.invoices import resolve_permissions
+            session['user']['permissions'] = resolve_permissions('owner', None)
+        elif membership_perms:
+            session['user']['permissions'] = dict(membership_perms)
 
     # ── Cargar plan de la empresa en la sesión ──
     try:
@@ -1071,9 +1093,20 @@ def select_company():
             session['selected_company_id'] = comp['id']
             session['selected_owner_uid'] = comp.get('owner_uid', uid)
             session['user']['ownerUID'] = session['selected_owner_uid']
-            membership_perms = comp.get('_membership', {}).get('permissions', {})
-            if membership_perms:
-                session['user']['permissions'].update(membership_perms)
+            membership = comp.get('_membership', {})
+            comp_role = membership.get('role')
+            if comp.get('owner_uid') == uid:
+                comp_role = 'owner'
+            elif comp_role == 'owner':
+                comp_role = 'personalizado'
+            if comp_role:
+                session['user']['role'] = comp_role
+            membership_perms = membership.get('permissions', {})
+            if comp_role == 'owner':
+                from app.web.invoices import resolve_permissions
+                session['user']['permissions'] = resolve_permissions('owner', None)
+            elif membership_perms:
+                session['user']['permissions'] = dict(membership_perms)
             if old_id and old_id != comp['id']:
                 from app.services.db_service import _invalidate_invoices as _inv_inv
                 _inv_inv(session['selected_owner_uid'], company_id=old_id)
@@ -1090,9 +1123,20 @@ def select_company():
             session['selected_company_id'] = selected_id
             session['selected_owner_uid'] = selected_company.get('owner_uid', uid)
             session['user']['ownerUID'] = session['selected_owner_uid']
-            membership_perms = selected_company.get('_membership', {}).get('permissions', {})
-            if membership_perms:
-                session['user']['permissions'].update(membership_perms)
+            membership = selected_company.get('_membership', {})
+            comp_role = membership.get('role')
+            if selected_company.get('owner_uid') == uid:
+                comp_role = 'owner'
+            elif comp_role == 'owner':
+                comp_role = 'personalizado'
+            if comp_role:
+                session['user']['role'] = comp_role
+            membership_perms = membership.get('permissions', {})
+            if comp_role == 'owner':
+                from app.web.invoices import resolve_permissions
+                session['user']['permissions'] = resolve_permissions('owner', None)
+            elif membership_perms:
+                session['user']['permissions'] = dict(membership_perms)
             session.pop('selected_branch_id', None)
             session.pop('available_branches', None)
             session.pop('selected_project_id', None)
