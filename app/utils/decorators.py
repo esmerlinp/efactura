@@ -245,7 +245,40 @@ def check_permission(permission_name):
             return bool(user_perms['canModifySettings'])
         return True
 
-    default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot', 'canAssignApprovers', 'canManageAPI', 'canAccountingExport') else True
+    # Permisos granulares de Configuración y Empresa
+    config_from_settings = (
+        'canManageCompanySettings',
+        'canManageTaxes',
+        'canManageSequences',
+        'canCertifyDGII',
+        'canExportData',
+    )
+    if permission_name in config_from_settings:
+        if permission_name in user_perms:
+            return bool(user_perms[permission_name])
+        if 'canModifySettings' in user_perms:
+            return bool(user_perms['canModifySettings'])
+        return True
+
+    # Permiso de Gestión de Usuarios
+    if permission_name == 'canManageUsers':
+        if 'canManageUsers' in user_perms:
+            return bool(user_perms['canManageUsers'])
+        if 'canModifySettings' in user_perms:
+            return bool(user_perms['canModifySettings'])
+        return False
+
+    # Permiso de Tareas de Fondo / Trabajos del Sistema
+    if permission_name == 'canViewSystemJobs':
+        if 'canViewSystemJobs' in user_perms:
+            return bool(user_perms['canViewSystemJobs'])
+        if 'canViewAuditLog' in user_perms:
+            return bool(user_perms['canViewAuditLog'])
+        if 'canModifySettings' in user_perms:
+            return bool(user_perms['canModifySettings'])
+        return False
+
+    default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot', 'canAssignApprovers', 'canManageAPI', 'canAccountingExport', 'canManageUsers', 'canViewSystemJobs', 'canViewAuditLog') else True
     return user_perms.get(permission_name, default_val)
 
 
@@ -421,7 +454,15 @@ def get_user_landing_url():
 
     # 18. Auditoría
     if module_enabled('auditoria') and check_permission('canViewAuditLog'):
-        return url_for('web_audit.audit_logs')
+        return url_for('web_audit.audit_log')
+
+    # 18.1 Tareas de Fondo / Trabajos del Sistema
+    if check_permission('canViewSystemJobs'):
+        return url_for('web_system_jobs.dashboard')
+
+    # 18.2 Certificación DGII
+    if check_permission('canCertifyDGII'):
+        return url_for('web_certificacion.wizard')
 
     # 19. Reportes y Análisis
     if check_permission('canReports'):
@@ -435,9 +476,17 @@ def get_user_landing_url():
     if module_enabled('api') and check_permission('canManageAPI'):
         return url_for('web_api_portal.index')
 
-    # 22. Configuración de Empresa (si solo tiene permiso de settings)
-    if check_permission('canModifySettings'):
+    # 22. Configuración y Empresa
+    if check_permission('canManageCompanySettings') or check_permission('canModifySettings'):
         return url_for('web_invoices.company_settings')
+    if check_permission('canManageTaxes'):
+        return url_for('web_invoices.tax_settings')
+    if check_permission('canManageSequences'):
+        return url_for('web_invoices.list_sequences')
+    if check_permission('canManageUsers'):
+        return url_for('web_invoices.team_settings')
+    if check_permission('canViewSubscription'):
+        return url_for('web_invoices.client_subscription_page')
 
     return None
 

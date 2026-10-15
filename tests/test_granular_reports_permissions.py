@@ -138,8 +138,8 @@ def test_reports_presets_matrix_and_permission_groups():
         assert key in group_perms, f"{key} must be in Reportes y Análisis permission group"
     assert "canViewBI" in group_perms
 
-    admin_group = next((g for g in PERMISSION_GROUPS if g.get("name") == "Administración"), None)
-    assert admin_group is not None, "PERMISSION_GROUPS must have 'Administración'"
+    admin_group = next((g for g in PERMISSION_GROUPS if g.get("name") in ("Administración", "Sistema y Auditoría")), None)
+    assert admin_group is not None, "PERMISSION_GROUPS must have 'Sistema y Auditoría' or 'Administración'"
     assert "canManageAPI" in admin_group.get("perms", [])
 
 

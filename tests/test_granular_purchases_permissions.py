@@ -153,8 +153,8 @@ def test_purchases_presets_matrix_and_permission_groups():
     assert "canExpenses" not in financiero_group.get("perms", [])
     assert "canManagePurchaseCXP" not in financiero_group.get("perms", [])
 
-    # Verify Administración does NOT contain canManageSuppliers or canCreateSupplier
-    admin_group = next((g for g in PERMISSION_GROUPS if g.get("name") == "Administración"), None)
+    # Verify Administración / Configuración / Sistema does NOT contain canManageSuppliers or canCreateSupplier
+    admin_group = next((g for g in PERMISSION_GROUPS if g.get("name") in ("Administración", "Configuración y Empresa", "Sistema y Auditoría")), None)
     assert admin_group is not None
     assert "canManageSuppliers" not in admin_group.get("perms", [])
     assert "canCreateSupplier" not in admin_group.get("perms", [])

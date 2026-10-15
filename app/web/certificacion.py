@@ -123,6 +123,8 @@ def step_advance(step):
     redirect_resp = _login_required()
     if redirect_resp:
         return redirect_resp
+    if not check_permission("canCertifyDGII"):
+        return render_template("auth/restricted.html", feature_name="Certificación DGII", required_permission="canCertifyDGII"), 403
 
     _, company_id, _ = _get_context()
     DgiiCertService.set_current_step_manual(company_id, step)
@@ -138,6 +140,8 @@ def step_complete(step):
     redirect_resp = _login_required()
     if redirect_resp:
         return redirect_resp
+    if not check_permission("canCertifyDGII"):
+        return render_template("auth/restricted.html", feature_name="Certificación DGII", required_permission="canCertifyDGII"), 403
 
     _, company_id, _ = _get_context()
     DgiiCertService.mark_step_skipped(company_id, step)

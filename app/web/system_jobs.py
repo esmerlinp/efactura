@@ -13,8 +13,8 @@ gate_blueprint_module(web_system_jobs_bp, "auditoria")
 def dashboard():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
-    if not (check_permission("canModifySettings") or check_permission("canViewAuditLog")):
-        return render_template("auth/restricted.html", feature_name="Jobs y procesos", required_permission="canModifySettings"), 403
+    if not check_permission("canViewSystemJobs"):
+        return render_template("auth/restricted.html", feature_name="Jobs y procesos", required_permission="canViewSystemJobs"), 403
 
     status = request.args.get("status", "")
     try:
@@ -45,7 +45,7 @@ def dashboard():
 def trigger_job():
     if "user" not in session:
         return jsonify(success=False, error="No autorizado"), 401
-    if not check_permission("canModifySettings"):
+    if not (check_permission("canViewSystemJobs") or check_permission("canModifySettings")):
         return jsonify(success=False, error="Permiso insuficiente"), 403
 
     job_id = request.form.get("job_id") or request.json.get("job_id", "")
