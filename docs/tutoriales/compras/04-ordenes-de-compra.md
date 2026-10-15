@@ -17,13 +17,17 @@ la mercancía.
 
 ## Recibir la mercancía
 
-1. Con la orden **Aprobada**, haz clic en **"Registrar Recepción"** (o recibe
+1. Con la orden **Aprobada**, haz clic en **"Recibir Mercancía"** (o recibe
    desde **Productos e Inventario → Recepciones de Mercancía**).
-2. Indica las cantidades recibidas y confirma.
+2. Confirma el **Almacén de Destino** y las cantidades a **Recibir Ahora**, luego
+   haz clic en **"Confirmar Recepción"**.
+
+> Es la recepción de mercancía la que **mueve el inventario**; la orden por sí
+> sola no genera movimientos.
 
 ## Convertir en factura de proveedor
 
-1. Tras recibir, usa **"Convertir en factura"** para generar la factura de
+1. Tras recibir, usa **"Registrar Factura Proveedor"** para generar la factura de
    compra (CxP).
 
 ## Estados de una orden

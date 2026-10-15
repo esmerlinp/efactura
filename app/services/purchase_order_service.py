@@ -30,6 +30,17 @@ PO_STATUSES = [
     "cancelada",
 ]
 
+# Transiciones de estado permitidas (estado actual → estados destino válidos).
+ALLOWED_TRANSITIONS = {
+    "borrador": {"pendiente_aprobacion", "aprobada", "rechazada", "cancelada"},
+    "pendiente_aprobacion": {"aprobada", "rechazada", "cancelada"},
+    "aprobada": {"recibida_parcial", "recibida_completa", "cancelada"},
+    "rechazada": {"borrador", "cancelada"},
+    "recibida_parcial": {"recibida_completa", "cancelada"},
+    "recibida_completa": set(),
+    "cancelada": set(),
+}
+
 PAYMENT_TERMS = [
     ("contado", "Contado"),
     ("credito_15d", "Crédito 15 Días"),
@@ -163,12 +174,25 @@ class PurchaseOrderService:
         return f"OC-{year}-{next_num:04d}"
 
     @classmethod
-    def update_status(cls, owner_uid=None, po_id=None, new_status=None, sandbox=True, user="", company_id=None):
+    def can_transition(cls, current_status, new_status):
+        """Indica si una transición de estado de OC está permitida."""
+        if new_status not in PO_STATUSES:
+            return False
+        current = current_status or "borrador"
+        if current not in PO_STATUSES:
+            return False
+        return new_status in ALLOWED_TRANSITIONS.get(current, set())
+
+    @classmethod
+    def update_status(cls, owner_uid=None, po_id=None, new_status=None, sandbox=True, user="", company_id=None, enforce=True):
         po = cls.get_purchase_order(owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id)
         if not po:
             return None
         if new_status not in PO_STATUSES:
             return po
+        current = po.get("status") or "borrador"
+        if enforce and not cls.can_transition(current, new_status):
+            raise ValueError(f"Transición no permitida: '{current}' → '{new_status}'.")
         po["status"] = new_status
         now = serialize_field(datetime.now(timezone.utc))
         if new_status == "aprobada":

@@ -196,11 +196,12 @@ Cada movimiento queda registrado en el **Kárdex** con su costo FIFO.
 
 ## Tutoriales relacionados
 
-1. [Tablero de inventario](01-tablero-inventario.md)
-2. [Almacenes](02-almacenes.md)
-3. [Transferencias entre almacenes](03-transferencias.md)
-4. [Conteos físicos](04-conteos-fisicos.md)
-5. [Ajustes de inventario y kárdex](05-ajustes-kardex.md)
-6. [Recepciones de mercancía](06-recepciones-mercancia.md)
-7. [Alertas de stock y reorden](07-alertas-stock.md)
-8. [Lotes de inventario](08-lotes.md)
+1. [Flujo completo de compras (end-to-end)](../compras/00-flujo-completo-compras.md)
+2. [Tablero de inventario](01-tablero-inventario.md)
+3. [Almacenes](02-almacenes.md)
+4. [Transferencias entre almacenes](03-transferencias.md)
+5. [Conteos físicos](04-conteos-fisicos.md)
+6. [Ajustes de inventario y kárdex](05-ajustes-kardex.md)
+7. [Recepciones de mercancía](06-recepciones-mercancia.md)
+8. [Alertas de stock y reorden](07-alertas-stock.md)
+9. [Lotes de inventario](08-lotes.md)

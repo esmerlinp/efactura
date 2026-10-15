@@ -10,6 +10,11 @@ except ImportError:
     DatabaseService = None
     _company_coll = None
 
+try:
+    from app.services.purchase_order_service import PurchaseOrderService
+except ImportError:
+    PurchaseOrderService = None
+
 
 def serialize_field(val):
     if val is None:
@@ -116,32 +121,140 @@ class GoodsReceiptService:
         return receipt_data
 
     @classmethod
+    def validate_receipt(cls, company_id, receipt_data, sandbox=True, owner_uid=""):
+        """Valida un recibo ANTES de persistir nada.
+
+        Reúne todos los errores (no aborta en el primero) y lanza un único
+        ValueError con el detalle. Incluye:
+          - almacén de destino obligatorio,
+          - al menos una partida con cantidad > 0,
+          - cada partida recibida debe tener ítem de catálogo asociado,
+          - la cantidad recibida no puede exceder el saldo de la orden de compra.
+        """
+        errors = []
+
+        warehouse_id = (receipt_data.get("warehouseId") or "").strip()
+        if not warehouse_id:
+            errors.append("Debe seleccionar un almacén de destino.")
+
+        items = receipt_data.get("items", [])
+        if not items:
+            errors.append("Debe indicar al menos una partida con cantidad mayor a 0.")
+
+        for item in items:
+            label = item.get("poItemName") or item.get("itemName") or "—"
+            if not (item.get("itemId") or "").strip():
+                errors.append(f"La partida '{label}' no tiene ítem de catálogo asociado.")
+
+        po_id = receipt_data.get("poId") or receipt_data.get("purchaseOrderId") or ""
+        if po_id and PurchaseOrderService is not None:
+            po = PurchaseOrderService.get_purchase_order(
+                owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id
+            )
+            if po:
+                po_items = po.get("items", [])
+                for item in items:
+                    line_id = item.get("poItemId") or item.get("id") or ""
+                    po_item = next((i for i in po_items if i.get("id") == line_id), None)
+                    if not po_item:
+                        errors.append(
+                            f"La partida '{item.get('poItemName') or item.get('itemName') or '—'}' "
+                            "no pertenece a la orden de compra."
+                        )
+                        continue
+                    ordered_qty = float(po_item.get("quantity", 0))
+                    received_qty = float(po_item.get("receivedQuantity", 0))
+                    new_qty = float(item.get("receivedQuantity", 0))
+                    if received_qty + new_qty > ordered_qty + 1e-9:
+                        errors.append(
+                            f"Cantidad excede la orden de compra para "
+                            f"{po_item.get('name', po_item.get('itemName', ''))}: "
+                            f"ordenado {ordered_qty}, recibido {received_qty}, nuevo {new_qty}."
+                        )
+
+        if errors:
+            raise ValueError(" ".join(errors))
+        return True
+
+    @classmethod
+    def delete_receipt(cls, company_id, receipt_id, sandbox=True):
+        if not firebase_initialized or db_firestore is None or not receipt_id:
+            return
+        try:
+            coll_name = "sandbox_goods_receipts" if sandbox else "goods_receipts"
+            _company_coll(company_id=company_id, coll_name=coll_name).document(receipt_id).delete()
+        except Exception as e:
+            print(f"⚠️ Error al eliminar recepción {receipt_id}: {e}")
+
+    @classmethod
+    def reverse_registered_transactions(cls, company_id, registered, sandbox=True, owner_uid=""):
+        """Compensa (revierte) las transacciones ENTRADA ya aplicadas de un recibo.
+
+        Se usa cuando el registro de inventario falla a mitad de camino: se
+        emite una SALIDA por cada ENTRADA aplicada para no dejar stock fantasma.
+        """
+        from app.services.inventory_transaction_service import InventoryTransactionService
+
+        reversed_count = 0
+        for tx in registered or []:
+            try:
+                dest_wh = tx.get("destinationWarehouseId", "")
+                qty = float(tx.get("quantity", 0))
+                if qty <= 0 or not dest_wh or not tx.get("itemId"):
+                    continue
+                rev = {
+                    "type": InventoryTransactionService.TYPE_SALIDA,
+                    "itemId": tx.get("itemId"),
+                    "itemName": tx.get("itemName", ""),
+                    "quantity": qty,
+                    "originWarehouseId": dest_wh,
+                    "reason": InventoryTransactionService.REASON_DEVOLUCION_PROVEEDOR,
+                    "referenceType": "GOODS_RECEIPT_ROLLBACK",
+                    "referenceId": str(tx.get("id", "")),
+                    "idempotencyKey": InventoryTransactionService.build_idempotency_key(
+                        company_id=company_id,
+                        reference_type="GOODS_RECEIPT_ROLLBACK",
+                        reference_id=str(tx.get("id", "")),
+                        operation="ROLLBACK",
+                    ),
+                    "notes": f"Reversión automática de recepción {tx.get('referenceId', '')}",
+                    "performedBy": tx.get("performedBy", "Sistema"),
+                }
+                InventoryTransactionService.execute_transaction(
+                    owner_uid=owner_uid, company_id=company_id, tx_dict=rev, sandbox=sandbox
+                )
+                reversed_count += 1
+            except Exception as rev_err:
+                print(f"⚠️ Error al revertir transacción {tx.get('id')}: {rev_err}")
+        return reversed_count
+
+    @classmethod
     def register_receipt_inventory(cls, company_id, receipt_data, sandbox=True, owner_uid=""):
         registered = []
         if DatabaseService is None:
             return registered
 
-        po_id = receipt_data.get("purchaseOrderId", "")
-        if po_id:
-            try:
-                po = DatabaseService.get_purchase_order(company_id, po_id, sandbox=sandbox)
-                if po:
-                    for item in receipt_data.get("items", []):
-                        po_items = po.get("items", [])
-                        po_item = next((i for i in po_items if i.get("itemId") == item.get("itemId")), None)
-                        if po_item:
-                            ordered_qty = float(po_item.get("quantity", 0))
-                            received_qty = float(po_item.get("receivedQuantity", 0))
-                            new_qty = float(item.get("receivedQuantity", 0))
-                            if received_qty + new_qty > ordered_qty:
-                                raise ValueError(
-                                    f"Cantidad excede la orden de compra para {po_item.get('itemName','')}: "
-                                    f"ordenado {ordered_qty}, recibido {received_qty}, nuevo {new_qty}"
-                                )
-            except Exception as e:
-                if "Cantidad excede" in str(e):
-                    raise
-                pass
+        po_id = receipt_data.get("poId") or receipt_data.get("purchaseOrderId") or ""
+        po = None
+        if po_id and PurchaseOrderService is not None:
+            po = PurchaseOrderService.get_purchase_order(
+                owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id
+            )
+        if po:
+            po_items = po.get("items", [])
+            for item in receipt_data.get("items", []):
+                line_id = item.get("poItemId") or item.get("id") or ""
+                po_item = next((i for i in po_items if i.get("id") == line_id), None)
+                if not po_item:
+                    continue
+                ordered_qty = float(po_item.get("quantity", 0))
+                received_qty = float(po_item.get("receivedQuantity", 0))
+                new_qty = float(item.get("receivedQuantity", 0))
+                if received_qty + new_qty > ordered_qty + 1e-9:
+                    raise ValueError(
+                        f"Cantidad excede la orden de compra para {po_item.get('name', po_item.get('itemName',''))}: "
+                        f"ordenado {ordered_qty}, recibido {received_qty}, nuevo {new_qty}"
+                    )
 
         items = receipt_data.get("items", [])
         warehouse_id = receipt_data.get("warehouseId", "")
@@ -161,10 +274,11 @@ class GoodsReceiptService:
                 continue
 
             unit_cost = float(item.get("unitCost", item.get("costPrice", item.get("unitPrice", 0))) or 0)
+            line_ref = item.get("poItemId") or item.get("id") or item_id
             idempotency_key = InventoryTransactionService.build_idempotency_key(
                 company_id=company_id,
                 reference_type="GOODS_RECEIPT",
-                reference_id=f"{receipt_id}_{item_id}",
+                reference_id=f"{receipt_id}_{line_ref}",
                 operation="ENTRADA"
             )
 

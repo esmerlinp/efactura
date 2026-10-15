@@ -393,7 +393,7 @@ def purchase_order_detail(po_id):
     if not order:
         flash('❌ Orden de compra no encontrada.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_orders'))
-    receipts = GoodsReceiptService.get_receipts_by_po(owner_uid, po_id, sandbox=sandbox)
+    receipts = GoodsReceiptService.get_receipts_by_po(company_id=company_id, po_id=po_id, sandbox=sandbox)
     order['receipts'] = receipts
     supplier_invoices = SupplierInvoiceService.get_by_po(owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id)
     order['supplier_invoices'] = supplier_invoices
@@ -765,6 +765,17 @@ def delete_purchase_order(po_id):
         return redirect(url_for('web_purchase_orders.list_purchase_orders'))
 
     po_number = order.get('poNumber', '')
+
+    if order.get('status') in ('recibida_parcial', 'recibida_completa'):
+        flash('❌ No se puede eliminar una orden de compra con mercancía recibida. Anúlela o ajuste el inventario.', 'error')
+        return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
+
+    receipts = GoodsReceiptService.get_receipts_by_po(company_id=company_id, po_id=po_id, sandbox=sandbox)
+    invoices = SupplierInvoiceService.get_by_po(owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id)
+    if receipts or invoices:
+        flash('❌ No se puede eliminar una orden con recepciones o facturas de proveedor asociadas.', 'error')
+        return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
+
     PurchaseOrderService.delete_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
 
     AuditService.log_from_request(
@@ -791,7 +802,10 @@ def approve_purchase_order(po_id):
     sandbox = session.get('is_sandbox_mode', True)
     user = session['user'].get('displayName', 'Usuario')
 
-    po = PurchaseOrderService.update_status(owner_uid=owner_uid, po_id=po_id, new_status='aprobada', company_id=company_id, sandbox=sandbox, user=user)
+    try:
+        po = PurchaseOrderService.update_status(owner_uid=owner_uid, po_id=po_id, new_status='aprobada', company_id=company_id, sandbox=sandbox, user=user)
+    except ValueError as tr_err:
+        return jsonify(success=False, error=str(tr_err)), 409
     if not po:
         return jsonify(success=False, error="Orden no encontrada"), 404
 
@@ -805,47 +819,19 @@ def approve_purchase_order(po_id):
 
 @web_purchase_orders_bp.route('/purchase-orders/<po_id>/receive', methods=['POST'])
 def receive_purchase_order(po_id):
+    """DEPRECADO: marcaba la OC como recibida sin mover inventario.
+
+    Se retira para forzar el flujo correcto (Recepción de Mercancía), que sí
+    registra las transacciones de stock y contabiliza la entrada.
+    """
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return jsonify(success=False, error="Permiso denegado"), 403
-    owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
-    sandbox = session.get('is_sandbox_mode', True)
-
-    po = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
-    if not po:
-        return jsonify(success=False, error="Orden no encontrada"), 404
-
-    try:
-        data = request.get_json(force=True) or {}
-    except Exception:
-        data = {}
-
-    received_qty_map = data.get('receivedQuantities', {})
-    items = po.get('items', [])
-    all_complete = True
-    for item in items:
-        item_id = item.get('id', '')
-        qty = float(received_qty_map.get(item_id, item.get('quantity', 0)))
-        item['receivedQuantity'] = qty
-        if qty < item.get('quantity', 0):
-            all_complete = False
-
-    new_status = 'recibida_completa' if all_complete else 'recibida_parcial'
-    user = session['user'].get('displayName', 'Usuario')
-    po['status'] = new_status
-    po['receivedBy'] = user
-    po['receivedAt'] = datetime.now(timezone.utc).isoformat()
-    po['items'] = items
-    PurchaseOrderService.save_purchase_order(owner_uid=owner_uid, po_id=po_id, po_dict=po, company_id=company_id, sandbox=sandbox)
-
-    AuditService.log_from_request(
-        owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_PO,
-        entity_id=po_id, entity_label=po.get('poNumber', ''),
-        after=po,
-    )
-    return jsonify(success=True, status=new_status)
+    return jsonify(
+        success=False,
+        error="Este endpoint fue deshabilitado. Use 'Recibir Mercancía' "
+              "(POST /inventory/receipts/new?po_id=...) para registrar entradas de inventario.",
+        code="ENDPOINT_DEPRECATED",
+    ), 410
 
 
 @web_purchase_orders_bp.route('/purchase-orders/<po_id>/cancel', methods=['POST'])
@@ -859,7 +845,10 @@ def cancel_purchase_order(po_id):
     sandbox = session.get('is_sandbox_mode', True)
     user = session['user'].get('displayName', 'Usuario')
 
-    po = PurchaseOrderService.update_status(owner_uid=owner_uid, po_id=po_id, new_status='cancelada', company_id=company_id, sandbox=sandbox, user=user)
+    try:
+        po = PurchaseOrderService.update_status(owner_uid=owner_uid, po_id=po_id, new_status='cancelada', company_id=company_id, sandbox=sandbox, user=user)
+    except ValueError as tr_err:
+        return jsonify(success=False, error=str(tr_err)), 409
     if not po:
         return jsonify(success=False, error="Orden no encontrada"), 404
 
