@@ -215,6 +215,8 @@ ALL_PERMISSION_KEYS = [
     # Permisos granulares de CRM y Contactos
     "canCRM", "canCRMContacts", "canCRMOpportunities",
     "canCRMActivities", "canCRMReports",
+    # Permisos granulares de Finanzas y Tesorería
+    "canManageCXCAdvances", "canManageBanks", "canBankReconciliation",
     # Permisos granulares de Reportería y Análisis
     "canReportsSales", "canReportsAdmin", "canReportsFinancial",
     "canReportsAccounting", "canReportsFiscal", "canReportsHR",
@@ -251,6 +253,8 @@ ROLES_PRESETS = {
         # CRM y Contactos para Vendedor
         "canCRM": True, "canCRMContacts": True, "canCRMOpportunities": True,
         "canCRMActivities": True, "canCRMReports": False,
+        # Finanzas y Tesorería para Vendedor
+        "canManageCXCAdvances": False, "canManageBanks": False, "canBankReconciliation": False,
         # Reportería para Vendedor
         "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
         "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
@@ -282,6 +286,8 @@ ROLES_PRESETS = {
         # CRM y Contactos para Contador
         "canCRM": False, "canCRMContacts": True, "canCRMOpportunities": False,
         "canCRMActivities": False, "canCRMReports": False,
+        # Finanzas y Tesorería para Contador
+        "canManageCXCAdvances": True, "canManageBanks": True, "canBankReconciliation": True,
         # Reportería para Contador
         "canReportsSales": True, "canReportsAdmin": True, "canReportsFinancial": True,
         "canReportsAccounting": True, "canReportsFiscal": True, "canReportsHR": True,
@@ -313,6 +319,8 @@ ROLES_PRESETS = {
         # CRM y Contactos para Consulta
         "canCRM": False, "canCRMContacts": False, "canCRMOpportunities": False,
         "canCRMActivities": False, "canCRMReports": False,
+        # Finanzas y Tesorería para Consulta
+        "canManageCXCAdvances": False, "canManageBanks": False, "canBankReconciliation": False,
         # Reportería para Consulta
         "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
         "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
@@ -423,10 +431,21 @@ PERMISSION_GROUPS = [
         },
     },
     {
-        "name": "Financiero",
-        "perms": ["canManageCXC", "canManageCXP", "canAccounting", "canManageContracts"],
+        "name": "Finanzas y Tesorería",
+        "perms": [
+            "canManageCXC",
+            "canManageCXCAdvances",
+            "canManageBanks",
+            "canBankReconciliation",
+            "canManageCXP",
+            "canAccounting",
+            "canManageContracts",
+        ],
         "labels": {
             "canManageCXC": "Cuentas por cobrar (CxC)",
+            "canManageCXCAdvances": "Anticipos de clientes (registro y aplicación)",
+            "canManageBanks": "Bancos y cajas (cuentas, movimientos y transferencias)",
+            "canBankReconciliation": "Conciliación bancaria (carga de extractos y cuadre)",
             "canManageCXP": "Cuentas por pagar (CxP general)",
             "canAccounting": "Contabilidad",
             "canManageContracts": "Contratos y recurrencia",
@@ -11659,8 +11678,8 @@ def cxc_write_off(invoice_id):
 @web_invoices_bp.route('/cxc/advances')
 def cxc_advances_list():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageCXC'):
-        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC"), 403
+    if not check_permission('canManageCXCAdvances'):
+        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXCAdvances"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -11705,8 +11724,8 @@ def cxc_advances_list():
 @web_invoices_bp.route('/cxc/advances/new', methods=['GET', 'POST'])
 def cxc_advances_new():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageCXC'):
-        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC"), 403
+    if not check_permission('canManageCXCAdvances'):
+        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXCAdvances"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -11799,8 +11818,8 @@ def cxc_advances_new():
 @web_invoices_bp.route('/cxc/advances/<advance_id>/edit', methods=['GET', 'POST'])
 def cxc_advances_edit(advance_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageCXC'):
-        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC"), 403
+    if not check_permission('canManageCXCAdvances'):
+        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXCAdvances"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -11920,7 +11939,7 @@ def cxc_advances_edit(advance_id):
 @web_invoices_bp.route('/cxc/advances/<advance_id>/delete', methods=['POST'])
 def cxc_advances_delete(advance_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageCXC'):
+    if not check_permission('canManageCXCAdvances'):
         flash('No tienes permiso para anular anticipos.', 'error')
         return redirect(url_for('web_invoices.cxc_advances_list'))
     owner_uid = session['user']['ownerUID']
@@ -11944,7 +11963,7 @@ def cxc_advances_delete(advance_id):
 @web_invoices_bp.route('/cxc/advances/apply', methods=['POST'])
 def cxc_advances_apply():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageCXC'):
+    if not check_permission('canManageCXCAdvances'):
         flash('No tienes permiso para aplicar anticipos.', 'error')
         return redirect(url_for('web_invoices.cxc_advances_list'))
     owner_uid = session['user']['ownerUID']

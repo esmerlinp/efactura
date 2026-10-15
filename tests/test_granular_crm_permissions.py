@@ -135,8 +135,8 @@ def test_crm_presets_matrix_and_permission_groups():
     assert main_group is not None
     assert "canClients" not in main_group.get("perms", [])
 
-    # Verify Financiero does NOT contain canManageCommissions
-    financiero_group = next((g for g in PERMISSION_GROUPS if g.get("name") == "Financiero"), None)
+    # Verify Financiero / Finanzas y Tesorería does NOT contain canManageCommissions
+    financiero_group = next((g for g in PERMISSION_GROUPS if g.get("name") in ("Financiero", "Finanzas y Tesorería")), None)
     assert financiero_group is not None
     assert "canManageCommissions" not in financiero_group.get("perms", [])
 
