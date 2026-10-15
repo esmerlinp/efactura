@@ -108,7 +108,44 @@ def check_permission(permission_name):
             return bool(user_perms['canManageInventory'])
         return True
 
-    default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot', 'canAssignApprovers') else True
+    # Permisos granulares de Reportería y Análisis
+    reports_granular = (
+        'canReportsSales',
+        'canReportsAdmin',
+        'canReportsFinancial',
+        'canReportsAccounting',
+        'canReportsFiscal',
+        'canReportsHR',
+    )
+    if permission_name in reports_granular:
+        if permission_name in user_perms:
+            return bool(user_perms[permission_name])
+        # Compatibilidad legacy: solo si el usuario tenía 'canReports' o 'canViewReports' explícitamente concedido
+        if user_perms.get('canReports') or user_perms.get('canViewReports'):
+            return True
+        return False
+
+    if permission_name in ('canReports', 'canViewReports'):
+        if 'canReports' in user_perms:
+            return bool(user_perms['canReports'])
+        if 'canViewReports' in user_perms:
+            return bool(user_perms['canViewReports'])
+        for r_perm in reports_granular:
+            if user_perms.get(r_perm):
+                return True
+        return False
+
+    if permission_name == 'canAccountingExport':
+        if 'canAccountingExport' in user_perms:
+            return bool(user_perms['canAccountingExport'])
+        return False
+
+    if permission_name == 'canManageAPI':
+        if 'canManageAPI' in user_perms:
+            return bool(user_perms['canManageAPI'])
+        return False
+
+    default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot', 'canAssignApprovers', 'canManageAPI', 'canAccountingExport') else True
     return user_perms.get(permission_name, default_val)
 
 
@@ -228,13 +265,21 @@ def get_user_landing_url():
     if module_enabled('auditoria') and check_permission('canViewAuditLog'):
         return url_for('web_audit.audit_logs')
 
-    # 19. Reporte 606
-    if module_enabled('reporte_606') and check_permission('canExpenses'):
-        return url_for('web_reports_606.dashboard_606')
+    # 19. Reportes y Análisis
+    if check_permission('canReports'):
+        return url_for('web_invoices.reports_dashboard')
 
-    # 20. Configuración de Empresa (si solo tiene permiso de settings)
+    # 20. Exportación Contable
+    if module_enabled('exportacion_contable') and check_permission('canAccountingExport'):
+        return url_for('web_invoices.accounting_export_page')
+
+    # 21. API y Desarrolladores
+    if module_enabled('api') and check_permission('canManageAPI'):
+        return url_for('web_api_portal.index')
+
+    # 22. Configuración de Empresa (si solo tiene permiso de settings)
     if check_permission('canModifySettings'):
-        return url_for('web_invoices.company_profile_page')
+        return url_for('web_invoices.company_settings')
 
     return None
 

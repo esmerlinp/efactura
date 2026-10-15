@@ -616,11 +616,11 @@ MODULE_TEST_MATRIX = [
     ("nomina", "/rrhh/employees", "/api/v1/labor/settlement", ["canHR"]),
     ("reporte_606", "/reports/606", None, ["canExpenses"]),
     ("certificacion", "/certificacion/paso/1", None, ["canCertifyDGII"]),
-    ("api", "/desarrolladores", None, None),
+    ("api", "/desarrolladores", None, ["canManageAPI"]),
     ("portal_cliente", "/portal/admin", None, ["canClients"]),
     ("ia_bi", "/budgets", None, ["canExpenses", "canViewBI"]),
     ("auditoria", "/audit", None, ["canViewAuditLog"]),
-    ("exportacion_contable", "/reports/export/accounting", None, ["canInvoice", "canAccounting"]),
+    ("exportacion_contable", "/reports/export/accounting", None, ["canAccountingExport"]),
 ]
 
 

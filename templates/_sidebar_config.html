@@ -1,5 +1,5 @@
 <!-- SECCIÓN: CONFIGURACIÓN -->
-{% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) or session.get('user', {}).get('permissions', {}).get('canViewSubscription', True) or module_enabled('auditoria') or module_enabled('certificacion') or module_enabled('api') or module_enabled('exportacion_contable') %}
+{% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) or session.get('user', {}).get('permissions', {}).get('canViewSubscription', True) or (module_enabled('auditoria') and session.get('user', {}).get('permissions', {}).get('canViewAuditLog', False)) or (module_enabled('certificacion') and dgii_environment == 'certecf' and session.get('user', {}).get('permissions', {}).get('canCertifyDGII', True)) or (module_enabled('exportacion_contable') and check_permission('canAccountingExport')) or (module_enabled('api') and check_permission('canManageAPI')) %}
 <div class="sidebar-section" id="sidebar-section-configuracion">
     <div class="sidebar-section-header">
         <div class="header-left">
@@ -69,7 +69,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('exportacion_contable') %}
+        {% if module_enabled('exportacion_contable') and (session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingExport')) %}
         <li class="nav-item {% if active_page == 'accounting_export' %}active{% endif %}"
             data-tooltip="Exportación Contable">
             <a href="{{ url_for('web_invoices.accounting_export_page') }}">
@@ -77,7 +77,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('api') %}
+        {% if module_enabled('api') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageAPI')) %}
         <li class="nav-item {% if active_page == 'api_portal' %}active{% endif %}"
             data-tooltip="API y Desarrolladores">
             <a href="{{ url_for('web_api_portal.index') }}">

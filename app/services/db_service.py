@@ -162,6 +162,14 @@ def _cached_user_profile(uid):
                     "canManageWarehouses": bool(perms.get("canManageWarehouses", perms.get("canManageInventory", True))),
                     "canInventoryAdjustments": bool(perms.get("canInventoryAdjustments", perms.get("canManageInventory", True))),
                     "canManagePriceLists": bool(perms.get("canManagePriceLists", perms.get("canManageInventory", perms.get("canInvoice", True)))),
+                    "canReportsSales": bool(perms.get("canReportsSales", perms.get("canReports", False))),
+                    "canReportsAdmin": bool(perms.get("canReportsAdmin", perms.get("canReports", False))),
+                    "canReportsFinancial": bool(perms.get("canReportsFinancial", perms.get("canReports", False))),
+                    "canReportsAccounting": bool(perms.get("canReportsAccounting", perms.get("canReports", False))),
+                    "canReportsFiscal": bool(perms.get("canReportsFiscal", perms.get("canReports", False))),
+                    "canReportsHR": bool(perms.get("canReportsHR", perms.get("canReports", False))),
+                    "canAccountingExport": bool(perms.get("canAccountingExport", False)),
+                    "canManageAPI": bool(perms.get("canManageAPI", False)),
                     **{k: bool(v) for k, v in perms.items() if k not in (
                         "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
                         "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
@@ -170,7 +178,9 @@ def _cached_user_profile(uid):
                         "canManagePurchaseCXP", "canUseChatbot", "canAccounting", "canAssignApprovers",
                         "canManageCatalog", "canViewInventoryDashboard", "canInventoryKardex", "canInventoryReceipts",
                         "canInventoryTransfers", "canInventoryCounts", "canInventoryLots", "canManageWarehouses",
-                        "canInventoryAdjustments", "canManagePriceLists"
+                        "canInventoryAdjustments", "canManagePriceLists",
+                        "canReportsSales", "canReportsAdmin", "canReportsFinancial", "canReportsAccounting",
+                        "canReportsFiscal", "canReportsHR", "canAccountingExport", "canManageAPI"
                     )}
                 },
                 "createdAt": serialize_field(data.get("createdAt")),
@@ -1419,6 +1429,14 @@ class DatabaseService:
                         "canManageWarehouses": bool(perms.get("canManageWarehouses", perms.get("canManageInventory", True))),
                         "canInventoryAdjustments": bool(perms.get("canInventoryAdjustments", perms.get("canManageInventory", True))),
                         "canManagePriceLists": bool(perms.get("canManagePriceLists", perms.get("canManageInventory", perms.get("canInvoice", True)))),
+                        "canReportsSales": bool(perms.get("canReportsSales", perms.get("canReports", False))),
+                        "canReportsAdmin": bool(perms.get("canReportsAdmin", perms.get("canReports", False))),
+                        "canReportsFinancial": bool(perms.get("canReportsFinancial", perms.get("canReports", False))),
+                        "canReportsAccounting": bool(perms.get("canReportsAccounting", perms.get("canReports", False))),
+                        "canReportsFiscal": bool(perms.get("canReportsFiscal", perms.get("canReports", False))),
+                        "canReportsHR": bool(perms.get("canReportsHR", perms.get("canReports", False))),
+                        "canAccountingExport": bool(perms.get("canAccountingExport", False)),
+                        "canManageAPI": bool(perms.get("canManageAPI", False)),
                         **{k: bool(v) for k, v in perms.items() if k not in (
                             "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
                             "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
@@ -1429,7 +1447,9 @@ class DatabaseService:
                             "canApproveExpenses", "canSupervisePOS", "canAssignApprovers",
                             "canManageCatalog", "canViewInventoryDashboard", "canInventoryKardex", "canInventoryReceipts",
                             "canInventoryTransfers", "canInventoryCounts", "canInventoryLots", "canManageWarehouses",
-                            "canInventoryAdjustments", "canManagePriceLists"
+                            "canInventoryAdjustments", "canManagePriceLists",
+                            "canReportsSales", "canReportsAdmin", "canReportsFinancial", "canReportsAccounting",
+                            "canReportsFiscal", "canReportsHR", "canAccountingExport", "canManageAPI"
                         )}
                     },
                     "createdAt": created_at,
@@ -1493,6 +1513,14 @@ class DatabaseService:
                         "canManageWarehouses": True,
                         "canInventoryAdjustments": True,
                         "canManagePriceLists": True,
+                        "canReportsSales": True,
+                        "canReportsAdmin": True,
+                        "canReportsFinancial": True,
+                        "canReportsAccounting": True,
+                        "canReportsFiscal": True,
+                        "canReportsHR": True,
+                        "canAccountingExport": True,
+                        "canManageAPI": True,
                     },
                     "createdAt": datetime.now(timezone.utc).isoformat(),
                     "two_factor_enabled": False,
