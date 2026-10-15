@@ -31,7 +31,7 @@ def restrict_to_do():
 
 
 @web_fiscal_notes_bp.route('/fiscal-notes')
-@require_permission('canInvoice', 'Notas Fiscales')
+@require_permission('canManageFiscalNotes', 'Notas Fiscales')
 def list_fiscal_notes():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
@@ -213,8 +213,8 @@ def list_fiscal_notes():
 def create_fiscal_note():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', required_permission="canInvoice"), 403
+    if not check_permission('canManageFiscalNotes'):
+        return render_template('auth/restricted.html', required_permission="canManageFiscalNotes"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -268,8 +268,8 @@ def create_fiscal_note():
 def save_fiscal_note():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', required_permission="canInvoice"), 403
+    if not check_permission('canManageFiscalNotes'):
+        return render_template('auth/restricted.html', required_permission="canManageFiscalNotes"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)

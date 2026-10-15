@@ -192,8 +192,9 @@ def _log_dgii_emission_to_audit(owner_uid, invoice, res, performed_by_email, per
 # ═══════════════════════════════════════════════════════════════════════
 
 ALL_PERMISSION_KEYS = [
-    "canInvoice", "canManageQuotations", "canExpenses", "canClients", "canModifySettings",
-    "canManageInventory", "canManagePOS", "canViewDashboard",
+    "canInvoice", "canManageFiscalNotes", "canManageQuotations", "canManagePOS", "canManageRUI",
+    "canExpenses", "canClients", "canModifySettings",
+    "canManageInventory", "canViewDashboard",
     "canManageCXC", "canManageCXP", "canManageContracts",
     "canManageCommissions", "canViewBI", "canViewAuditLog",
     "canAccounting", "isPosSupervisor", "canViewSubscription",
@@ -212,8 +213,9 @@ ALL_PERMISSION_KEYS = [
 ROLES_PRESETS = {
     "administrador": {k: True for k in ALL_PERMISSION_KEYS},
     "vendedor": {
-        "canInvoice": True, "canManageQuotations": True, "canExpenses": False, "canClients": True,
-        "canModifySettings": False, "canManageInventory": False, "canManagePOS": True,
+        "canInvoice": True, "canManageFiscalNotes": True, "canManageQuotations": True,
+        "canManagePOS": True, "canManageRUI": False, "canExpenses": False, "canClients": True,
+        "canModifySettings": False, "canManageInventory": False,
         "canViewDashboard": True, "canManageCXC": False, "canManageCXP": False,
         "canManageContracts": False, "canManageCommissions": True, "canViewBI": False,
         "canViewAuditLog": False, "canAccounting": False, "isPosSupervisor": False,
@@ -231,15 +233,16 @@ ROLES_PRESETS = {
         "canManagePriceLists": False,
     },
     "contador": {
-        "canInvoice": True, "canManageQuotations": False, "canExpenses": True, "canClients": False,
-        "canModifySettings": False, "canManageInventory": False, "canManagePOS": False,
+        "canInvoice": True, "canManageFiscalNotes": True, "canManageQuotations": False,
+        "canManagePOS": False, "canManageRUI": True, "canExpenses": True, "canClients": False,
+        "canModifySettings": False, "canManageInventory": False,
         "canViewDashboard": True, "canManageCXC": True, "canManageCXP": True,
         "canManageContracts": False, "canManageCommissions": False, "canViewBI": True,
         "canViewAuditLog": False, "canAccounting": True, "isPosSupervisor": False,
         "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
         "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
         "canManageTools": False, "canHR": True,
-        "canVoidInvoice": False, "canCreateSupplier": False,
+        "canVoidInvoice": True, "canCreateSupplier": False,
         "canApprovePayments": False, "canApprovePayroll": False,
         "canApproveExpenses": False, "canSupervisePOS": False,
         "canAssignApprovers": False,
@@ -250,8 +253,9 @@ ROLES_PRESETS = {
         "canManagePriceLists": False,
     },
     "consulta": {
-        "canInvoice": False, "canManageQuotations": False, "canExpenses": False, "canClients": False,
-        "canModifySettings": False, "canManageInventory": False, "canManagePOS": False,
+        "canInvoice": False, "canManageFiscalNotes": False, "canManageQuotations": False,
+        "canManagePOS": False, "canManageRUI": False, "canExpenses": False, "canClients": False,
+        "canModifySettings": False, "canManageInventory": False,
         "canViewDashboard": True, "canManageCXC": False, "canManageCXP": False,
         "canManageContracts": False, "canManageCommissions": False, "canViewBI": True,
         "canViewAuditLog": True, "canAccounting": False, "isPosSupervisor": False,
@@ -273,13 +277,31 @@ ROLES_PRESETS = {
 PERMISSION_GROUPS = [
     {
         "name": "Módulos Principales",
-        "perms": ["canViewDashboard", "canInvoice", "canManageQuotations", "canClients", "canManagePOS"],
+        "perms": ["canViewDashboard", "canClients"],
         "labels": {
             "canViewDashboard": "Dashboard general",
-            "canInvoice": "Facturación y emisión fiscal",
-            "canManageQuotations": "Cotizaciones (crear y gestionar)",
             "canClients": "Clientes (CRM)",
-            "canManagePOS": "Caja (POS)",
+        },
+    },
+    {
+        "name": "Ventas y Facturación",
+        "perms": [
+            "canInvoice",
+            "canManageFiscalNotes",
+            "canManageQuotations",
+            "canManagePOS",
+            "canManageRUI",
+            "canManagePriceLists",
+            "canVoidInvoice",
+        ],
+        "labels": {
+            "canInvoice": "Facturación electrónica (e-CF)",
+            "canManageFiscalNotes": "Notas de crédito y débito",
+            "canManageQuotations": "Cotizaciones (crear y gestionar)",
+            "canManagePOS": "Punto de Venta (POS / Caja)",
+            "canManageRUI": "Registro Único de Ingresos (RUI - Tipo 12)",
+            "canManagePriceLists": "Listas de precios y descuentos",
+            "canVoidInvoice": "Anular facturas y notas fiscales",
         },
     },
     {
@@ -294,7 +316,6 @@ PERMISSION_GROUPS = [
             "canInventoryLots",
             "canManageWarehouses",
             "canInventoryAdjustments",
-            "canManagePriceLists",
             "canManageInventory",
         ],
         "labels": {
@@ -307,7 +328,6 @@ PERMISSION_GROUPS = [
             "canInventoryLots": "Control de lotes y vencimientos",
             "canManageWarehouses": "Gestión de almacenes",
             "canInventoryAdjustments": "Ajustes manuales de inventario",
-            "canManagePriceLists": "Listas de precios",
             "canManageInventory": "Control general de inventario (maestro)",
         },
     },
@@ -331,7 +351,7 @@ PERMISSION_GROUPS = [
         "perms": ["canModifySettings", "canViewAuditLog", "canViewSubscription",
                   "canToggleSandbox", "canManageNotes", "canManageSuppliers",
                   "canUseChatbot", "isPosSupervisor", "canSupervisePOS",
-                  "canHR", "canVoidInvoice", "canCreateSupplier",
+                  "canHR", "canCreateSupplier",
                   "canApprovePayments", "canApprovePayroll", "canApproveExpenses"],
         "labels": {
             "canModifySettings": "Ajustes de empresa",
@@ -344,7 +364,6 @@ PERMISSION_GROUPS = [
             "isPosSupervisor": "Supervisor de caja (POS)",
             "canSupervisePOS": "Supervisión avanzada de POS",
             "canHR": "Nómina y RRHH",
-            "canVoidInvoice": "Anular facturas",
             "canCreateSupplier": "Crear proveedores",
             "canApprovePayments": "Aprobar pagos",
             "canApprovePayroll": "Autorizar pagos de nómina",
