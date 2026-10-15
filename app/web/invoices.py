@@ -208,6 +208,12 @@ ALL_PERMISSION_KEYS = [
     "canInventoryReceipts", "canInventoryTransfers", "canInventoryCounts",
     "canInventoryLots", "canManageWarehouses", "canInventoryAdjustments",
     "canManagePriceLists",
+    # Permisos granulares de Reportería y Análisis
+    "canReportsSales", "canReportsAdmin", "canReportsFinancial",
+    "canReportsAccounting", "canReportsFiscal", "canReportsHR",
+    "canAccountingExport",
+    # Permisos de API y Desarrolladores
+    "canManageAPI",
 ]
 
 ROLES_PRESETS = {
@@ -231,6 +237,10 @@ ROLES_PRESETS = {
         "canInventoryReceipts": False, "canInventoryTransfers": False, "canInventoryCounts": False,
         "canInventoryLots": False, "canManageWarehouses": False, "canInventoryAdjustments": False,
         "canManagePriceLists": False,
+        # Reportería para Vendedor
+        "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
+        "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
+        "canAccountingExport": False, "canManageAPI": False,
     },
     "contador": {
         "canInvoice": True, "canManageFiscalNotes": True, "canManageQuotations": False,
@@ -251,6 +261,10 @@ ROLES_PRESETS = {
         "canInventoryReceipts": False, "canInventoryTransfers": False, "canInventoryCounts": True,
         "canInventoryLots": False, "canManageWarehouses": False, "canInventoryAdjustments": False,
         "canManagePriceLists": False,
+        # Reportería para Contador
+        "canReportsSales": True, "canReportsAdmin": True, "canReportsFinancial": True,
+        "canReportsAccounting": True, "canReportsFiscal": True, "canReportsHR": True,
+        "canAccountingExport": True, "canManageAPI": False,
     },
     "consulta": {
         "canInvoice": False, "canManageFiscalNotes": False, "canManageQuotations": False,
@@ -271,6 +285,10 @@ ROLES_PRESETS = {
         "canInventoryReceipts": False, "canInventoryTransfers": False, "canInventoryCounts": False,
         "canInventoryLots": False, "canManageWarehouses": False, "canInventoryAdjustments": False,
         "canManagePriceLists": False,
+        # Reportería para Consulta
+        "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
+        "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
+        "canAccountingExport": False, "canManageAPI": False,
     },
 }
 
@@ -334,7 +352,7 @@ PERMISSION_GROUPS = [
     {
         "name": "Financiero",
         "perms": ["canExpenses", "canManageCXC", "canManageCXP", "canManagePurchaseCXP",
-                  "canManageCommissions", "canAccounting", "canViewBI", "canManageContracts"],
+                  "canManageCommissions", "canAccounting", "canManageContracts"],
         "labels": {
             "canExpenses": "Gastos y egresos",
             "canManageCXC": "Cuentas por cobrar (CxC)",
@@ -342,8 +360,30 @@ PERMISSION_GROUPS = [
             "canManagePurchaseCXP": "CxP Compras",
             "canManageCommissions": "Comisiones y metas",
             "canAccounting": "Contabilidad",
-            "canViewBI": "Inteligencia financiera (BI)",
             "canManageContracts": "Contratos y recurrencia",
+        },
+    },
+    {
+        "name": "Reportes y Análisis",
+        "perms": [
+            "canReportsSales",
+            "canReportsAdmin",
+            "canReportsFinancial",
+            "canReportsAccounting",
+            "canReportsFiscal",
+            "canReportsHR",
+            "canAccountingExport",
+            "canViewBI",
+        ],
+        "labels": {
+            "canReportsSales": "Reportes de ventas",
+            "canReportsAdmin": "Reportes administrativos y compras (CxC, CxP, transacciones)",
+            "canReportsFinancial": "Reportes financieros (flujo de caja)",
+            "canReportsAccounting": "Reportes contables (estados, balanza y libros)",
+            "canReportsFiscal": "Reportes fiscales y DGII (606, 607, 608, 623, IT-1)",
+            "canReportsHR": "Reportes de nómina y RRHH (TSS, IR-18, DGTs, vacaciones)",
+            "canAccountingExport": "Exportación contable (QuickBooks, Alegra y formatos externos)",
+            "canViewBI": "Inteligencia de negocio (BI)",
         },
     },
     {
@@ -352,7 +392,8 @@ PERMISSION_GROUPS = [
                   "canToggleSandbox", "canManageNotes", "canManageSuppliers",
                   "canUseChatbot", "isPosSupervisor", "canSupervisePOS",
                   "canHR", "canCreateSupplier",
-                  "canApprovePayments", "canApprovePayroll", "canApproveExpenses"],
+                  "canApprovePayments", "canApprovePayroll", "canApproveExpenses",
+                  "canManageAPI"],
         "labels": {
             "canModifySettings": "Ajustes de empresa",
             "canViewAuditLog": "Registro de auditoría",
@@ -368,6 +409,7 @@ PERMISSION_GROUPS = [
             "canApprovePayments": "Aprobar pagos",
             "canApprovePayroll": "Autorizar pagos de nómina",
             "canApproveExpenses": "Aprobar gastos",
+            "canManageAPI": "API y Desarrolladores (acceso al portal, documentación y credenciales API REST)",
         },
     },
     {
@@ -9855,8 +9897,8 @@ def export_company_data():
 @web_invoices_bp.route('/reports')
 def reports_dashboard():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reportes", required_permission="canInvoice"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canReports')):
+        return render_template('auth/restricted.html', feature_name="Reportes", required_permission="canReports"), 403
 
     report_categories = get_report_categories()
 
@@ -9867,7 +9909,7 @@ def reports_dashboard():
 def get_report_categories():
     from app.utils.module_gate import module_enabled
     from flask import url_for
-    return [
+    all_categories = [
         {
             "key": "ventas",
             "icon": "fa-solid fa-chart-simple",
@@ -9949,7 +9991,7 @@ def get_report_categories():
             "category_url": url_for('web_invoices.reports_category', category_key='contables'),
             "reports": [
                 {"title": "Exportación contable", "url": "web_invoices.accounting_export_page",
-                 "enabled": module_enabled('exportacion_contable'),
+                 "enabled": module_enabled('exportacion_contable') and (session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingExport')),
                  "desc": "Exporta tu información contable para tu sistema externo."},
                 {"title": "Estado de resultados", "url": "web_accounting.income_statement",
                  "enabled": module_enabled('contabilidad'),
@@ -10126,19 +10168,54 @@ def get_report_categories():
         },
     ]
 
+    # Filtrar según los permisos del usuario activo
+    if session.get('user', {}).get('role') == 'owner':
+        return all_categories
+
+    category_perm_map = {
+        "ventas": "canReportsSales",
+        "administrativos": "canReportsAdmin",
+        "financieros": "canReportsFinancial",
+        "contables": "canReportsAccounting",
+        "fiscales": "canReportsFiscal",
+        "empleados": "canReportsHR",
+        "nomina": "canReportsHR",
+        "para_trabajar": "canReportsAdmin",
+    }
+    allowed = []
+    for cat in all_categories:
+        key = cat.get("key")
+        if key == "favoritos":
+            allowed.append(cat)
+        elif check_permission(category_perm_map.get(key, "canReports")):
+            allowed.append(cat)
+    return allowed
+
 
 @web_invoices_bp.route('/reports/categoria/<category_key>')
 def reports_category(category_key):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reportes",
-                               required_permission="canInvoice"), 403
+
+    category_perm_map = {
+        "ventas": "canReportsSales",
+        "administrativos": "canReportsAdmin",
+        "financieros": "canReportsFinancial",
+        "contables": "canReportsAccounting",
+        "fiscales": "canReportsFiscal",
+        "empleados": "canReportsHR",
+        "nomina": "canReportsHR",
+        "para_trabajar": "canReportsAdmin",
+    }
+    req_perm = category_perm_map.get(category_key, "canReports")
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission(req_perm)):
+        return render_template('auth/restricted.html', feature_name=f"Reportes - {category_key.capitalize()}",
+                               required_permission=req_perm), 403
 
     categories = get_report_categories()
     category = next((c for c in categories if c['key'] == category_key), None)
     if not category:
-        flash('Categoría de reportes no encontrada.', 'error')
+        flash('Categoría de reportes no encontrada o no autorizada.', 'error')
         return redirect(url_for('web_invoices.reports_dashboard'))
 
     return render_template('reports/categoria.html', active_page='reports',
@@ -10148,8 +10225,8 @@ def reports_category(category_key):
 @web_invoices_bp.route('/reports/it1')
 def it1_diagnostic():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Diagnóstico de IT-1", required_permission="canInvoice"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canReportsFiscal')):
+        return render_template('auth/restricted.html', feature_name="Diagnóstico de IT-1", required_permission="canReportsFiscal"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -10184,8 +10261,8 @@ def it1_diagnostic():
 def backup_export():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Exportar Respaldo", required_permission="canInvoice"), 403
+    if not check_permission('canReportsAdmin'):
+        return render_template('auth/restricted.html', feature_name="Exportar Respaldo", required_permission="canReportsAdmin"), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -10389,8 +10466,8 @@ def _filter_docs_by_period(docs, year, month, date_field='date'):
 def report_607_export():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reporte 607", required_permission="canInvoice"), 403
+    if not check_permission('canReportsFiscal'):
+        return render_template('auth/restricted.html', feature_name="Reporte 607", required_permission="canReportsFiscal"), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -10653,8 +10730,8 @@ def report_607_export():
 def report_609_export():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reporte 609", required_permission="canInvoice"), 403
+    if not check_permission('canReportsFiscal'):
+        return render_template('auth/restricted.html', feature_name="Reporte 609", required_permission="canReportsFiscal"), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -10705,8 +10782,8 @@ def report_609_export():
 @web_invoices_bp.route('/reports/dgii-tools', methods=['GET'])
 def dgii_tools():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Herramientas DGII", required_permission="canInvoice"), 403
+    if not check_permission('canReportsFiscal'):
+        return render_template('auth/restricted.html', feature_name="Herramientas DGII", required_permission="canReportsFiscal"), 403
     
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -11860,8 +11937,8 @@ from app.services.accounting_export_service import AccountingExportService, EXPO
 def accounting_export_page():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', required_permission="canInvoice"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingExport')):
+        return render_template('auth/restricted.html', feature_name="Exportación contable", required_permission="canAccountingExport"), 403
     return render_template('reports/accounting_export.html',
                            formats=EXPORT_FORMATS,
                            active_page='reports')
@@ -11871,7 +11948,7 @@ def accounting_export_page():
 def accounting_export_download():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingExport')):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')

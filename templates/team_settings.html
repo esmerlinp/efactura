@@ -206,7 +206,8 @@
                             {% set default_val = ROLES_PRESETS['vendedor'].get(key, False) %}
                             <label style="display:flex;align-items:center;gap:7px;font-size:0.8rem;cursor:pointer;">
                                 <input type="checkbox" name="{{ key }}" {% if default_val %}checked{% endif %}
-                                    style="width:14px;height:14px;accent-color:var(--accent-emerald);flex-shrink:0;">
+                                    style="width:14px;height:14px;accent-color:var(--accent-emerald);flex-shrink:0;"
+                                    onchange="markModalCustom()">
                                 <span>{{ group.labels.get(key, key) }}</span>
                             </label>
                             {% endfor %}

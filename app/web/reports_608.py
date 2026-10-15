@@ -76,8 +76,8 @@ def _filter_annulled(invoices, cancellation_type, search):
 def reporte_608():
     if "user" not in session:
         return redirect(url_for("login"))
-    if not check_permission("canReports"):
-        return render_template("auth/restricted.html", active_page="reporte_608"), 403
+    if not check_permission("canReportsFiscal"):
+        return render_template("auth/restricted.html", active_page="reporte_608", feature_name="Reporte 608", required_permission="canReportsFiscal"), 403
     owner_uid = session["user"]["ownerUID"]
     company_id = session.get("selected_company_id")
     sandbox = session.get("is_sandbox_mode", True)
@@ -274,8 +274,8 @@ def _build_xlsx(owner_rnc, period, filtered):
 def reporte_608_export():
     if "user" not in session:
         return redirect(url_for("login"))
-    if not check_permission("canReports"):
-        return render_template("auth/restricted.html"), 403
+    if not check_permission("canReportsFiscal"):
+        return render_template("auth/restricted.html", feature_name="Reporte 608", required_permission="canReportsFiscal"), 403
     owner_uid = session["user"]["ownerUID"]
     company_id = session.get("selected_company_id")
     sandbox = session.get("is_sandbox_mode", True)

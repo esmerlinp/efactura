@@ -413,8 +413,8 @@ def _generate_606_txt(owner_rnc, period, expenses):
 def reporte_606():
     if "user" not in session:
         return redirect(url_for("login"))
-    if not check_permission("canExpenses"):
-        return render_template("auth/restricted.html", active_page="reporte_606"), 403
+    if not check_permission("canReportsFiscal"):
+        return render_template("auth/restricted.html", active_page="reporte_606", feature_name="Reporte 606", required_permission="canReportsFiscal"), 403
     owner_uid = session["user"]["ownerUID"]
     sandbox = session.get("is_sandbox_mode", True)
 
@@ -514,8 +514,8 @@ def reporte_606():
 def reporte_606_export():
     if "user" not in session:
         return redirect(url_for("login"))
-    if not check_permission("canExpenses"):
-        return render_template("auth/restricted.html"), 403
+    if not check_permission("canReportsFiscal"):
+        return render_template("auth/restricted.html", feature_name="Reporte 606", required_permission="canReportsFiscal"), 403
     owner_uid = session["user"]["ownerUID"]
     sandbox = session.get("is_sandbox_mode", True)
     company_id = session.get("selected_company_id")
@@ -569,8 +569,8 @@ def reporte_606_export():
 def reporte_606_dashboard():
     if "user" not in session:
         return redirect(url_for("login"))
-    if not check_permission("canExpenses"):
-        return render_template("auth/restricted.html", active_page="dashboard_606"), 403
+    if not check_permission("canReportsFiscal"):
+        return render_template("auth/restricted.html", active_page="dashboard_606", feature_name="Reporte 606", required_permission="canReportsFiscal"), 403
     owner_uid = session["user"]["ownerUID"]
     sandbox = session.get("is_sandbox_mode", True)
 

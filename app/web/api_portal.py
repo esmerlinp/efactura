@@ -13,7 +13,17 @@ gate_blueprint_module(web_api_portal_bp, 'api', feature_name="Área de Desarroll
 def _require_login():
     if 'user' not in session:
         return redirect(url_for('web_auth.login', next=request.url))
-    return _require_developers()
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageAPI')):
+        return render_template(
+            'auth/restricted.html',
+            feature_name='API y Desarrolladores',
+            required_permission='canManageAPI',
+            custom_message='No tienes permisos para acceder al Área de Desarrolladores.'
+        ), 403
+    guard = _require_developers()
+    if guard:
+        return guard
+    return None
 
 
 def _require_developers():

@@ -11,7 +11,7 @@
 {% endif %}
 
 <!-- SECCIÓN: REPORTES Y ANÁLISIS -->
-{% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) or session.get('user', {}).get('permissions', {}).get('canExpenses', True) or module_enabled('ia_bi') %}
+{% if session.get('user', {}).get('role') == 'owner' or check_permission('canReports') or (module_enabled('ia_bi') and check_permission('canViewBI')) %}
 <div class="sidebar-section {% if active_page in ('reports', 'ventas_generales', 'ventas_por_producto', 'ventas_por_cliente', 'ventas_rentabilidad', 'ventas_por_vendedor', 'ventas_estado_cuenta', 'admin_ingresos_compras', 'admin_reporte_anual', 'reporte_606', 'dashboard_606', 'accounting_export', 'budgets', 'bi_drilldown', 'monthly_taxes', 'tax_reconciliation') %}active-parent{% endif %}" id="sidebar-section-reports">
     <div class="sidebar-section-header">
         <div class="header-left">
@@ -21,7 +21,7 @@
         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
     </div>
     <ul class="sidebar-section-content">
-        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) or session.get('user', {}).get('permissions', {}).get('canExpenses', True) %}
+        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canReports') %}
         <li class="nav-item {% if active_page in ('reports', 'ventas_generales', 'ventas_por_producto', 'ventas_por_cliente', 'ventas_rentabilidad', 'ventas_por_vendedor', 'ventas_estado_cuenta', 'admin_ingresos_compras', 'admin_reporte_anual', 'reporte_606', 'dashboard_606', 'accounting_export', 'budgets', 'monthly_taxes', 'tax_reconciliation') %}active{% endif %}"
             data-tooltip="Reportes">
             <a href="{{ url_for('web_invoices.reports_dashboard') }}">
@@ -29,7 +29,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('ia_bi') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewBI', True)) %}
+        {% if module_enabled('ia_bi') and (session.get('user', {}).get('role') == 'owner' or check_permission('canViewBI')) %}
         <li class="nav-item {% if active_page == 'bi_drilldown' %}active{% endif %}"
             data-tooltip="Inteligencia de Negocio (BI)">
             <a href="{{ url_for('web_bi.drilldown', metric='sales') }}">
