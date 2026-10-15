@@ -322,7 +322,7 @@
 {% endif %}
 
 <!-- SECCIÓN: FINANZAS -->
-{% if (module_enabled('cxc') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCXC') or check_permission('canManageCXCAdvances'))) or (module_enabled('banks') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageBanks') or check_permission('canBankReconciliation'))) or (module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or check_permission('canAccounting'))) %}
+{% if (module_enabled('cxc') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCXC') or check_permission('canManageCXCAdvances'))) or (module_enabled('banks') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageBanks') or check_permission('canBankReconciliation'))) or (module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or check_permission('canAccounting') or check_permission('canAccountingDashboard') or check_permission('canAccountingChart') or check_permission('canAccountingJournal') or check_permission('canAccountingReports') or check_permission('canAccountingFixedAssets') or check_permission('canAccountingFiscalPeriods') or check_permission('canAccountingSettings'))) %}
 <div class="sidebar-section" id="sidebar-section-finanzas">
     <div class="sidebar-section-header">
         <div class="header-left">
@@ -364,7 +364,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or check_permission('canAccounting')) %}
+        {% if module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or check_permission('canAccounting') or check_permission('canAccountingDashboard') or check_permission('canAccountingChart') or check_permission('canAccountingJournal') or check_permission('canAccountingReports') or check_permission('canAccountingFixedAssets') or check_permission('canAccountingFiscalPeriods') or check_permission('canAccountingSettings')) %}
         <li class="nav-item {% if active_page and active_page.startswith('acc_') %}active{% endif %}"
             data-tooltip="Contabilidad">
             <a href="{{ url_for('web_accounting.dashboard') }}">

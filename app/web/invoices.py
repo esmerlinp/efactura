@@ -217,6 +217,10 @@ ALL_PERMISSION_KEYS = [
     "canCRMActivities", "canCRMReports",
     # Permisos granulares de Finanzas y Tesorería
     "canManageCXCAdvances", "canManageBanks", "canBankReconciliation",
+    # Permisos granulares de Contabilidad General
+    "canAccountingDashboard", "canAccountingChart", "canAccountingJournal",
+    "canAccountingReports", "canAccountingFixedAssets", "canAccountingFiscalPeriods",
+    "canAccountingSettings",
     # Permisos granulares de Reportería y Análisis
     "canReportsSales", "canReportsAdmin", "canReportsFinancial",
     "canReportsAccounting", "canReportsFiscal", "canReportsHR",
@@ -255,6 +259,10 @@ ROLES_PRESETS = {
         "canCRMActivities": True, "canCRMReports": False,
         # Finanzas y Tesorería para Vendedor
         "canManageCXCAdvances": False, "canManageBanks": False, "canBankReconciliation": False,
+        # Contabilidad para Vendedor
+        "canAccountingDashboard": False, "canAccountingChart": False, "canAccountingJournal": False,
+        "canAccountingReports": False, "canAccountingFixedAssets": False, "canAccountingFiscalPeriods": False,
+        "canAccountingSettings": False,
         # Reportería para Vendedor
         "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
         "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
@@ -288,6 +296,10 @@ ROLES_PRESETS = {
         "canCRMActivities": False, "canCRMReports": False,
         # Finanzas y Tesorería para Contador
         "canManageCXCAdvances": True, "canManageBanks": True, "canBankReconciliation": True,
+        # Contabilidad para Contador
+        "canAccountingDashboard": True, "canAccountingChart": True, "canAccountingJournal": True,
+        "canAccountingReports": True, "canAccountingFixedAssets": True, "canAccountingFiscalPeriods": True,
+        "canAccountingSettings": True,
         # Reportería para Contador
         "canReportsSales": True, "canReportsAdmin": True, "canReportsFinancial": True,
         "canReportsAccounting": True, "canReportsFiscal": True, "canReportsHR": True,
@@ -321,6 +333,10 @@ ROLES_PRESETS = {
         "canCRMActivities": False, "canCRMReports": False,
         # Finanzas y Tesorería para Consulta
         "canManageCXCAdvances": False, "canManageBanks": False, "canBankReconciliation": False,
+        # Contabilidad para Consulta
+        "canAccountingDashboard": True, "canAccountingChart": False, "canAccountingJournal": False,
+        "canAccountingReports": True, "canAccountingFixedAssets": False, "canAccountingFiscalPeriods": False,
+        "canAccountingSettings": False,
         # Reportería para Consulta
         "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
         "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
@@ -438,7 +454,6 @@ PERMISSION_GROUPS = [
             "canManageBanks",
             "canBankReconciliation",
             "canManageCXP",
-            "canAccounting",
             "canManageContracts",
         ],
         "labels": {
@@ -447,8 +462,30 @@ PERMISSION_GROUPS = [
             "canManageBanks": "Bancos y cajas (cuentas, movimientos y transferencias)",
             "canBankReconciliation": "Conciliación bancaria (carga de extractos y cuadre)",
             "canManageCXP": "Cuentas por pagar (CxP general)",
-            "canAccounting": "Contabilidad",
             "canManageContracts": "Contratos y recurrencia",
+        },
+    },
+    {
+        "name": "Contabilidad",
+        "perms": [
+            "canAccounting",
+            "canAccountingDashboard",
+            "canAccountingChart",
+            "canAccountingJournal",
+            "canAccountingReports",
+            "canAccountingFixedAssets",
+            "canAccountingFiscalPeriods",
+            "canAccountingSettings",
+        ],
+        "labels": {
+            "canAccounting": "Control general de contabilidad (maestro)",
+            "canAccountingDashboard": "Dashboard contable y KPI financieros",
+            "canAccountingChart": "Catálogo de cuentas y saldos iniciales",
+            "canAccountingJournal": "Entradas de diario y libro diario",
+            "canAccountingReports": "Estados financieros y balances oficiales",
+            "canAccountingFixedAssets": "Activos fijos y depreciación contable",
+            "canAccountingFiscalPeriods": "Períodos fiscales y cierre contable",
+            "canAccountingSettings": "Configuración contable y reglas de contabilización",
         },
     },
     {

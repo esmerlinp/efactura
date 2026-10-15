@@ -110,8 +110,20 @@ def dashboard():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingDashboard'):
+        if check_permission('canAccountingChart'):
+            return redirect(url_for('web_accounting.chart_of_accounts'))
+        if check_permission('canAccountingJournal'):
+            return redirect(url_for('web_accounting.journal_entries'))
+        if check_permission('canAccountingReports'):
+            return redirect(url_for('web_accounting.balance_sheet'))
+        if check_permission('canAccountingFixedAssets'):
+            return redirect(url_for('web_accounting.fixed_assets'))
+        if check_permission('canAccountingFiscalPeriods'):
+            return redirect(url_for('web_accounting.fiscal_periods'))
+        if check_permission('canAccountingSettings'):
+            return redirect(url_for('web_accounting.list_cost_centers'))
+        return render_template('auth/restricted.html', required_permission="canAccountingDashboard"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -148,8 +160,8 @@ def chart_of_accounts():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingChart'):
+        return render_template('auth/restricted.html', required_permission="canAccountingChart"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     tree_data, all_accounts = AccountingService.get_accounts_tree(company_id)
@@ -171,6 +183,18 @@ def api_accounts():
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
+    has_acc_perm = (
+        check_permission('canAccounting') or
+        check_permission('canAccountingChart') or
+        check_permission('canAccountingJournal') or
+        check_permission('canAccountingReports') or
+        check_permission('canAccountingFixedAssets') or
+        check_permission('canAccountingFiscalPeriods') or
+        check_permission('canAccountingSettings') or
+        check_permission('canAccountingDashboard')
+    )
+    if not has_acc_perm:
+        return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
@@ -184,6 +208,18 @@ def api_accounts_tree():
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
+    has_acc_perm = (
+        check_permission('canAccounting') or
+        check_permission('canAccountingChart') or
+        check_permission('canAccountingJournal') or
+        check_permission('canAccountingReports') or
+        check_permission('canAccountingFixedAssets') or
+        check_permission('canAccountingFiscalPeriods') or
+        check_permission('canAccountingSettings') or
+        check_permission('canAccountingDashboard')
+    )
+    if not has_acc_perm:
+        return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
@@ -197,7 +233,7 @@ def create_account():
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
-    if not check_permission('canAccounting'):
+    if not check_permission('canAccountingChart'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
@@ -242,7 +278,7 @@ def edit_account(account_id):
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
-    if not check_permission('canAccounting'):
+    if not check_permission('canAccountingChart'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
@@ -271,7 +307,7 @@ def delete_account(account_id):
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
-    if not check_permission('canAccounting'):
+    if not check_permission('canAccountingChart'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
@@ -305,8 +341,8 @@ def account_movements(account_id):
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not (check_permission('canAccountingChart') or check_permission('canAccountingJournal') or check_permission('canAccountingReports')):
+        return render_template('auth/restricted.html', required_permission="canAccountingChart"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     account = DatabaseService.get_account(owner_uid, account_id, company_id=company_id)
@@ -337,8 +373,8 @@ def journal_entries():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingJournal'):
+        return render_template('auth/restricted.html', required_permission="canAccountingJournal"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -433,8 +469,8 @@ def new_journal_entry():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingJournal'):
+        return render_template('auth/restricted.html', required_permission="canAccountingJournal"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -492,8 +528,8 @@ def journal_entry_detail(entry_id):
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingJournal'):
+        return render_template('auth/restricted.html', required_permission="canAccountingJournal"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -512,7 +548,7 @@ def void_journal_entry(entry_id):
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
-    if not check_permission('canAccounting'):
+    if not check_permission('canAccountingJournal'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
@@ -529,7 +565,7 @@ def clone_journal_entry(entry_id):
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
-    if not check_permission('canAccounting'):
+    if not check_permission('canAccountingJournal'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
@@ -551,8 +587,8 @@ def general_journal():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingJournal'):
+        return render_template('auth/restricted.html', required_permission="canAccountingJournal"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -584,8 +620,8 @@ def balance_sheet():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingReports'):
+        return render_template('auth/restricted.html', required_permission="canAccountingReports"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
@@ -966,8 +1002,8 @@ def income_statement():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingReports'):
+        return render_template('auth/restricted.html', required_permission="canAccountingReports"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
@@ -1392,8 +1428,8 @@ def trial_balance():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingReports'):
+        return render_template('auth/restricted.html', required_permission="canAccountingReports"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     date = request.args.get('date', '')
@@ -1415,8 +1451,8 @@ def general_ledger():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingReports'):
+        return render_template('auth/restricted.html', required_permission="canAccountingReports"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -1530,8 +1566,8 @@ def fixed_assets():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingFixedAssets'):
+        return render_template('auth/restricted.html', required_permission="canAccountingFixedAssets"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -1553,8 +1589,8 @@ def new_fixed_asset():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingFixedAssets'):
+        return render_template('auth/restricted.html', required_permission="canAccountingFixedAssets"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -1597,8 +1633,8 @@ def fixed_asset_detail(asset_id):
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingFixedAssets'):
+        return render_template('auth/restricted.html', required_permission="canAccountingFixedAssets"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -1617,7 +1653,7 @@ def depreciate_asset(asset_id):
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
-    if not check_permission('canAccounting'):
+    if not check_permission('canAccountingFixedAssets'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
@@ -1639,7 +1675,7 @@ def dispose_asset(asset_id):
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
-    if not check_permission('canAccounting'):
+    if not check_permission('canAccountingFixedAssets'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
@@ -1666,8 +1702,8 @@ def entry_types_settings():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not (check_permission('canAccountingSettings') or check_permission('canAccountingJournal')):
+        return render_template('auth/restricted.html', required_permission="canAccountingSettings"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     AccountingService.seed_default_entry_types(company_id)
@@ -1697,7 +1733,7 @@ def delete_entry_type(type_id):
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
-    if not check_permission('canAccounting'):
+    if not (check_permission('canAccountingSettings') or check_permission('canAccountingJournal')):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
@@ -1714,8 +1750,8 @@ def accounting_rules_settings():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingSettings'):
+        return render_template('auth/restricted.html', required_permission="canAccountingSettings"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     from app.services.accounting_rules_service import AccountingRulesService
@@ -1767,7 +1803,7 @@ def accounting_rules_preview():
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
-    if not check_permission('canAccounting'):
+    if not check_permission('canAccountingSettings'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
@@ -1800,8 +1836,8 @@ def initial_balances():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingChart'):
+        return render_template('auth/restricted.html', required_permission="canAccountingChart"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -1854,8 +1890,8 @@ def import_initial_balances():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingChart'):
+        return render_template('auth/restricted.html', required_permission="canAccountingChart"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -1961,6 +1997,8 @@ def download_initial_balances_template():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
+    if not check_permission('canAccountingChart'):
+        return render_template('auth/restricted.html', required_permission="canAccountingChart"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
@@ -2004,6 +2042,8 @@ def api_import_entries():
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
+    if not check_permission('canAccountingJournal'):
+        return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -2038,8 +2078,8 @@ def list_cost_centers():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingSettings'):
+        return render_template('auth/restricted.html', required_permission="canAccountingSettings"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -2055,8 +2095,8 @@ def new_cost_center():
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingSettings'):
+        return render_template('auth/restricted.html', required_permission="canAccountingSettings"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -2081,8 +2121,8 @@ def edit_cost_center(center_id):
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingSettings'):
+        return render_template('auth/restricted.html', required_permission="canAccountingSettings"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -2111,8 +2151,8 @@ def delete_cost_center_route(center_id):
     user = _auth()
     if not user:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
+    if not check_permission('canAccountingSettings'):
+        return render_template('auth/restricted.html', required_permission="canAccountingSettings"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -2128,6 +2168,8 @@ def ajax_create_cost_center():
     user = _auth()
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
+    if not (check_permission('canAccountingSettings') or check_permission('canInvoice') or check_permission('canExpenses')):
+        return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -2149,9 +2191,8 @@ def ajax_create_cost_center():
 @web_accounting_bp.route('/accounting/fiscal-periods')
 @require_module('contabilidad')
 def fiscal_periods():
-    if not check_permission('canAccounting'):
-        flash('No tienes permiso para acceder a esta sección.', 'error')
-        return redirect(url_for('web_dashboard.dashboard'))
+    if not check_permission('canAccountingFiscalPeriods'):
+        return render_template('auth/restricted.html', required_permission="canAccountingFiscalPeriods"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     year = request.args.get('year', type=int, default=datetime.now(timezone.utc).year)
@@ -2164,7 +2205,7 @@ def fiscal_periods():
 @web_accounting_bp.route('/accounting/fiscal-periods/close', methods=['POST'])
 @require_module('contabilidad')
 def close_fiscal_period():
-    if not check_permission('canAccounting'):
+    if not check_permission('canAccountingFiscalPeriods'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -2186,7 +2227,7 @@ def close_fiscal_period():
 @web_accounting_bp.route('/accounting/fiscal-periods/open', methods=['POST'])
 @require_module('contabilidad')
 def open_fiscal_period():
-    if not check_permission('canAccounting') or session.get('user', {}).get('role') != 'owner':
+    if not check_permission('canAccountingFiscalPeriods') or session.get('user', {}).get('role') != 'owner':
         return jsonify(success=False, error="Solo el propietario puede reabrir períodos"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -2214,9 +2255,8 @@ def open_fiscal_period():
 @web_accounting_bp.route('/accounting/year-end-close')
 @require_module('contabilidad')
 def year_end_close():
-    if not check_permission('canAccounting'):
-        flash('No tienes permiso para acceder a esta sección.', 'error')
-        return redirect(url_for('web_dashboard.dashboard'))
+    if not check_permission('canAccountingFiscalPeriods'):
+        return render_template('auth/restricted.html', required_permission="canAccountingFiscalPeriods"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -2230,7 +2270,7 @@ def year_end_close():
 @web_accounting_bp.route('/accounting/year-end-close/execute', methods=['POST'])
 @require_module('contabilidad')
 def execute_year_end_close():
-    if not check_permission('canAccounting') or session.get('user', {}).get('role') != 'owner':
+    if not check_permission('canAccountingFiscalPeriods') or session.get('user', {}).get('role') != 'owner':
         return jsonify(success=False, error="Solo el propietario puede ejecutar el cierre anual"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -2257,9 +2297,8 @@ def _product_name():
 @web_accounting_bp.route('/accounting/closing-checklist')
 @require_module('contabilidad')
 def closing_checklist():
-    if not check_permission('canAccounting'):
-        flash('No tienes permiso para acceder a esta sección.', 'error')
-        return redirect(url_for('web_dashboard.dashboard'))
+    if not check_permission('canAccountingFiscalPeriods'):
+        return render_template('auth/restricted.html', required_permission="canAccountingFiscalPeriods"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
@@ -2277,7 +2316,7 @@ def closing_checklist():
 @web_accounting_bp.route('/accounting/closing-checklist/toggle', methods=['POST'])
 @require_module('contabilidad')
 def toggle_checklist_task():
-    if not check_permission('canAccounting'):
+    if not check_permission('canAccountingFiscalPeriods'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -2302,7 +2341,7 @@ def tax_obligations():
     if not user:
         return redirect(url_for('web_auth.login'))
     is_owner = session.get('user', {}).get('role') == 'owner'
-    has_perm = is_owner or check_permission('canModifySettings') or check_permission('canAccounting')
+    has_perm = is_owner or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')
     if not has_perm:
         return render_template('auth/restricted.html', required_permission="canModifySettings"), 403
 
@@ -2329,7 +2368,7 @@ def tax_obligations_save():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     is_owner = session.get('user', {}).get('role') == 'owner'
-    if not (is_owner or check_permission('canModifySettings') or check_permission('canAccounting')):
+    if not (is_owner or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')):
         return jsonify(success=False, error="Permiso denegado"), 403
 
     owner_uid = _owner_uid()
@@ -2391,7 +2430,7 @@ def tax_obligations_delete():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     is_owner = session.get('user', {}).get('role') == 'owner'
-    if not (is_owner or check_permission('canModifySettings') or check_permission('canAccounting')):
+    if not (is_owner or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')):
         return jsonify(success=False, error="Permiso denegado"), 403
 
     owner_uid = _owner_uid()
@@ -2417,7 +2456,7 @@ def tax_obligations_apply_preset():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     is_owner = session.get('user', {}).get('role') == 'owner'
-    if not (is_owner or check_permission('canModifySettings') or check_permission('canAccounting')):
+    if not (is_owner or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')):
         return jsonify(success=False, error="Permiso denegado"), 403
 
     owner_uid = _owner_uid()

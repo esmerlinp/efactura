@@ -52,6 +52,7 @@
                 <div class="sidebar-divider"></div>
 
                 <!-- ── Panel de Control ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingDashboard') %}
                 <div class="sidebar-section" id="sidebar-section-acc-dashboard">
                     <div class="sidebar-section-header">
                         <div class="header-left">
@@ -69,8 +70,10 @@
                         </li>
                     </ul>
                 </div>
+                {% endif %}
 
                 <!-- ── Catálogo de Cuentas ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingChart') %}
                 <div class="sidebar-section" id="sidebar-section-acc-chart">
                     <div class="sidebar-section-header">
                         <div class="header-left">
@@ -94,8 +97,10 @@
                         </li>
                     </ul>
                 </div>
+                {% endif %}
 
                 <!-- ── Registros Contables ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingJournal') or check_permission('canAccountingSettings') %}
                 <div class="sidebar-section" id="sidebar-section-acc-entries">
                     <div class="sidebar-section-header">
                         <div class="header-left">
@@ -105,6 +110,7 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingJournal') %}
                         <li class="nav-item {% if active_page == 'acc_entries' %}active{% endif %}"
                             data-tooltip="Entradas de Diario">
                             <a href="{{ url_for('web_accounting.journal_entries') }}">
@@ -117,16 +123,21 @@
                                 <span>Libro Diario</span>
                             </a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingSettings') or check_permission('canAccountingJournal') %}
                         <li class="nav-item {% if active_page == 'acc_entry_types' %}active{% endif %}"
                             data-tooltip="Tipos de Entrada">
                             <a href="{{ url_for('web_accounting.entry_types_settings') }}">
                                 <span>Tipos de Entrada</span>
                             </a>
                         </li>
+                        {% endif %}
                     </ul>
                 </div>
+                {% endif %}
 
                 <!-- ── Reportes Contables ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingReports') %}
                 <div class="sidebar-section" id="sidebar-section-acc-reports">
                     <div class="sidebar-section-header">
                         <div class="header-left">
@@ -162,8 +173,10 @@
                         </li>
                     </ul>
                 </div>
+                {% endif %}
 
                 <!-- ── Activos Fijos ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingFixedAssets') %}
                 <div class="sidebar-section" id="sidebar-section-acc-assets">
                     <div class="sidebar-section-header">
                         <div class="header-left">
@@ -187,8 +200,10 @@
                         </li>
                     </ul>
                 </div>
+                {% endif %}
 
                 <!-- ── Cierre Fiscal ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingFiscalPeriods') %}
                 <div class="sidebar-section" id="sidebar-section-acc-fiscal">
                     <div class="sidebar-section-header">
                         <div class="header-left">
@@ -218,8 +233,10 @@
                         </li>
                     </ul>
                 </div>
+                {% endif %}
 
                 <!-- ── Configuración Contable ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or check_permission('canAccountingSettings') %}
                 <div class="sidebar-section" id="sidebar-section-acc-settings">
                     <div class="sidebar-section-header">
                         <div class="header-left">
@@ -243,6 +260,7 @@
                         </li>
                     </ul>
                 </div>
+                {% endif %}
 
                 <!-- GRUPO: MÓDULOS (acceso cruzado) -->
                 {% include "_sidebar_modules.html" %}
