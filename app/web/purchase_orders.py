@@ -223,8 +223,8 @@ MODULE_SINV = "Facturas Proveedor"
 def list_purchase_orders():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', active_page='purchase_orders'), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')):
+        return render_template('auth/restricted.html', active_page='purchase_orders', feature_name="Órdenes de Compra", required_permission="canManagePurchaseOrders"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -271,8 +271,8 @@ def list_purchase_orders():
 def new_purchase_order():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', active_page='purchase_orders'), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')):
+        return render_template('auth/restricted.html', active_page='purchase_orders', feature_name="Nueva Orden de Compra", required_permission="canManagePurchaseOrders"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -383,8 +383,8 @@ def new_purchase_order():
 def purchase_order_detail(po_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', active_page='purchase_orders'), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')):
+        return render_template('auth/restricted.html', active_page='purchase_orders', feature_name="Órdenes de Compra", required_permission="canManagePurchaseOrders"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
@@ -646,8 +646,8 @@ def detach_po_document(po_id, att_index):
 def edit_purchase_order(po_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', active_page='purchase_orders'), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')):
+        return render_template('auth/restricted.html', active_page='purchase_orders', feature_name="Editar Orden de Compra", required_permission="canManagePurchaseOrders"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -753,8 +753,8 @@ def edit_purchase_order(po_id):
 def delete_purchase_order(po_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', active_page='purchase_orders'), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')):
+        return render_template('auth/restricted.html', active_page='purchase_orders', feature_name="Eliminar Orden de Compra", required_permission="canManagePurchaseOrders"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -795,7 +795,7 @@ def delete_purchase_order(po_id):
 def approve_purchase_order(po_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -838,7 +838,7 @@ def receive_purchase_order(po_id):
 def cancel_purchase_order(po_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -2831,8 +2831,8 @@ MODULE_CN = "Notas de Crédito en Compras"
 def list_credit_notes():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canManagePurchaseCXP'):
-        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseCreditNotes')):
+        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCreditNotes"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
@@ -2858,8 +2858,8 @@ def list_credit_notes():
 def new_credit_note():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canManagePurchaseCXP'):
-        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseCreditNotes')):
+        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCreditNotes"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
@@ -2925,8 +2925,8 @@ def new_credit_note():
 def credit_note_detail(note_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canManagePurchaseCXP'):
-        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseCreditNotes')):
+        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCreditNotes"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
@@ -2944,7 +2944,7 @@ def credit_note_detail(note_id):
 def void_credit_note(note_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canManagePurchaseCXP'):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseCreditNotes')):
         flash('❌ No tienes permiso para anular notas de crédito.', 'error')
         return redirect(url_for('web_purchase_orders.list_credit_notes'))
     owner_uid = session['user']['ownerUID']

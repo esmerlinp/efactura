@@ -237,7 +237,7 @@
 {% endif %}
 
 <!-- SECCIÓN: COMPRAS Y PROVEEDORES -->
-{% if module_enabled('cxp_compras') or module_enabled('gastos') or module_enabled('e_cf') %}
+{% if (module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseCXP') or check_permission('canManagePurchaseOrders') or check_permission('canManagePurchaseCreditNotes') or check_permission('canManageSuppliers'))) or (module_enabled('gastos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canExpenses') or check_permission('canManageMinorExpenses') or check_permission('canManageRecurringExpenses'))) or (module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageReceivedECF'))) %}
 <div class="sidebar-section" id="sidebar-section-compras">
     <div class="sidebar-section-header">
         <div class="header-left">
@@ -247,7 +247,7 @@
         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
     </div>
     <ul class="sidebar-section-content">
-        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManagePurchaseCXP', True)) %}
+        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseCXP')) %}
         <li class="nav-item {% if active_page == 'purchase_cxp' %}active{% endif %}"
             data-tooltip="Registra las facturas de tus proveedores y su saldo por pagar (CxP). El inventario se actualiza al recibir la mercancía.">
             <a href="{{ url_for('web_purchase_orders.list_purchase_cxp') }}">
@@ -255,7 +255,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canExpenses', True)) %}
+        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')) %}
         <li class="nav-item {% if active_page == 'purchase_orders' %}active{% endif %}"
             data-tooltip="Crea órdenes de compra para solicitar a tus proveedores mercancías o servicios. Este documento es de control y no genera movimientos en tu inventario.">
             <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}">
@@ -263,7 +263,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManagePurchaseCXP', True)) %}
+        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseCreditNotes')) %}
         <li class="nav-item {% if active_page == 'purchase_credit_notes' %}active{% endif %}"
             data-tooltip="Crea Notas de crédito en compras para disminuir el saldo por pagar a proveedores, sea por errores en el registro, devoluciones de inventario u otro motivo.">
             <a href="{{ url_for('web_purchase_orders.list_credit_notes') }}">
@@ -271,7 +271,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageSuppliers', True)) %}
+        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageSuppliers')) %}
         <li class="nav-item {% if active_page == 'suppliers' %}active{% endif %}"
             data-tooltip="Contactos (Proveedores)">
             <a href="{{ url_for('web_contacts.list_contacts', tab='proveedores') }}">
@@ -279,19 +279,23 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('gastos') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canExpenses', True)) %}
+        {% if module_enabled('gastos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canExpenses')) %}
         <li class="nav-item {% if active_page == 'expenses_payments' %}active{% endif %}"
             data-tooltip="Registra tus comprobantes de egreso y controla las salidas de dinero de tu negocio.">
             <a href="{{ url_for('web_invoices.payments_list') }}">
                 <span>Pagos / Gastos</span>
             </a>
         </li>
+        {% endif %}
+        {% if module_enabled('gastos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageMinorExpenses')) %}
         <li class="nav-item {% if active_page == 'expenses_minor' %}active{% endif %}"
             data-tooltip="Registra tus gastos menores para deducir los pagos y compras que realices en el mercado informal.">
             <a href="{{ url_for('web_invoices.minor_list') }}">
                 <span>Gastos menores</span>
             </a>
         </li>
+        {% endif %}
+        {% if module_enabled('gastos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageRecurringExpenses')) %}
         <li class="nav-item {% if active_page == 'expenses_recurring' %}active{% endif %}"
             data-tooltip="Programa los gastos que se repiten periódicamente, puedes programar el día y la frecuencia del pago en meses.">
             <a href="{{ url_for('web_invoices.recurring_list') }}">
@@ -299,7 +303,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canExpenses', True)) %}
+        {% if module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageReceivedECF')) %}
         <li class="nav-item {% if active_page == 'received_ecf' %}active{% endif %}"
             data-tooltip="Comprobantes Fiscales Electrónicos (e-CF) recibidos de otros contribuyentes.">
             <a href="{{ url_for('web_recepcion.list_received_ecf') }}">

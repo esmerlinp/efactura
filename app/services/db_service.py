@@ -170,6 +170,11 @@ def _cached_user_profile(uid):
                     "canReportsHR": bool(perms.get("canReportsHR", perms.get("canReports", False))),
                     "canAccountingExport": bool(perms.get("canAccountingExport", False)),
                     "canManageAPI": bool(perms.get("canManageAPI", False)),
+                    "canManagePurchaseOrders": bool(perms.get("canManagePurchaseOrders", perms.get("canExpenses", True))),
+                    "canManagePurchaseCreditNotes": bool(perms.get("canManagePurchaseCreditNotes", perms.get("canManagePurchaseCXP", True))),
+                    "canManageMinorExpenses": bool(perms.get("canManageMinorExpenses", perms.get("canExpenses", True))),
+                    "canManageRecurringExpenses": bool(perms.get("canManageRecurringExpenses", perms.get("canExpenses", True))),
+                    "canManageReceivedECF": bool(perms.get("canManageReceivedECF", perms.get("canExpenses", True))),
                     **{k: bool(v) for k, v in perms.items() if k not in (
                         "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
                         "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
@@ -180,7 +185,9 @@ def _cached_user_profile(uid):
                         "canInventoryTransfers", "canInventoryCounts", "canInventoryLots", "canManageWarehouses",
                         "canInventoryAdjustments", "canManagePriceLists",
                         "canReportsSales", "canReportsAdmin", "canReportsFinancial", "canReportsAccounting",
-                        "canReportsFiscal", "canReportsHR", "canAccountingExport", "canManageAPI"
+                        "canReportsFiscal", "canReportsHR", "canAccountingExport", "canManageAPI",
+                        "canManagePurchaseOrders", "canManagePurchaseCreditNotes", "canManageMinorExpenses",
+                        "canManageRecurringExpenses", "canManageReceivedECF"
                     )}
                 },
                 "createdAt": serialize_field(data.get("createdAt")),
@@ -1437,6 +1444,11 @@ class DatabaseService:
                         "canReportsHR": bool(perms.get("canReportsHR", perms.get("canReports", False))),
                         "canAccountingExport": bool(perms.get("canAccountingExport", False)),
                         "canManageAPI": bool(perms.get("canManageAPI", False)),
+                        "canManagePurchaseOrders": bool(perms.get("canManagePurchaseOrders", perms.get("canExpenses", True))),
+                        "canManagePurchaseCreditNotes": bool(perms.get("canManagePurchaseCreditNotes", perms.get("canManagePurchaseCXP", True))),
+                        "canManageMinorExpenses": bool(perms.get("canManageMinorExpenses", perms.get("canExpenses", True))),
+                        "canManageRecurringExpenses": bool(perms.get("canManageRecurringExpenses", perms.get("canExpenses", True))),
+                        "canManageReceivedECF": bool(perms.get("canManageReceivedECF", perms.get("canExpenses", True))),
                         **{k: bool(v) for k, v in perms.items() if k not in (
                             "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
                             "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
@@ -1449,7 +1461,9 @@ class DatabaseService:
                             "canInventoryTransfers", "canInventoryCounts", "canInventoryLots", "canManageWarehouses",
                             "canInventoryAdjustments", "canManagePriceLists",
                             "canReportsSales", "canReportsAdmin", "canReportsFinancial", "canReportsAccounting",
-                            "canReportsFiscal", "canReportsHR", "canAccountingExport", "canManageAPI"
+                            "canReportsFiscal", "canReportsHR", "canAccountingExport", "canManageAPI",
+                            "canManagePurchaseOrders", "canManagePurchaseCreditNotes", "canManageMinorExpenses",
+                            "canManageRecurringExpenses", "canManageReceivedECF"
                         )}
                     },
                     "createdAt": created_at,
@@ -1521,6 +1535,11 @@ class DatabaseService:
                         "canReportsHR": True,
                         "canAccountingExport": True,
                         "canManageAPI": True,
+                        "canManagePurchaseOrders": True,
+                        "canManagePurchaseCreditNotes": True,
+                        "canManageMinorExpenses": True,
+                        "canManageRecurringExpenses": True,
+                        "canManageReceivedECF": True,
                     },
                     "createdAt": datetime.now(timezone.utc).isoformat(),
                     "two_factor_enabled": False,

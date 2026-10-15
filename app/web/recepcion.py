@@ -11,6 +11,7 @@ except Exception:
     WeasyprintHTML = None
     WEASYPRINT_AVAILABLE = False
 
+from app.utils.decorators import check_permission
 from app.utils.module_gate import gate_blueprint_module
 
 web_recepcion_bp = Blueprint("web_recepcion", __name__)
@@ -19,8 +20,15 @@ gate_blueprint_module(web_recepcion_bp, "e_cf")
 
 def _check_auth():
     if "user" not in session:
-        return False
-    return True
+        return redirect(url_for("web_auth.login"))
+    if not (session.get("user", {}).get("role") == "owner" or check_permission("canManageReceivedECF")):
+        return render_template(
+            "auth/restricted.html",
+            feature_name="e-CF Recibidos",
+            required_permission="canManageReceivedECF",
+            active_page="received_ecf"
+        ), 403
+    return None
 
 
 def _get_context():
@@ -31,8 +39,9 @@ def _get_context():
 
 @web_recepcion_bp.route("/recepcion/ecf")
 def list_received_ecf():
-    if not _check_auth():
-        return redirect(url_for("web_auth.login"))
+    guard = _check_auth()
+    if guard:
+        return guard
     owner_uid, company_id = _get_context()
 
     q = request.args.get("q", "").strip()
@@ -174,8 +183,9 @@ def list_received_ecf():
 
 @web_recepcion_bp.route("/recepcion/ecf/<ecf_id>")
 def detail_received_ecf(ecf_id):
-    if not _check_auth():
-        return redirect(url_for("web_auth.login"))
+    guard = _check_auth()
+    if guard:
+        return guard
     owner_uid, company_id = _get_context()
     doc = ReceptorRepository.get_received_ecf_merged(owner_uid, ecf_id)
     if not doc:
@@ -201,8 +211,9 @@ def detail_received_ecf(ecf_id):
 
 @web_recepcion_bp.route("/recepcion/ecf/<ecf_id>/xml")
 def download_received_xml(ecf_id):
-    if not _check_auth():
-        return redirect(url_for("web_auth.login"))
+    guard = _check_auth()
+    if guard:
+        return guard
     owner_uid, company_id = _get_context()
     doc = ReceptorRepository.get_received_ecf_merged(owner_uid, ecf_id)
     if not doc:
@@ -220,8 +231,9 @@ def download_received_xml(ecf_id):
 
 @web_recepcion_bp.route("/recepcion/ecf/<ecf_id>/pdf")
 def download_received_pdf(ecf_id):
-    if not _check_auth():
-        return redirect(url_for("web_auth.login"))
+    guard = _check_auth()
+    if guard:
+        return guard
     owner_uid, company_id = _get_context()
     doc = ReceptorRepository.get_received_ecf_merged(owner_uid, ecf_id)
     if not doc:
@@ -300,8 +312,9 @@ def download_received_pdf(ecf_id):
 
 @web_recepcion_bp.route("/recepcion/ecf/<ecf_id>/arecf")
 def download_arecf(ecf_id):
-    if not _check_auth():
-        return redirect(url_for("web_auth.login"))
+    guard = _check_auth()
+    if guard:
+        return guard
     owner_uid, company_id = _get_context()
     doc = ReceptorRepository.get_received_ecf_merged(owner_uid, ecf_id)
     if not doc:
@@ -321,8 +334,9 @@ def download_arecf(ecf_id):
 
 @web_recepcion_bp.route("/recepcion/aprobaciones")
 def list_approvals():
-    if not _check_auth():
-        return redirect(url_for("web_auth.login"))
+    guard = _check_auth()
+    if guard:
+        return guard
     owner_uid, company_id = _get_context()
     documents = ReceptorRepository.list_received_approvals_merged(owner_uid)
     return render_template(
@@ -335,8 +349,9 @@ def list_approvals():
 
 @web_recepcion_bp.route("/recepcion/ecf/sync-606", methods=["GET", "POST"])
 def sync_received_to_606():
-    if not _check_auth():
-        return redirect(url_for("web_auth.login"))
+    guard = _check_auth()
+    if guard:
+        return guard
     owner_uid, company_id = _get_context()
     sandbox = session.get("sandbox", True)
     try:

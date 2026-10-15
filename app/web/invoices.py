@@ -208,6 +208,10 @@ ALL_PERMISSION_KEYS = [
     "canInventoryReceipts", "canInventoryTransfers", "canInventoryCounts",
     "canInventoryLots", "canManageWarehouses", "canInventoryAdjustments",
     "canManagePriceLists",
+    # Permisos granulares de Compras y Proveedores
+    "canManagePurchaseOrders", "canManagePurchaseCreditNotes",
+    "canManageMinorExpenses", "canManageRecurringExpenses",
+    "canManageReceivedECF",
     # Permisos granulares de Reportería y Análisis
     "canReportsSales", "canReportsAdmin", "canReportsFinancial",
     "canReportsAccounting", "canReportsFiscal", "canReportsHR",
@@ -237,6 +241,10 @@ ROLES_PRESETS = {
         "canInventoryReceipts": False, "canInventoryTransfers": False, "canInventoryCounts": False,
         "canInventoryLots": False, "canManageWarehouses": False, "canInventoryAdjustments": False,
         "canManagePriceLists": False,
+        # Compras y Proveedores para Vendedor
+        "canManagePurchaseOrders": False, "canManagePurchaseCreditNotes": False,
+        "canManageMinorExpenses": False, "canManageRecurringExpenses": False,
+        "canManageReceivedECF": False,
         # Reportería para Vendedor
         "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
         "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
@@ -250,7 +258,7 @@ ROLES_PRESETS = {
         "canManageContracts": False, "canManageCommissions": False, "canViewBI": True,
         "canViewAuditLog": False, "canAccounting": True, "isPosSupervisor": False,
         "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
-        "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
+        "canManageSuppliers": True, "canManagePurchaseCXP": True, "canUseChatbot": False,
         "canManageTools": False, "canHR": True,
         "canVoidInvoice": True, "canCreateSupplier": False,
         "canApprovePayments": False, "canApprovePayroll": False,
@@ -261,6 +269,10 @@ ROLES_PRESETS = {
         "canInventoryReceipts": False, "canInventoryTransfers": False, "canInventoryCounts": True,
         "canInventoryLots": False, "canManageWarehouses": False, "canInventoryAdjustments": False,
         "canManagePriceLists": False,
+        # Compras y Proveedores para Contador
+        "canManagePurchaseOrders": True, "canManagePurchaseCreditNotes": True,
+        "canManageMinorExpenses": True, "canManageRecurringExpenses": True,
+        "canManageReceivedECF": True,
         # Reportería para Contador
         "canReportsSales": True, "canReportsAdmin": True, "canReportsFinancial": True,
         "canReportsAccounting": True, "canReportsFiscal": True, "canReportsHR": True,
@@ -285,6 +297,10 @@ ROLES_PRESETS = {
         "canInventoryReceipts": False, "canInventoryTransfers": False, "canInventoryCounts": False,
         "canInventoryLots": False, "canManageWarehouses": False, "canInventoryAdjustments": False,
         "canManagePriceLists": False,
+        # Compras y Proveedores para Consulta
+        "canManagePurchaseOrders": False, "canManagePurchaseCreditNotes": False,
+        "canManageMinorExpenses": False, "canManageRecurringExpenses": False,
+        "canManageReceivedECF": False,
         # Reportería para Consulta
         "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
         "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
@@ -350,14 +366,37 @@ PERMISSION_GROUPS = [
         },
     },
     {
+        "name": "Compras y Proveedores",
+        "perms": [
+            "canManagePurchaseCXP",
+            "canManagePurchaseOrders",
+            "canManagePurchaseCreditNotes",
+            "canManageSuppliers",
+            "canCreateSupplier",
+            "canExpenses",
+            "canManageMinorExpenses",
+            "canManageRecurringExpenses",
+            "canManageReceivedECF",
+        ],
+        "labels": {
+            "canManagePurchaseCXP": "Facturas de proveedores y cuentas por pagar (CxP)",
+            "canManagePurchaseOrders": "Órdenes de compra a proveedores",
+            "canManagePurchaseCreditNotes": "Notas de crédito en compras (devoluciones/descuentos)",
+            "canManageSuppliers": "Directorio de proveedores y condiciones de pago",
+            "canCreateSupplier": "Crear y registrar nuevos proveedores",
+            "canExpenses": "Pagos y gastos (comprobantes de egreso)",
+            "canManageMinorExpenses": "Gastos menores (comprobantes B13 / compras informales)",
+            "canManageRecurringExpenses": "Pagos recurrentes y programados",
+            "canManageReceivedECF": "e-CF Recibidos (buzón DGII y aprobación comercial)",
+        },
+    },
+    {
         "name": "Financiero",
-        "perms": ["canExpenses", "canManageCXC", "canManageCXP", "canManagePurchaseCXP",
+        "perms": ["canManageCXC", "canManageCXP",
                   "canManageCommissions", "canAccounting", "canManageContracts"],
         "labels": {
-            "canExpenses": "Gastos y egresos",
             "canManageCXC": "Cuentas por cobrar (CxC)",
-            "canManageCXP": "Cuentas por pagar (CxP)",
-            "canManagePurchaseCXP": "CxP Compras",
+            "canManageCXP": "Cuentas por pagar (CxP general)",
             "canManageCommissions": "Comisiones y metas",
             "canAccounting": "Contabilidad",
             "canManageContracts": "Contratos y recurrencia",
@@ -389,9 +428,9 @@ PERMISSION_GROUPS = [
     {
         "name": "Administración",
         "perms": ["canModifySettings", "canViewAuditLog", "canViewSubscription",
-                  "canToggleSandbox", "canManageNotes", "canManageSuppliers",
+                  "canToggleSandbox", "canManageNotes",
                   "canUseChatbot", "isPosSupervisor", "canSupervisePOS",
-                  "canHR", "canCreateSupplier",
+                  "canHR",
                   "canApprovePayments", "canApprovePayroll", "canApproveExpenses",
                   "canManageAPI"],
         "labels": {
@@ -400,12 +439,10 @@ PERMISSION_GROUPS = [
             "canViewSubscription": "Plan y consumo",
             "canToggleSandbox": "Modo sandbox",
             "canManageNotes": "Gestor de notas",
-            "canManageSuppliers": "Proveedores",
             "canUseChatbot": "Asistente IA",
             "isPosSupervisor": "Supervisor de caja (POS)",
             "canSupervisePOS": "Supervisión avanzada de POS",
             "canHR": "Nómina y RRHH",
-            "canCreateSupplier": "Crear proveedores",
             "canApprovePayments": "Aprobar pagos",
             "canApprovePayroll": "Autorizar pagos de nómina",
             "canApproveExpenses": "Aprobar gastos",
@@ -7166,8 +7203,8 @@ def payments_new_route():
 @web_invoices_bp.route('/expenses/minor')
 def minor_list():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Gastos Menores", required_permission="canExpenses"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageMinorExpenses')):
+        return render_template('auth/restricted.html', feature_name="Gastos Menores", required_permission="canManageMinorExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -7228,8 +7265,8 @@ def minor_list():
 @web_invoices_bp.route('/expenses/minor/new', methods=['GET', 'POST'])
 def minor_new_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Gasto Menor", required_permission="canExpenses"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageMinorExpenses')):
+        return render_template('auth/restricted.html', feature_name="Nuevo Gasto Menor", required_permission="canManageMinorExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -7534,8 +7571,8 @@ def minor_new_route():
 @web_invoices_bp.route('/expenses/recurring')
 def recurring_list():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Pagos Recurrentes", required_permission="canExpenses"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageRecurringExpenses')):
+        return render_template('auth/restricted.html', feature_name="Pagos Recurrentes", required_permission="canManageRecurringExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -7592,8 +7629,8 @@ def recurring_list():
 @web_invoices_bp.route('/expenses/recurring/new', methods=['GET', 'POST'])
 def recurring_new_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Pago Recurrente", required_permission="canExpenses"), 403
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageRecurringExpenses')):
+        return render_template('auth/restricted.html', feature_name="Nuevo Pago Recurrente", required_permission="canManageRecurringExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
