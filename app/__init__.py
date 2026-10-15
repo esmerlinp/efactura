@@ -666,16 +666,10 @@ def create_app():
     def utility_processor():
         def check_permission(permission_name):
             from flask import has_request_context
-            if not has_request_context() or 'user' not in session:
+            if not has_request_context():
                 return False
-            if permission_name == 'canManagePOS' and not session.get('company_profile_pos_enabled', True):
-                return False
-            user = session['user']
-            if user.get('role') == 'owner':
-                return True
-            if permission_name == 'canUseChatbot':
-                return user.get('permissions', {}).get(permission_name, False)
-            return user.get('permissions', {}).get(permission_name, True)
+            from app.utils.decorators import check_permission as _chk_perm
+            return _chk_perm(permission_name)
 
         import os as _os
         _static_dir = _os.path.join(app.root_path, '..', 'static')

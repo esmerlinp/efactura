@@ -58,20 +58,12 @@ def dashboard():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
         
-    from app.utils.decorators import check_permission
+    from app.utils.decorators import check_permission, get_user_landing_url
     if not check_permission('canViewDashboard'):
-        if check_permission('canManagePOS'):
-            return redirect(url_for('web_pos.pos_dashboard'))
-        elif check_permission('canInvoice'):
-            return redirect(url_for('web_invoices.list_invoices'))
-        elif check_permission('canClients'):
-            return redirect(url_for('web_clients.list_clients'))
-        elif check_permission('canManageInventory'):
-            return redirect(url_for('web_invoices.inventory_dashboard'))
-        elif check_permission('canExpenses'):
-            return redirect(url_for('web_invoices.list_expenses'))
-        else:
-            return render_template('auth/restricted.html', feature_name="Dashboard General", required_permission="canViewDashboard"), 403
+        landing = get_user_landing_url()
+        if landing and landing != request.path:
+            return redirect(landing)
+        return render_template('auth/restricted.html', feature_name="Dashboard General", required_permission="canViewDashboard"), 403
             
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')

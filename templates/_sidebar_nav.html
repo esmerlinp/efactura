@@ -1,5 +1,5 @@
 <!-- OPCIONES FIJAS (ANTERIOR GENERAL) -->
-{% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewDashboard', True) %}
+{% if session.get('user', {}).get('role') == 'owner' or check_permission('canViewDashboard') %}
 <div class="sidebar-section {% if active_page == 'dashboard' %}active-parent{% endif %}" id="sidebar-section-inicio">
     <a href="{{ url_for('web_dashboard.dashboard') }}" class="sidebar-section-header" style="text-decoration: none;">
         <div class="header-left">
@@ -52,7 +52,7 @@
 </div>
 
 <!-- SECCIÓN: VENTAS -->
-{% if (module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True))) or module_enabled('cotizaciones') or (module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManagePOS', True)) and session.get('company_profile_pos_enabled', True)) %}
+{% if (module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or check_permission('canInvoice'))) or (module_enabled('cotizaciones') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageQuotations'))) or (module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePOS')) and session.get('company_profile_pos_enabled', True)) or (module_enabled('price_lists') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePriceLists'))) %}
 <div class="sidebar-section" id="sidebar-section-ventas">
     <div class="sidebar-section-header">
         <div class="header-left">
@@ -62,7 +62,7 @@
         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
     </div>
     <ul class="sidebar-section-content">
-        {% if module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True)) %}
+        {% if module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or check_permission('canInvoice')) %}
         <li class="nav-item {% if active_page == 'invoices' %}active{% endif %}"
             data-tooltip="Facturación Electrónica">
             <a href="{{ url_for('web_invoices.list_invoices') }}">
@@ -76,7 +76,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('cotizaciones') %}
+        {% if module_enabled('cotizaciones') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageQuotations')) %}
         <li class="nav-item {% if active_page == 'quotations' %}active{% endif %}"
             data-tooltip="Cotizaciones">
             <a href="{{ url_for('web_invoices.list_quotations') }}">
@@ -84,7 +84,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManagePOS', True)) and session.get('company_profile_pos_enabled', True) %}
+        {% if module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePOS')) and session.get('company_profile_pos_enabled', True) %}
         <li class="nav-item {% if active_page == 'pos' or active_page == 'pos_admin' %}active{% endif %}"
             data-tooltip="Punto de Venta (POS)">
             <a href="{{ url_for('web_pos.pos_dashboard') }}">
@@ -98,7 +98,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('price_lists') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True)) %}
+        {% if module_enabled('price_lists') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePriceLists')) %}
         <li class="nav-item {% if active_page == 'price_lists' %}active{% endif %}"
             data-tooltip="Listas de Precios">
             <a href="{{ url_for('web_invoices.list_price_lists') }}">
@@ -160,7 +160,7 @@
 {% endif %}
 
 <!-- SECCIÓN: PRODUCTOS E INVENTARIO -->
-{% if module_enabled('catalogo') or module_enabled('inventario') %}
+{% if (module_enabled('catalogo') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCatalog'))) or (module_enabled('inventario') and (session.get('user', {}).get('role') == 'owner' or check_permission('canViewInventoryDashboard') or check_permission('canInventoryKardex') or check_permission('canInventoryReceipts') or check_permission('canInventoryTransfers') or check_permission('canInventoryCounts') or check_permission('canInventoryLots') or check_permission('canManageInventory'))) %}
 <div class="sidebar-section" id="sidebar-section-inventario">
     <div class="sidebar-section-header">
         <div class="header-left">
@@ -170,7 +170,7 @@
         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
     </div>
     <ul class="sidebar-section-content">
-        {% if module_enabled('catalogo') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canClients', True)) %}
+        {% if module_enabled('catalogo') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCatalog')) %}
         <li class="nav-item {% if active_page == 'items' %}active{% endif %}"
             data-tooltip="Productos y Servicios">
             <a href="{{ url_for('web_invoices.list_items') }}">
@@ -178,43 +178,55 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('inventario') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageInventory', True)) %}
-        <li class="nav-item {% if active_page == 'inventory' %}active{% endif %}"
-            data-tooltip="Tablero de Inventario">
-            <a href="{{ url_for('web_invoices.inventory_dashboard') }}">
-                <span>Tablero de Inventario</span>
-            </a>
-        </li>
-        <li class="nav-item {% if active_page == 'inventory_kardex' %}active{% endif %}"
-            data-tooltip="Kardex Valorizado Continuo (FIFO/PEPS) y Conciliación">
-            <a href="{{ url_for('web_inventory.kardex_view') }}">
-                <span>Kardex Valorizado</span>
-            </a>
-        </li>
-        <li class="nav-item {% if active_page == 'inventory_receipts' %}active{% endif %}"
-            data-tooltip="Recepciones de Mercancía de compras y proveedores">
-            <a href="{{ url_for('web_inventory.list_receipts') }}">
-                <span>Recepciones de Mercancía</span>
-            </a>
-        </li>
-        <li class="nav-item {% if active_page == 'inventory_transfers' %}active{% endif %}"
-            data-tooltip="Transferencias entre almacenes y sucursales">
-            <a href="{{ url_for('web_inventory.transfer_list') }}">
-                <span>Transferencias</span>
-            </a>
-        </li>
-        <li class="nav-item {% if active_page == 'inventory_counts' %}active{% endif %}"
-            data-tooltip="Conteos Físicos, auditorías y registro de mermas">
-            <a href="{{ url_for('web_inventory.physical_count_list') }}">
-                <span>Conteos Físicos</span>
-            </a>
-        </li>
-        <li class="nav-item {% if active_page == 'inventory_lots' %}active{% endif %}"
-            data-tooltip="Control de lotes y fechas de vencimiento">
-            <a href="{{ url_for('web_inventory.lot_list') }}">
-                <span>Lotes y Vencimientos</span>
-            </a>
-        </li>
+        {% if module_enabled('inventario') %}
+            {% if session.get('user', {}).get('role') == 'owner' or check_permission('canViewInventoryDashboard') %}
+            <li class="nav-item {% if active_page == 'inventory' %}active{% endif %}"
+                data-tooltip="Tablero de Inventario">
+                <a href="{{ url_for('web_invoices.inventory_dashboard') }}">
+                    <span>Tablero de Inventario</span>
+                </a>
+            </li>
+            {% endif %}
+            {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryKardex') %}
+            <li class="nav-item {% if active_page == 'inventory_kardex' %}active{% endif %}"
+                data-tooltip="Kardex Valorizado Continuo (FIFO/PEPS) y Conciliación">
+                <a href="{{ url_for('web_inventory.kardex_view') }}">
+                    <span>Kardex Valorizado</span>
+                </a>
+            </li>
+            {% endif %}
+            {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryReceipts') %}
+            <li class="nav-item {% if active_page == 'inventory_receipts' %}active{% endif %}"
+                data-tooltip="Recepciones de Mercancía de compras y proveedores">
+                <a href="{{ url_for('web_inventory.list_receipts') }}">
+                    <span>Recepciones de Mercancía</span>
+                </a>
+            </li>
+            {% endif %}
+            {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryTransfers') %}
+            <li class="nav-item {% if active_page == 'inventory_transfers' %}active{% endif %}"
+                data-tooltip="Transferencias entre almacenes y sucursales">
+                <a href="{{ url_for('web_inventory.transfer_list') }}">
+                    <span>Transferencias</span>
+                </a>
+            </li>
+            {% endif %}
+            {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryCounts') %}
+            <li class="nav-item {% if active_page == 'inventory_counts' %}active{% endif %}"
+                data-tooltip="Conteos Físicos, auditorías y registro de mermas">
+                <a href="{{ url_for('web_inventory.physical_count_list') }}">
+                    <span>Conteos Físicos</span>
+                </a>
+            </li>
+            {% endif %}
+            {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryLots') %}
+            <li class="nav-item {% if active_page == 'inventory_lots' %}active{% endif %}"
+                data-tooltip="Control de lotes y fechas de vencimiento">
+                <a href="{{ url_for('web_inventory.lot_list') }}">
+                    <span>Lotes y Vencimientos</span>
+                </a>
+            </li>
+            {% endif %}
         {% endif %}
     </ul>
 </div>
