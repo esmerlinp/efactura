@@ -9,12 +9,20 @@ from flask import render_template, request, redirect, url_for, session, flash
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
     _is_hr_role, _sanitize_for_role, MONTHS_ES,
-    _filter_employees_by_period, _generate_periods,
+    _filter_employees_by_period, _generate_periods, _hr_restricted,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
 from app.utils.hr_utils import is_active_equivalent
 from app.services.payroll_service import PayrollService
 from types import SimpleNamespace
+
+
+def _can_manage_settings() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHRSettings")
 
 
 def _parse_cost_center_accounts(form) -> dict:
@@ -43,6 +51,8 @@ def _parse_cost_center_accounts(form) -> dict:
 def payroll_settings():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Configuración de Nómina", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     config = hr.get_payroll_config(company_id, sandbox=sandbox)
@@ -114,6 +124,8 @@ def payroll_settings():
 def tax_rates_history_view():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Historial de Configuración de Nómina", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     from app.services.legal_parameter_resolver import get_parameter_history
@@ -128,6 +140,8 @@ def tax_rates_history_view():
 def fiscal_closing_validation():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not (check_permission("canHR") or check_permission("canHRPayroll") or check_permission("canHRSettings")):
+        return _hr_restricted("Cierre Fiscal de Nómina", "canHRPayroll")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     year = int(request.args.get("year", date.today().year))
@@ -141,6 +155,8 @@ def fiscal_closing_validation():
 def payroll_generate_periods():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Generación de Períodos de Nómina", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     months = int(request.form.get("months", 6))

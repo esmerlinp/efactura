@@ -11,6 +11,7 @@ import html
 import threading
 from datetime import datetime, timezone, date, timedelta
 
+from functools import wraps
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify, send_file, current_app
 
 web_rrhh_bp = Blueprint("web_rrhh", __name__, template_folder="templates")
@@ -53,15 +54,38 @@ def _login_required():
     return "user" not in session
 
 
-def _is_hr_role():
+def _can_view_salary() -> bool:
+    """Verifica si el usuario tiene privilegios para visualizar salarios e información financiera del personal."""
     user = session.get("user", {})
-    role = user.get("role", "")
-    perms = user.get("permissions", {})
-    return role == "owner" or perms.get("canHR", True)
+    if user.get("role") == "owner":
+        return True
+    from app.utils.decorators import check_permission
+    return check_permission("canHRPayroll") or check_permission("canHR")
+
+
+def _is_hr_role():
+    """Verifica si el usuario tiene acceso general a RRHH (maestro o cualquier submódulo granular)."""
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    from app.utils.decorators import check_permission
+    return (
+        check_permission("canHR")
+        or check_permission("canHRDashboard")
+        or check_permission("canHREmployees")
+        or check_permission("canHRAttendance")
+        or check_permission("canHRVacations")
+        or check_permission("canHRPayroll")
+        or check_permission("canHROffboarding")
+        or check_permission("canHRAuthorizations")
+        or check_permission("canHRDevelopment")
+        or check_permission("canHRSettings")
+    )
 
 
 def _sanitize_for_role(employee: dict) -> dict:
-    if _is_hr_role():
+    """Enmascara datos confidenciales de nómina y bancarios si el usuario no tiene permisos de nómina."""
+    if _can_view_salary():
         return employee
     safe = dict(employee)
     for field in ("baseSalary", "salary", "hourlyRate", "accountNumber", "bank", "accountType",
@@ -69,6 +93,47 @@ def _sanitize_for_role(employee: dict) -> dict:
         if field in safe:
             safe[field] = "***"
     return safe
+
+
+def _hr_restricted(feature_name: str, required_permission: str):
+    """Respuesta estándar para acceso no autorizado en el módulo de RRHH."""
+    if request.is_json or request.headers.get("Accept") == "application/json" or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({
+            "success": False,
+            "error": {
+                "code": "PERMISSION_DENIED",
+                "message": f"Acceso restringido: Se requiere el permiso '{required_permission}' para acceder a {feature_name}."
+            }
+        }), 403
+    return render_template(
+        "auth/restricted.html",
+        feature_name=feature_name,
+        required_permission=required_permission,
+    ), 403
+
+
+def hr_permission_required(permission_name: str, feature_name: str = "Nómina y Recursos Humanos"):
+    """Decorador para proteger rutas de RRHH con soporte fail-closed y fallback a canHR."""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if _login_required():
+                return redirect(url_for("web_auth.login"))
+            user = session.get("user", {})
+            if user.get("role") == "owner":
+                return f(*args, **kwargs)
+            from app.utils.decorators import check_permission
+            if check_permission(permission_name) or check_permission("canHR"):
+                return f(*args, **kwargs)
+            return _hr_restricted(feature_name, permission_name)
+        return decorated_function
+    return decorator
+
+
+@web_rrhh_bp.route("/rrhh")
+@web_rrhh_bp.route("/rrhh/dashboard")
+def rrhh_root():
+    return redirect(url_for("web_rrhh.payroll_dashboard"))
 
 
 @web_rrhh_bp.context_processor

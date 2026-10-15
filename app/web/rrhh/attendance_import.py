@@ -10,9 +10,17 @@ from datetime import datetime
 from flask import render_template, request, redirect, url_for, session, send_file
 
 from app.web.rrhh import (
-    web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
+    web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required, _hr_restricted,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
+
+
+def _can_manage_attendance() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHRAttendance")
 
 # ── Plantilla fija de asistencia ────────────────────────────────────────────
 # Columnas en orden. La cabecera descargable usa estos nombres; al importar se
@@ -117,6 +125,8 @@ def _map_headers(headers):
 def attendance_import():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_attendance():
+        return _hr_restricted("Importación de Asistencia", "canHRAttendance")
     return render_template("rrhh/attendance_import.html", active_page="rrhh_attendance",
                            headers=ATTENDANCE_CSV_HEADERS, results=None)
 
@@ -125,6 +135,8 @@ def attendance_import():
 def attendance_import_template():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_attendance():
+        return _hr_restricted("Importación de Asistencia", "canHRAttendance")
     csv_buf = io.StringIO()
     writer = csv.writer(csv_buf)
     writer.writerow(ATTENDANCE_CSV_HEADERS)
@@ -139,6 +151,8 @@ def attendance_import_template():
 def attendance_import_process():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_attendance():
+        return _hr_restricted("Importación de Asistencia", "canHRAttendance")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     user_email = session.get("user", {}).get("email", "")
 

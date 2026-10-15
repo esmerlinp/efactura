@@ -4,15 +4,25 @@ import uuid
 
 from flask import render_template, request, redirect, url_for, session, flash
 from app.web.rrhh import (
-    web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
+    web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required, _hr_restricted,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
+
+
+def _can_manage_settings() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHRSettings")
 
 
 @web_rrhh_bp.route("/rrhh/departments")
 def department_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Departamentos de RRHH", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     items = hr.get_catalog(company_id, "departments", sandbox=sandbox)
     return render_template("rrhh/departments_list.html", active_page="rrhh_departments",
@@ -23,6 +33,8 @@ def department_list():
 def department_save():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Departamentos de RRHH", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     item_id = request.form.get("id", str(uuid.uuid4()))
     name = request.form.get("name", "").strip()
@@ -38,6 +50,8 @@ def department_save():
 def department_delete(item_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Departamentos de RRHH", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     hr.delete_catalog_item(company_id, "departments", item_id, sandbox=sandbox)
     flash("Departamento eliminado.", "success")

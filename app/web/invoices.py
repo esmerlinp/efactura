@@ -221,6 +221,10 @@ ALL_PERMISSION_KEYS = [
     "canAccountingDashboard", "canAccountingChart", "canAccountingJournal",
     "canAccountingReports", "canAccountingFixedAssets", "canAccountingFiscalPeriods",
     "canAccountingSettings",
+    # Permisos granulares de Nómina y Recursos Humanos
+    "canHRDashboard", "canHREmployees", "canHRAttendance",
+    "canHRVacations", "canHRPayroll", "canHROffboarding",
+    "canHRAuthorizations", "canHRDevelopment", "canHRSettings",
     # Permisos granulares de Reportería y Análisis
     "canReportsSales", "canReportsAdmin", "canReportsFinancial",
     "canReportsAccounting", "canReportsFiscal", "canReportsHR",
@@ -263,6 +267,10 @@ ROLES_PRESETS = {
         "canAccountingDashboard": False, "canAccountingChart": False, "canAccountingJournal": False,
         "canAccountingReports": False, "canAccountingFixedAssets": False, "canAccountingFiscalPeriods": False,
         "canAccountingSettings": False,
+        # Nómina y RRHH para Vendedor
+        "canHRDashboard": False, "canHREmployees": False, "canHRAttendance": False,
+        "canHRVacations": False, "canHRPayroll": False, "canHROffboarding": False,
+        "canHRAuthorizations": False, "canHRDevelopment": False, "canHRSettings": False,
         # Reportería para Vendedor
         "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
         "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
@@ -300,6 +308,10 @@ ROLES_PRESETS = {
         "canAccountingDashboard": True, "canAccountingChart": True, "canAccountingJournal": True,
         "canAccountingReports": True, "canAccountingFixedAssets": True, "canAccountingFiscalPeriods": True,
         "canAccountingSettings": True,
+        # Nómina y RRHH para Contador
+        "canHRDashboard": True, "canHREmployees": True, "canHRAttendance": False,
+        "canHRVacations": False, "canHRPayroll": True, "canHROffboarding": True,
+        "canHRAuthorizations": False, "canHRDevelopment": False, "canHRSettings": True,
         # Reportería para Contador
         "canReportsSales": True, "canReportsAdmin": True, "canReportsFinancial": True,
         "canReportsAccounting": True, "canReportsFiscal": True, "canReportsHR": True,
@@ -337,6 +349,10 @@ ROLES_PRESETS = {
         "canAccountingDashboard": True, "canAccountingChart": False, "canAccountingJournal": False,
         "canAccountingReports": True, "canAccountingFixedAssets": False, "canAccountingFiscalPeriods": False,
         "canAccountingSettings": False,
+        # Nómina y RRHH para Consulta
+        "canHRDashboard": True, "canHREmployees": False, "canHRAttendance": False,
+        "canHRVacations": False, "canHRPayroll": False, "canHROffboarding": False,
+        "canHRAuthorizations": False, "canHRDevelopment": False, "canHRSettings": False,
         # Reportería para Consulta
         "canReportsSales": True, "canReportsAdmin": False, "canReportsFinancial": False,
         "canReportsAccounting": False, "canReportsFiscal": False, "canReportsHR": False,
@@ -512,11 +528,37 @@ PERMISSION_GROUPS = [
         },
     },
     {
+        "name": "Nómina y Recursos Humanos",
+        "perms": [
+            "canHR",
+            "canHRDashboard",
+            "canHREmployees",
+            "canHRAttendance",
+            "canHRVacations",
+            "canHRPayroll",
+            "canHROffboarding",
+            "canHRAuthorizations",
+            "canHRDevelopment",
+            "canHRSettings",
+        ],
+        "labels": {
+            "canHR": "Control general de RRHH y Nómina (maestro)",
+            "canHRDashboard": "Dashboard de RRHH y métricas de personal",
+            "canHREmployees": "Gestión de empleados, ficha 360°, organigrama e incidencias",
+            "canHRAttendance": "Control de asistencia y marcas de reloj biométrico",
+            "canHRVacations": "Vacaciones, permisos y licencias laborales",
+            "canHRPayroll": "Procesamiento de nómina, horas extras, novedades TSS y recibos",
+            "canHROffboarding": "Desvinculaciones y cálculo de prestaciones (liquidaciones)",
+            "canHRAuthorizations": "Bandeja de autorizaciones de solicitudes de personal",
+            "canHRDevelopment": "Evaluaciones de desempeño y capacitaciones",
+            "canHRSettings": "Configuración de nómina, posiciones, departamentos y parámetros legales",
+        },
+    },
+    {
         "name": "Administración",
         "perms": ["canModifySettings", "canViewAuditLog", "canViewSubscription",
                   "canToggleSandbox", "canManageNotes",
                   "canUseChatbot", "isPosSupervisor", "canSupervisePOS",
-                  "canHR",
                   "canApprovePayments", "canApprovePayroll", "canApproveExpenses",
                   "canManageAPI"],
         "labels": {
@@ -528,7 +570,6 @@ PERMISSION_GROUPS = [
             "canUseChatbot": "Asistente IA",
             "isPosSupervisor": "Supervisor de caja (POS)",
             "canSupervisePOS": "Supervisión avanzada de POS",
-            "canHR": "Nómina y RRHH",
             "canApprovePayments": "Aprobar pagos",
             "canApprovePayroll": "Autorizar pagos de nómina",
             "canApproveExpenses": "Aprobar gastos",

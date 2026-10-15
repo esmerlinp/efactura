@@ -6,10 +6,11 @@ from datetime import date, datetime, timezone
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
-    _is_hr_role, _sanitize_for_role, MONTHS_ES,
+    _is_hr_role, _sanitize_for_role, _hr_restricted, _can_view_salary, MONTHS_ES,
     _filter_employees_by_period, _generate_periods,
     get_locked_periods,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
 from app.services.payroll_service import PayrollService
 from app.services.payroll_ytd_service import get_ytd, save_ytd, accumulate_ytd
@@ -21,6 +22,13 @@ from app.services.payroll_variable_catalog import (
     EXTRA_OTHER_INCOME_CONCEPTS as _EXTRA_OTHER_INCOME_CONCEPTS,
     EXTRA_OTHER_DEDUCTION_CONCEPTS as _EXTRA_OTHER_DEDUCTION_CONCEPTS,
 )
+
+
+def _can_manage_payroll() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHRPayroll")
 
 
 def _resolve_rule_concept_code(action: dict) -> str | None:
@@ -465,6 +473,8 @@ def _update_payroll_progress(company_id, job_id, index, total, employee_name,
 def payroll_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_payroll():
+        return _hr_restricted("Procesamiento de Nómina", "canHRPayroll")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
@@ -1679,6 +1689,8 @@ def payroll_new():
 def payroll_create():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_payroll():
+        return _hr_restricted("Procesamiento de Nómina", "canHRPayroll")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
@@ -1795,6 +1807,8 @@ def payroll_create():
 def payroll_simulate():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_payroll():
+        return _hr_restricted("Procesamiento de Nómina", "canHRPayroll")
     if request.method == "GET":
         return redirect(url_for("web_rrhh.payroll_new"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()

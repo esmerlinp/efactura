@@ -5,10 +5,18 @@ from datetime import date, datetime, timezone
 from flask import render_template, request, redirect, url_for, session, flash, jsonify
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
-    _is_hr_role, _sanitize_for_role, MONTHS_ES,
+    _is_hr_role, _sanitize_for_role, MONTHS_ES, _hr_restricted,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
 from app.models.legal_parameter import PARAM_TYPES, get_default_params
+
+
+def _can_manage_settings() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHRSettings")
 
 PARAM_TYPE_LABELS = {
     "afp_employee_rate": "Tasa AFP Empleado",
@@ -39,6 +47,8 @@ PARAM_TYPE_LABELS = {
 def legal_parameters_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Parámetros Legales", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     parameters = hr.get_legal_parameters(company_id, sandbox=sandbox)
@@ -115,6 +125,8 @@ def legal_parameters_list():
 def legal_parameter_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Parámetros Legales", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     if request.method == "POST":
@@ -162,6 +174,8 @@ def legal_parameter_new():
 def legal_parameter_edit(param_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Parámetros Legales", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     parameter = hr.get_legal_parameter(company_id, param_id, sandbox=sandbox)
@@ -203,6 +217,8 @@ def legal_parameter_edit(param_id):
 def legal_parameter_history(param_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Parámetros Legales", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     parameter = hr.get_legal_parameter(company_id, param_id, sandbox=sandbox)
@@ -230,6 +246,8 @@ def legal_parameter_history(param_id):
 def legal_parameter_delete(param_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_manage_settings():
+        return _hr_restricted("Parámetros Legales", "canHRSettings")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     parameter = hr.get_legal_parameter(company_id, param_id, sandbox=sandbox)

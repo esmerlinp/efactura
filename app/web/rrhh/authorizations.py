@@ -4,8 +4,9 @@ import uuid
 from flask import render_template, request, redirect, url_for, session, flash
 
 from app.web.rrhh import (
-    web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
+    web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required, _hr_restricted,
 )
+from app.utils.decorators import check_permission
 from app.services import hr_data_service as hr
 from app.services.hr_authorization_service import (
     AUTHORIZATION_DOC_TYPES,
@@ -18,6 +19,13 @@ from app.services.hr_authorization_service import (
     reassign_authorization,
     _user_has_pending_step,
 )
+
+
+def _can_view_authorizations() -> bool:
+    user = session.get("user", {})
+    if user.get("role") == "owner":
+        return True
+    return check_permission("canHR") or check_permission("canHRAuthorizations")
 
 
 def _current_user() -> dict:
@@ -52,6 +60,8 @@ def _resolve_entity_link(request: dict) -> str:
 def authorization_queue():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _can_view_authorizations():
+        return _hr_restricted("Bandeja de Autorizaciones", "canHRAuthorizations")
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     user = _current_user()
     user_uid = user.get("uid", "")
