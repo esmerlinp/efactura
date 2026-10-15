@@ -194,6 +194,26 @@ def check_permission(permission_name):
             return True
         return True
 
+    # Permisos granulares de Contabilidad General
+    accounting_granular = (
+        'canAccountingDashboard',
+        'canAccountingChart',
+        'canAccountingJournal',
+        'canAccountingReports',
+        'canAccountingFixedAssets',
+        'canAccountingFiscalPeriods',
+        'canAccountingSettings',
+    )
+    if permission_name in accounting_granular:
+        if permission_name in user_perms:
+            return bool(user_perms[permission_name])
+        # Compatibilidad hacia atrás y sinergia con reportes:
+        if permission_name == 'canAccountingReports' and 'canReportsAccounting' in user_perms:
+            return bool(user_perms['canReportsAccounting'])
+        if 'canAccounting' in user_perms:
+            return bool(user_perms['canAccounting'])
+        return True
+
     default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot', 'canAssignApprovers', 'canManageAPI', 'canAccountingExport') else True
     return user_perms.get(permission_name, default_val)
 
@@ -315,8 +335,21 @@ def get_user_landing_url():
             return url_for('web_banks.reconcile_list')
 
     # 13. Contabilidad & Catálogo
-    if module_enabled('contabilidad') and check_permission('canAccounting'):
-        return url_for('web_accounting.dashboard')
+    if module_enabled('contabilidad'):
+        if check_permission('canAccounting') or check_permission('canAccountingDashboard'):
+            return url_for('web_accounting.dashboard')
+        if check_permission('canAccountingChart'):
+            return url_for('web_accounting.chart_of_accounts')
+        if check_permission('canAccountingJournal'):
+            return url_for('web_accounting.journal_entries')
+        if check_permission('canAccountingReports'):
+            return url_for('web_accounting.balance_sheet')
+        if check_permission('canAccountingFixedAssets'):
+            return url_for('web_accounting.fixed_assets')
+        if check_permission('canAccountingFiscalPeriods'):
+            return url_for('web_accounting.fiscal_periods')
+        if check_permission('canAccountingSettings'):
+            return url_for('web_accounting.list_cost_centers')
 
     # 14. Nómina y Recursos Humanos
     if module_enabled('nomina') and check_permission('canHR'):

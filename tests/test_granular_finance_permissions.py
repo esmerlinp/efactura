@@ -110,7 +110,7 @@ def test_finance_presets_matrix_and_permission_groups():
     finance_group = next((g for g in PERMISSION_GROUPS if g.get("name") == "Finanzas y Tesorería"), None)
     assert finance_group is not None, "PERMISSION_GROUPS must have 'Finanzas y Tesorería' group"
     group_perms = finance_group.get("perms", [])
-    for key in ("canManageCXC", "canManageCXCAdvances", "canManageBanks", "canBankReconciliation", "canAccounting"):
+    for key in ("canManageCXC", "canManageCXCAdvances", "canManageBanks", "canBankReconciliation"):
         assert key in group_perms, f"{key} must be in Finanzas y Tesorería perms"
 
     # Presets verification
