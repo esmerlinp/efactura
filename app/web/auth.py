@@ -21,7 +21,7 @@ from app.brand import get_product_name
 web_auth_bp = Blueprint('web_auth', __name__)
 
 def _safe_redirect_fallback(default_endpoint='web_dashboard.dashboard'):
-    """Redirect to `next` URL if safe (same-origin), else fallback to default."""
+    """Redirect to `next` URL if safe (same-origin), else fallback to default or user landing page."""
     from urllib.parse import urlparse
     next_url = request.form.get('next') or request.args.get('next')
     if next_url:
@@ -33,6 +33,10 @@ def _safe_redirect_fallback(default_endpoint='web_dashboard.dashboard'):
             if parsed.query:
                 target += '?' + parsed.query
             return redirect(target)
+    from app.utils.decorators import get_user_landing_url
+    landing = get_user_landing_url()
+    if landing:
+        return redirect(landing)
     return redirect(url_for(default_endpoint))
 
 def _resolve_safe_next(next_url):
@@ -1113,7 +1117,7 @@ def select_company():
                 _inv_inv(session['selected_owner_uid'], company_id=comp['id'])
         else:
             session['selected_owner_uid'] = uid
-        return redirect(url_for('web_dashboard.dashboard'))
+        return _safe_redirect_fallback()
         
     if request.method == 'POST':
         selected_id = request.form.get('company_id')

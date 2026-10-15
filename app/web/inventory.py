@@ -56,8 +56,8 @@ def _sandbox():
 def advanced_dashboard():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
-    if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Inventario Avanzado", required_permission="canManageInventory"), 403
+    if not check_permission("canViewInventoryDashboard"):
+        return render_template("auth/restricted.html", feature_name="Inventario Avanzado", required_permission="canViewInventoryDashboard"), 403
 
     from app.services.db_service import DatabaseService
     from app.services.inventory_alert_service import InventoryAlertService
@@ -96,6 +96,8 @@ def advanced_dashboard():
 def transfer_list():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
+    if not check_permission("canInventoryTransfers"):
+        return render_template("auth/restricted.html", feature_name="Transferencias de Inventario", required_permission="canInventoryTransfers"), 403
     from app.services.warehouse_transfer_service import WarehouseTransferService
     transfers = WarehouseTransferService.get_transfers(_company_id(), sandbox=_sandbox())
     return render_template("inventario/transfer_list.html", active_page="inventory_transfers", transfers=transfers)
@@ -105,6 +107,8 @@ def transfer_list():
 def transfer_new():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
+    if not check_permission("canInventoryTransfers"):
+        return render_template("auth/restricted.html", feature_name="Nueva Transferencia", required_permission="canInventoryTransfers"), 403
     from app.services.db_service import DatabaseService
     from app.services.warehouse_transfer_service import WarehouseTransferService
 
@@ -181,6 +185,8 @@ def transfer_new():
 def transfer_approve(transfer_id):
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
+    if not check_permission("canInventoryTransfers"):
+        return render_template("auth/restricted.html", feature_name="Aprobar Transferencia", required_permission="canInventoryTransfers"), 403
     from app.services.warehouse_transfer_service import WarehouseTransferService
     ok, msg = WarehouseTransferService.approve_transfer(
         company_id=_company_id(), transfer_id=transfer_id, approved_by=session["user"].get("email", ""),
@@ -193,6 +199,8 @@ def transfer_approve(transfer_id):
 def transfer_reject(transfer_id):
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
+    if not check_permission("canInventoryTransfers"):
+        return render_template("auth/restricted.html", feature_name="Rechazar Transferencia", required_permission="canInventoryTransfers"), 403
     reason = request.form.get("reason", "Sin motivo especificado")
     from app.services.warehouse_transfer_service import WarehouseTransferService
     ok, msg = WarehouseTransferService.reject_transfer(_company_id(), transfer_id, reason, sandbox=_sandbox())
@@ -208,6 +216,8 @@ def transfer_reject(transfer_id):
 def physical_count_list():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
+    if not check_permission("canInventoryCounts"):
+        return render_template("auth/restricted.html", feature_name="Conteos Físicos", required_permission="canInventoryCounts"), 403
     from app.services.physical_count_service import PhysicalCountService
     counts = PhysicalCountService.get_counts(_company_id(), sandbox=_sandbox())
     return render_template("inventario/physical_count_list.html", active_page="inventory_counts", counts=counts)
@@ -217,6 +227,8 @@ def physical_count_list():
 def physical_count_new():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
+    if not check_permission("canInventoryCounts"):
+        return render_template("auth/restricted.html", feature_name="Nuevo Conteo Físico", required_permission="canInventoryCounts"), 403
     from app.services.db_service import DatabaseService
     from app.services.physical_count_service import PhysicalCountService
 
@@ -242,6 +254,8 @@ def physical_count_new():
 def physical_count_detail(count_id):
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
+    if not check_permission("canInventoryCounts"):
+        return render_template("auth/restricted.html", feature_name="Detalle de Conteo Físico", required_permission="canInventoryCounts"), 403
     from app.services.physical_count_service import PhysicalCountService
 
     owner_uid, sb = _owner(), _sandbox()
@@ -284,6 +298,8 @@ def physical_count_detail(count_id):
 def lot_list():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
+    if not check_permission("canInventoryLots"):
+        return render_template("auth/restricted.html", feature_name="Lotes y Vencimientos", required_permission="canInventoryLots"), 403
     from app.services.db_service import db_firestore, firebase_initialized, _company_coll
 
     lots = []
@@ -314,6 +330,8 @@ def lot_list():
 def alert_dashboard():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
+    if not check_permission("canViewInventoryDashboard"):
+        return render_template("auth/restricted.html", feature_name="Alertas de Inventario", required_permission="canViewInventoryDashboard"), 403
     from app.services.inventory_alert_service import InventoryAlertService
 
     owner_uid, sb = _owner(), _sandbox()
@@ -333,8 +351,8 @@ def alert_dashboard():
 def list_receipts():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
-    if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canManageInventory"), 403
+    if not check_permission("canInventoryReceipts"):
+        return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canInventoryReceipts"), 403
     owner_uid = _owner()
     company_id = _company_id()
     sandbox = _sandbox()
@@ -348,8 +366,8 @@ def list_receipts():
 def new_receipt():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
-    if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canManageInventory"), 403
+    if not check_permission("canInventoryReceipts"):
+        return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canInventoryReceipts"), 403
     owner_uid = _owner()
     company_id = _company_id()
     sandbox = _sandbox()
@@ -496,8 +514,8 @@ def new_receipt():
 def receipt_detail(receipt_id):
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
-    if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canManageInventory"), 403
+    if not check_permission("canInventoryReceipts"):
+        return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canInventoryReceipts"), 403
     owner_uid = _owner()
     company_id = _company_id()
     sandbox = _sandbox()
@@ -517,8 +535,8 @@ def receipt_detail(receipt_id):
 def kardex_view():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
-    if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Kardex Valorizado", required_permission="canManageInventory"), 403
+    if not check_permission("canInventoryKardex"):
+        return render_template("auth/restricted.html", feature_name="Kardex Valorizado", required_permission="canInventoryKardex"), 403
 
     from app.services.db_service import DatabaseService
 
@@ -577,8 +595,8 @@ def kardex_view():
 def kardex_export_excel():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
-    if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Exportar Kardex", required_permission="canManageInventory"), 403
+    if not check_permission("canInventoryKardex"):
+        return render_template("auth/restricted.html", feature_name="Exportar Kardex", required_permission="canInventoryKardex"), 403
 
     owner_uid = _owner()
     company_id = _company_id()
@@ -616,8 +634,8 @@ def kardex_export_excel():
 def kardex_export_pdf():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
-    if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Exportar Kardex", required_permission="canManageInventory"), 403
+    if not check_permission("canInventoryKardex"):
+        return render_template("auth/restricted.html", feature_name="Exportar Kardex", required_permission="canInventoryKardex"), 403
 
     owner_uid = _owner()
     company_id = _company_id()

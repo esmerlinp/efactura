@@ -82,23 +82,31 @@
 
 <!-- Acciones de Inventario Destacadas -->
 <div style="display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;">
+    {% if session.get('user', {}).get('role') == 'owner' or check_permission('canManageWarehouses') %}
     <a href="{{ url_for('web_invoices.inventory_warehouses') }}" class="btn btn-secondary" style="padding: 10px 18px; display: inline-flex; align-items: center; gap: 8px;">
         <i class="fa-solid fa-warehouse"></i>
         <span>Almacenes</span>
     </a>
+    {% endif %}
+    {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryReceipts') %}
     <a href="{{ url_for('web_inventory.list_receipts') }}" class="btn btn-secondary" style="padding: 10px 18px; display: inline-flex; align-items: center; gap: 8px;">
         <i class="fa-solid fa-truck-ramp-box"></i>
         <span>Recepciones</span>
     </a>
+    {% endif %}
+    {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryKardex') %}
     <a href="{{ url_for('web_inventory.kardex_view') }}" class="btn btn-secondary" style="padding: 10px 18px; display: inline-flex; align-items: center; gap: 8px; border-color: var(--accent-purple); color: var(--accent-purple);">
         <i class="fa-solid fa-table-list"></i>
         <span>Kardex Valorizado (FIFO)</span>
     </a>
+    {% endif %}
+    {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryAdjustments') %}
     <a href="{{ url_for('web_invoices.new_inventory_transaction') }}" class="btn btn-primary"
         style="padding: 10px 20px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px;">
         <i class="fa-solid fa-shuffle"></i>
         <span>Ajuste / Transacción</span>
     </a>
+    {% endif %}
 </div>
 
 <!-- Alertas de Stock Crítico -->

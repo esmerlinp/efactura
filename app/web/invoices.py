@@ -192,7 +192,7 @@ def _log_dgii_emission_to_audit(owner_uid, invoice, res, performed_by_email, per
 # ═══════════════════════════════════════════════════════════════════════
 
 ALL_PERMISSION_KEYS = [
-    "canInvoice", "canExpenses", "canClients", "canModifySettings",
+    "canInvoice", "canManageQuotations", "canExpenses", "canClients", "canModifySettings",
     "canManageInventory", "canManagePOS", "canViewDashboard",
     "canManageCXC", "canManageCXP", "canManageContracts",
     "canManageCommissions", "canViewBI", "canViewAuditLog",
@@ -202,12 +202,17 @@ ALL_PERMISSION_KEYS = [
     "canHR", "canVoidInvoice", "canCreateSupplier",
     "canApprovePayments", "canApprovePayroll", "canApproveExpenses",
     "canSupervisePOS", "canAssignApprovers",
+    # Permisos granulares de Productos e Inventario
+    "canManageCatalog", "canViewInventoryDashboard", "canInventoryKardex",
+    "canInventoryReceipts", "canInventoryTransfers", "canInventoryCounts",
+    "canInventoryLots", "canManageWarehouses", "canInventoryAdjustments",
+    "canManagePriceLists",
 ]
 
 ROLES_PRESETS = {
     "administrador": {k: True for k in ALL_PERMISSION_KEYS},
     "vendedor": {
-        "canInvoice": True, "canExpenses": False, "canClients": True,
+        "canInvoice": True, "canManageQuotations": True, "canExpenses": False, "canClients": True,
         "canModifySettings": False, "canManageInventory": False, "canManagePOS": True,
         "canViewDashboard": True, "canManageCXC": False, "canManageCXP": False,
         "canManageContracts": False, "canManageCommissions": True, "canViewBI": False,
@@ -219,9 +224,14 @@ ROLES_PRESETS = {
         "canApprovePayments": False, "canApprovePayroll": False,
         "canApproveExpenses": False, "canSupervisePOS": False,
         "canAssignApprovers": False,
+        # Productos e Inventario para Vendedor
+        "canManageCatalog": True, "canViewInventoryDashboard": True, "canInventoryKardex": False,
+        "canInventoryReceipts": False, "canInventoryTransfers": False, "canInventoryCounts": False,
+        "canInventoryLots": False, "canManageWarehouses": False, "canInventoryAdjustments": False,
+        "canManagePriceLists": False,
     },
     "contador": {
-        "canInvoice": True, "canExpenses": True, "canClients": False,
+        "canInvoice": True, "canManageQuotations": False, "canExpenses": True, "canClients": False,
         "canModifySettings": False, "canManageInventory": False, "canManagePOS": False,
         "canViewDashboard": True, "canManageCXC": True, "canManageCXP": True,
         "canManageContracts": False, "canManageCommissions": False, "canViewBI": True,
@@ -233,9 +243,14 @@ ROLES_PRESETS = {
         "canApprovePayments": False, "canApprovePayroll": False,
         "canApproveExpenses": False, "canSupervisePOS": False,
         "canAssignApprovers": False,
+        # Productos e Inventario para Contador
+        "canManageCatalog": False, "canViewInventoryDashboard": True, "canInventoryKardex": True,
+        "canInventoryReceipts": False, "canInventoryTransfers": False, "canInventoryCounts": True,
+        "canInventoryLots": False, "canManageWarehouses": False, "canInventoryAdjustments": False,
+        "canManagePriceLists": False,
     },
     "consulta": {
-        "canInvoice": False, "canExpenses": False, "canClients": False,
+        "canInvoice": False, "canManageQuotations": False, "canExpenses": False, "canClients": False,
         "canModifySettings": False, "canManageInventory": False, "canManagePOS": False,
         "canViewDashboard": True, "canManageCXC": False, "canManageCXP": False,
         "canManageContracts": False, "canManageCommissions": False, "canViewBI": True,
@@ -247,19 +262,53 @@ ROLES_PRESETS = {
         "canApprovePayments": False, "canApprovePayroll": False,
         "canApproveExpenses": False, "canSupervisePOS": False,
         "canAssignApprovers": False,
+        # Productos e Inventario para Consulta
+        "canManageCatalog": False, "canViewInventoryDashboard": True, "canInventoryKardex": False,
+        "canInventoryReceipts": False, "canInventoryTransfers": False, "canInventoryCounts": False,
+        "canInventoryLots": False, "canManageWarehouses": False, "canInventoryAdjustments": False,
+        "canManagePriceLists": False,
     },
 }
 
 PERMISSION_GROUPS = [
     {
         "name": "Módulos Principales",
-        "perms": ["canViewDashboard", "canInvoice", "canClients", "canManagePOS", "canManageInventory"],
+        "perms": ["canViewDashboard", "canInvoice", "canManageQuotations", "canClients", "canManagePOS"],
         "labels": {
             "canViewDashboard": "Dashboard general",
-            "canInvoice": "Facturación y emisión",
+            "canInvoice": "Facturación y emisión fiscal",
+            "canManageQuotations": "Cotizaciones (crear y gestionar)",
             "canClients": "Clientes (CRM)",
             "canManagePOS": "Caja (POS)",
-            "canManageInventory": "Inventario",
+        },
+    },
+    {
+        "name": "Productos e Inventario",
+        "perms": [
+            "canManageCatalog",
+            "canViewInventoryDashboard",
+            "canInventoryKardex",
+            "canInventoryReceipts",
+            "canInventoryTransfers",
+            "canInventoryCounts",
+            "canInventoryLots",
+            "canManageWarehouses",
+            "canInventoryAdjustments",
+            "canManagePriceLists",
+            "canManageInventory",
+        ],
+        "labels": {
+            "canManageCatalog": "Catálogo de productos y servicios",
+            "canViewInventoryDashboard": "Tablero y alertas de existencias",
+            "canInventoryKardex": "Kardex valorizado (FIFO/PEPS)",
+            "canInventoryReceipts": "Recepciones de mercancía",
+            "canInventoryTransfers": "Transferencias entre almacenes",
+            "canInventoryCounts": "Conteos físicos y mermas",
+            "canInventoryLots": "Control de lotes y vencimientos",
+            "canManageWarehouses": "Gestión de almacenes",
+            "canInventoryAdjustments": "Ajustes manuales de inventario",
+            "canManagePriceLists": "Listas de precios",
+            "canManageInventory": "Control general de inventario (maestro)",
         },
     },
     {
@@ -386,8 +435,8 @@ def _company_has_issued_documents(owner_uid, sandbox=True, company_id=None):
 @web_invoices_bp.route('/items')
 def list_items():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Catálogo de Productos", required_permission="canClients"), 403
+    if not check_permission('canManageCatalog'):
+        return render_template('auth/restricted.html', feature_name="Catálogo de Productos", required_permission="canManageCatalog"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -432,8 +481,8 @@ def list_items():
 @web_invoices_bp.route('/items/new', methods=['GET', 'POST'])
 def new_item():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Artículo", required_permission="canClients"), 403
+    if not check_permission('canManageCatalog'):
+        return render_template('auth/restricted.html', feature_name="Nuevo Artículo", required_permission="canManageCatalog"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -478,8 +527,8 @@ def new_item():
 @web_invoices_bp.route('/items/<item_id>/edit', methods=['GET', 'POST'])
 def edit_item(item_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Editar Artículo", required_permission="canClients"), 403
+    if not check_permission('canManageCatalog'):
+        return render_template('auth/restricted.html', feature_name="Editar Artículo", required_permission="canManageCatalog"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -530,8 +579,8 @@ def edit_item(item_id):
 @web_invoices_bp.route('/items/<item_id>/delete', methods=['POST'])
 def delete_item_route(item_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Eliminar Artículo", required_permission="canClients"), 403
+    if not check_permission('canManageCatalog'):
+        return render_template('auth/restricted.html', feature_name="Eliminar Artículo", required_permission="canManageCatalog"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -569,8 +618,8 @@ def upload_item_image():
 @web_invoices_bp.route('/items/import-csv', methods=['POST'])
 def import_items_csv():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Importar Catálogo CSV", required_permission="canClients"), 403
+    if not check_permission('canManageCatalog'):
+        return render_template('auth/restricted.html', feature_name="Importar Catálogo CSV", required_permission="canManageCatalog"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -622,8 +671,8 @@ def import_items_csv():
 @web_invoices_bp.route('/items/download-template')
 def download_csv_template():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Descargar Plantilla CSV", required_permission="canClients"), 403
+    if not check_permission('canManageCatalog'):
+        return render_template('auth/restricted.html', feature_name="Descargar Plantilla CSV", required_permission="canManageCatalog"), 403
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["codigo", "tipo_bien_o_servicio", "nombre", "precio", "unidad_medida", "tasa_itbis", "precio_costo", "categoria", "codigo_barra", "codigo_impuesto_selectivo", "tasa_impuesto_selectivo", "proveedor", "precio_mayorista", "marca", "stock_maximo", "imagen_url", "estado"])
@@ -641,8 +690,8 @@ def download_csv_template():
 @web_invoices_bp.route('/inventory/export-stock')
 def export_stock_report():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Reporte de Existencia", required_permission="canManageInventory"), 403
+    if not check_permission('canViewInventoryDashboard'):
+        return render_template('auth/restricted.html', feature_name="Reporte de Existencia", required_permission="canViewInventoryDashboard"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -717,8 +766,8 @@ def export_stock_report():
 @web_invoices_bp.route('/price-lists')
 def list_price_lists():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Listas de Precios", required_permission="canManageInventory"), 403
+    if not check_permission('canManagePriceLists'):
+        return render_template('auth/restricted.html', feature_name="Listas de Precios", required_permission="canManagePriceLists"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -1046,8 +1095,8 @@ def quick_create_product():
 @web_invoices_bp.route('/inventory')
 def inventory_dashboard():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Inventario y Almacén", required_permission="canManageInventory"), 403
+    if not check_permission('canViewInventoryDashboard'):
+        return render_template('auth/restricted.html', feature_name="Inventario y Almacén", required_permission="canViewInventoryDashboard"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -1090,8 +1139,8 @@ def inventory_dashboard():
 @web_invoices_bp.route('/inventory/warehouses')
 def inventory_warehouses():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Almacenes", required_permission="canManageInventory"), 403
+    if not check_permission('canManageWarehouses'):
+        return render_template('auth/restricted.html', feature_name="Almacenes", required_permission="canManageWarehouses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -1102,8 +1151,8 @@ def inventory_warehouses():
 @web_invoices_bp.route('/inventory/warehouses/new', methods=['GET', 'POST'])
 def new_warehouse():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Almacén", required_permission="canManageInventory"), 403
+    if not check_permission('canManageWarehouses'):
+        return render_template('auth/restricted.html', feature_name="Nuevo Almacén", required_permission="canManageWarehouses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -1127,8 +1176,8 @@ def new_warehouse():
 @web_invoices_bp.route('/inventory/warehouses/<warehouse_id>/edit', methods=['GET', 'POST'])
 def edit_warehouse(warehouse_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Editar Almacén", required_permission="canManageInventory"), 403
+    if not check_permission('canManageWarehouses'):
+        return render_template('auth/restricted.html', feature_name="Editar Almacén", required_permission="canManageWarehouses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -1158,8 +1207,8 @@ def edit_warehouse(warehouse_id):
 @web_invoices_bp.route('/inventory/warehouses/<warehouse_id>/delete', methods=['POST'])
 def delete_warehouse_route(warehouse_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Eliminar Almacén", required_permission="canManageInventory"), 403
+    if not check_permission('canManageWarehouses'):
+        return render_template('auth/restricted.html', feature_name="Eliminar Almacén", required_permission="canManageWarehouses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -1177,8 +1226,8 @@ def delete_warehouse_route(warehouse_id):
 @web_invoices_bp.route('/inventory/transactions')
 def inventory_transactions():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Movimientos de Inventario", required_permission="canManageInventory"), 403
+    if not check_permission('canInventoryAdjustments'):
+        return render_template('auth/restricted.html', feature_name="Movimientos de Inventario", required_permission="canInventoryAdjustments"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -1200,8 +1249,8 @@ def inventory_transactions():
 @web_invoices_bp.route('/inventory/transactions/new', methods=['GET', 'POST'])
 def new_inventory_transaction():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageInventory'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Ajuste de Inventario", required_permission="canManageInventory"), 403
+    if not check_permission('canInventoryAdjustments'):
+        return render_template('auth/restricted.html', feature_name="Nuevo Ajuste de Inventario", required_permission="canInventoryAdjustments"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -1487,8 +1536,8 @@ def list_invoices():
 @web_invoices_bp.route('/quotations')
 def list_quotations():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Cotizaciones", required_permission="canInvoice"), 403
+    if not check_permission('canManageQuotations'):
+        return render_template('auth/restricted.html', feature_name="Cotizaciones", required_permission="canManageQuotations"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -1648,8 +1697,10 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         source = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         if source and source.get('isProfessional'):
             return redirect(url_for('web_invoices.professional_quotation_route', clone=invoice_id))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Emisión de Documentos", required_permission="canInvoice"), 403
+    required_perm = 'canManageQuotations' if is_quotation else 'canInvoice'
+    if not check_permission(required_perm):
+        feature_name = "Cotizaciones" if is_quotation else "Emisión de Documentos"
+        return render_template('auth/restricted.html', feature_name=feature_name, required_permission=required_perm), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -4478,8 +4529,8 @@ def convert_quotation_route(invoice_id):
 def approve_quotation_route(invoice_id):
     """Aprueba manualmente una cotización cambiándole el estado a 'Aprobada'."""
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Aprobar Cotización", required_permission="canInvoice"), 403
+    if not check_permission('canManageQuotations'):
+        return render_template('auth/restricted.html', feature_name="Aprobar Cotización", required_permission="canManageQuotations"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -12794,8 +12845,8 @@ def api_toggle_comment_reaction(resource_type, resource_id, comment_id):
 @web_invoices_bp.route('/quotations/new/professional', methods=['GET', 'POST'])
 def professional_quotation_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Cotización Personalizada", required_permission="canInvoice"), 403
+    if not check_permission('canManageQuotations'):
+        return render_template('auth/restricted.html', feature_name="Cotización Personalizada", required_permission="canManageQuotations"), 403
     
     if request.method == 'GET':
         owner_uid = session['user']['ownerUID']
@@ -12850,7 +12901,7 @@ def professional_quotation_route():
     # POST - save
     if 'user' not in session:
         return jsonify({"success": False, "message": "No autorizado"}), 401
-    if not check_permission('canInvoice'):
+    if not check_permission('canManageQuotations'):
         return jsonify({"success": False, "message": "Sin permisos"}), 403
 
     owner_uid = session['user']['ownerUID']

@@ -600,12 +600,12 @@ def test_canonical_catalog_25_modules_integrity():
 # Matriz de mapeo: (modulo, ruta_web_representativa, ruta_api_representativa, permisos_a_desactivar)
 MODULE_TEST_MATRIX = [
     ("e_cf", "/invoices", "/api/v1/invoices", ["canInvoice"]),
-    ("catalogo", "/items", None, ["canClients", "canManageInventory"]),
-    ("cotizaciones", "/quotations", None, ["canInvoice", "canCreateQuotation"]),
+    ("catalogo", "/items", None, ["canClients", "canManageInventory", "canManageCatalog"]),
+    ("cotizaciones", "/quotations", None, ["canInvoice", "canCreateQuotation", "canManageQuotations"]),
     ("crm", "/crm", "/api/v1/crm/opportunities", ["canCRM", "canCRMReports", "canClients"]),
     ("pos", "/pos", None, ["canManagePOS"]),
-    ("price_lists", "/price-lists", None, ["canManageInventory"]),
-    ("inventario", "/inventory/advanced", "/api/v1/inventory/kardex?itemId=item_1", ["canManageInventory"]),
+    ("price_lists", "/price-lists", None, ["canManageInventory", "canManagePriceLists", "canInvoice"]),
+    ("inventario", "/inventory/advanced", "/api/v1/inventory/kardex?itemId=item_1", ["canManageInventory", "canViewInventoryDashboard"]),
     ("contratos", "/operations/contracts", None, ["canManageContracts"]),
     ("comisiones", "/operations/commissions", None, ["canManageCommissions"]),
     ("cxc", "/cxc", None, ["canManageCXC", "canInvoice"]),
