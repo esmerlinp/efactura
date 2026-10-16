@@ -166,6 +166,30 @@ class InventoryAccountingService:
                 return None, None, False, "No se encontraron las cuentas de Merma/Pérdida o Inventario."
             return merma_acc, inv_acc, False, ""
 
+        # ── 1.5b REVERSIÓN DE AJUSTE FÍSICO (REAPERTURA DE CONTEO) ──
+        if reason_upper == "RECUENTO_FISICO_REVERSAL":
+            inv_acc = AccountingRulesService.resolve(
+                company_id, "inventario", "inventario_cuenta", {}, accounts, rules=rules,
+                fallback_usages=["inventario"]
+            )
+            gain_acc = AccountingRulesService.resolve(
+                company_id, "inventario", "inventario_ajuste", {}, accounts, rules=rules,
+                fallback_usages=["ajuste_inventario", "ingresos", "costo_ventas"]
+            )
+            merma_acc = AccountingRulesService.resolve(
+                company_id, "inventario", "inventario_merma", {}, accounts, rules=rules,
+                fallback_usages=["merma_perdida", "costo_ventas", "gastos"]
+            )
+            if tx_type_upper == "SALIDA":
+                # Reverso de sobrante: D Ajuste/Ganancia, C Inventario
+                if not gain_acc or not inv_acc:
+                    return None, None, False, "No se encontraron las cuentas de Ajuste de Inventario o Inventario."
+                return gain_acc, inv_acc, False, ""
+            # Reverso de faltante (ENTRADA): D Inventario, C Merma/Pérdida
+            if not inv_acc or not merma_acc:
+                return None, None, False, "No se encontraron las cuentas de Inventario o Merma/Pérdida."
+            return inv_acc, merma_acc, False, ""
+
         # ── 1.6 TRANSFERENCIA ENTRE ALMACENES ──
         if tx_type_upper == "TRANSFERENCIA" or reason_upper == "TRANSFERENCIA":
             # Si ambos almacenes usan la misma cuenta contable (o no hay cuentas por almacén), es neutral
@@ -727,6 +751,8 @@ class InventoryAccountingService:
             return f"Ajuste inventario (+): {item_name} {qty_str} - Ref {ref_num}"
         elif reason_upper in ("AJUSTE_NEGATIVO", "FALTANTE", "MERMA"):
             return f"Descargo ajuste/merma: {item_name} {qty_str} - Ref {ref_num}"
+        elif reason_upper == "RECUENTO_FISICO_REVERSAL":
+            return f"Reverso ajuste inventario (reapertura): {item_name} {qty_str} - Ref {ref_num}"
         elif tx_type == "TRANSFERENCIA":
             return f"Transferencia inventario: {item_name} {qty_str} - Ref {ref_num}"
         return f"Contabilización inventario: {item_name} {qty_str} - {ref_num}"

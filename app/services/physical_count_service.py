@@ -99,6 +99,28 @@ class PhysicalCountService:
         return count_id
 
     @classmethod
+    def save_count_lines(cls, company_id, count_id, qty_map, sandbox=True):
+        """Persiste las cantidades contadas de varias líneas en una sola lectura/escritura.
+
+        qty_map: {itemId: counted_qty}. Solo actualiza las líneas presentes en el mapa.
+        """
+        count = cls.get_count(company_id, count_id, sandbox)
+        if not count or count["status"] != "en_progreso":
+            return False
+
+        for line in count["lines"]:
+            item_id = line["itemId"]
+            if item_id in qty_map:
+                counted_qty = float(qty_map[item_id])
+                line["countedQty"] = counted_qty
+                line["difference"] = round(counted_qty - line["expectedQty"], 4)
+
+        coll = cls._get_coll(company_id, sandbox)
+        if coll:
+            coll.document(count_id).set(count)
+        return True
+
+    @classmethod
     def record_count_line(cls, company_id, count_id, item_id, counted_qty, notes="", sandbox=True):
         """Actualiza una línea de conteo con la cantidad contada."""
         count = cls.get_count(company_id, count_id, sandbox)
@@ -130,6 +152,10 @@ class PhysicalCountService:
         if not count or count["status"] != "en_progreso":
             return False, "Conteo no encontrado o ya finalizado."
 
+        # Cada finalización usa un intento incremental; permite re-finalizar tras una reapertura
+        # sin que la idempotencia devuelva los movimientos ya revertidos.
+        attempt = int(count.get("finalizeAttempt", 0) or 0) + 1
+
         surplus = 0.0
         shortage = 0.0
         lines_with_diff = 0
@@ -141,7 +167,11 @@ class PhysicalCountService:
         item_cost_map = {it.get("id"): float(it.get("costPrice", 0.0) or 0.0) for it in items_catalog}
 
         for line in count["lines"]:
-            diff = line["difference"]
+            if "countedQty" in line and "expectedQty" in line:
+                diff = round(float(line.get("countedQty", 0.0) or 0.0) - float(line.get("expectedQty", 0.0) or 0.0), 4)
+                line["difference"] = diff
+            else:
+                diff = float(line.get("difference", 0.0) or 0.0)
             if abs(diff) > tolerance:
                 lines_with_diff += 1
                 if diff > 0:
@@ -157,7 +187,7 @@ class PhysicalCountService:
                 idempotency_key = InventoryTransactionService.build_idempotency_key(
                     company_id=company_id,
                     reference_type="PHYSICAL_COUNT",
-                    reference_id=f"{count_id}_{item_id}",
+                    reference_id=f"{count_id}_{item_id}_v{attempt}",
                     operation=tx_type
                 )
 
@@ -176,6 +206,7 @@ class PhysicalCountService:
                         "referenceType": "PHYSICAL_COUNT",
                         "referenceId": count_id,
                         "idempotencyKey": idempotency_key,
+                        "metadata": {"finalizeAttempt": attempt},
                         "notes": f"Ajuste automático: conteo #{count_id[:8]}, diferencia {diff:+.4f}",
                         "performedBy": finalized_by,
                     },
@@ -208,6 +239,7 @@ class PhysicalCountService:
         count["status"] = "ajustado" if adjustments > 0 else "finalizado"
         count["finalizedDate"] = datetime.now(timezone.utc).isoformat()
         count["finalizedBy"] = finalized_by
+        count["finalizeAttempt"] = attempt
         count["linesWithDifference"] = lines_with_diff
         count["totalSurplus"] = round(surplus, 2)
         count["totalShortage"] = round(shortage, 2)
@@ -222,4 +254,118 @@ class PhysicalCountService:
             "totalSurplus": round(surplus, 2),
             "totalShortage": round(shortage, 2),
             "adjustments": adjustments,
+        }
+
+    @classmethod
+    def reopen_count(cls, company_id, count_id, reopened_by="", sandbox=True, owner_uid=""):
+        """Reabre un conteo finalizado/ajustado revirtiendo sus ajustes de inventario y contabilidad.
+
+        Crea una transacción compensatoria por cada movimiento del último cierre del conteo,
+        la contabiliza (asiento inverso) y devuelve el conteo a estado 'en_progreso' para
+        permitir corregir las cantidades contadas.
+        Retorna (success, summary_dict | error_message).
+        """
+        from app.services.inventory_transaction_service import InventoryTransactionService
+        from app.services.inventory_accounting_service import InventoryAccountingService
+        from app.services.db_service import _company_coll
+
+        count = cls.get_count(company_id, count_id, sandbox)
+        if not count:
+            return False, "Conteo no encontrado."
+        if count.get("status") not in ("finalizado", "ajustado"):
+            return False, "Solo se pueden reabrir conteos finalizados o ajustados."
+
+        target_attempt = int(count.get("finalizeAttempt", 0) or 0)
+
+        coll_name = "sandbox_inventory_transactions" if sandbox else "inventory_transactions"
+        try:
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
+        except Exception as e:
+            return False, f"No se pudieron leer las transacciones del conteo: {e}"
+
+        reversed_count = 0
+        for doc in docs:
+            tx = doc.to_dict() or {}
+            if tx.get("referenceType") != "PHYSICAL_COUNT":
+                continue
+            if str(tx.get("referenceId", "")) != str(count_id):
+                continue
+            meta = tx.get("metadata") or {}
+            if int(meta.get("finalizeAttempt", 0) or 0) != target_attempt:
+                continue
+
+            tx_type = (tx.get("type") or "").upper()
+            if tx_type not in (InventoryTransactionService.TYPE_ENTRADA, InventoryTransactionService.TYPE_SALIDA):
+                continue
+
+            item_id = tx.get("itemId")
+            qty = float(tx.get("quantity", 0.0) or 0.0)
+            wh_id = tx.get("destinationWarehouseId") if tx_type == InventoryTransactionService.TYPE_ENTRADA \
+                else tx.get("originWarehouseId")
+            if not item_id or qty <= 0 or not wh_id:
+                continue
+
+            rev_type = InventoryTransactionService.TYPE_SALIDA if tx_type == InventoryTransactionService.TYPE_ENTRADA \
+                else InventoryTransactionService.TYPE_ENTRADA
+
+            rev_dict = {
+                "type": rev_type,
+                "itemId": item_id,
+                "itemName": tx.get("itemName", ""),
+                "itemCode": tx.get("itemCode", ""),
+                "quantity": qty,
+                "unitCost": float(tx.get("unitCost", 0.0) or 0.0),
+                "reason": InventoryTransactionService.REASON_AJUSTE_FISICO_REVERSAL,
+                "referenceType": "PHYSICAL_COUNT_REOPEN",
+                "referenceId": count_id,
+                "destinationWarehouseId": wh_id if rev_type == InventoryTransactionService.TYPE_ENTRADA else "",
+                "originWarehouseId": wh_id if rev_type == InventoryTransactionService.TYPE_SALIDA else "",
+                "idempotencyKey": InventoryTransactionService.build_idempotency_key(
+                    company_id=company_id,
+                    reference_type="PHYSICAL_COUNT_REOPEN",
+                    reference_id=f"{count_id}_{item_id}_v{target_attempt}",
+                    operation=rev_type,
+                ),
+                "metadata": {"finalizeAttempt": target_attempt, "reversedTxId": tx.get("id")},
+                "notes": f"Reapertura de conteo #{count_id[:8]}: reverso de ajuste {tx_type}",
+                "performedBy": reopened_by or "Sistema",
+            }
+
+            try:
+                res_tx = InventoryTransactionService.execute_transaction(
+                    owner_uid=owner_uid,
+                    company_id=company_id,
+                    tx_dict=rev_dict,
+                    sandbox=sandbox,
+                    allow_negative_stock=True,
+                )
+            except Exception as e:
+                return False, f"Error al revertir la transacción {tx.get('id')}: {e}"
+
+            if res_tx:
+                try:
+                    InventoryAccountingService.post_inventory_transaction(
+                        company_id=company_id,
+                        tx=res_tx,
+                        sandbox=sandbox,
+                        owner_uid=owner_uid,
+                    )
+                except Exception as acc_err:
+                    print(f"⚠️ Error al contabilizar reverso de conteo {count_id}: {acc_err}")
+                reversed_count += 1
+
+        count["status"] = "en_progreso"
+        count["finalizedDate"] = ""
+        count["finalizedBy"] = ""
+        count["linesWithDifference"] = 0
+        count["totalSurplus"] = 0.0
+        count["totalShortage"] = 0.0
+
+        coll = cls._get_coll(company_id, sandbox)
+        if coll:
+            coll.document(count_id).set(count)
+
+        return True, {
+            "reversedTransactions": reversed_count,
+            "status": "en_progreso",
         }

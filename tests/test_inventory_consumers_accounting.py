@@ -805,3 +805,181 @@ def test_7c5_full_e2e_integration_and_continuous_reconciliation(mock_erp_env):
     assert audit["unpostedCount"] == 0
     assert audit["failedCount"] == 0
     assert audit["status"] == "OK"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 7C.6: REGRESIÓN — PERSISTENCIA DE LÍNEAS Y RECÁLCULO DE DIFERENCIAS
+# (esquema real de start_count: expectedQty / countedQty / difference)
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_7c6_save_count_lines_persists_and_recomputes_difference(mock_erp_env):
+    """
+    save_count_lines debe persistir countedQty y recalcular
+    difference = countedQty - expectedQty para cada línea del mapa.
+    """
+    company_id = "comp-01"
+    owner_uid = "comp-01"
+
+    count = {
+        "id": "count-lines-1",
+        "warehouseId": "wh-central",
+        "warehouseName": "Almacén Central",
+        "status": "en_progreso",
+        "lines": [
+            {"itemId": "art-cable", "itemName": "Cable Solar", "expectedQty": 100.0, "countedQty": 0.0, "difference": 0.0},
+            {"itemId": "art-fusible", "itemName": "Fusible DC", "expectedQty": 50.0, "countedQty": 0.0, "difference": 0.0},
+        ],
+    }
+    mock_erp_env["get_coll"]("sandbox_physical_counts").document("count-lines-1").set(count)
+
+    ok = PhysicalCountService.save_count_lines(company_id, "count-lines-1", {"art-cable": 105.0, "art-fusible": 48.0}, sandbox=True)
+    assert ok is True
+
+    saved = mock_erp_env["get_coll"]("sandbox_physical_counts").document("count-lines-1").get().to_dict()
+    by_id = {l["itemId"]: l for l in saved["lines"]}
+    assert by_id["art-cable"]["countedQty"] == 105.0
+    assert by_id["art-cable"]["difference"] == 5.0
+    assert by_id["art-fusible"]["countedQty"] == 48.0
+    assert by_id["art-fusible"]["difference"] == -2.0
+
+
+def test_7c6_finalize_recomputes_stale_difference(mock_erp_env):
+    """
+    finalize_count NO debe confiar en un difference almacenado obsoleto:
+    recalcula desde countedQty - expectedQty e igual detecta las diferencias
+    (caso "finalizar sin guardar" que dejaba el grid vacío).
+    """
+    company_id = "comp-01"
+    owner_uid = "comp-01"
+
+    mock_erp_env["set_item"]("art-cable", {"id": "art-cable", "name": "Cable Solar", "costPrice": 50.0, "totalStock": 100.0})
+
+    count = {
+        "id": "count-stale-1",
+        "warehouseId": "wh-central",
+        "warehouseName": "Almacén Central",
+        "status": "en_progreso",
+        "lines": [
+            {"itemId": "art-cable", "itemName": "Cable Solar", "expectedQty": 100.0, "countedQty": 105.0, "difference": 0.0},
+        ],
+    }
+    mock_erp_env["get_coll"]("sandbox_physical_counts").document("count-stale-1").set(count)
+
+    success, summary = PhysicalCountService.finalize_count(
+        company_id=company_id, count_id="count-stale-1",
+        finalized_by="auditor@vykone.com", sandbox=True, owner_uid=owner_uid)
+    assert success is True
+    assert summary["linesWithDifference"] == 1
+    assert summary["totalSurplus"] == 5.0
+    assert summary["adjustments"] == 1
+
+    saved = mock_erp_env["get_coll"]("sandbox_physical_counts").document("count-stale-1").get().to_dict()
+    assert saved["status"] == "ajustado"
+    assert saved["lines"][0]["difference"] == 5.0
+
+
+def test_7c7_reopen_count_reverts_stock_and_accounting(mock_erp_env):
+    """
+    Reabrir un conteo ajustado debe:
+    - crear la transacción compensatoria (SALIDA por el sobrante),
+    - generar el asiento inverso simétrico (D Ajuste / C Inventario),
+    - devolver el stock a su valor previo,
+    - dejar el conteo en estado 'en_progreso',
+    - mantener la conciliación sin discrepancias.
+    """
+    company_id = "comp-01"
+    owner_uid = "comp-01"
+    item_id = "art-cable"
+
+    mock_erp_env["set_item"](item_id, {"id": item_id, "name": "Cable Solar", "costPrice": 50.0, "totalStock": 0.0})
+
+    count = {
+        "id": "count-reopen-1",
+        "warehouseId": "wh-central",
+        "warehouseName": "Almacén Central",
+        "status": "en_progreso",
+        "lines": [
+            {"itemId": item_id, "itemName": "Cable Solar", "expectedQty": 100.0, "countedQty": 105.0, "difference": 5.0},
+        ],
+    }
+    mock_erp_env["get_coll"]("sandbox_physical_counts").document("count-reopen-1").set(count)
+
+    # Finalizar: sobrante +5 @ 50 = 250 -> ENTRADA, stock=5, asiento D Inv / C Ajuste
+    ok, _ = PhysicalCountService.finalize_count(
+        company_id=company_id, count_id="count-reopen-1",
+        finalized_by="auditor@vykone.com", sandbox=True, owner_uid=owner_uid)
+    assert ok is True
+    stock = mock_erp_env["get_coll"]("sandbox_inventory_stock").document(f"{item_id}_wh-central").get().to_dict()
+    assert stock["quantity"] == 5.0
+    assert len(mock_erp_env["entries"]) == 1
+    assert mock_erp_env["entries"][0]["totalDebit"] == 250.00
+
+    # Reabrir: reverso -> SALIDA, stock vuelve a 0, asiento simétrico D Ajuste / C Inv
+    ok, summary = PhysicalCountService.reopen_count(
+        company_id=company_id, count_id="count-reopen-1",
+        reopened_by="auditor@vykone.com", sandbox=True, owner_uid=owner_uid)
+    assert ok is True
+    assert summary["reversedTransactions"] == 1
+
+    reopened = mock_erp_env["get_coll"]("sandbox_physical_counts").document("count-reopen-1").get().to_dict()
+    assert reopened["status"] == "en_progreso"
+    assert reopened["finalizedDate"] == ""
+    assert reopened["totalSurplus"] == 0.0
+
+    stock2 = mock_erp_env["get_coll"]("sandbox_inventory_stock").document(f"{item_id}_wh-central").get().to_dict()
+    assert stock2["quantity"] == 0.0
+
+    # Dos asientos contables: el original y su reverso
+    assert len(mock_erp_env["entries"]) == 2
+    rev_entry = mock_erp_env["entries"][1]
+    assert rev_entry["totalDebit"] == 250.00
+    assert any(l["accountId"] == "acc-ajuste" and l["debit"] == 250.00 for l in rev_entry["lines"])
+    assert any(l["accountId"] == "acc-inv" and l["credit"] == 250.00 for l in rev_entry["lines"])
+
+    # Conciliación Kardex/transacciones <-> contabilidad sin discrepancias
+    audit = InventoryAccountingService.audit_unposted_inventory_transactions(company_id, sandbox=True, owner_uid=owner_uid)
+    assert audit["unpostedCount"] == 0
+    assert audit["failedCount"] == 0
+    assert audit["status"] == "OK"
+
+
+def test_7c7_reopen_then_refinalize_creates_new_adjustment(mock_erp_env):
+    """
+    Tras reabrir y corregir las cantidades, volver a finalizar debe aplicar
+    un NUEVO ajuste (la idempotencia no debe devolver el movimiento revertido).
+    """
+    company_id = "comp-01"
+    owner_uid = "comp-01"
+    item_id = "art-cable"
+
+    mock_erp_env["set_item"](item_id, {"id": item_id, "name": "Cable Solar", "costPrice": 50.0, "totalStock": 0.0})
+
+    count = {
+        "id": "count-reopen-2",
+        "warehouseId": "wh-central",
+        "warehouseName": "Almacén Central",
+        "status": "en_progreso",
+        "lines": [
+            {"itemId": item_id, "itemName": "Cable Solar", "expectedQty": 100.0, "countedQty": 105.0, "difference": 5.0},
+        ],
+    }
+    mock_erp_env["get_coll"]("sandbox_physical_counts").document("count-reopen-2").set(count)
+
+    ok, _ = PhysicalCountService.finalize_count(company_id, "count-reopen-2", "auditor@vykone.com", sandbox=True, owner_uid=owner_uid)
+    assert ok is True
+    ok, _ = PhysicalCountService.reopen_count(company_id, "count-reopen-2", "auditor@vykone.com", sandbox=True, owner_uid=owner_uid)
+    assert ok is True
+
+    # Corregir el conteo: ahora esperado 100, contado 103 -> sobrante +3
+    PhysicalCountService.save_count_lines(company_id, "count-reopen-2", {item_id: 103.0}, sandbox=True)
+    ok, summary = PhysicalCountService.finalize_count(company_id, "count-reopen-2", "auditor@vykone.com", sandbox=True, owner_uid=owner_uid)
+    assert ok is True
+    assert summary["adjustments"] == 1
+    assert summary["totalSurplus"] == 3.0
+
+    stock = mock_erp_env["get_coll"]("sandbox_inventory_stock").document(f"{item_id}_wh-central").get().to_dict()
+    assert stock["quantity"] == 3.0
+
+    audit = InventoryAccountingService.audit_unposted_inventory_transactions(company_id, sandbox=True, owner_uid=owner_uid)
+    assert audit["unpostedCount"] == 0
+    assert audit["status"] == "OK"

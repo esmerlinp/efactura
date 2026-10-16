@@ -2,6 +2,7 @@
 {% block title %}Conteo {{ count.warehouseName }} — {{ product_name }}{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+<style>#diferencias-grid tr.diff-zero td{opacity:.55;}</style>
 {% endblock %}
 {% block content %}
 <div class="page-title-container" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; padding-left:4px; flex-wrap:wrap; gap:12px;">
@@ -87,13 +88,29 @@
     </div>
 </div>
 
+<div style="display:flex; justify-content:flex-end; margin-bottom:16px;">
+    <form method="POST" onsubmit="return confirm('¿Reabrir este conteo? Se revertirán los ajustes de inventario y contabilidad generados al finalizar y volverá a estado En Progreso.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" name="reopen" value="1" class="btn btn-secondary">
+            <i class="fa-solid fa-rotate-left"></i>
+            <span>Reabrir Conteo</span>
+        </button>
+    </form>
+</div>
+
 <div class="card-table-wrapper">
-    <h3 style="font-size:1.1rem; font-family:var(--font-heading); margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:14px;">
-        <i class="fa-solid fa-scale-balanced" style="color:var(--accent-purple);"></i>
-        <span>Diferencias Detectadas</span>
-    </h3>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; border-bottom:1px solid var(--border-color); padding-bottom:14px; margin-bottom:20px;">
+        <h3 style="font-size:1.1rem; font-family:var(--font-heading); margin:0;">
+            <i class="fa-solid fa-scale-balanced" style="color:var(--accent-purple);"></i>
+            <span>Diferencias Detectadas</span>
+        </h3>
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; color:var(--text-secondary); cursor:pointer;">
+            <input type="checkbox" id="show-all-lines">
+            <span>Mostrar todas las líneas</span>
+        </label>
+    </div>
     <div class="table-responsive">
-        <table class="data-grid" style="width:100%;">
+        <table class="data-grid" id="diferencias-grid" style="width:100%;">
             <thead>
                 <tr>
                     <th style="min-width:220px;">Producto</th>
@@ -103,21 +120,39 @@
                 </tr>
             </thead>
             <tbody>
+                {% if count.lines %}
                 {% for line in count.lines %}
-                {% if line.difference|float != 0 %}
-                <tr>
+                <tr class="{{ 'diff-zero' if line.difference|float == 0 else '' }}">
                     <td style="font-weight:600;">{{ line.itemName }}</td>
                     <td style="text-align:right;">{{ "%.2f"|format(line.expectedQty|float) }}</td>
                     <td style="text-align:right;">{{ "%.2f"|format(line.countedQty|float) }}</td>
-                    <td style="text-align:right; font-variant-numeric:tabular-nums; color:{% if line.difference|float > 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
+                    <td style="text-align:right; font-variant-numeric:tabular-nums; color:{% if line.difference|float > 0 %}var(--accent-emerald){% elif line.difference|float < 0 %}var(--accent-red){% else %}var(--text-muted){% endif %};">
                         {{ "%+.2f"|format(line.difference|float) }}
                     </td>
                 </tr>
-                {% endif %}
                 {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align:center; color:var(--text-muted); padding:24px;">No hay líneas registradas en este conteo.</td>
+                </tr>
+                {% endif %}
             </tbody>
         </table>
     </div>
 </div>
+<script>
+(function () {
+    var toggle = document.getElementById('show-all-lines');
+    var table = document.getElementById('diferencias-grid');
+    if (!toggle || !table) return;
+    function apply() {
+        table.querySelectorAll('tr.diff-zero').forEach(function (row) {
+            row.style.display = toggle.checked ? '' : 'none';
+        });
+    }
+    toggle.addEventListener('change', apply);
+    apply();
+})();
+</script>
 {% endif %}
 {% endblock %}
