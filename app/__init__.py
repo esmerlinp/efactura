@@ -433,9 +433,10 @@ def create_app():
                         return redirect(flask_url_for('web_dashboard.dashboard'))
 
                 module_restricted = {
-                    'web_contacts.list_contacts': 'crm',
-                    'web_contacts.new_contact': 'crm',
-                    'web_contacts.ajax_create_contact': 'crm',
+                    'web_contacts.update_contact_pipeline': 'crm',
+                    'web_contacts.add_contact_interaction': 'crm',
+                    'web_contacts.complete_contact_interaction': 'crm',
+                    'web_contacts.delete_contact_interaction': 'crm',
                     'web_crm.dashboard': 'crm',
                     'web_crm.pipeline': 'crm',
                     'web_crm.opportunity_new': 'crm',
@@ -448,6 +449,11 @@ def create_app():
                     'web_crm.activity_edit': 'crm',
                     'web_crm.activity_complete': 'crm',
                     'web_crm.activity_delete': 'crm',
+                    'web_clients.update_pipeline': 'crm',
+                    'web_clients.add_client_interaction': 'crm',
+                    'web_clients.delete_client_interaction': 'crm',
+                    'web_clients.complete_client_interaction': 'crm',
+                    'web_clients.quick_note': 'crm',
                     'web_workflows.dashboard': 'gastos',
                     'web_workflows.save_rule': 'gastos',
                     'web_workflows.delete_rule': 'gastos',
@@ -460,9 +466,6 @@ def create_app():
                     'web_notes.debit_notes': 'e_cf',
                     'web_invoices.new_quotation_route': 'cotizaciones',
                     'web_invoices.quotations_list': 'cotizaciones',
-                    'web_clients.manage_clients': 'crm',
-                    'web_clients.manage_clients_route': 'crm',
-                    'web_clients.ajax_create_client': 'crm',
                     'web_invoices.inventory_view': 'inventario',
                     'web_invoices.items': 'catalogo',
                     'web_invoices.new_item': 'catalogo',
@@ -688,7 +691,18 @@ def create_app():
             from app.utils.module_gate import module_enabled as _me
             return _me(module_key)
 
-        return dict(check_permission=check_permission, static_hash=static_hash, module_enabled=module_enabled, abs=abs, dgii_environment=Config.DGII_ENVIRONMENT)
+        def clients_module_enabled():
+            from app.utils.module_gate import clients_module_enabled as _cme
+            return _cme()
+
+        return dict(
+            check_permission=check_permission,
+            static_hash=static_hash,
+            module_enabled=module_enabled,
+            clients_module_enabled=clients_module_enabled,
+            abs=abs,
+            dgii_environment=Config.DGII_ENVIRONMENT
+        )
 
     @app.context_processor
     def inject_i18n_helpers():

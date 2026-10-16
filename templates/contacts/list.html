@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
-{% block title %}Contactos{% endblock %}
-{% block page_header %}Contactos{% endblock %}
+{% block title %}{% if tab == 'clientes' %}Clientes{% elif tab == 'proveedores' %}Proveedores{% else %}Contactos{% endif %}{% endblock %}
+{% block page_header %}{% if tab == 'clientes' %}Clientes{% elif tab == 'proveedores' %}Proveedores{% else %}Contactos{% endif %}{% endblock %}
 
 {% block content %}
 <style>
@@ -49,6 +49,7 @@
         <i class="fa-solid fa-search"></i>
         <input type="text" id="searchInput" placeholder="Buscar por nombre, RNC, teléfono..." value="{{ q }}" onkeydown="if(event.key=='Enter'){window.location.href='{{ url_for('web_contacts.list_contacts', tab=tab, stage=stage) }}&q='+encodeURIComponent(this.value)}">
     </div>
+    {% if module_enabled('crm') %}
     <select onchange="window.location.href='{{ url_for('web_contacts.list_contacts', tab=tab, q=q) }}&stage='+this.value" style="padding:8px 12px; border:1px solid var(--border-color); border-radius:var(--radius-md); background:var(--card-bg); color:var(--text-primary); font-size:0.85rem; min-width:150px;">
         <option value="">Todas las etapas</option>
         <option value="Prospecto" {% if stage == 'Prospecto' %}selected{% endif %}>Prospecto</option>
@@ -58,6 +59,7 @@
         <option value="Periodo de Prueba" {% if stage == 'Periodo de Prueba' %}selected{% endif %}>Periodo de Prueba</option>
         <option value="Expirado" {% if stage == 'Expirado' %}selected{% endif %}>Expirado</option>
     </select>
+    {% endif %}
     <div class="btn-group">
         <a href="{{ url_for('web_contacts.new_contact') }}" class="btn btn-primary btn-sm">
             <i class="fa-solid fa-plus"></i> Nuevo Contacto
@@ -84,7 +86,9 @@
                 <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Teléfono</th>
                 <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Email</th>
                 <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Tipo</th>
+                {% if module_enabled('crm') %}
                 <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Pipeline</th>
+                {% endif %}
                 <th style="text-align:right; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Total Facturado</th>
                 <th style="text-align:center; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Acciones</th>
             </tr>
@@ -114,11 +118,13 @@
                         <span class="badge-type" style="background:var(--bg-muted); color:var(--text-secondary);">—</span>
                     {% endif %}
                 </td>
+                {% if module_enabled('crm') %}
                 <td style="padding:12px 16px;">
                     {% set stage = c.get('pipelineStage', 'Prospecto') %}
                     <span class="pipeline-dot pipeline-{{ stage|replace(' ', '_') }}"></span>
                     <span style="font-size:0.8rem; color:var(--text-secondary);">{{ stage }}</span>
                 </td>
+                {% endif %}
                 <td style="padding:12px 16px; text-align:right; font-size:0.85rem;">
                     {% if 'cliente' in c.get('types', []) %}
                         <span style="font-weight:500;">RD$ {{ c.get('total_invoiced', 0)|round(2) }}</span>

@@ -9,7 +9,7 @@ from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
 from app.services.ai_service import AIService
 from app.utils.decorators import check_permission
-from app.utils.module_gate import require_module, module_enabled, get_module_label
+from app.utils.module_gate import require_module, module_enabled, get_module_label, clients_module_enabled
 from app.brand import get_product_name
 
 web_clients_bp = Blueprint('web_clients', __name__)
@@ -21,8 +21,8 @@ def _check_clients_module_gate():
         return None
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not (module_enabled('crm') or module_enabled('e_cf') or module_enabled('cotizaciones')):
-        label = "CRM & Clientes"
+    if not clients_module_enabled():
+        label = "Clientes"
         if (request.is_json or 
             request.headers.get('Accept') == 'application/json' or 
             request.headers.get('X-Requested-With') == 'XMLHttpRequest'):
@@ -30,19 +30,18 @@ def _check_clients_module_gate():
                 "success": False,
                 "error": {
                     "code": "MODULE_DISABLED",
-                    "message": f"El módulo '{label}' no está contratado en tu plan actual."
+                    "message": f"El módulo '{label}' requiere un plan con Facturación, POS, Cotizaciones, CxC o CRM activo."
                 }
             }), 403
         return render_template(
             'auth/restricted.html',
             feature_name=label,
-            required_permission="module_crm",
+            required_permission="module_e_cf",
             custom_message=f"El módulo <strong>{label}</strong> no está incluido en tu plan actual. "
                            "Contacta a soporte para información sobre mejoras de plan."
         ), 403
 
 @web_clients_bp.route('/clients')
-@require_module('crm')
 def list_clients():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not (check_permission('canClients') or check_permission('canCRMContacts')):
@@ -140,11 +139,10 @@ def list_clients():
     )
 
 @web_clients_bp.route('/clients/new', methods=['GET', 'POST'])
-@require_module('crm')
 def new_client():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Cliente", required_permission="canClients"), 403
+    if not check_permission('canCreateClient'):
+        return render_template('auth/restricted.html', feature_name="Nuevo Cliente", required_permission="canCreateClient"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -221,7 +219,7 @@ def ajax_create_client():
     """Ruta AJAX para crear un cliente desde la pantalla de facturación sin recargar la página."""
     if 'user' not in session:
         return jsonify({"success": False, "error": "No autenticado."}), 401
-    if not (check_permission('canClients') or check_permission('canManagePOS')):
+    if not (check_permission('canCreateClient') or check_permission('canManagePOS')):
         return jsonify({"success": False, "error": "Sin permiso para registrar clientes."}), 403
     
     owner_uid = session['user']['ownerUID']
@@ -288,7 +286,6 @@ def ajax_create_client():
     })
 
 @web_clients_bp.route('/clients/<client_id>/edit', methods=['GET', 'POST'])
-@require_module('crm')
 def edit_client(client_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
@@ -374,11 +371,10 @@ def edit_client(client_id):
     return render_template('clients/form.html', active_page='clients', client=client, collaborators=collaborators, price_lists=price_lists, projects=projects)
 
 @web_clients_bp.route('/clients/<client_id>/delete', methods=['POST'])
-@require_module('crm')
 def delete_client_route(client_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Eliminar Cliente", required_permission="canClients"), 403
+    if not check_permission('canDeleteClient'):
+        return render_template('auth/restricted.html', feature_name="Eliminar Cliente", required_permission="canDeleteClient"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -590,7 +586,6 @@ def send_portal_credentials(client_id):
     return jsonify({"success": True, "message": f"Credenciales enviadas exitosamente a {recipient_email}."})
 
 @web_clients_bp.route('/clients/<client_id>')
-@require_module('crm')
 def client_detail(client_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):

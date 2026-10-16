@@ -169,6 +169,7 @@
             </div>
             <div class="collapsible-content">
                 <div class="form-grid" style="padding-top:8px;">
+                    {% if module_enabled('crm') %}
                     <div class="form-group">
                         <label>Etapa del Pipeline</label>
                         <select name="pipelineStage" class="form-input">
@@ -180,6 +181,7 @@
                             <option value="Expirado" {% if contact and contact.pipelineStage == 'Expirado' %}selected{% endif %}>Expirado</option>
                         </select>
                     </div>
+                    {% endif %}
                     <div class="form-group">
                         <label>Lista de Precios</label>
                         <select name="priceListId" class="form-input">
@@ -189,6 +191,7 @@
                             {% endfor %}
                         </select>
                     </div>
+                    {% if module_enabled('crm') %}
                     <div class="form-group">
                         <label>Responsable de Cuenta</label>
                         <select name="responsibleId" class="form-input">
@@ -202,6 +205,7 @@
                         <label>Fecha Próximo Contacto</label>
                         <input type="date" name="nextContactDate" class="form-input" value="{{ contact.nextContactDate[:10] if contact and contact.nextContactDate else '' }}">
                     </div>
+                    {% endif %}
                     <div class="form-group">
                         <label>PIN Portal Autoservicio</label>
                         <input type="text" name="accessPin" class="form-input" maxlength="6" pattern="\d{6}" inputmode="numeric" placeholder="123456" value="{{ contact.accessPin if contact and contact.accessPin else '' }}">

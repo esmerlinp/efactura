@@ -133,6 +133,8 @@ def _cached_user_profile(uid):
                     "canManageRUI": bool(perms.get("canManageRUI", perms.get("canManagePOS", True))),
                     "canExpenses": bool(perms.get("canExpenses", True)),
                     "canClients": bool(perms.get("canClients", True)),
+                    "canCreateClient": bool(perms.get("canCreateClient", perms.get("canClients", True))),
+                    "canDeleteClient": bool(perms.get("canDeleteClient", perms.get("canClients", False))),
                     "canModifySettings": bool(perms.get("canModifySettings", True)),
                     "canManageInventory": bool(perms.get("canManageInventory", True)),
                     "canManagePOS": bool(perms.get("canManagePOS", True)),
@@ -191,7 +193,7 @@ def _cached_user_profile(uid):
                     "canAccountingFiscalPeriods": bool(perms.get("canAccountingFiscalPeriods", perms.get("canAccounting", False))),
                     "canAccountingSettings": bool(perms.get("canAccountingSettings", perms.get("canAccounting", False))),
                     **{k: bool(v) for k, v in perms.items() if k not in (
-                        "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
+                        "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canCreateClient", "canDeleteClient", "canModifySettings",
                         "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
                         "canManageContracts", "canManageCommissions", "canViewBI", "canViewAuditLog", "isPosSupervisor",
                         "canViewSubscription", "canToggleSandbox", "canManageNotes", "canManageSuppliers",
@@ -1285,6 +1287,8 @@ class DatabaseService:
                     "canHR": True,
                     "canVoidInvoice": False,
                     "canCreateSupplier": True,
+                    "canCreateClient": True,
+                    "canDeleteClient": False,
                     "canApprovePayments": False,
                     "canApprovePayroll": False,
                     "canApproveExpenses": False,
@@ -1426,6 +1430,8 @@ class DatabaseService:
                         "canManageRUI": bool(perms.get("canManageRUI", perms.get("canManagePOS", True))),
                         "canExpenses": bool(perms.get("canExpenses", True)),
                         "canClients": bool(perms.get("canClients", True)),
+                        "canCreateClient": bool(perms.get("canCreateClient", perms.get("canClients", True))),
+                        "canDeleteClient": bool(perms.get("canDeleteClient", perms.get("canClients", False))),
                         "canModifySettings": bool(perms.get("canModifySettings", True)),
                         "canManageInventory": bool(perms.get("canManageInventory", True)),
                         "canManagePOS": bool(perms.get("canManagePOS", True)),
@@ -1509,7 +1515,7 @@ class DatabaseService:
                         "canViewSystemJobs": bool(perms.get("canViewSystemJobs", perms.get("canViewAuditLog", perms.get("canModifySettings", False)))),
                         "canExportData": bool(perms.get("canExportData", perms.get("canModifySettings", True))),
                         **{k: bool(v) for k, v in perms.items() if k not in (
-                            "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canModifySettings",
+                            "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canCreateClient", "canDeleteClient", "canModifySettings",
                             "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
                             "canManageContracts", "canManageCommissions", "canViewBI", "canViewAuditLog", "isPosSupervisor",
                             "canViewSubscription", "canToggleSandbox", "canManageNotes", "canManageSuppliers",
@@ -1582,6 +1588,8 @@ class DatabaseService:
                         "canHR": True,
                         "canVoidInvoice": False,
                         "canCreateSupplier": True,
+                        "canCreateClient": True,
+                        "canDeleteClient": True,
                         "canApprovePayments": False,
                         "canApprovePayroll": False,
                         "canApproveExpenses": False,
@@ -8360,7 +8368,7 @@ class DatabaseService:
             member_owner_uid = membership.get("owner_uid", company.get("owner_uid", ""))
         elif is_legacy and uid == company_id:
             member_role = "owner"
-            member_permissions = {"canInvoice": True, "canExpenses": True, "canClients": True, "canModifySettings": True, "canManageInventory": True, "canManagePOS": True, "canViewDashboard": True, "canManageCXC": True, "canManageCXP": True, "canManageContracts": True, "canManageCommissions": True, "canViewBI": True}
+            member_permissions = {"canInvoice": True, "canExpenses": True, "canClients": True, "canCreateClient": True, "canDeleteClient": True, "canModifySettings": True, "canManageInventory": True, "canManagePOS": True, "canViewDashboard": True, "canManageCXC": True, "canManageCXP": True, "canManageContracts": True, "canManageCommissions": True, "canViewBI": True}
             member_owner_uid = company_id
         else:
             return None

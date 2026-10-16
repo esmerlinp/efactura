@@ -280,10 +280,15 @@ def new_purchase_order():
     if request.method == 'POST':
         po_id = str(uuid.uuid4())
         items_raw = request.form.getlist('items[][name]')
+        items_item_id = request.form.getlist('items[][itemId]')
+        items_item_code = request.form.getlist('items[][itemCode]')
         items_qty = request.form.getlist('items[][quantity]')
+        items_unit = request.form.getlist('items[][unit]')
         items_price = request.form.getlist('items[][unitPrice]')
         items_itbis = request.form.getlist('items[][itbisRate]')
         items_discount = request.form.getlist('items[][discount]')
+        items_is_inventoriable = request.form.getlist('items[][isInventoriable]')
+        items_track_lots = request.form.getlist('items[][trackLots]')
 
         items = []
         subtotal = 0.0
@@ -298,6 +303,14 @@ def new_purchase_order():
             itbis_rate = float(items_itbis[i]) if i < len(items_itbis) and items_itbis[i] else 0.0
             discount_pct = float(items_discount[i]) if i < len(items_discount) and items_discount[i] else 0.0
 
+            item_id = items_item_id[i].strip() if i < len(items_item_id) else ""
+            item_code = items_item_code[i].strip() if i < len(items_item_code) else ""
+            unit = items_unit[i].strip() if i < len(items_unit) and items_unit[i].strip() else "Unidad"
+            is_inv_str = items_is_inventoriable[i] if i < len(items_is_inventoriable) else "1"
+            is_inventoriable = False if str(is_inv_str).lower() in ("0", "false", "no") else True
+            track_lots_str = items_track_lots[i] if i < len(items_track_lots) else "0"
+            track_lots = True if str(track_lots_str).lower() in ("1", "true", "yes") else False
+
             line_sub = qty * price
             line_discount = line_sub * (discount_pct / 100.0)
             line_itbis = (line_sub - line_discount) * itbis_rate
@@ -308,9 +321,11 @@ def new_purchase_order():
 
             items.append({
                 "id": str(uuid.uuid4()),
+                "itemId": item_id,
+                "itemCode": item_code,
                 "name": name,
                 "quantity": qty,
-                "unit": "Unidad",
+                "unit": unit,
                 "unitPrice": price,
                 "itbisRate": itbis_rate,
                 "discount": discount_pct,
@@ -318,6 +333,8 @@ def new_purchase_order():
                 "itbisAmount": round(line_itbis, 2),
                 "total": round(line_total, 2),
                 "receivedQuantity": 0,
+                "isInventoriable": is_inventoriable,
+                "trackLots": track_lots,
             })
 
         po_number = PurchaseOrderService.get_next_po_number(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
@@ -332,6 +349,7 @@ def new_purchase_order():
             "orderDate": request.form.get('orderDate', datetime.now(timezone.utc).strftime('%Y-%m-%d')),
             "expectedDate": request.form.get('expectedDate', ''),
             "deliveryAddress": request.form.get('deliveryAddress', ''),
+            "warehouseId": request.form.get('warehouseId', ''),
             "paymentTerms": request.form.get('paymentTerms', 'contado'),
             "currency": request.form.get('currency', 'DOP'),
             "exchangeRate": float(request.form.get('exchangeRate', 1.0)),
@@ -370,12 +388,17 @@ def new_purchase_order():
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
     projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox, company_id=company_id) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
+    catalog_items = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox, branch_id=selected_bid, project_id=active_project_id)
+    catalog_items = [i for i in catalog_items if i.get("isActive", True)]
+    warehouses = DatabaseService.get_warehouses(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
     return render_template('purchase_orders/new.html',
                            po_number=po_number,
                            today=today,
                            suppliers=suppliers,
                            projects=projects,
                            active_project_id=active_project_id,
+                           catalog_items=catalog_items,
+                           warehouses=warehouses,
                            active_page='purchase_orders')
 
 
@@ -662,12 +685,19 @@ def edit_purchase_order(po_id):
         return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
 
     if request.method == 'POST':
+        items_ids = request.form.getlist('items[][id]')
         items_raw = request.form.getlist('items[][name]')
+        items_item_id = request.form.getlist('items[][itemId]')
+        items_item_code = request.form.getlist('items[][itemCode]')
         items_qty = request.form.getlist('items[][quantity]')
+        items_unit = request.form.getlist('items[][unit]')
         items_price = request.form.getlist('items[][unitPrice]')
         items_itbis = request.form.getlist('items[][itbisRate]')
         items_discount = request.form.getlist('items[][discount]')
+        items_is_inventoriable = request.form.getlist('items[][isInventoriable]')
+        items_track_lots = request.form.getlist('items[][trackLots]')
 
+        old_items = order.get('items', [])
         items = []
         subtotal = 0.0
         total_itbis = 0.0
@@ -681,6 +711,18 @@ def edit_purchase_order(po_id):
             itbis_rate = float(items_itbis[i]) if i < len(items_itbis) and items_itbis[i] else 0.0
             discount_pct = float(items_discount[i]) if i < len(items_discount) and items_discount[i] else 0.0
 
+            line_id = items_ids[i].strip() if i < len(items_ids) and items_ids[i].strip() else str(uuid.uuid4())
+            item_id = items_item_id[i].strip() if i < len(items_item_id) else ""
+            item_code = items_item_code[i].strip() if i < len(items_item_code) else ""
+            unit = items_unit[i].strip() if i < len(items_unit) and items_unit[i].strip() else "Unidad"
+            is_inv_str = items_is_inventoriable[i] if i < len(items_is_inventoriable) else "1"
+            is_inventoriable = False if str(is_inv_str).lower() in ("0", "false", "no") else True
+            track_lots_str = items_track_lots[i] if i < len(items_track_lots) else "0"
+            track_lots = True if str(track_lots_str).lower() in ("1", "true", "yes") else False
+
+            prev_item = next((it for it in old_items if it.get("id") == line_id), None)
+            prev_received = float(prev_item.get("receivedQuantity", 0)) if prev_item else 0.0
+
             line_sub = qty * price
             line_discount = line_sub * (discount_pct / 100.0)
             line_itbis = (line_sub - line_discount) * itbis_rate
@@ -690,17 +732,21 @@ def edit_purchase_order(po_id):
             total_itbis += line_itbis
 
             items.append({
-                "id": str(uuid.uuid4()),
+                "id": line_id,
+                "itemId": item_id,
+                "itemCode": item_code,
                 "name": name,
                 "quantity": qty,
-                "unit": "Unidad",
+                "unit": unit,
                 "unitPrice": price,
                 "itbisRate": itbis_rate,
                 "discount": discount_pct,
                 "subtotal": round(line_sub, 2),
                 "itbisAmount": round(line_itbis, 2),
                 "total": round(line_total, 2),
-                "receivedQuantity": 0,
+                "receivedQuantity": prev_received,
+                "isInventoriable": is_inventoriable,
+                "trackLots": track_lots,
             })
 
         supplier_id = request.form.get('supplierId', '')
@@ -713,6 +759,7 @@ def edit_purchase_order(po_id):
             "orderDate": request.form.get('orderDate', order.get('orderDate', '')),
             "expectedDate": request.form.get('expectedDate', ''),
             "deliveryAddress": request.form.get('deliveryAddress', ''),
+            "warehouseId": request.form.get('warehouseId', order.get('warehouseId', '')),
             "paymentTerms": request.form.get('paymentTerms', 'contado'),
             "currency": request.form.get('currency', 'DOP'),
             "exchangeRate": float(request.form.get('exchangeRate', 1.0)),
@@ -722,6 +769,7 @@ def edit_purchase_order(po_id):
             "total": round(subtotal - total_discount + total_itbis, 2),
             "notes": request.form.get('notes', ''),
             "internalNotes": request.form.get('internalNotes', ''),
+            "projectId": request.form.get('projectId') or order.get('projectId'),
             "items": items,
         })
 
@@ -742,10 +790,18 @@ def edit_purchase_order(po_id):
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
+    selected_bid = order.get('branchId') or g.get('branch_id') or session.get('selected_branch_id')
+    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox, company_id=company_id) if selected_bid else []
+    catalog_items = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox, branch_id=selected_bid, project_id=order.get('projectId'))
+    catalog_items = [i for i in catalog_items if i.get("isActive", True)]
+    warehouses = DatabaseService.get_warehouses(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
     return render_template('purchase_orders/edit.html',
                            order=order,
                            today=today,
                            suppliers=suppliers,
+                           projects=projects,
+                           catalog_items=catalog_items,
+                           warehouses=warehouses,
                            active_page='purchase_orders')
 
 

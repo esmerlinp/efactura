@@ -7,26 +7,80 @@ from app.services.contact_service import ContactService
 from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
 from app.utils.decorators import check_permission
-from app.utils.module_gate import gate_blueprint_module
+from app.utils.module_gate import module_enabled, contacts_module_enabled, require_module
 from app.brand import get_product_name
 from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
 
 web_contacts_bp = Blueprint('web_contacts', __name__)
-gate_blueprint_module(web_contacts_bp, 'crm')
+
+
+@web_contacts_bp.before_request
+def _check_contacts_module_gate():
+    if request.endpoint == 'static':
+        return None
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+
+    crm_strict_endpoints = {
+        'web_contacts.update_contact_pipeline',
+        'web_contacts.add_contact_interaction',
+        'web_contacts.delete_contact_interaction',
+        'web_contacts.complete_contact_interaction',
+    }
+    if request.endpoint in crm_strict_endpoints:
+        if not module_enabled('crm'):
+            label = "CRM & Agenda"
+            if (request.is_json or 
+                request.headers.get('Accept') == 'application/json' or 
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest'):
+                return jsonify({
+                    "success": False,
+                    "error": {
+                        "code": "MODULE_DISABLED",
+                        "message": f"El módulo '{label}' no está contratado en tu plan actual."
+                    }
+                }), 403
+            return render_template(
+                'auth/restricted.html',
+                feature_name=label,
+                required_permission="module_crm",
+                custom_message=f"El módulo <strong>{label}</strong> no está incluido en tu plan actual. "
+                               "Contacta a soporte para información sobre mejoras de plan."
+            ), 403
+
+    tab = request.args.get('tab')
+    if not contacts_module_enabled(tab):
+        label = "Contactos"
+        if (request.is_json or 
+            request.headers.get('Accept') == 'application/json' or 
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest'):
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "MODULE_DISABLED",
+                    "message": f"El acceso a '{label}' requiere un módulo de Ventas, Facturación, CxC, Compras o CRM activo."
+                }
+            }), 403
+        return render_template(
+            'auth/restricted.html',
+            feature_name=label,
+            required_permission="module_e_cf",
+            custom_message=f"El acceso a <strong>{label}</strong> requiere al menos un módulo activo de Facturación, Cotizaciones, POS, CxC, Compras o CRM."
+        ), 403
 
 
 # =========================================================================
 # UTILITY: check authed + permission
 # =========================================================================
 
-def _check(perm='canCRMContacts', feature='Contactos'):
+def _check(perm='canClients', feature='Contactos'):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if session.get('user', {}).get('role') == 'owner':
         return None
-    if request.args.get('tab') == 'proveedores' and (check_permission('canManageSuppliers') or check_permission('canCreateSupplier')):
+    if (request.args.get('tab') == 'proveedores' or request.args.get('type') == 'proveedor') and (check_permission('canManageSuppliers') or check_permission('canCreateSupplier')):
         return None
-    if not (check_permission(perm) or check_permission('canClients')):
+    if not (check_permission(perm) or (perm == 'canClients' and check_permission('canCRMContacts'))):
         return render_template('auth/restricted.html', feature_name=feature, required_permission=perm), 403
     return None
 
@@ -155,7 +209,7 @@ def list_contacts():
 
 @web_contacts_bp.route('/contacts/new', methods=['GET', 'POST'])
 def new_contact():
-    r = _check()
+    r = _check(perm='canCreateClient', feature='Nuevo Contacto')
     if r: return r
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -419,20 +473,26 @@ def contact_detail(contact_id):
 
     missing_fields = []
     if is_client:
-        for f, lbl, ic in [
+        audit_fields = [
             ("email", "Correo Electrónico", "fa-envelope"),
             ("telefono", "Teléfono", "fa-phone"),
             ("direccion", "Dirección Física", "fa-location-dot"),
             ("accessPin", "PIN de Acceso (Portal)", "fa-key"),
-            ("pipelineStage", "Etapa de Seguimiento", "fa-chart-simple"),
-            ("responsibleId", "Responsable Asignado", "fa-user-tie"),
-        ]:
+        ]
+        if module_enabled('crm'):
+            audit_fields.extend([
+                ("pipelineStage", "Etapa de Seguimiento", "fa-chart-simple"),
+                ("responsibleId", "Responsable Asignado", "fa-user-tie"),
+            ])
+        for f, lbl, ic in audit_fields:
             if not contact.get(f):
                 missing_fields.append({"field": f, "label": lbl, "icon": ic})
 
-    from app.services.crm_service import CRMService
-
-    crm_360 = CRMService.get_contact_360(owner_uid, contact_id, sandbox=sandbox, company_id=company_id) or {}
+    if module_enabled('crm'):
+        from app.services.crm_service import CRMService
+        crm_360 = CRMService.get_contact_360(owner_uid, contact_id, sandbox=sandbox, company_id=company_id) or {}
+    else:
+        crm_360 = {}
     opportunities = crm_360.get("opportunities", [])
     activities = crm_360.get("activities", [])
     timeline = crm_360.get("timeline", [])
@@ -586,8 +646,8 @@ def edit_contact(contact_id):
 
 @web_contacts_bp.route('/contacts/<contact_id>/delete', methods=['POST'])
 def delete_contact_route(contact_id):
-    r = _check()
-    if r: return r
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -596,6 +656,15 @@ def delete_contact_route(contact_id):
     if not contact:
         flash('Contacto no encontrado.', 'error')
         return redirect(url_for('web_contacts.list_contacts'))
+
+    if session.get('user', {}).get('role') != 'owner':
+        is_supplier_only = 'proveedor' in contact.get('types', []) and 'cliente' not in contact.get('types', [])
+        if is_supplier_only:
+            if not check_permission('canManageSuppliers'):
+                return render_template('auth/restricted.html', feature_name="Eliminar Proveedor", required_permission="canManageSuppliers"), 403
+        else:
+            if not check_permission('canDeleteClient'):
+                return render_template('auth/restricted.html', feature_name="Eliminar Contacto", required_permission="canDeleteClient"), 403
 
     ContactService.delete_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
 

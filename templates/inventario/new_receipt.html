@@ -34,7 +34,7 @@
                 <select id="warehouseId" name="warehouseId" class="form-select" required onchange="document.getElementById('warehouseName').value = this.options[this.selectedIndex]?.text || '';">
                     <option value="">Seleccionar almacén...</option>
                     {% for w in warehouses %}
-                    <option value="{{ w.id }}">{{ w.name }}</option>
+                    <option value="{{ w.id }}" {% if order.warehouseId and w.id == order.warehouseId %}selected{% endif %}>{{ w.name }}</option>
                     {% endfor %}
                 </select>
                 <input type="hidden" id="warehouseName" name="warehouseName" value="">
@@ -69,7 +69,14 @@
                     {% set ordered = item.get('quantity', 0)|float %}
                     {% set remaining = (ordered - prev)|round(2) %}
                     <tr class="po-item-row" data-po-item-id="{{ item.id }}">
-                        <td style="font-weight:600;">{{ item.name or '—' }}</td>
+                        <td style="font-weight:600;">
+                            {{ item.name or '—' }}
+                            {% if item.isInventoriable is False %}
+                            <div style="font-size:0.7rem; color:var(--accent-blue); font-weight:normal; margin-top:2px;">
+                                <i class="fa-solid fa-handshake"></i> Servicio / No inventariable
+                            </div>
+                            {% endif %}
+                        </td>
                         <td style="text-align:center;">{{ ordered }}</td>
                         <td style="text-align:center;">
                             {% if prev > 0 %}
@@ -84,17 +91,26 @@
                         <td>{{ item.unit|default('Unidad') }}</td>
                         <td style="text-align:right;">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
                         <td>
+                            {% if item.isInventoriable is False %}
+                            <span class="badge" style="background:rgba(59,130,246,0.12); color:var(--accent-blue); font-size:0.75rem; padding:4px 8px; border-radius:4px; display:inline-flex; align-items:center; gap:5px;">
+                                <i class="fa-solid fa-check"></i> Sin stock físico
+                            </span>
+                            <input type="hidden" name="catalog_item_{{ item.id }}" id="catalog_item_{{ item.id }}" value="">
+                            <input type="hidden" name="catalog_name_{{ item.id }}" id="catalog_name_{{ item.id }}" value="{{ item.name }}">
+                            <input type="hidden" name="track_lots_{{ item.id }}" id="track_lots_{{ item.id }}" value="0">
+                            {% else %}
                             <div style="position:relative;">
-                                <input type="text" class="form-input catalog-search" data-item-id="{{ item.id }}" placeholder="Buscar en catálogo..." autocomplete="off" style="width:100%; font-size:0.78rem;">
-                                <input type="hidden" name="catalog_item_{{ item.id }}" id="catalog_item_{{ item.id }}" class="catalog-item-id" value="">
+                                <input type="text" class="form-input catalog-search" data-item-id="{{ item.id }}" placeholder="Buscar en catálogo..." autocomplete="off" style="width:100%; font-size:0.78rem;" value="{% if item.itemId %}{{ item.itemName or item.name }}{% if item.itemCode %} [{{ item.itemCode }}]{% endif %}{% endif %}">
+                                <input type="hidden" name="catalog_item_{{ item.id }}" id="catalog_item_{{ item.id }}" class="catalog-item-id" value="{{ item.itemId or '' }}">
                                 <input type="hidden" name="catalog_name_{{ item.id }}" id="catalog_name_{{ item.id }}" class="catalog-item-name" value="{{ item.name }}">
-                                <input type="hidden" name="track_lots_{{ item.id }}" id="track_lots_{{ item.id }}" value="0">
+                                <input type="hidden" name="track_lots_{{ item.id }}" id="track_lots_{{ item.id }}" value="{{ 1 if item.trackLots else 0 }}">
                                 <div class="catalog-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:200px; overflow-y:auto; margin-top:2px;"></div>
                             </div>
+                            {% endif %}
                         </td>
                     </tr>
                     <!-- Fila de asignación de Lotes (solo visible si el producto seleccionado requiere lotes) -->
-                    <tr id="lot-subrow-{{ item.id }}" class="lot-subrow" style="display:none; background:rgba(99, 102, 241, 0.04); border-top:1px dashed var(--border-color); border-bottom:2px solid var(--accent-purple);">
+                    <tr id="lot-subrow-{{ item.id }}" class="lot-subrow" style="{% if item.trackLots and item.isInventoriable is not False %}{% else %}display:none;{% endif %} background:rgba(99, 102, 241, 0.04); border-top:1px dashed var(--border-color); border-bottom:2px solid var(--accent-purple);">
                         <td colspan="7" style="padding:14px 20px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
                                 <div style="display:flex; align-items:center; gap:8px;">
@@ -102,7 +118,7 @@
                                         <i class="fa-solid fa-layer-group"></i> Lote Requerido
                                     </span>
                                     <span style="font-size:0.82rem; color:var(--text-secondary);">
-                                        Producto: <strong id="lot-item-name-label-{{ item.id }}" style="color:var(--text-primary);"></strong>
+                                        Producto: <strong id="lot-item-name-label-{{ item.id }}" style="color:var(--text-primary);">{{ item.name }}</strong>
                                     </span>
                                 </div>
                                 <div style="display:flex; gap:8px;">
@@ -375,6 +391,23 @@ document.getElementById('receipt-form').addEventListener('submit', function(e) {
                     e.preventDefault();
                     return;
                 }
+            }
+        }
+    });
+});
+
+// Auto-llenar nombre de almacén y lotes en la carga si ya hay valores seleccionados
+window.addEventListener('DOMContentLoaded', function() {
+    const whSelect = document.getElementById('warehouseId');
+    if (whSelect && whSelect.selectedIndex > 0) {
+        document.getElementById('warehouseName').value = whSelect.options[whSelect.selectedIndex]?.text || '';
+    }
+    document.querySelectorAll('.lot-subrow').forEach(row => {
+        if (row.style.display !== 'none') {
+            const poItemId = row.id.replace('lot-subrow-', '');
+            const catItemId = document.getElementById('catalog_item_' + poItemId)?.value;
+            if (catItemId) {
+                loadExistingLotsForReceipt(poItemId, catItemId);
             }
         }
     });

@@ -119,7 +119,6 @@ def test_crm_presets_matrix_and_permission_groups():
     assert crm_group is not None, "PERMISSION_GROUPS must have 'CRM y Contactos' group"
     group_perms = crm_group.get("perms", [])
     expected_group_perms = [
-        "canClients",
         "canCRM",
         "canCRMContacts",
         "canCRMOpportunities",
@@ -129,6 +128,14 @@ def test_crm_presets_matrix_and_permission_groups():
     ]
     for p in expected_group_perms:
         assert p in group_perms, f"{p} must be in 'CRM y Contactos' group"
+
+    # Verify Ventas y Facturación contains canClients, canCreateClient, canDeleteClient
+    ventas_group = next((g for g in PERMISSION_GROUPS if g.get("name") == "Ventas y Facturación"), None)
+    assert ventas_group is not None
+    assert "canClients" in ventas_group.get("perms", [])
+    assert "canCreateClient" in ventas_group.get("perms", [])
+    assert "canDeleteClient" in ventas_group.get("perms", [])
+    assert "canClients" not in group_perms, "canClients should be in Ventas y Facturación, decoupled from CRM"
 
     # Verify Módulos Principales does NOT contain canClients
     main_group = next((g for g in PERMISSION_GROUPS if g.get("name") == "Módulos Principales"), None)
