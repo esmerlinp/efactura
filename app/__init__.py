@@ -467,6 +467,7 @@ def create_app():
                     'web_invoices.items': 'catalogo',
                     'web_invoices.new_item': 'catalogo',
                     'web_invoices.ajax_create_category': 'catalogo',
+                    'web_invoices.ajax_create_measurement_unit': 'catalogo',
                     'web_invoices.manage_cxc': 'cxc',
                     'web_suppliers.manage_suppliers': 'cxp_compras',
                     'web_purchase_orders.manage_purchase_orders': 'cxp_compras',

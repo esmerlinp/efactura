@@ -405,20 +405,27 @@
                         <div class="accordion-body">
                             <div class="form-grid">
                                 <div class="form-group">
-                                    <label for="unit">Unidad de Medida <span style="color: var(--accent-red);">*</span></label>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <label for="unit" style="margin-bottom: 0;">Unidad de Medida <span style="color: var(--accent-red);">*</span></label>
+                                        <button type="button" id="btn-open-unit-modal" onclick="openUnitModal()" class="btn-new-category" title="Crear nueva unidad de medida">
+                                            <i class="fa-solid fa-plus"></i> Nueva
+                                        </button>
+                                    </div>
                                     <select id="unit" name="unit" class="form-select" required>
-                                        <option value="Unidad" {% if item and item.unit=='Unidad' %}selected{% endif %}>
-                                            Unidad (ud)</option>
-                                        <option value="Hora" {% if item and item.unit=='Hora' %}selected{% endif %}>Hora
-                                            (hr)</option>
-                                        <option value="Servicio" {% if item and item.unit=='Servicio' %}selected{% endif
-                                            %}>Servicio (srv)</option>
-                                        <option value="Caja" {% if item and item.unit=='Caja' %}selected{% endif %}>Caja
-                                            (cj)</option>
-                                        <option value="Mes" {% if item and item.unit=='Mes' %}selected{% endif %}>Mes
-                                            (mes)</option>
-                                        <option value="Otros" {% if item and item.unit=='Otros' %}selected{% endif %}>
-                                            Otros</option>
+                                        {% if units %}
+                                            {% for u in units %}
+                                            <option value="{{ u.name }}" {% if item and (item.unit == u.name or item.unit == u.id or item.unit == u.display) %}selected{% elif not item and u.name == 'Unidad' %}selected{% endif %}>
+                                                {{ u.display }}
+                                            </option>
+                                            {% endfor %}
+                                        {% else %}
+                                            <option value="Unidad" selected>Unidad (ud)</option>
+                                            <option value="Hora">Hora (hr)</option>
+                                            <option value="Servicio">Servicio (srv)</option>
+                                            <option value="Caja">Caja (cj)</option>
+                                            <option value="Mes">Mes (mes)</option>
+                                            <option value="Otros">Otros</option>
+                                        {% endif %}
                                     </select>
                                 </div>
 
@@ -490,6 +497,65 @@
             <button type="button" class="btn btn-primary" id="btn-save-cat" onclick="saveNewCategory()">
                 <i class="fa-solid fa-floppy-disk"></i>
                 <span id="btn-save-cat-text">Guardar Categoría</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nueva Unidad de Medida -->
+<div id="unit-modal" class="search-modal" style="display: none; align-items: center; justify-content: center; z-index: 1050;">
+    <div class="modal-backdrop" onclick="closeUnitModal()"></div>
+    <div class="modal-content" style="max-width: 480px; width: 92%; border-radius: var(--radius-lg); overflow: hidden; position: relative;">
+        <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--border-color);">
+            <h3 class="modal-title" style="margin: 0; font-size: 0.95rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-scale-balanced" style="color: var(--accent-blue, #3b82f6);"></i>
+                <span>Nueva Unidad de Medida</span>
+            </h3>
+            <button type="button" class="modal-close" onclick="closeUnitModal()" aria-label="Cerrar modal">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body" style="padding: 22px;">
+            <div id="unit-modal-alert" style="display: none; padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 0.85rem;"></div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="new-unit-name" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px;">
+                    Nombre de la Unidad <span style="color: var(--accent-red);">*</span>
+                </label>
+                <input type="text" id="new-unit-name" class="form-input" placeholder="Ej: Paila, Garrafón, Kit, Tambor..." style="width: 100%;" autocomplete="off">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="new-unit-symbol" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px;">
+                    Abreviatura / Símbolo <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">(Opcional, ej: pl, gar, kt)</span>
+                </label>
+                <input type="text" id="new-unit-symbol" class="form-input" placeholder="Ej: pl" style="width: 100%;" autocomplete="off">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="new-unit-dgii" style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px;">
+                    <span>Homologación DGII e-CF</span>
+                    <i class="fa-solid fa-circle-question" style="color: var(--text-muted); cursor: help;" title="Código oficial que se enviará en el comprobante electrónico e-CF a la DGII. Por defecto '43 - Unidad (UND)'."></i>
+                </label>
+                <select id="new-unit-dgii" class="form-select" style="width: 100%;">
+                    {% if dgii_units %}
+                        {% for du in dgii_units %}
+                        <option value="{{ du.code }}" {% if du.code == '43' %}selected{% endif %}>{{ du.label }}</option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="43" selected>43 - Unidad (UND)</option>
+                    {% endif %}
+                </select>
+                <small style="display: block; margin-top: 5px; font-size: 0.72rem; color: var(--text-muted);">
+                    Garantiza que las facturas electrónicas emitidas cumplan los estándares de validación de la DGII.
+                </small>
+            </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--border-color);">
+            <button type="button" class="btn btn-secondary" onclick="closeUnitModal()">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btn-save-unit" onclick="saveNewUnit()">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span id="btn-save-unit-text">Guardar Unidad</span>
             </button>
         </div>
     </div>
@@ -736,11 +802,130 @@
         });
     }
 
+    // Lógica del Modal de Creación de Unidad de Medida
+    function openUnitModal() {
+        const modal = document.getElementById('unit-modal');
+        const nameInput = document.getElementById('new-unit-name');
+        const symbolInput = document.getElementById('new-unit-symbol');
+        const dgiiSelect = document.getElementById('new-unit-dgii');
+        const alertBox = document.getElementById('unit-modal-alert');
+        const saveBtn = document.getElementById('btn-save-unit');
+        const btnText = document.getElementById('btn-save-unit-text');
+
+        if (nameInput) nameInput.value = '';
+        if (symbolInput) symbolInput.value = '';
+        if (dgiiSelect) dgiiSelect.value = '43';
+        if (alertBox) {
+            alertBox.style.display = 'none';
+            alertBox.textContent = '';
+        }
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            if (btnText) btnText.textContent = 'Guardar Unidad';
+        }
+
+        if (modal) {
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                if (nameInput) nameInput.focus();
+            }, 100);
+        }
+    }
+
+    function closeUnitModal() {
+        const modal = document.getElementById('unit-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function saveNewUnit() {
+        const nameInput = document.getElementById('new-unit-name');
+        const symbolInput = document.getElementById('new-unit-symbol');
+        const dgiiSelect = document.getElementById('new-unit-dgii');
+        const alertBox = document.getElementById('unit-modal-alert');
+        const saveBtn = document.getElementById('btn-save-unit');
+        const btnText = document.getElementById('btn-save-unit-text');
+
+        const name = (nameInput?.value || '').trim();
+        const symbol = (symbolInput?.value || '').trim();
+        const dgiiCode = (dgiiSelect?.value || '43').trim();
+
+        if (!name) {
+            if (alertBox) {
+                alertBox.textContent = 'El nombre de la unidad es obligatorio.';
+                alertBox.style.display = 'block';
+                alertBox.style.background = 'rgba(239, 68, 68, 0.1)';
+                alertBox.style.color = 'var(--accent-red)';
+                alertBox.style.border = '1px solid rgba(239, 68, 68, 0.25)';
+            }
+            if (nameInput) nameInput.focus();
+            return;
+        }
+
+        if (alertBox) alertBox.style.display = 'none';
+        if (saveBtn) saveBtn.disabled = true;
+        if (btnText) btnText.textContent = 'Guardando...';
+
+        const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+
+        fetch('/units/ajax_create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ name: name, symbol: symbol, dgiiCode: dgiiCode })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('unit');
+                if (select) {
+                    const optionValue = data.name;
+                    const optionDisplay = data.display || (data.symbol ? `${data.name} (${data.symbol})` : data.name);
+                    let existingOption = Array.from(select.options).find(opt => opt.value.toLowerCase() === optionValue.toLowerCase());
+                    if (!existingOption) {
+                        const newOption = new Option(optionDisplay, optionValue, true, true);
+                        select.appendChild(newOption);
+                    }
+                    select.value = optionValue;
+                    select.dispatchEvent(new Event('change'));
+                }
+                closeUnitModal();
+            } else {
+                if (alertBox) {
+                    alertBox.textContent = data.error || 'Error al guardar la unidad de medida.';
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = 'rgba(239, 68, 68, 0.1)';
+                    alertBox.style.color = 'var(--accent-red)';
+                    alertBox.style.border = '1px solid rgba(239, 68, 68, 0.25)';
+                }
+                if (saveBtn) saveBtn.disabled = false;
+                if (btnText) btnText.textContent = 'Guardar Unidad';
+            }
+        })
+        .catch(err => {
+            console.error('Error al crear unidad de medida:', err);
+            if (alertBox) {
+                alertBox.textContent = 'Error de conexión con el servidor.';
+                alertBox.style.display = 'block';
+                alertBox.style.background = 'rgba(239, 68, 68, 0.1)';
+                alertBox.style.color = 'var(--accent-red)';
+                alertBox.style.border = '1px solid rgba(239, 68, 68, 0.25)';
+            }
+            if (saveBtn) saveBtn.disabled = false;
+            if (btnText) btnText.textContent = 'Guardar Unidad';
+        });
+    }
+
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            const modal = document.getElementById('category-modal');
-            if (modal && modal.style.display === 'flex') {
+            const catModal = document.getElementById('category-modal');
+            if (catModal && catModal.style.display === 'flex') {
                 closeCategoryModal();
+            }
+            const unitModal = document.getElementById('unit-modal');
+            if (unitModal && unitModal.style.display === 'flex') {
+                closeUnitModal();
             }
         }
     });
@@ -752,6 +937,24 @@
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     saveNewCategory();
+                }
+            });
+        }
+        const unitNameInput = document.getElementById('new-unit-name');
+        if (unitNameInput) {
+            unitNameInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveNewUnit();
+                }
+            });
+        }
+        const unitSymbolInput = document.getElementById('new-unit-symbol');
+        if (unitSymbolInput) {
+            unitSymbolInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveNewUnit();
                 }
             });
         }

@@ -10,16 +10,78 @@ class DgiiXmlBuilder:
     def map_unit_of_measure(cls, unit_str):
         if not unit_str:
             return "43"
-        unit_str = str(unit_str).lower().strip()
+        raw = str(unit_str).strip()
+        if raw.isdigit() and 1 <= int(raw) <= 62:
+            return raw
+
+        unit_str = raw.lower()
         mapping = {
-            "unidad": "43", "ud": "43", "caja": "6", "cj": "6",
-            "hora": "19", "hr": "19", "servicio": "43", "srv": "43",
-            "mes": "43", "granel": "18", "bandeja": "57", "quintal": "51",
-            "hectarea": "58", "hectárea": "58", "mililitro": "59",
-            "miligramo": "60", "onzas": "61", "onzas troy": "62",
-            "pasajero": "54", "pulgadas": "55", "otros": "43",
+            # Conteo y generales
+            "unidad": "43", "ud": "43", "und": "43", "unidad (ud)": "43", "ea": "44", "elemento": "44",
+            "docena": "13", "doc": "13", "docena (doc)": "13",
+            "millar": "45", "millar (millar)": "45",
+            "pieza": "34", "pza": "34", "pieza (pza)": "34",
+            "par": "32", "par (par)": "32",
+            "conjunto": "10", "conj": "10", "conjunto (conj)": "10",
+            "lote": "25", "lot": "25", "lote (lot)": "25",
+            # Peso / Masa
+            "libra": "23", "lb": "23", "libra (lb)": "23", "lbs": "23",
+            "kilogramo": "21", "kg": "21", "kilo": "21", "kilogramo (kg)": "21",
+            "gramo": "17", "gr": "17", "g": "17", "gramo (gr)": "17",
+            "onza": "61", "oz": "61", "onza (oz)": "61", "onzas": "61", "onzas troy": "62", "ozt": "62",
+            "quintal": "51", "q": "51", "quintal (q)": "51",
+            "tonelada": "39", "tone": "39", "ton": "39", "tonelada (tone)": "39",
+            "miligramo": "60", "mg": "60", "miligramo (mg)": "60",
+            # Volumen / Líquidos
+            "litro": "24", "lt": "24", "l": "24", "litro (lt)": "24",
+            "galon": "15", "galón": "15", "gl": "15", "galon (gl)": "15", "galón (gl)": "15",
+            "mililitro": "59", "ml": "59", "mililitro (ml)": "59",
+            "botella": "5", "bot": "5", "botella (bot)": "5",
+            "lata": "47", "lat": "47", "lata (lat)": "47",
+            "barril": "1", "barr": "1", "barril (barr)": "1",
+            "bidon": "49", "bidón": "49", "bid": "49", "bidon (bid)": "49", "bidón (bid)": "49",
+            "tanque": "38", "tq": "38", "tanque (tq)": "38",
+            # Empaque / Embalaje
+            "caja": "6", "cj": "6", "caj": "6", "caja (cj)": "6",
+            "paquete": "31", "paq": "31", "paquete (paq)": "31",
+            "saco": "46", "sac": "46", "saco (sac)": "46",
+            "bulto": "4", "bultos": "4", "bulto (bulto)": "4",
+            "huacal": "20", "huac": "20", "huacal (huac)": "20",
+            "fardo": "14", "fard": "14", "fardo (fard)": "14",
+            "display": "48", "dis": "48", "display (dis)": "48",
+            "bandeja": "57", "bdj": "57", "bandeja (bdj)": "57",
+            "bolsa": "2", "bol": "2", "bolsa (bol)": "2",
+            "rollo": "35", "rol": "35", "rollo (rol)": "35",
+            "sobre": "36", "sobr": "36", "sobre (sobr)": "36",
+            "cajetilla": "7", "cilindro": "9", "cil": "9", "contenedor": "11", "cont": "11",
+            "tubo": "40", "tub": "40", "bote": "3",
+            # Longitud y Superficie
+            "metro": "26", "m": "26", "metro (m)": "26",
+            "metro cuadrado": "27", "m2": "27", "m²": "27", "metro cuadrado (m²)": "27",
+            "metro cubico": "28", "metro cúbico": "28", "m3": "28", "m³": "28", "metro cubico (m³)": "28", "metro cúbico (m³)": "28",
+            "centimetro": "8", "centímetro": "8", "cm": "8", "centimetro (cm)": "8", "centímetro (cm)": "8",
+            "pie": "33", "pie (pie)": "33", "pie cuadrado": "53", "p2": "53", "p²": "53", "pie cuadrado (p²)": "53",
+            "yarda": "41", "yd": "41", "yarda (yd)": "41", "yarda cuadrada": "42", "yd2": "42",
+            "pulgada": "55", "pulgadas": "55", "pulg": "55", "pulgada (pulg)": "55",
+            "hectarea": "58", "hectárea": "58", "ha": "58",
+            # Servicios y Tiempo
+            "servicio": "43", "srv": "43", "servicio (srv)": "43",
+            "hora": "19", "hr": "19", "hor": "19", "hora (hr)": "19",
+            "dia": "12", "día": "12", "dia (día)": "12", "día (día)": "12",
+            "mes": "43", "mes (mes)": "43", "minuto": "30", "min": "30", "segundo": "37", "seg": "37",
+            # Otros
+            "granel": "18", "gran": "18", "granel (gran)": "18",
+            "pasajero": "54", "pax": "54",
+            "otros": "43",
         }
-        return mapping.get(unit_str, "43")
+        res = mapping.get(unit_str)
+        if res:
+            return res
+        if "(" in unit_str:
+            base_part = unit_str.split("(")[0].strip()
+            if base_part in mapping:
+                return mapping[base_part]
+        return "43"
 
     @classmethod
     def map_currency(cls, currency_str):
