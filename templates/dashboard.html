@@ -179,38 +179,65 @@
             <h4 style="font-family: var(--font-heading); font-size: 0.95rem; font-weight: 500; color: var(--text-primary); margin: 0;">
                 Obligaciones Tributarias DGII — Vencimientos
             </h4>
-            <span style="background-color: rgba(239, 68, 68, 0.12); color: #f87171; font-size: 0.7rem; font-weight: 500; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; border: 1px solid rgba(239, 68, 68, 0.2);">
+            <span id="tax-alerts-count-badge" style="background-color: rgba(239, 68, 68, 0.12); color: #f87171; font-size: 0.7rem; font-weight: 500; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; border: 1px solid rgba(239, 68, 68, 0.2);">
                 {{ tax_alerts|length }} alerta(s)
             </span>
         </div>
         <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; margin: 0 0 14px 0;">
-            Tienes obligaciones tributarias pendientes o próximas a vencer. El incumplimiento puede generar multas de la DGII.
+            Tienes obligaciones tributarias pendientes o próximas a vencer. Puedes marcarlas como trabajadas para retirarlas individualmente del panel.
         </p>
-        <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;">
+        <div id="tax-alerts-list" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;">
             {% for alert in tax_alerts %}
-            <div style="display: flex; align-items: center; gap: 10px; font-size: 0.8rem; padding: 6px 12px; border-radius: var(--radius-xs); border: 1px solid var(--border-color);
+            <div id="tax-alert-row-{{ alert.key }}"
+                 data-key="{{ alert.key }}"
+                 data-period="{{ alert.period_key }}"
+                 style="display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.8rem; padding: 7px 12px; border-radius: var(--radius-xs); border: 1px solid var(--border-color);
                 {% if alert.status == 'overdue' %}background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.2);
                 {% elif alert.status == 'due_soon' %}background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.2);
-                {% else %}background: var(--bg-input);{% endif %}">
-                {% if alert.status == 'overdue' %}
-                <i class="fa-solid fa-circle-exclamation" style="color: var(--accent-red); opacity: 0.8;"></i>
-                <span style="color: var(--text-primary); font-weight: 500;">{{ alert.label }}</span>
-                <span style="color: var(--accent-red); margin-left: auto; font-size: 0.75rem; font-weight: 600;">
-                    Vencido ({{ alert.days_remaining }} días)
-                </span>
-                {% elif alert.status == 'due_soon' %}
-                <i class="fa-solid fa-triangle-exclamation" style="color: #f59e0b; opacity: 0.8;"></i>
-                <span style="color: var(--text-primary); font-weight: 500;">{{ alert.label }}</span>
-                <span style="color: #d97706; margin-left: auto; font-size: 0.75rem; font-weight: 600;">
-                    Vence en {{ alert.days_remaining }} días — {{ alert.next_due_date }}
-                </span>
-                {% else %}
-                <i class="fa-solid fa-clock" style="color: #3b82f6; opacity: 0.8;"></i>
-                <span style="color: var(--text-primary); font-weight: 500;">{{ alert.label }}</span>
-                <span style="color: #3b82f6; margin-left: auto; font-size: 0.75rem; font-weight: 600;">
-                    En {{ alert.days_remaining }} días — {{ alert.next_due_date }}
-                </span>
-                {% endif %}
+                {% else %}background: var(--bg-input);{% endif %} transition: all 0.3s ease;">
+                <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
+                    {% if alert.status == 'overdue' %}
+                    <i class="fa-solid fa-circle-exclamation" style="color: var(--accent-red); opacity: 0.8; flex-shrink: 0;"></i>
+                    {% elif alert.status == 'due_soon' %}
+                    <i class="fa-solid fa-triangle-exclamation" style="color: #f59e0b; opacity: 0.8; flex-shrink: 0;"></i>
+                    {% else %}
+                    <i class="fa-solid fa-clock" style="color: #3b82f6; opacity: 0.8; flex-shrink: 0;"></i>
+                    {% endif %}
+                    <span style="color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ alert.label }}</span>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                    {% if alert.action_url %}
+                    <a href="{{ alert.action_url }}" style="font-size: 0.72rem; color: var(--accent-purple, #8b5cf6); text-decoration: none; font-weight: 600; padding: 2px 7px; border-radius: 4px; background: rgba(139,92,246,0.08);">
+                        {{ alert.action_label or 'Trabajar' }} <i class="fa-solid fa-arrow-right" style="font-size: 0.65rem;"></i>
+                    </a>
+                    {% endif %}
+
+                    {% if alert.status == 'overdue' %}
+                    <span style="color: var(--accent-red); font-size: 0.75rem; font-weight: 600;">
+                        Vencido ({{ alert.days_remaining }} d)
+                    </span>
+                    {% elif alert.status == 'due_soon' %}
+                    <span style="color: #d97706; font-size: 0.75rem; font-weight: 600;">
+                        Vence en {{ alert.days_remaining }} d — {{ alert.next_due_date }}
+                    </span>
+                    {% else %}
+                    <span style="color: #3b82f6; font-size: 0.75rem; font-weight: 600;">
+                        En {{ alert.days_remaining }} d — {{ alert.next_due_date }}
+                    </span>
+                    {% endif %}
+
+                    <button type="button"
+                            onclick="completeTaxAlert('{{ alert.key }}', '{{ alert.period_key }}', this)"
+                            class="btn-complete-tax-alert"
+                            title="Quitar del dashboard (marcar como trabajada/presentada)"
+                            style="display: inline-flex; align-items: center; gap: 4px; background: rgba(16,185,129,0.12); color: #059669; border: 1px solid rgba(16,185,129,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: all 0.15s ease;"
+                            onmouseover="this.style.background='var(--accent-emerald, #10b981)'; this.style.color='#fff';"
+                            onmouseout="this.style.background='rgba(16,185,129,0.12)'; this.style.color='#059669';">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Trabajada</span>
+                    </button>
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -230,6 +257,71 @@
                 const banner = document.getElementById('tax-obligation-banner');
                 sessionStorage.setItem('dismissTaxBanner', 'true');
                 banner.style.display = 'none';
+            }
+
+            function completeTaxAlert(key, period, btn) {
+                if (!key) return;
+                btn.disabled = true;
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+                fetch('{{ url_for("web_accounting.tax_obligations_toggle_complete") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ key: key, period: period, completed: true })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        const row = document.getElementById('tax-alert-row-' + key);
+                        if (row) {
+                            row.style.background = 'rgba(16, 185, 129, 0.15)';
+                            row.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                            row.style.opacity = '0';
+                            row.style.transform = 'translateX(20px)';
+                            setTimeout(() => {
+                                row.remove();
+                                const list = document.getElementById('tax-alerts-list');
+                                const badge = document.getElementById('tax-alerts-count-badge');
+                                const remaining = (typeof data.pending_count === 'number') ? data.pending_count : (list ? list.children.length : 0);
+                                if (badge) {
+                                    badge.textContent = remaining + ' alerta(s)';
+                                }
+                                if (!list || list.children.length === 0 || remaining === 0) {
+                                    const banner = document.getElementById('tax-obligation-banner');
+                                    if (banner) {
+                                        banner.innerHTML = `
+                                            <div style="display:flex; align-items:center; gap:12px; width:100%; padding:4px 0;">
+                                                <i class="fa-solid fa-circle-check" style="font-size:1.4rem; color:var(--accent-emerald, #10b981);"></i>
+                                                <div>
+                                                    <div style="font-weight:700; color:var(--text-primary); font-size:0.92rem;">¡Todas las obligaciones de este período están al día!</div>
+                                                    <p style="color:var(--text-secondary); font-size:0.8rem; margin:2px 0 0 0;">Has trabajado todas las alertas tributarias pendientes.</p>
+                                                </div>
+                                                <button type="button" onclick="this.closest('#tax-obligation-banner').style.display='none'" style="margin-left:auto; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.1rem; padding:4px;">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            </div>
+                                        `;
+                                        banner.style.borderLeftColor = '#10b981';
+                                        banner.style.background = 'rgba(16, 185, 129, 0.04)';
+                                    }
+                                }
+                            }, 300);
+                        }
+                    } else {
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                        alert(data.error || 'No se pudo actualizar la alerta');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error completing tax alert:', err);
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                });
             }
         </script>
     </div>

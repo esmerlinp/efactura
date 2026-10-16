@@ -149,6 +149,7 @@
 .tax-badge-upcoming { background: rgba(59, 130, 246, 0.12); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.2); }
 .tax-badge-due_soon { background: rgba(245, 158, 11, 0.14); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.3); }
 .tax-badge-overdue { background: rgba(239, 68, 68, 0.14); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.3); }
+.tax-badge-completed { background: rgba(16, 185, 129, 0.16); color: #047857; border: 1px solid rgba(16, 185, 129, 0.35); font-weight: 700; }
 .tax-badge-unconfigured { background: var(--bg-input, #f3f4f6); color: var(--text-muted, #9ca3af); border: 1px solid var(--border-color, #e5e7eb); }
 .tax-badge-disabled { background: rgba(156, 163, 175, 0.12); color: #9ca3af; border: 1px solid rgba(156, 163, 175, 0.2); }
 
@@ -562,9 +563,11 @@
                     </td>
 
                     <td style="padding:12px 10px; text-align:center; min-width:130px; white-space:nowrap;">
-                        <span class="tax-badge tax-badge-container {% if not is_active %}tax-badge-disabled{% elif st.status == 'overdue' %}tax-badge-overdue{% elif st.status == 'due_soon' %}tax-badge-due_soon{% elif st.status == 'upcoming' %}tax-badge-upcoming{% elif st.status == 'ok' %}tax-badge-ok{% else %}tax-badge-unconfigured{% endif %}">
+                        <span class="tax-badge tax-badge-container {% if not is_active %}tax-badge-disabled{% elif st.is_completed %}tax-badge-completed{% elif st.status == 'overdue' %}tax-badge-overdue{% elif st.status == 'due_soon' %}tax-badge-due_soon{% elif st.status == 'upcoming' %}tax-badge-upcoming{% elif st.status == 'ok' %}tax-badge-ok{% else %}tax-badge-unconfigured{% endif %}">
                             {% if not is_active %}
                                 <i class="fa-solid fa-power-off"></i> Inactiva
+                            {% elif st.is_completed %}
+                                <i class="fa-solid fa-circle-check"></i> Trabajada
                             {% elif st.status == 'overdue' %}
                                 <i class="fa-solid fa-triangle-exclamation"></i> Vencido ({{ st.days_remaining }} d)
                             {% elif st.status == 'due_soon' %}
@@ -604,6 +607,12 @@
 
                     <td style="padding:12px 10px; text-align:center; min-width:90px; white-space:nowrap;">
                         <div style="display:inline-flex; align-items:center; gap:6px;">
+                            <button type="button" class="btn btn-icon-sm btn-mark-worked"
+                                    title="{% if st.is_completed %}Desmarcar trabajada{% else %}Marcar como trabajada/presentada este ciclo{% endif %}"
+                                    onclick="toggleCompleteAlert('{{ ob_key }}', '{{ st.period_key }}', this)"
+                                    style="background:{% if st.is_completed %}rgba(16,185,129,0.12){% else %}var(--bg-surface){% endif %}; border:1px solid {% if st.is_completed %}rgba(16,185,129,0.3){% else %}var(--border-color){% endif %}; color:{% if st.is_completed %}#059669{% else %}var(--text-secondary){% endif %}; width:30px; height:30px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s;">
+                                <i class="fa-solid {% if st.is_completed %}fa-circle-check{% else %}fa-check{% endif %}" style="font-size:0.8rem;"></i>
+                            </button>
                             <button type="button" class="btn btn-icon-sm" title="Editar alerta" onclick='openEditAlertModal({{ ob | tojson | forceescape }})' style="background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-secondary); width:30px; height:30px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s;">
                                 <i class="fa-solid fa-pen-to-square" style="font-size:0.8rem;"></i>
                             </button>
@@ -957,7 +966,7 @@ function refreshKpiCounters() {
         if (toggle && toggle.checked) {
             totalActive++;
             const st = row.dataset.status;
-            if (st === 'ok') countOk++;
+            if (st === 'ok' || st === 'completed') countOk++;
             else if (st === 'upcoming' || st === 'due_soon') countUpcoming++;
             else if (st === 'overdue') countOverdue++;
         }
@@ -995,7 +1004,10 @@ function updateRowBadge(row, status, days, enabled, nextDueDate) {
     row.dataset.status = status;
     if (dueDateSpan) dueDateSpan.textContent = nextDueDate || '—';
 
-    if (status === 'overdue') {
+    if (status === 'completed') {
+        badge.classList.add('tax-badge-completed');
+        badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Trabajada';
+    } else if (status === 'overdue') {
         badge.classList.add('tax-badge-overdue');
         badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Vencido (${days} d)`;
     } else if (status === 'due_soon') {
@@ -1012,6 +1024,54 @@ function updateRowBadge(row, status, days, enabled, nextDueDate) {
         badge.innerHTML = '<i class="fa-solid fa-circle-question"></i> Sin configurar';
     }
     refreshKpiCounters();
+}
+
+// ── Marcar / Desmarcar Alerta Trabajada ────────────────────────────────────
+function toggleCompleteAlert(key, period, btn) {
+    if (!key) return;
+    const row = document.getElementById('row-' + key);
+    const isCompletedNow = row && row.dataset.status === 'completed';
+    const nextState = !isCompletedNow;
+
+    btn.disabled = true;
+    showToast(nextState ? 'Marcando alerta como trabajada...' : 'Reabriendo alerta pendiente...');
+
+    fetch('{{ url_for("web_accounting.tax_obligations_toggle_complete") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({ key: key, period: period, completed: nextState })
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        if (data.success) {
+            const isCompleted = data.is_completed;
+            const icon = btn.querySelector('i');
+            if (icon) {
+                icon.className = isCompleted ? 'fa-solid fa-circle-check' : 'fa-solid fa-check';
+            }
+            btn.style.background = isCompleted ? 'rgba(16,185,129,0.12)' : 'var(--bg-surface)';
+            btn.style.borderColor = isCompleted ? 'rgba(16,185,129,0.3)' : 'var(--border-color)';
+            btn.style.color = isCompleted ? '#059669' : 'var(--text-secondary)';
+            btn.title = isCompleted ? 'Desmarcar trabajada' : 'Marcar como trabajada/presentada este ciclo';
+
+            if (row) {
+                const nextDueDate = row.querySelector('.next-due-date-val')?.textContent?.trim() || '';
+                updateRowBadge(row, isCompleted ? 'completed' : 'ok', 0, true, nextDueDate);
+            }
+            showToast(isCompleted ? '✓ Obligación marcada como trabajada' : 'Obligación reabierta como pendiente');
+        } else {
+            showToast(data.error || 'No se pudo actualizar el estado', true);
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        console.error('Error toggling complete:', err);
+        showToast('Error de conexión al actualizar', true);
+    });
 }
 
 // ── Toggle obligación ──────────────────────────────────────────────────────

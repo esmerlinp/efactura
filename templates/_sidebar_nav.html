@@ -44,7 +44,7 @@
 <div class="sidebar-divider"></div>
 
 <!-- SECCIÓN: ACCESOS RÁPIDOS -->
-<div class="sidebar-section" id="sidebar-section-quick" style="display: none;">
+<div class="sidebar-section" id="sidebar-section-quick" data-company-id="{{ session.get('selected_company_id', '') }}" style="display: none;">
     <div class="sidebar-section-header" style="cursor: default; font-size: 0.78rem; color: var(--text-muted); border-top: none !important; padding-top: 0;">
         <span>Accesos Rápidos</span>
     </div>

@@ -18,6 +18,7 @@ from app.services.tax_obligation_service import (
     _is_weekend_or_holiday,
     _next_business_day,
     _next_due_date,
+    _get_period_key,
 )
 
 
@@ -431,5 +432,127 @@ class TestEnsureDGT4Alert:
         )
         assert res5["created"] is False
         assert res5["reason"] == "already_exists"
+
+
+class TestPeriodKeyCalculation:
+    def test_monthly_period_key(self):
+        d = date(2026, 10, 15)
+        assert _get_period_key(d, "monthly_15") == "2026-10"
+        assert _get_period_key(d, "monthly_day_5") == "2026-10"
+
+    def test_annual_period_key(self):
+        d = date(2026, 4, 30)
+        assert _get_period_key(d, "annual_120days") == "2026"
+        assert _get_period_key(d, "annual_rst_feb") == "2026"
+
+    def test_fixed_period_key(self):
+        d = date(2026, 10, 5)
+        assert _get_period_key(d, "fixed_date") == "2026-10-05"
+        assert _get_period_key(d, "one_time") == "2026-10-05"
+
+
+class TestToggleCompleteObligation:
+    @patch("app.services.tax_obligation_service.TaxObligationService.save")
+    @patch("app.services.tax_obligation_service.TaxObligationService.get_all")
+    def test_toggle_complete_marks_and_unmarks(self, mock_get_all, mock_save):
+        mock_save.return_value = True
+        mock_get_all.return_value = [
+            {
+                "obligation_key": "form_606",
+                "label": "Formato 606",
+                "recurrence": "monthly_15",
+                "enabled": True,
+                "first_due_date": "",
+                "completed_periods": {},
+                "last_completed_period": "",
+            }
+        ]
+
+        # 1. Marcar como completada
+        res = TaxObligationService.toggle_complete(
+            "user_123",
+            key="form_606",
+            period="2026-10",
+            completed=True,
+            completed_by="test@vykone.com",
+        )
+        assert res["success"] is True
+        assert res["key"] == "form_606"
+        assert res["period"] == "2026-10"
+        assert res["is_completed"] is True
+        assert mock_save.called
+        saved_payload = mock_save.call_args[0][1]
+        assert saved_payload["last_completed_period"] == "2026-10"
+        assert "2026-10" in saved_payload["completed_periods"]
+
+        # 2. Desmarcar
+        mock_get_all.return_value = [
+            {
+                "obligation_key": "form_606",
+                "label": "Formato 606",
+                "recurrence": "monthly_15",
+                "enabled": True,
+                "first_due_date": "",
+                "completed_periods": {"2026-10": {"completed_at": "2026-10-16T12:00:00Z"}},
+                "last_completed_period": "2026-10",
+            }
+        ]
+        res_unmark = TaxObligationService.toggle_complete(
+            "user_123",
+            key="form_606",
+            period="2026-10",
+            completed=False,
+        )
+        assert res_unmark["success"] is True
+        assert res_unmark["is_completed"] is False
+        saved_unmark_payload = mock_save.call_args[0][1]
+        assert saved_unmark_payload["last_completed_period"] == ""
+        assert "2026-10" not in saved_unmark_payload["completed_periods"]
+
+    def test_status_and_pending_alerts_exclude_completed_one_and_keeps_other(self):
+        today = date(2026, 10, 14)
+        with patch.object(TaxObligationService, "get_all") as mock_get_all, \
+             patch("app.services.tax_obligation_service._get_fiscal_end_month", return_value=12):
+
+            mock_get_all.return_value = [
+                {
+                    "obligation_key": "form_606",
+                    "label": "Formato 606",
+                    "recurrence": "monthly_15",
+                    "enabled": True,
+                    "first_due_date": "",
+                    "completed_periods": {"2026-10": {"completed_at": "2026-10-14T10:00:00Z"}},
+                    "last_completed_period": "2026-10",
+                },
+                {
+                    "obligation_key": "form_607",
+                    "label": "Formato 607",
+                    "recurrence": "monthly_15",
+                    "enabled": True,
+                    "first_due_date": "",
+                    "completed_periods": {},
+                    "last_completed_period": "",
+                },
+            ]
+
+            statuses = TaxObligationService.get_status("user_123", reference_date=today)
+            status_map = {s["key"]: s for s in statuses}
+
+            # 606 está completada -> status 'completed', is_completed True
+            assert status_map["form_606"]["status"] == "completed"
+            assert status_map["form_606"]["is_completed"] is True
+
+            # 607 sigue pendiente -> vence en 1 día -> status 'due_soon'
+            assert status_map["form_607"]["status"] == "due_soon"
+            assert status_map["form_607"]["is_completed"] is False
+
+            # get_pending_alerts (lo que alimenta el banner del dashboard)
+            pending = TaxObligationService.get_pending_alerts("user_123", reference_date=today)
+            pending_keys = [p["key"] for p in pending]
+
+            # 606 fue quitada del dashboard, 607 permanece activa
+            assert "form_606" not in pending_keys
+            assert "form_607" in pending_keys
+
 
 

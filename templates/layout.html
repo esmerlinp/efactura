@@ -28,6 +28,10 @@
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="current-company-id" content="{{ session.get('selected_company_id', '') }}">
+    <script>
+        window.currentCompanyId = "{{ session.get('selected_company_id', '') }}";
+    </script>
     <title>{% block title %}{% endblock %} - {{ product_name }}</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
     <!-- Metas de SEO según Buenas Prácticas -->
@@ -1511,7 +1515,7 @@
     {% endif %}
 
     <!-- Script Global -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v={{ static_hash('js/main.js') }}"></script>
 
     <!-- Modal de Exportación de Datos Premium -->
     <div class="search-modal" id="global-export-modal"

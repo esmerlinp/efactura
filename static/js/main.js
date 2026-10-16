@@ -530,22 +530,59 @@ document.addEventListener('click', function (e) {
     }, true); // Usar fase de captura ya que 'blur' no burbujea
 
     // ====== 8. Accesos Rápidos (Pines del menú lateral) ======
-    const PINNED_KEY = 'sidebar-quick-access';
-    const MAX_PINNED = 3;
+    const MAX_PINNED = 5;
+
+    function getCurrentCompanyId() {
+        const meta = document.querySelector('meta[name="current-company-id"]');
+        if (meta && meta.getAttribute('content')) {
+            const cid = meta.getAttribute('content').trim();
+            if (cid) return cid;
+        }
+        if (typeof window.currentCompanyId === 'string' && window.currentCompanyId.trim()) {
+            return window.currentCompanyId.trim();
+        }
+        const quickSec = document.getElementById('sidebar-section-quick');
+        if (quickSec && quickSec.dataset && quickSec.dataset.companyId) {
+            const cid = quickSec.dataset.companyId.trim();
+            if (cid) return cid;
+        }
+        return '';
+    }
+
+    function getPinnedStorageKey() {
+        const cid = getCurrentCompanyId();
+        return cid ? `sidebar-quick-access_${cid}` : 'sidebar-quick-access';
+    }
 
     function getPinnedHrefs() {
         try {
-            return JSON.parse(localStorage.getItem(PINNED_KEY)) || [];
+            const key = getPinnedStorageKey();
+            const val = localStorage.getItem(key);
+            if (val) {
+                return JSON.parse(val) || [];
+            }
+            // Si la clave para esta compañía aún no existe pero existe la global legacy,
+            // la usamos para la primera compañía y la migramos.
+            const legacyVal = localStorage.getItem('sidebar-quick-access');
+            if (legacyVal && key !== 'sidebar-quick-access') {
+                const parsed = JSON.parse(legacyVal) || [];
+                if (parsed.length > 0) {
+                    localStorage.setItem(key, legacyVal);
+                    return parsed;
+                }
+            }
+            return [];
         } catch {
             return [];
         }
     }
 
     function setPinnedHrefs(hrefs) {
+        const key = getPinnedStorageKey();
         if (hrefs.length === 0) {
-            localStorage.removeItem(PINNED_KEY);
+            localStorage.removeItem(key);
         } else {
-            localStorage.setItem(PINNED_KEY, JSON.stringify(hrefs));
+            localStorage.setItem(key, JSON.stringify(hrefs));
         }
         renderQuickAccess();
         updatePinIcons();
