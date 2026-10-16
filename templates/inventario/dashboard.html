@@ -5,6 +5,856 @@
 {% block page_header %}Tablero de Inventario{% endblock %}
 
 {% block content %}
+<style>
+    /* ==========================================================================
+       INVENTARIO POR ALMACÉN - REDISEÑO UI/UX ELEGANTE Y COMPACTO
+       ========================================================================== */
+    .inventory-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        width: 100%;
+        margin-bottom: 30px;
+    }
+
+    /* Header & Action Bar */
+    .inventory-header-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .inventory-title-group h3 {
+        font-size: 1.35rem;
+        font-family: var(--font-heading);
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0 0 4px 0;
+        letter-spacing: -0.01em;
+    }
+
+    .inventory-title-group p {
+        color: var(--text-secondary);
+        font-size: 0.86rem;
+        margin: 0;
+    }
+
+    .inventory-actions-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    /* Executive KPI Strip */
+    .inventory-kpi-strip {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+    }
+
+    .inventory-kpi-card {
+        background: var(--bg-card, #ffffff);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md, 10px);
+        padding: 14px 18px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        cursor: pointer;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .inventory-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        border-color: var(--border-hover, #cbd5e1);
+    }
+
+    .inventory-kpi-card.active {
+        border-color: var(--accent-emerald, #10b981);
+        background: rgba(16, 185, 129, 0.03);
+        box-shadow: 0 0 0 1px var(--accent-emerald, #10b981);
+    }
+
+    .inventory-kpi-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        flex-shrink: 0;
+    }
+
+    .kpi-icon-warehouses { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+    .kpi-icon-catalog    { background: rgba(124, 58, 237, 0.12); color: #7c3aed; }
+    .kpi-icon-units      { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+    .kpi-icon-alert      { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+
+    .inventory-kpi-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .inventory-kpi-label {
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text-secondary);
+        font-weight: 600;
+    }
+
+    .inventory-kpi-val {
+        font-size: 1.45rem;
+        font-weight: 700;
+        font-family: var(--font-heading);
+        color: var(--text-primary);
+        line-height: 1.1;
+    }
+
+    .inventory-kpi-sub {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Unified Toolbar & Filters */
+    .inventory-toolbar-card {
+        background: var(--bg-card, #ffffff);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md, 10px);
+        padding: 14px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .inventory-toolbar-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+
+    .inventory-search-box {
+        position: relative;
+        flex: 1;
+        min-width: 260px;
+        max-width: 440px;
+    }
+
+    .inventory-search-box i.search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        pointer-events: none;
+    }
+
+    .inventory-search-input {
+        width: 100%;
+        height: 38px;
+        padding: 0 34px 0 38px;
+        background-color: var(--bg-input, #f8fafc);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        transition: all 0.15s ease;
+    }
+
+    .inventory-search-input:focus {
+        background-color: #ffffff;
+        border-color: var(--accent-emerald, #10b981);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+        outline: none;
+    }
+
+    .inventory-search-clear {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 0.85rem;
+        padding: 4px;
+        display: none;
+    }
+
+    .inventory-search-clear:hover {
+        color: var(--text-primary);
+    }
+
+    /* Filter Chips (Segmented Controls) */
+    .inventory-chips-group {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .filter-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        user-select: none;
+    }
+
+    .filter-chip:hover {
+        background: var(--bg-nav-hover, rgba(0, 0, 0, 0.03));
+        color: var(--text-primary);
+    }
+
+    .filter-chip.active {
+        background: var(--accent-emerald, #10b981);
+        border-color: var(--accent-emerald, #10b981);
+        color: #ffffff;
+        box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+    }
+
+    .filter-chip.active .chip-badge {
+        background: rgba(255, 255, 255, 0.25);
+        color: #ffffff;
+    }
+
+    .chip-badge {
+        font-size: 0.72rem;
+        padding: 1px 6px;
+        border-radius: 10px;
+        background: var(--bg-muted, #f1f5f9);
+        color: var(--text-muted);
+        font-weight: 600;
+    }
+
+    .filter-chip-danger.active {
+        background: var(--danger, #ef4444);
+        border-color: var(--danger, #ef4444);
+    }
+
+    /* Advanced filters collapsible strip */
+    .inventory-advanced-filters {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding-top: 10px;
+        border-top: 1px dashed var(--border-color);
+        font-size: 0.82rem;
+    }
+
+    .inventory-filter-select-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--bg-input, #f8fafc);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm, 6px);
+        padding: 4px 10px;
+        height: 32px;
+    }
+
+    .inventory-filter-select-wrapper i {
+        color: var(--text-muted);
+        font-size: 0.78rem;
+    }
+
+    .inventory-filter-select {
+        border: none;
+        background: transparent;
+        color: var(--text-primary);
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        outline: none;
+        padding-right: 6px;
+    }
+
+    .btn-reset-filters {
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: var(--radius-sm, 6px);
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.15s ease;
+        margin-left: auto;
+    }
+
+    .btn-reset-filters:hover {
+        background: rgba(239, 68, 68, 0.08);
+        color: var(--danger, #ef4444);
+    }
+
+    /* ==========================================================================
+       CONSOLIDATED MATRIX DATA GRID
+       ========================================================================== */
+    .inventory-table-card {
+        background: var(--bg-card, #ffffff);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md, 10px);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05));
+    }
+
+    .inventory-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+        text-align: left;
+    }
+
+    .inventory-table thead th {
+        background: var(--bg-input, #f8fafc);
+        padding: 10px 14px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap;
+        user-select: none;
+    }
+
+    .inventory-table thead th.sortable {
+        cursor: pointer;
+        transition: color 0.15s ease;
+    }
+
+    .inventory-table thead th.sortable:hover {
+        color: var(--text-primary);
+    }
+
+    .inventory-table thead th.sortable i {
+        font-size: 0.7rem;
+        margin-left: 4px;
+        color: var(--text-muted);
+    }
+
+    .inventory-table thead th.warehouse-header {
+        background: rgba(16, 185, 129, 0.03);
+        border-left: 1px solid var(--border-color);
+    }
+
+    .inventory-table tbody td {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+        color: var(--text-primary);
+    }
+
+    .inventory-table tbody tr.inventory-row {
+        transition: background-color 0.15s ease;
+    }
+
+    .inventory-table tbody tr.inventory-row:hover {
+        background-color: var(--bg-nav-hover, rgba(0, 0, 0, 0.02));
+    }
+
+    /* Col 1: SKU & Barcode */
+    .col-sku-container {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .sku-code-badge {
+        font-family: 'Fira Code', monospace;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        letter-spacing: 0.02em;
+    }
+
+    .barcode-subtext {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    /* Col 2: Product Name & Meta */
+    .col-product-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 240px;
+    }
+
+    .product-avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        background: var(--bg-input, #f1f5f9);
+        border: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        overflow: hidden;
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+    }
+
+    .product-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .product-info-text {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .product-title-link {
+        font-weight: 600;
+        font-size: 0.88rem;
+        color: var(--text-primary);
+        text-decoration: none;
+        cursor: pointer;
+        transition: color 0.15s ease;
+    }
+
+    .product-title-link:hover {
+        color: var(--accent-emerald, #10b981);
+    }
+
+    .product-meta-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: 0.73rem;
+        color: var(--text-muted);
+    }
+
+    .category-tag {
+        color: var(--accent-purple, #7c3aed);
+        font-weight: 500;
+        background: rgba(124, 58, 237, 0.08);
+        padding: 1px 7px;
+        border-radius: 10px;
+    }
+
+    .location-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        color: var(--text-secondary);
+    }
+
+    /* Warehouse Stock Cells */
+    .warehouse-stock-cell {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        border-left: 1px solid var(--border-color);
+        font-size: 0.82rem;
+    }
+
+    .wh-qty-zero {
+        color: var(--text-muted);
+        opacity: 0.7;
+    }
+
+    .wh-qty-pos {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .wh-qty-neg {
+        color: var(--danger, #ef4444);
+        font-weight: 600;
+    }
+
+    /* Col: Total Stock */
+    .col-total-stock {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .stock-pill-normal {
+        font-size: 0.84rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .stock-pill-low {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger, #ef4444);
+        font-weight: 600;
+        font-size: 0.82rem;
+        padding: 2px 8px;
+        border-radius: 12px;
+        width: fit-content;
+        margin-left: auto;
+    }
+
+    .stock-subtext {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        display: block;
+        margin-top: 2px;
+    }
+
+    /* Col: Valuation / Pricing */
+    .col-valuation {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .val-capital {
+        font-size: 0.84rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .val-pvp-sub {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        display: block;
+    }
+
+    /* Col: Quick Actions */
+    .col-actions-container {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+    }
+
+    .btn-action-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text-secondary);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        text-decoration: none;
+    }
+
+    .btn-action-icon:hover {
+        background: var(--bg-input, #f1f5f9);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    /* Pagination Bar */
+    .inventory-pagination-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 18px;
+        background: var(--bg-card, #ffffff);
+        border-top: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .pagination-counter {
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+    }
+
+    .pagination-page-size-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        margin-left: 14px;
+    }
+
+    .pagination-page-size-select {
+        height: 28px;
+        padding: 0 6px;
+        border-radius: var(--radius-sm, 6px);
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-input, #f8fafc);
+        color: var(--text-primary);
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+
+    .pagination-nav-buttons {
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+    }
+
+    /* ==========================================================================
+       QUICK VIEW DRAWER (OFFCANVAS PANEL PARA INVENTARIO)
+       ========================================================================== */
+    .drawer-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(2px);
+        z-index: 1040;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.22s ease, visibility 0.22s ease;
+    }
+
+    .drawer-backdrop.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .inventory-drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 460px;
+        max-width: 92vw;
+        background: var(--bg-card, #ffffff);
+        z-index: 1050;
+        box-shadow: -6px 0 24px rgba(0, 0, 0, 0.15);
+        transform: translateX(100%);
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .inventory-drawer.show {
+        transform: translateX(0);
+    }
+
+    .drawer-header {
+        padding: 18px 22px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--bg-input, #f8fafc);
+    }
+
+    .drawer-header h4 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-family: var(--font-heading);
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .drawer-close-btn {
+        background: transparent;
+        border: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 1.1rem;
+        transition: all 0.15s ease;
+    }
+
+    .drawer-close-btn:hover {
+        background: rgba(0, 0, 0, 0.06);
+        color: var(--text-primary);
+    }
+
+    .drawer-body {
+        padding: 20px 22px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        flex: 1;
+    }
+
+    .drawer-product-hero {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        background: var(--bg-input, #f8fafc);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md, 10px);
+        padding: 14px;
+    }
+
+    .drawer-hero-img {
+        width: 60px;
+        height: 60px;
+        border-radius: 8px;
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        font-size: 1.5rem;
+        color: var(--text-secondary);
+        flex-shrink: 0;
+    }
+
+    .drawer-hero-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .drawer-hero-title h5 {
+        margin: 0 0 4px 0;
+        font-size: 1.02rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .drawer-section {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .drawer-section-title {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 700;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 4px;
+    }
+
+    /* Warehouse distribution list in drawer */
+    .drawer-wh-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .drawer-wh-item {
+        background: var(--bg-input, #f8fafc);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .drawer-wh-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .drawer-wh-name {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .drawer-wh-qty {
+        font-weight: 700;
+        font-size: 0.88rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-primary);
+    }
+
+    .drawer-wh-bar-bg {
+        width: 100%;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+    }
+
+    .drawer-wh-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: var(--accent-emerald, #10b981);
+        transition: width 0.3s ease;
+    }
+
+    .drawer-grid-props {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .drawer-prop-item {
+        background: var(--bg-input, #f8fafc);
+        border-radius: 6px;
+        padding: 8px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .drawer-prop-label {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+    }
+
+    .drawer-prop-val {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .drawer-footer {
+        padding: 16px 22px;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        gap: 10px;
+        background: var(--bg-input, #f8fafc);
+    }
+</style>
+
+<!-- Guía de Uso del Inventario -->
 <div class="guide-banner" id="guide-inventory">
     <button class="guide-banner-close" onclick="closeGuide('guide-inventory')" title="Cerrar guía" aria-label="Cerrar guía">
         <i class="fa-solid fa-xmark"></i>
@@ -19,357 +869,724 @@
         </p>
         <ul>
             <li><strong>Kárdex (Movimientos):</strong> Revisa el historial de entradas, salidas y transferencias de cada producto.</li>
-            <li><strong>Alertas Críticas:</strong> El sistema resaltará en rojo cualquier producto cuyo stock actual caiga por debajo del nivel mínimo configurado.</li>
-            <li><strong>Multi-Almacén:</strong> Mueve artículos entre almacenes o sucursales con transacciones manuales.</li>
+            <li><strong>Alertas Críticas:</strong> El sistema resalta en rojo cualquier producto cuyo stock caiga por debajo del mínimo de seguridad.</li>
+            <li><strong>Multi-Almacén:</strong> Visualiza la distribución de inventario entre todas tus sucursales y depósitos.</li>
         </ul>
     </div>
 </div>
 
-<!-- Tarjeta Única de KPIs (Estilo Resumen Financiero a Ancho Completo) -->
-<div class="card-table-wrapper"
-    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; padding: 24px; margin-bottom: 24px; box-shadow: none;">
-
-    <!-- KPI 1: Almacenes -->
-    <div style="display: flex; flex-direction: column; gap: 4px;">
-        <span style="font-size: 0.8rem; color: var(--text-secondary);">Almacenes Activos</span>
-        <div
-            style="font-size: 1.6rem; color: var(--accent-emerald); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-emerald);"></i>
-            {{ warehouses | length }}
+<div class="inventory-wrapper">
+    <!-- Header Principal y Botones de Acción -->
+    <div class="inventory-header-bar">
+        <div class="inventory-title-group">
+            <h3>Tablero de Inventario</h3>
+            <p>Existencias físicas de productos por almacén y auditoría de stock en tiempo real.</p>
         </div>
-        <span style="font-size: 0.75rem; color: var(--text-muted);">Puntos de almacenamiento</span>
-    </div>
-
-    <!-- KPI 2: Catálogo Físico -->
-    <div style="display: flex; flex-direction: column; gap: 4px;">
-        <span style="font-size: 0.8rem; color: var(--text-secondary);">Catálogo Físico</span>
-        <div
-            style="font-size: 1.6rem; color: var(--accent-purple); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-purple);"></i>
-            {{ items | length }}
-        </div>
-        <span style="font-size: 0.75rem; color: var(--text-muted);">Bienes registrados</span>
-    </div>
-
-    <!-- KPI 3: Existencia Total -->
-    {% set ns = namespace(total_units=0.0) %}
-    {% for it in items %}
-    {% set ns.total_units = ns.total_units + (it.totalStock or 0.0) %}
-    {% endfor %}
-    <div style="display: flex; flex-direction: column; gap: 4px;">
-        <span style="font-size: 0.8rem; color: var(--text-secondary);">Existencia Total</span>
-        <div
-            style="font-size: 1.6rem; color: var(--accent-magenta); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-magenta);"></i>
-            {{ "{:,.2f}".format(ns.total_units) }}
-        </div>
-        <span style="font-size: 0.75rem; color: var(--text-muted);">Suma general de stock</span>
-    </div>
-
-    <!-- KPI 4: Alertas -->
-    <div style="display: flex; flex-direction: column; gap: 4px;">
-        <span style="font-size: 0.8rem; color: var(--text-secondary);">Alertas Críticas</span>
-        <div
-            style="font-size: 1.6rem; color: {% if low_stock_alerts %}var(--accent-red){% else %}var(--text-primary){% endif %}; font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-square"
-                style="font-size: 0.4rem; color: {% if low_stock_alerts %}var(--accent-red){% else %}var(--text-muted){% endif %};"></i>
-            {{ low_stock_alerts | length }}
-        </div>
-        <span style="font-size: 0.75rem; color: var(--text-muted);">Artículos por debajo del mínimo</span>
-    </div>
-
-</div>
-
-<!-- Acciones de Inventario Destacadas -->
-<div style="display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;">
-    {% if session.get('user', {}).get('role') == 'owner' or check_permission('canManageWarehouses') %}
-    <a href="{{ url_for('web_invoices.inventory_warehouses') }}" class="btn btn-secondary" style="padding: 10px 18px; display: inline-flex; align-items: center; gap: 8px;">
-        <i class="fa-solid fa-warehouse"></i>
-        <span>Almacenes</span>
-    </a>
-    {% endif %}
-    {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryReceipts') %}
-    <a href="{{ url_for('web_inventory.list_receipts') }}" class="btn btn-secondary" style="padding: 10px 18px; display: inline-flex; align-items: center; gap: 8px;">
-        <i class="fa-solid fa-truck-ramp-box"></i>
-        <span>Recepciones</span>
-    </a>
-    {% endif %}
-    {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryKardex') %}
-    <a href="{{ url_for('web_inventory.kardex_view') }}" class="btn btn-secondary" style="padding: 10px 18px; display: inline-flex; align-items: center; gap: 8px; border-color: var(--accent-purple); color: var(--accent-purple);">
-        <i class="fa-solid fa-table-list"></i>
-        <span>Kardex Valorizado (FIFO)</span>
-    </a>
-    {% endif %}
-    {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryAdjustments') %}
-    <a href="{{ url_for('web_invoices.new_inventory_transaction') }}" class="btn btn-primary"
-        style="padding: 10px 20px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px;">
-        <i class="fa-solid fa-shuffle"></i>
-        <span>Ajuste / Transacción</span>
-    </a>
-    {% endif %}
-</div>
-
-<!-- Alertas de Stock Crítico -->
-{% if low_stock_alerts %}
-<div class="card-table-wrapper"
-    style="border: 1px solid rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.02); margin-bottom: 24px;">
-    <h3
-        style="font-size: 1.1rem; color: var(--accent-red); font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-        <span>Alertas de Abastecimiento Requerido</span>
-    </h3>
-    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px;">Los siguientes artículos se
-        encuentran en un nivel inferior o igual a su stock de seguridad configurado:</p>
-
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
-        {% for item in low_stock_alerts %}
-        <div
-            style="background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: flex; align-items: center; gap: 12px;">
-            <div
-                style="background-color: rgba(239, 68, 68, 0.1); color: var(--accent-red); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">
-                <i class="fa-solid fa-box"></i>
-            </div>
-            <div style="flex-grow: 1; min-width: 0; overflow: hidden;">
-                <strong
-                    style="display: block; font-size: 0.9rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{{
-                    item.name }}</strong>
-                <span style="font-size: 0.78rem; color: var(--text-secondary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; display: block;">Mínimo: {{ item.minStock }} {{ item.unit
-                    }} | Ubicación: {{ item.rackLocation or '—' }}</span>
-            </div>
-            <div style="text-align: right; flex-shrink: 0;">
-                <span style="font-size: 1rem; font-weight: 800; color: var(--accent-red);">{{
-                    "{:,.2f}".format(item.totalStock or 0.0) }}</span>
-                <span style="font-size: 0.7rem; display: block; color: var(--text-muted);">Restante</span>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
-
-<!-- Tabla General de Existencias Cruzadas (Ancho Completo) -->
-<div class="card-table-wrapper" style="margin-bottom: 0;">
-    <div class="table-header-row"
-        style="display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
-        <div>
-            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Inventario por Almacén
-            </h3>
-            <p style="color: var(--text-secondary); font-size: 0.88rem;">Detalle cruzado del stock de cada producto
-                físico en tus sucursales o depósitos.</p>
-        </div>
-        <div style="display: flex; gap: 12px; align-items: center;">
-            <a href="{{ url_for('web_invoices.export_stock_report') }}" class="btn btn-secondary"
-                style="display: inline-flex; align-items: center; gap: 8px;">
+        <div class="inventory-actions-group">
+            <a href="{{ url_for('web_invoices.export_stock_report') }}" class="btn btn-secondary" title="Exportar reporte de existencias">
                 <i class="fa-solid fa-file-csv"></i>
                 <span>Exportar CSV</span>
             </a>
+            {% if session.get('user', {}).get('role') == 'owner' or check_permission('canManageWarehouses') %}
+            <a href="{{ url_for('web_invoices.inventory_warehouses') }}" class="btn btn-secondary" title="Administrar puntos de almacenamiento">
+                <i class="fa-solid fa-warehouse"></i>
+                <span>Almacenes</span>
+            </a>
+            {% endif %}
+            {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryReceipts') %}
+            <a href="{{ url_for('web_inventory.list_receipts') }}" class="btn btn-secondary" title="Recepciones de mercancía">
+                <i class="fa-solid fa-truck-ramp-box"></i>
+                <span>Recepciones</span>
+            </a>
+            {% endif %}
+            {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryKardex') %}
+            <a href="{{ url_for('web_inventory.kardex_view') }}" class="btn btn-secondary" style="border-color: var(--accent-purple); color: var(--accent-purple);" title="Kárdex valorizado FIFO">
+                <i class="fa-solid fa-table-list"></i>
+                <span>Kardex (FIFO)</span>
+            </a>
+            {% endif %}
+            {% if session.get('user', {}).get('role') == 'owner' or check_permission('canInventoryAdjustments') %}
+            <a href="{{ url_for('web_invoices.new_inventory_transaction') }}" class="btn btn-primary" title="Registrar ajuste manual o transferencia">
+                <i class="fa-solid fa-shuffle"></i>
+                <span>Ajuste / Mover</span>
+            </a>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Filtros de Búsqueda Avanzada -->
-    <div
-        style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
-        <div style="position: relative; flex-grow: 1; min-width: 280px; max-width: 480px;">
-            <i class="fa-solid fa-magnifying-glass"
-                style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
-            <input type="text" id="inventory-search" placeholder="Buscar por código, descripción o ubicación..."
-                style="width: 100%; height: 36px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);"
-                onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';"
-                onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}"
-                oninput="applyFilters()">
+    <!-- Tira de KPIs Ejecutivos Interactivos (Filtros 1-Clic) -->
+    {% set ns = namespace(total_units=0.0, in_stock_count=0, out_of_stock_count=0) %}
+    {% for it in items %}
+        {% set stock_f = (it.totalStock or 0.0) | float %}
+        {% set ns.total_units = ns.total_units + stock_f %}
+        {% if stock_f > 0 %}
+            {% set ns.in_stock_count = ns.in_stock_count + 1 %}
+        {% else %}
+            {% set ns.out_of_stock_count = ns.out_of_stock_count + 1 %}
+        {% endif %}
+    {% endfor %}
+
+    <div class="inventory-kpi-strip">
+        <!-- KPI 1: Almacenes Activos -->
+        <div class="inventory-kpi-card" id="kpi-card-wh" onclick="window.location.href='{{ url_for('web_invoices.inventory_warehouses') }}'">
+            <div class="inventory-kpi-icon kpi-icon-warehouses">
+                <i class="fa-solid fa-warehouse"></i>
+            </div>
+            <div class="inventory-kpi-info">
+                <span class="inventory-kpi-label">Almacenes</span>
+                <span class="inventory-kpi-val">{{ warehouses | length }}</span>
+                <span class="inventory-kpi-sub">Puntos de almacenamiento</span>
+            </div>
         </div>
-        <div style="min-width: 200px;">
-            <select id="stock-filter"
-                style="width: 100%; height: 36px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;"
-                onchange="applyFilters()">
-                <option value="all">Todo el Inventario</option>
-                <option value="low-stock">⚠️ Stock Bajo / Alerta</option>
-                <option value="in-stock">Disponible</option>
-            </select>
+
+        <!-- KPI 2: Catálogo Físico -->
+        <div class="inventory-kpi-card active" id="kpi-card-all" onclick="selectChipFilter('all')">
+            <div class="inventory-kpi-icon kpi-icon-catalog">
+                <i class="fa-solid fa-boxes-stacked"></i>
+            </div>
+            <div class="inventory-kpi-info">
+                <span class="inventory-kpi-label">Bienes Registrados</span>
+                <span class="inventory-kpi-val">{{ items | length }}</span>
+                <span class="inventory-kpi-sub">Catálogo inventariable</span>
+            </div>
+        </div>
+
+        <!-- KPI 3: Existencia Total de Unidades -->
+        <div class="inventory-kpi-card" id="kpi-card-units" onclick="selectChipFilter('in-stock')">
+            <div class="inventory-kpi-icon kpi-icon-units">
+                <i class="fa-solid fa-cubes"></i>
+            </div>
+            <div class="inventory-kpi-info">
+                <span class="inventory-kpi-label">Existencia Total</span>
+                <span class="inventory-kpi-val">{{ "{:,.0f}".format(ns.total_units) }}</span>
+                <span class="inventory-kpi-sub">Suma general de stock</span>
+            </div>
+        </div>
+
+        <!-- KPI 4: Alertas de Stock Bajo -->
+        <div class="inventory-kpi-card" id="kpi-card-alert" onclick="selectChipFilter('low-stock')">
+            <div class="inventory-kpi-icon kpi-icon-alert">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div class="inventory-kpi-info">
+                <span class="inventory-kpi-label">Stock Crítico</span>
+                <span class="inventory-kpi-val" style="color: {% if low_stock_alerts %}var(--danger, #ef4444){% else %}var(--text-primary){% endif %};">
+                    {{ low_stock_alerts | length }}
+                </span>
+                <span class="inventory-kpi-sub">Bajo stock de seguridad</span>
+            </div>
         </div>
     </div>
 
-    <div class="table-responsive">
-        <table class="data-grid" id="inventory-table" style="width: 100%;">
-            <thead>
-                <tr>
-                    <th style="width: 12%; min-width: 110px;">Código / SKU</th>
-                    <th style="min-width: 260px;">Descripción del Producto</th>
-                    <th style="width: 14%; min-width: 130px;">Ubicación (Pasillo)</th>
-                    <!-- Cabeceras Dinámicas para Almacenes -->
-                    {% for wh in warehouses %}
-                    <th style="text-align: right; min-width: 120px;">{{ wh.name }}</th>
-                    {% endfor %}
-                    <th style="text-align: right; width: 14%; min-width: 130px;">Existencia Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if items %}
-                {% for item in items %}
-                <tr class="inventory-row" data-name="{{ item.name | lower }}"
-                    data-code="{{ (item.code or '') | lower }}" data-barcode="{{ (item.barcode or '') | lower }}"
-                    data-rack="{{ (item.rackLocation or '') | lower }}"
-                    data-stock-low="{% if item.totalStock <= item.minStock and item.minStock > 0 %}true{% else %}false{% endif %}">
-                    <td>
-                        <span
-                            style="font-family: monospace; font-size: 0.85rem; display: block; text-align: center; margin-bottom: 4px;">
-                            {{ item.code or 'S/C' }}
-                        </span>
-                        {% if item.barcode %}
-                        <span
-                            style="font-size: 0.75rem; color: var(--text-secondary); display: block; text-align: center;">
-                            <i class="fa-solid fa-barcode"></i> {{ item.barcode }}
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                            <span style="font-weight: 600; color: var(--text-primary);">{{ item.name }}</span>
-                            <a href="{{ url_for('web_inventory.kardex_view', item_id=item.id) }}" class="btn btn-sm btn-ghost" title="Ver Kardex Valorizado de {{ item.name }}" style="padding: 2px 6px; font-size: 0.72rem; color: var(--accent-purple); text-decoration: none; border: 1px solid rgba(147, 51, 234, 0.2); border-radius: 4px; flex-shrink: 0;">
-                                <i class="fa-solid fa-table-list"></i> Kardex
-                            </a>
-                        </div>
-                        <small style="color: var(--text-secondary); font-size: 0.75rem;">Categoría: {{ item.categoryId |
-                            capitalize if item.categoryId else 'General' }} | Unidad: {{ item.unit }}</small>
-                    </td>
-                    <td>
-                        <span style="font-size: 0.88rem; color: var(--text-secondary); font-weight: 500;">
-                            <i class="fa-solid fa-location-dot"
-                                style="font-size: 0.78rem; margin-right: 4px; color: var(--accent-purple);"></i>
-                            {{ item.rackLocation or '—' }}
-                        </span>
-                    </td>
-                    <!-- Stock por cada Almacén -->
-                    {% for wh in warehouses %}
-                    <td style="text-align: right;">
-                        {% set qty = item.warehouse_stocks.get(wh.id, 0.0) %}
-                        <span
-                            style="font-weight: 400; color: {% if qty < 0 %}var(--accent-red){% elif qty == 0 %}var(--text-muted){% else %}inherit{% endif %};">
-                            {{ "{:,.2f}".format(qty) }}
-                        </span>
-                    </td>
-                    {% endfor %}
-                    <td style="text-align: right;">
-                        {% if item.totalStock <= item.minStock and item.minStock > 0 %}
-                        <span class="badge badge-danger" style="font-weight: 500; font-size: 0.75rem; padding: 2px 6px;">
-                            {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit }}
-                        </span>
-                        {% else %}
-                        <span style="font-size: 0.78rem; color: var(--text-primary); font-weight: 400;">
-                            {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit }}
-                        </span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-                {% else %}
-                <tr id="no-items-placeholder">
-                    <td colspan="{{ 4 + (warehouses | length) }}"
-                        style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
-                        <i class="fa-solid fa-warehouse"
-                            style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
-                        <span>No hay bienes físicos registrados en el catálogo.</span>
-                        <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 5px;">Solo los artículos
-                            marcados como **Bien / Producto Físico** tienen control de almacenes.</p>
-                        <a href="{{ url_for('web_invoices.new_item') }}"
-                            style="color: var(--accent-emerald); font-weight: 500; display: block; margin-top: 15px;">Ir
-                            a Catálogo a Crear Producto</a>
-                    </td>
-                </tr>
+    <!-- Barra de Búsqueda y Chips de Filtro -->
+    <div class="inventory-toolbar-card">
+        <div class="inventory-toolbar-top">
+            <!-- Búsqueda en Vivo -->
+            <div class="inventory-search-box">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="inventory-search" class="inventory-search-input"
+                    placeholder="Buscar por código, descripción, ubicación o almacén..."
+                    autocomplete="off" oninput="onSearchInput()">
+                <button type="button" id="search-clear-btn" class="inventory-search-clear" onclick="clearSearch()" title="Limpiar búsqueda">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Chips de Filtro Rápido (Segmented Controls) -->
+            <div class="inventory-chips-group">
+                <button type="button" class="filter-chip active" id="chip-all" onclick="selectChipFilter('all')">
+                    Todos <span class="chip-badge">{{ items | length }}</span>
+                </button>
+                <button type="button" class="filter-chip" id="chip-in-stock" onclick="selectChipFilter('in-stock')">
+                    <i class="fa-solid fa-circle-check" style="font-size:0.75rem; color:#10b981;"></i> Disponible <span class="chip-badge">{{ ns.in_stock_count }}</span>
+                </button>
+                {% if low_stock_alerts | length > 0 %}
+                <button type="button" class="filter-chip filter-chip-danger" id="chip-low-stock" onclick="selectChipFilter('low-stock')">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size:0.75rem;"></i> Stock Bajo <span class="chip-badge">{{ low_stock_alerts | length }}</span>
+                </button>
                 {% endif %}
+                {% if ns.out_of_stock_count > 0 %}
+                <button type="button" class="filter-chip" id="chip-zero" onclick="selectChipFilter('zero')">
+                    Agotados <span class="chip-badge">{{ ns.out_of_stock_count }}</span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
 
-                <!-- Fila oculta de búsqueda sin resultados -->
-                <tr id="no-results-row" style="display: none;">
-                    <td colspan="{{ 4 + (warehouses | length) }}"
-                        style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
-                        <i class="fa-solid fa-magnifying-glass"
-                            style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
-                        <span>No se encontraron artículos en almacén que coincidan con la búsqueda.</span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        <!-- Filtros Secundarios Desplegables -->
+        <div class="inventory-advanced-filters">
+            <div class="inventory-filter-select-wrapper">
+                <i class="fa-solid fa-tags"></i>
+                <select id="category-filter" class="inventory-filter-select" onchange="applyFilters()">
+                    <option value="all">Todas las Categorías</option>
+                </select>
+            </div>
+            <div class="inventory-filter-select-wrapper">
+                <i class="fa-solid fa-warehouse"></i>
+                <select id="warehouse-filter" class="inventory-filter-select" onchange="applyFilters()">
+                    <option value="all">Todos los Almacenes</option>
+                    {% for wh in warehouses %}
+                    <option value="{{ wh.id }}">{{ wh.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="button" class="btn-reset-filters" onclick="resetAllFilters()" title="Restablecer todos los filtros">
+                <i class="fa-solid fa-arrow-rotate-left"></i> Limpiar filtros
+            </button>
+        </div>
     </div>
 
-    <!-- Paginador General (Con selector de tamaño de página) -->
-    <div id="pagination-wrapper"
-        style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 15px;">
-        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-            <span style="font-size: 0.88rem; color: var(--text-secondary);" id="pagination-info">
-                Mostrando 0-0 de 0 artículos
-            </span>
-            <span
-                style="font-size: 0.88rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 8px;">
-                <span style="opacity: 0.5;">|</span> Mostrar:
-                <select id="page-size-selector"
-                    style="height: 30px; padding: 0 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: border-color var(--transition-fast);">
-                    <option value="10" selected>10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-                por página
-            </span>
+    <!-- Tabla General Cruzada de Inventario (Consolidada & Limpia) -->
+    <div class="inventory-table-card">
+        <div class="table-responsive" style="margin-bottom: 0;">
+            <table class="inventory-table" id="inventory-table">
+                <thead>
+                    <tr>
+                        <th class="sortable" onclick="sortTable('code')" style="width: 130px;">
+                            Cód. / SKU <i class="fa-solid fa-sort" id="sort-icon-code"></i>
+                        </th>
+                        <th class="sortable" onclick="sortTable('name')">
+                            Descripción del Producto <i class="fa-solid fa-sort" id="sort-icon-name"></i>
+                        </th>
+                        <!-- Cabeceras Dinámicas por Almacén -->
+                        {% for wh in warehouses %}
+                        <th class="warehouse-header wh-col-{{ wh.id }}" style="text-align: right; min-width: 110px;">
+                            <i class="fa-solid fa-warehouse" style="font-size:0.68rem; margin-right:3px; opacity:0.6;"></i>
+                            {{ wh.name }}
+                        </th>
+                        {% endfor %}
+                        <th class="sortable" onclick="sortTable('stock')" style="width: 140px; text-align: right;">
+                            Existencia Total <i class="fa-solid fa-sort" id="sort-icon-stock"></i>
+                        </th>
+                        <th style="width: 150px; text-align: right;">
+                            Valorización
+                        </th>
+                        <th style="width: 100px; text-align: right;">
+                            Acciones
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if items %}
+                    {% for item in items %}
+                    {% set stock_val = (item.totalStock or 0.0) | float %}
+                    {% set min_stock_val = (item.minStock or 0.0) | float %}
+                    {% set max_stock_val = (item.maxStock or 0.0) | float %}
+                    {% set is_low = (min_stock_val > 0 and stock_val <= min_stock_val) %}
+                    {% set cost_val = (item.costPrice or 0.0) | float %}
+                    {% set price_val = (item.price or 0.0) | float %}
+                    {% set total_cost = stock_val * cost_val %}
+                    {% set total_pvp = stock_val * price_val %}
+
+                    <tr class="inventory-row"
+                        data-id="{{ item.id }}"
+                        data-code="{{ (item.code or '') | lower }}"
+                        data-barcode="{{ (item.barcode or '') | lower }}"
+                        data-name="{{ (item.name or '') | lower }}"
+                        data-display-name="{{ item.name or '' }}"
+                        data-category="{{ (item.categoryId or 'general') | lower }}"
+                        data-display-category="{{ item.categoryId | capitalize if item.categoryId else 'General' }}"
+                        data-rack="{{ (item.rackLocation or '') | lower }}"
+                        data-display-rack="{{ item.rackLocation or '' }}"
+                        data-stock-num="{{ stock_val }}"
+                        data-stock-low="{{ 'true' if is_low else 'false' }}"
+                        data-min-stock="{{ min_stock_val }}"
+                        data-max-stock="{{ max_stock_val }}"
+                        data-unit="{{ item.unit or 'Unidad' }}"
+                        data-price-num="{{ price_val }}"
+                        data-cost-num="{{ cost_val }}"
+                        data-total-cost="{{ total_cost }}"
+                        data-total-pvp="{{ total_pvp }}"
+                        data-image="{{ item.imageUrl or '' }}"
+                        data-brand="{{ (item.brand or '') | lower }}"
+                        data-display-brand="{{ item.brand or '' }}"
+                        data-supplier="{{ (item.supplierName or '') | lower }}"
+                        data-display-supplier="{{ item.supplierName or '' }}"
+                        {% for wh in warehouses %}
+                        data-wh-stock-{{ wh.id }}="{{ item.warehouse_stocks.get(wh.id, 0.0) | float }}"
+                        {% endfor %}>
+
+                        <!-- Col 1: Cód. & SKU -->
+                        <td>
+                            <div class="col-sku-container">
+                                <span class="sku-code-badge">{{ item.code or 'S/C' }}</span>
+                                {% if item.barcode %}
+                                <span class="barcode-subtext" title="Código de barra">
+                                    <i class="fa-solid fa-barcode"></i> {{ item.barcode }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- Col 2: Producto & Metadatos (Avatar + Nombre + Categoría + Ubicación) -->
+                        <td>
+                            <div class="col-product-container">
+                                <div class="product-avatar">
+                                    {% if item.imageUrl %}
+                                    <img src="{{ item.imageUrl }}" alt="{{ item.name }}" loading="lazy">
+                                    {% else %}
+                                    <i class="fa-solid fa-box" style="color: #64748b;"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="product-info-text">
+                                    <a href="javascript:void(0)" class="product-title-link" onclick="openInventoryDrawer('{{ item.id }}')">
+                                        {{ item.name }}
+                                    </a>
+                                    <div class="product-meta-row">
+                                        <span class="category-tag">{{ item.categoryId | capitalize if item.categoryId else 'General' }}</span>
+                                        {% if item.rackLocation %}
+                                        <span class="location-tag" title="Ubicación física / Pasillo">
+                                            <i class="fa-solid fa-location-dot" style="font-size:0.65rem;"></i> {{ item.rackLocation }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Columnas Dinámicas de Almacenes -->
+                        {% for wh in warehouses %}
+                        {% set qty = (item.warehouse_stocks.get(wh.id, 0.0) | float) %}
+                        <td class="warehouse-stock-cell wh-col-{{ wh.id }}">
+                            {% if qty == 0 %}
+                            <span class="wh-qty-zero">—</span>
+                            {% elif qty < 0 %}
+                            <span class="wh-qty-neg">{{ "{:,.2f}".format(qty) }}</span>
+                            {% else %}
+                            <span class="wh-qty-pos">{{ "{:,.2f}".format(qty) }}</span>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+
+                        <!-- Existencia Total -->
+                        <td class="col-total-stock">
+                            {% if is_low %}
+                            <span class="stock-pill-low" title="¡Stock crítico por debajo del mínimo! (Mín: {{ min_stock_val }})">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                {{ "{:,.2f}".format(stock_val) }} {{ item.unit or 'ud' }}
+                            </span>
+                            {% else %}
+                            <span class="stock-pill-normal">
+                                {{ "{:,.2f}".format(stock_val) }} {{ item.unit or 'ud' }}
+                            </span>
+                            {% endif %}
+                            <span class="stock-subtext">
+                                Mín: {{ "{:,.0f}".format(min_stock_val) }}
+                                {% if max_stock_val > 0 %} • Máx: {{ "{:,.0f}".format(max_stock_val) }}{% endif %}
+                            </span>
+                        </td>
+
+                        <!-- Valorización (Capital Invertido a Costo / PVP) -->
+                        <td class="col-valuation">
+                            <span class="val-capital" title="Valorización de stock a costo de adquisición">
+                                RD$ {{ "{:,.2f}".format(total_cost) }}
+                            </span>
+                            <span class="val-pvp-sub" title="Valor comercial estimado a precio de venta">
+                                PVP: RD$ {{ "{:,.2f}".format(total_pvp) }}
+                            </span>
+                        </td>
+
+                        <!-- Acciones -->
+                        <td>
+                            <div class="col-actions-container">
+                                <button type="button" class="btn-action-icon" onclick="openInventoryDrawer('{{ item.id }}')" title="Ver Ficha y Almacenes">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+                                <a href="{{ url_for('web_inventory.kardex_view', item_id=item.id) }}" class="btn-action-icon" title="Kárdex / Movimientos">
+                                    <i class="fa-solid fa-table-list" style="color: var(--accent-purple);"></i>
+                                </a>
+                                <div class="action-menu">
+                                    <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Más opciones">
+                                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                                    </button>
+                                    <div class="action-menu-dropdown">
+                                        <a href="javascript:void(0)" onclick="openInventoryDrawer('{{ item.id }}')" class="action-menu-item">
+                                            <i class="fa-regular fa-eye"></i> Detalle por Almacén
+                                        </a>
+                                        <a href="{{ url_for('web_inventory.kardex_view', item_id=item.id) }}" class="action-menu-item">
+                                            <i class="fa-solid fa-table-list"></i> Kárdex Valorizado
+                                        </a>
+                                        <a href="{{ url_for('web_invoices.new_inventory_transaction') }}?item_id={{ item.id }}" class="action-menu-item">
+                                            <i class="fa-solid fa-shuffle"></i> Ajustar / Mover
+                                        </a>
+                                        <a href="{{ url_for('web_invoices.edit_item', item_id=item.id) }}" class="action-menu-item">
+                                            <i class="fa-solid fa-pen-to-square"></i> Editar Producto
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <!-- Estado vacío cuando no hay artículos -->
+                    <tr id="no-items-placeholder">
+                        <td colspan="{{ 5 + (warehouses | length) }}" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                            <i class="fa-solid fa-warehouse" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.45; display: block;"></i>
+                            <h4 style="margin: 0 0 6px 0; color: var(--text-primary); font-family: var(--font-heading);">No hay bienes físicos en inventario</h4>
+                            <p style="margin: 0 0 16px 0; font-size: 0.88rem; color: var(--text-secondary);">Solo los artículos configurados como "Bien / Producto Físico" gestionan stock.</p>
+                            <a href="{{ url_for('web_invoices.new_item') }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-plus"></i> Crear Producto
+                            </a>
+                        </td>
+                    </tr>
+                    {% endif %}
+
+                    <!-- Fila oculta de búsqueda sin resultados -->
+                    <tr id="no-results-row" style="display: none;">
+                        <td colspan="{{ 5 + (warehouses | length) }}" style="text-align: center; padding: 50px 20px; color: var(--text-secondary);">
+                            <i class="fa-solid fa-magnifying-glass" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; opacity: 0.45; display: block;"></i>
+                            <h5 style="margin: 0 0 6px 0; color: var(--text-primary);">No se encontraron artículos en inventario</h5>
+                            <p style="margin: 0 0 14px 0; font-size: 0.85rem; color: var(--text-muted);">No hay coincidencias con los términos de búsqueda o filtros aplicados.</p>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="resetAllFilters()">
+                                <i class="fa-solid fa-arrow-rotate-left"></i> Restablecer Filtros
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-        <div style="display: inline-flex; gap: 6px; align-items: center;" id="pagination-buttons">
-            <!-- Se poblará dinámicamente -->
+
+        <!-- Barra de Paginación -->
+        <div class="inventory-pagination-bar" id="pagination-wrapper">
+            <div style="display: flex; align-items: center; flex-wrap: wrap;">
+                <span class="pagination-counter" id="pagination-info">
+                    Mostrando 0-0 de 0 artículos
+                </span>
+                <div class="pagination-page-size-wrap">
+                    <span>Mostrar:</span>
+                    <select id="page-size-selector" class="pagination-page-size-select" onchange="changePageSize(this.value)">
+                        <option value="10">10</option>
+                        <option value="20" selected>20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    <span>por página</span>
+                </div>
+            </div>
+            <div class="pagination-nav-buttons" id="pagination-buttons">
+                <!-- Se puebla dinámicamente -->
+            </div>
         </div>
     </div>
 </div>
+
+<!-- ==========================================================================
+     QUICK VIEW DRAWER (PANEL LATERAL OFFCANVAS PARA INVENTARIO)
+     ========================================================================== -->
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="closeInventoryDrawer()"></div>
+<div class="inventory-drawer" id="inventory-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div class="drawer-header">
+        <h4 id="drawer-title">Existencias por Almacén</h4>
+        <button type="button" class="drawer-close-btn" onclick="closeInventoryDrawer()" title="Cerrar panel (Esc)">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    <div class="drawer-body" id="drawer-body">
+        <!-- Hero Card -->
+        <div class="drawer-product-hero">
+            <div class="drawer-hero-img" id="drawer-hero-avatar">
+                <i class="fa-solid fa-box"></i>
+            </div>
+            <div class="drawer-hero-title">
+                <h5 id="drawer-name">Nombre del Producto</h5>
+                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                    <span class="category-tag" id="drawer-category">General</span>
+                    <span id="drawer-stock-badge"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección Distribución por Almacén -->
+        <div class="drawer-section">
+            <span class="drawer-section-title"><i class="fa-solid fa-warehouse"></i> Distribución por Almacén</span>
+            <div class="drawer-wh-list" id="drawer-wh-container">
+                <!-- Se puebla dinámicamente -->
+            </div>
+        </div>
+
+        <!-- Sección Niveles de Control de Stock -->
+        <div class="drawer-section">
+            <span class="drawer-section-title"><i class="fa-solid fa-shield-halved"></i> Parámetros de Seguridad</span>
+            <div class="drawer-grid-props">
+                <div class="drawer-prop-item">
+                    <span class="drawer-prop-label">Existencia Total</span>
+                    <span class="drawer-prop-val" style="color: var(--accent-emerald, #10b981);" id="drawer-total-stock">0.00</span>
+                </div>
+                <div class="drawer-prop-item">
+                    <span class="drawer-prop-label">Unidad de Medida</span>
+                    <span class="drawer-prop-val" id="drawer-unit">Unidad</span>
+                </div>
+                <div class="drawer-prop-item">
+                    <span class="drawer-prop-label">Stock Mínimo</span>
+                    <span class="drawer-prop-val" id="drawer-min-stock">0</span>
+                </div>
+                <div class="drawer-prop-item">
+                    <span class="drawer-prop-label">Stock Máximo</span>
+                    <span class="drawer-prop-val" id="drawer-max-stock">0</span>
+                </div>
+                <div class="drawer-prop-item" style="grid-column: span 2;">
+                    <span class="drawer-prop-label">Ubicación Pasillo / Rack</span>
+                    <span class="drawer-prop-val" id="drawer-location">—</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección Valorización de Inventario -->
+        <div class="drawer-section">
+            <span class="drawer-section-title"><i class="fa-solid fa-coins"></i> Valorización Financiera</span>
+            <div class="drawer-grid-props">
+                <div class="drawer-prop-item">
+                    <span class="drawer-prop-label">Costo Unitario</span>
+                    <span class="drawer-prop-val" id="drawer-cost">RD$ 0.00</span>
+                </div>
+                <div class="drawer-prop-item">
+                    <span class="drawer-prop-label">Precio Venta (PVP)</span>
+                    <span class="drawer-prop-val" id="drawer-price">RD$ 0.00</span>
+                </div>
+                <div class="drawer-prop-item">
+                    <span class="drawer-prop-label">Capital Total Invertido</span>
+                    <span class="drawer-prop-val" style="color: var(--accent-purple, #7c3aed);" id="drawer-total-cost">RD$ 0.00</span>
+                </div>
+                <div class="drawer-prop-item">
+                    <span class="drawer-prop-label">Valor Total en Venta</span>
+                    <span class="drawer-prop-val" style="color: var(--accent-emerald, #10b981);" id="drawer-total-pvp">RD$ 0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección Identificación -->
+        <div class="drawer-section">
+            <span class="drawer-section-title"><i class="fa-solid fa-barcode"></i> Identificación</span>
+            <div class="drawer-grid-props">
+                <div class="drawer-prop-item">
+                    <span class="drawer-prop-label">Código SKU</span>
+                    <span class="drawer-prop-val" style="font-family:'Fira Code', monospace;" id="drawer-sku">S/C</span>
+                </div>
+                <div class="drawer-prop-item">
+                    <span class="drawer-prop-label">Código de Barra</span>
+                    <span class="drawer-prop-val" style="font-family:'Fira Code', monospace;" id="drawer-barcode">—</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="drawer-footer">
+        <a href="#" id="drawer-kardex-btn" class="btn btn-primary" style="flex: 1; text-align: center;">
+            <i class="fa-solid fa-table-list"></i> Ver Kárdex
+        </a>
+        <a href="#" id="drawer-transaction-btn" class="btn btn-secondary" style="flex: 1; text-align: center;">
+            <i class="fa-solid fa-shuffle"></i> Ajustar / Mover
+        </a>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-    // ==========================================
-    // Lógica de Paginación y Filtrado del Grid
-    // ==========================================
-    let itemsPerPage = 10; // 10 items por defecto
+    // =========================================================================
+    // LÓGICA DE FILTRADO, ORDENAMIENTO Y PAGINACIÓN DEL TABLERO DE INVENTARIO
+    // =========================================================================
+    let itemsPerPage = 20;
     let currentPage = 1;
+    let currentChip = 'all';
     let filteredRows = [];
+    let currentSort = { column: null, direction: 'asc' };
+
+    // Lista de Almacenes provista desde Jinja
+    const WAREHOUSES = [
+        {% for wh in warehouses %}
+        { id: "{{ wh.id }}", name: "{{ wh.name }}" },
+        {% endfor %}
+    ];
 
     function getRowsArray() {
         return Array.from(document.querySelectorAll('.inventory-row'));
     }
 
+    function formatCurrency(val) {
+        return 'RD$ ' + Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // --- Búsqueda reactiva con debounce ---
+    let searchDebounceTimer = null;
+    function onSearchInput() {
+        clearTimeout(searchDebounceTimer);
+        const input = document.getElementById('inventory-search');
+        const clearBtn = document.getElementById('search-clear-btn');
+        if (clearBtn) {
+            clearBtn.style.display = input.value.trim() ? 'block' : 'none';
+        }
+        searchDebounceTimer = setTimeout(() => {
+            applyFilters();
+        }, 150);
+    }
+
+    function clearSearch() {
+        const input = document.getElementById('inventory-search');
+        input.value = '';
+        const clearBtn = document.getElementById('search-clear-btn');
+        if (clearBtn) clearBtn.style.display = 'none';
+        applyFilters();
+        input.focus();
+    }
+
+    // --- Selección de Chips rápidos ---
+    function selectChipFilter(chipValue) {
+        currentChip = chipValue;
+
+        // Actualizar estados visuales de los chips
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        const activeChip = document.getElementById({
+            'all': 'chip-all',
+            'in-stock': 'chip-in-stock',
+            'low-stock': 'chip-low-stock',
+            'zero': 'chip-zero'
+        }[chipValue]);
+        if (activeChip) activeChip.classList.add('active');
+
+        // Sincronizar KPI card
+        document.querySelectorAll('.inventory-kpi-card').forEach(k => k.classList.remove('active'));
+        const activeCard = document.getElementById({
+            'all': 'kpi-card-all',
+            'in-stock': 'kpi-card-units',
+            'low-stock': 'kpi-card-alert'
+        }[chipValue]);
+        if (activeCard) activeCard.classList.add('active');
+
+        applyFilters();
+    }
+
+    // --- Aplicación Centralizada de Filtros ---
     function applyFilters() {
-        const searchVal = document.getElementById('inventory-search').value.toLowerCase().trim();
-        const stockVal = document.getElementById('stock-filter').value;
+        const searchVal = (document.getElementById('inventory-search').value || '').toLowerCase().trim();
+        const catVal = (document.getElementById('category-filter').value || 'all').toLowerCase();
+        const whFilterVal = document.getElementById('warehouse-filter').value || 'all';
 
-        const rows = getRowsArray();
-        if (rows.length === 0) return;
+        const allRows = getRowsArray();
+        if (allRows.length === 0) return;
 
-        filteredRows = rows.filter(row => {
-            // 1. Filtrado por texto de búsqueda
-            const code = (row.getAttribute('data-code') || '').toLowerCase();
-            const barcode = (row.getAttribute('data-barcode') || '').toLowerCase();
-            const name = (row.getAttribute('data-name') || '').toLowerCase();
-            const rack = (row.getAttribute('data-rack') || '').toLowerCase();
-            const matchesSearch = code.includes(searchVal) || barcode.includes(searchVal) || name.includes(searchVal) || rack.includes(searchVal);
-
-            // 2. Filtrado por stock
+        filteredRows = allRows.filter(row => {
+            const stockNum = parseFloat(row.getAttribute('data-stock-num') || '0');
             const isLowStock = row.getAttribute('data-stock-low') === 'true';
-            let matchesStock = true;
-            if (stockVal === 'low-stock') {
-                matchesStock = isLowStock;
-            } else if (stockVal === 'in-stock') {
-                matchesStock = !isLowStock;
+
+            // 1. Filtro rápido de Chip
+            if (currentChip === 'in-stock' && stockNum <= 0) return false;
+            if (currentChip === 'low-stock' && !isLowStock) return false;
+            if (currentChip === 'zero' && stockNum !== 0) return false;
+
+            // 2. Filtro de Categoría
+            if (catVal !== 'all' && (row.getAttribute('data-category') || '') !== catVal) return false;
+
+            // 3. Filtro por Almacén específico (debe tener stock > 0 en ese almacén)
+            if (whFilterVal !== 'all') {
+                const whStock = parseFloat(row.getAttribute(`data-wh-stock-${whFilterVal}`) || '0');
+                if (whStock <= 0) return false;
             }
 
-            return matchesSearch && matchesStock;
+            // 4. Búsqueda de texto libre (código, barcode, nombre, ubicación, categoría)
+            if (searchVal) {
+                const code = row.getAttribute('data-code') || '';
+                const barcode = row.getAttribute('data-barcode') || '';
+                const name = row.getAttribute('data-name') || '';
+                const rack = row.getAttribute('data-rack') || '';
+                const category = row.getAttribute('data-category') || '';
+
+                const matches = code.includes(searchVal) ||
+                                barcode.includes(searchVal) ||
+                                name.includes(searchVal) ||
+                                rack.includes(searchVal) ||
+                                category.includes(searchVal);
+                if (!matches) return false;
+            }
+
+            return true;
         });
+
+        // Aplicar ordenamiento activo
+        if (currentSort.column) {
+            sortFilteredRows();
+        }
 
         currentPage = 1;
         renderTable();
     }
 
+    // --- Limpieza general de filtros ---
+    function resetAllFilters() {
+        document.getElementById('inventory-search').value = '';
+        const clearBtn = document.getElementById('search-clear-btn');
+        if (clearBtn) clearBtn.style.display = 'none';
+
+        document.getElementById('category-filter').value = 'all';
+        document.getElementById('warehouse-filter').value = 'all';
+
+        selectChipFilter('all');
+    }
+
+    // --- Ordenamiento por Encabezados ---
+    function sortTable(column) {
+        if (currentSort.column === column) {
+            currentSort.direction = (currentSort.direction === 'asc') ? 'desc' : 'asc';
+        } else {
+            currentSort.column = column;
+            currentSort.direction = 'asc';
+        }
+
+        ['code', 'name', 'stock'].forEach(col => {
+            const icon = document.getElementById(`sort-icon-${col}`);
+            if (icon) {
+                if (col === currentSort.column) {
+                    icon.className = currentSort.direction === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down';
+                    icon.style.color = 'var(--text-primary)';
+                } else {
+                    icon.className = 'fa-solid fa-sort';
+                    icon.style.color = 'var(--text-muted)';
+                }
+            }
+        });
+
+        sortFilteredRows();
+        renderTable();
+    }
+
+    function sortFilteredRows() {
+        const { column, direction } = currentSort;
+        const multiplier = direction === 'asc' ? 1 : -1;
+
+        filteredRows.sort((a, b) => {
+            let valA, valB;
+            if (column === 'code') {
+                valA = a.getAttribute('data-code') || '';
+                valB = b.getAttribute('data-code') || '';
+                return valA.localeCompare(valB) * multiplier;
+            } else if (column === 'name') {
+                valA = a.getAttribute('data-name') || '';
+                valB = b.getAttribute('data-name') || '';
+                return valA.localeCompare(valB) * multiplier;
+            } else if (column === 'stock') {
+                valA = parseFloat(a.getAttribute('data-stock-num') || '0');
+                valB = parseFloat(b.getAttribute('data-stock-num') || '0');
+                return (valA - valB) * multiplier;
+            }
+            return 0;
+        });
+    }
+
+    // --- Renderizado y Paginación ---
+    function changePageSize(newSize) {
+        itemsPerPage = parseInt(newSize, 10) || 20;
+        currentPage = 1;
+        renderTable();
+    }
+
     function renderTable() {
-        const rows = getRowsArray();
+        const allRows = getRowsArray();
         const totalItems = filteredRows.length;
         const noResultsRow = document.getElementById('no-results-row');
         const paginationWrapper = document.getElementById('pagination-wrapper');
 
-        // Ocultar todos los registros inicialmente
-        rows.forEach(r => r.style.display = 'none');
+        allRows.forEach(r => r.style.display = 'none');
 
         if (totalItems === 0) {
             if (noResultsRow) noResultsRow.style.display = 'table-row';
@@ -381,26 +1598,26 @@
         if (paginationWrapper) paginationWrapper.style.display = 'flex';
 
         const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-        // Ajustar límites de página actual
         if (currentPage > totalPages) currentPage = totalPages;
         if (currentPage < 1) currentPage = 1;
 
         const startIndex = (currentPage - 1) * itemsPerPage;
         const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
 
-        // Mostrar solo los elementos de la página actual
+        const tbody = document.querySelector('#inventory-table tbody');
         for (let i = startIndex; i < endIndex; i++) {
-            if (filteredRows[i]) filteredRows[i].style.display = 'table-row';
+            const row = filteredRows[i];
+            if (row) {
+                row.style.display = 'table-row';
+                tbody.appendChild(row);
+            }
         }
 
-        // Actualizar texto informativo de paginación
         const infoSpan = document.getElementById('pagination-info');
         if (infoSpan) {
             infoSpan.textContent = `Mostrando ${startIndex + 1}-${endIndex} de ${totalItems} artículos`;
         }
 
-        // Renderizar botones de paginación
         renderPaginationButtons(totalPages);
     }
 
@@ -413,88 +1630,215 @@
 
         // Botón Anterior
         const prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
         prevBtn.className = 'btn btn-secondary';
-        prevBtn.style.padding = '8px 12px';
-        prevBtn.style.fontSize = '0.82rem';
+        prevBtn.style.padding = '6px 10px';
+        prevBtn.style.fontSize = '0.8rem';
         prevBtn.disabled = currentPage === 1;
         prevBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
-        prevBtn.addEventListener('click', () => {
-            currentPage--;
-            renderTable();
-        });
+        prevBtn.onclick = () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTable();
+            }
+        };
         container.appendChild(prevBtn);
 
-        // Páginas Numeradas
+        // Números de Página
         const pages = [];
         if (totalPages <= 7) {
             for (let i = 1; i <= totalPages; i++) pages.push(i);
         } else {
             pages.push(1);
-            const start = Math.max(2, currentPage - 2);
-            const end = Math.min(totalPages - 1, currentPage + 2);
+            const start = Math.max(2, currentPage - 1);
+            const end = Math.min(totalPages - 1, currentPage + 1);
             if (start > 2) pages.push('...');
             for (let i = start; i <= end; i++) pages.push(i);
             if (end < totalPages - 1) pages.push('...');
-            if (totalPages > 1) pages.push(totalPages);
+            pages.push(totalPages);
         }
+
         pages.forEach(p => {
             if (p === '...') {
-                const span = document.createElement('span');
-                span.textContent = '...';
-                span.style.cssText = 'color: var(--text-muted); align-self: center; padding: 0 6px; font-size: 0.82rem;';
-                container.appendChild(span);
+                const dots = document.createElement('span');
+                dots.textContent = '...';
+                dots.style.cssText = 'color: var(--text-muted); padding: 0 4px; font-size: 0.8rem;';
+                container.appendChild(dots);
             } else {
-                const pageBtn = document.createElement('button');
-                pageBtn.style.padding = '8px 14px';
-                pageBtn.style.fontSize = '0.82rem';
-                pageBtn.style.fontWeight = 'bold';
-                pageBtn.style.borderRadius = 'var(--radius-sm)';
-                pageBtn.style.cursor = 'pointer';
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = p;
+                btn.style.padding = '6px 11px';
+                btn.style.fontSize = '0.8rem';
+                btn.style.fontWeight = '600';
+                btn.style.borderRadius = 'var(--radius-sm, 6px)';
+                btn.style.cursor = 'pointer';
 
                 if (p === currentPage) {
-                    pageBtn.className = 'btn btn-primary';
-                    pageBtn.style.boxShadow = 'none';
+                    btn.className = 'btn btn-primary';
                 } else {
-                    pageBtn.className = 'btn btn-secondary';
+                    btn.className = 'btn btn-secondary';
                 }
 
-                pageBtn.textContent = p;
-                pageBtn.addEventListener('click', () => {
+                btn.onclick = () => {
                     currentPage = p;
                     renderTable();
-                });
-                container.appendChild(pageBtn);
+                };
+                container.appendChild(btn);
             }
         });
 
         // Botón Siguiente
         const nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
         nextBtn.className = 'btn btn-secondary';
-        nextBtn.style.padding = '8px 12px';
-        nextBtn.style.fontSize = '0.82rem';
+        nextBtn.style.padding = '6px 10px';
+        nextBtn.style.fontSize = '0.8rem';
         nextBtn.disabled = currentPage === totalPages;
         nextBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-        nextBtn.addEventListener('click', () => {
-            currentPage++;
-            renderTable();
-        });
+        nextBtn.onclick = () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderTable();
+            }
+        };
         container.appendChild(nextBtn);
     }
 
-    // Carga Inicial del Documento
+    // =========================================================================
+    // QUICK VIEW DRAWER (PANEL LATERAL OFFCANVAS PARA INVENTARIO)
+    // =========================================================================
+    function openInventoryDrawer(itemId) {
+        const row = document.querySelector(`.inventory-row[data-id="${itemId}"]`);
+        if (!row) return;
+
+        const name = row.getAttribute('data-display-name') || 'Sin nombre';
+        const code = row.getAttribute('data-code') || 'S/C';
+        const barcode = row.getAttribute('data-barcode') || '';
+        const category = row.getAttribute('data-display-category') || 'General';
+        const location = row.getAttribute('data-display-rack') || '—';
+        const stock = parseFloat(row.getAttribute('data-stock-num') || '0');
+        const minStock = parseFloat(row.getAttribute('data-min-stock') || '0');
+        const maxStock = parseFloat(row.getAttribute('data-max-stock') || '0');
+        const unit = row.getAttribute('data-unit') || 'Unidad';
+        const price = parseFloat(row.getAttribute('data-price-num') || '0');
+        const cost = parseFloat(row.getAttribute('data-cost-num') || '0');
+        const totalCost = parseFloat(row.getAttribute('data-total-cost') || '0');
+        const totalPvp = parseFloat(row.getAttribute('data-total-pvp') || '0');
+        const imageUrl = row.getAttribute('data-image') || '';
+        const isLow = row.getAttribute('data-stock-low') === 'true';
+
+        // Título y Hero
+        document.getElementById('drawer-name').textContent = name;
+        document.getElementById('drawer-sku').textContent = (row.querySelector('.sku-code-badge') || {}).textContent || code.toUpperCase();
+        document.getElementById('drawer-barcode').textContent = barcode || '—';
+        document.getElementById('drawer-category').textContent = category;
+        document.getElementById('drawer-location').textContent = location;
+
+        // Avatar
+        const avatarEl = document.getElementById('drawer-hero-avatar');
+        if (imageUrl) {
+            avatarEl.innerHTML = `<img src="${imageUrl}" alt="${name}">`;
+        } else {
+            avatarEl.innerHTML = `<i class="fa-solid fa-box" style="color: #64748b;"></i>`;
+        }
+
+        // Estado / Alerta de Stock
+        const statusBadge = document.getElementById('drawer-stock-badge');
+        if (isLow) {
+            statusBadge.className = 'stock-pill-low';
+            statusBadge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Bajo Mínimo`;
+        } else if (stock === 0) {
+            statusBadge.className = 'inactive-tag';
+            statusBadge.textContent = 'Agotado';
+        } else {
+            statusBadge.className = 'tax-badge-pill';
+            statusBadge.style.cssText = 'background: rgba(16,185,129,0.12); color: #059669; font-size: 0.72rem;';
+            statusBadge.textContent = 'Disponible';
+        }
+
+        // Parámetros de Stock
+        document.getElementById('drawer-total-stock').textContent = `${stock.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${unit}`;
+        document.getElementById('drawer-unit').textContent = unit;
+        document.getElementById('drawer-min-stock').textContent = minStock > 0 ? minStock.toLocaleString('en-US') : '0';
+        document.getElementById('drawer-max-stock').textContent = maxStock > 0 ? maxStock.toLocaleString('en-US') : '0';
+
+        // Precios & Valorización
+        document.getElementById('drawer-cost').textContent = formatCurrency(cost);
+        document.getElementById('drawer-price').textContent = formatCurrency(price);
+        document.getElementById('drawer-total-cost').textContent = formatCurrency(totalCost);
+        document.getElementById('drawer-total-pvp').textContent = formatCurrency(totalPvp);
+
+        // Distribución por Almacén
+        const whContainer = document.getElementById('drawer-wh-container');
+        whContainer.innerHTML = '';
+
+        WAREHOUSES.forEach(wh => {
+            const whQty = parseFloat(row.getAttribute(`data-wh-stock-${wh.id}`) || '0');
+            const pct = (stock > 0 && whQty > 0) ? Math.min(100, Math.round((whQty / stock) * 100)) : 0;
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'drawer-wh-item';
+            itemDiv.innerHTML = `
+                <div class="drawer-wh-top">
+                    <span class="drawer-wh-name"><i class="fa-solid fa-warehouse" style="color:var(--text-muted); font-size:0.75rem;"></i> ${wh.name}</span>
+                    <span class="drawer-wh-qty ${whQty < 0 ? 'wh-qty-neg' : (whQty === 0 ? 'wh-qty-zero' : 'wh-qty-pos')}">
+                        ${whQty.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${unit}
+                    </span>
+                </div>
+                <div class="drawer-wh-bar-bg">
+                    <div class="drawer-wh-bar-fill" style="width: ${pct}%;"></div>
+                </div>
+            `;
+            whContainer.appendChild(itemDiv);
+        });
+
+        // Botones de acción del Drawer
+        document.getElementById('drawer-kardex-btn').href = `/inventory/kardex?item_id=${encodeURIComponent(itemId)}`;
+        document.getElementById('drawer-transaction-btn').href = `/inventory/transactions/new?item_id=${encodeURIComponent(itemId)}`;
+
+        // Mostrar Drawer
+        document.getElementById('drawer-backdrop').classList.add('show');
+        document.getElementById('inventory-drawer').classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeInventoryDrawer() {
+        document.getElementById('drawer-backdrop').classList.remove('show');
+        document.getElementById('inventory-drawer').classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeInventoryDrawer();
+        }
+    });
+
+    // =========================================================================
+    // INICIALIZACIÓN
+    // =========================================================================
     document.addEventListener('DOMContentLoaded', function () {
         filteredRows = getRowsArray();
-        renderTable();
 
-        // Event listener del selector de tamaño de página
-        const pageSizeSelector = document.getElementById('page-size-selector');
-        if (pageSizeSelector) {
-            pageSizeSelector.addEventListener('change', function () {
-                itemsPerPage = parseInt(this.value);
-                currentPage = 1;
-                renderTable();
+        // Poblar select de Categoría dinámicamente
+        const categories = new Set();
+        filteredRows.forEach(row => {
+            const cat = row.getAttribute('data-display-category');
+            if (cat && cat.trim() && cat !== 'General') categories.add(cat.trim());
+        });
+
+        const catSelect = document.getElementById('category-filter');
+        if (catSelect) {
+            Array.from(categories).sort().forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.toLowerCase();
+                opt.textContent = c;
+                catSelect.appendChild(opt);
             });
         }
+
+        renderTable();
     });
 </script>
 {% endblock %}
