@@ -801,6 +801,7 @@ def new_item():
             "wholesalePrice": float(request.form.get('wholesalePrice') or 0.0),
             "brand": request.form.get('brand', '').strip(),
             "maxStock": float(request.form.get('maxStock') or 0.0),
+            "trackLots": 'trackLots' in request.form or request.form.get('trackLots') == 'true',
             "imageUrl": request.form.get('imageUrl', '').strip()
         }
         
@@ -856,6 +857,7 @@ def edit_item(item_id):
             "wholesalePrice": float(request.form.get('wholesalePrice') or 0.0),
             "brand": request.form.get('brand', '').strip(),
             "maxStock": float(request.form.get('maxStock') or 0.0),
+            "trackLots": 'trackLots' in request.form or request.form.get('trackLots') == 'true',
             "imageUrl": request.form.get('imageUrl', '').strip()
         }
         DatabaseService.save_item(owner_uid, item_id, item_dict, company_id=company_id, sandbox=sandbox)
@@ -1438,10 +1440,11 @@ def quick_create_product():
         'categoryId': data.get('categoryId', 'general'),
         'totalStock': 0.0,
         'minStock': 0.0,
+        'trackLots': bool(data.get('trackLots', False)),
         'isActive': True,
     }
     DatabaseService.save_item(owner_uid, item_id, item_dict, company_id=company_id, sandbox=sandbox)
-    return jsonify({'success': True, 'item': {'id': item_id, 'code': code, 'name': name, 'price': price, 'type': item_type, 'itbisRate': itbis_rate, 'costPrice': cost_price, 'unit': data.get('unit', 'Unidad')}})
+    return jsonify({'success': True, 'item': {'id': item_id, 'code': code, 'name': name, 'price': price, 'type': item_type, 'itbisRate': itbis_rate, 'costPrice': cost_price, 'unit': data.get('unit', 'Unidad'), 'trackLots': bool(data.get('trackLots', False))}})
 
 
 # =========================================================================
@@ -1627,6 +1630,24 @@ def new_inventory_transaction():
         from app.services.inventory_transaction_service import InventoryTransactionService, InsufficientStockError, InventoryTransactionError
         unit_cost = float(item.get('costPrice', 0.0) or 0.0) if item else 0.0
 
+        lot_choice = request.form.get('lotChoice', 'new')
+        enable_lot = request.form.get('enableLot') in ('on', 'true', '1') or 'enableLot' in request.form
+        if item and item.get('trackLots'):
+            enable_lot = True
+
+        if enable_lot:
+            lot_id = request.form.get('lotId', '').strip() if lot_choice == 'existing' else ''
+            lot_number = request.form.get('lotNumber', '').strip() if lot_choice == 'new' else ''
+            production_date = request.form.get('productionDate', '').strip() if lot_choice == 'new' else ''
+            expiration_date = request.form.get('expirationDate', '').strip() if lot_choice == 'new' else ''
+            lot_notes = request.form.get('lotNotes', '').strip()
+        else:
+            lot_id = ''
+            lot_number = ''
+            production_date = ''
+            expiration_date = ''
+            lot_notes = ''
+
         tx_dict = {
             "itemId": item_id,
             "itemName": item_name,
@@ -1641,7 +1662,12 @@ def new_inventory_transaction():
             "destinationWarehouseName": wh_map.get(request.form.get('destinationWarehouseId', ''), '') if tx_type in ['ENTRADA', 'TRANSFERENCIA'] else '',
             "referenceType": "MANUAL_ADJUSTMENT",
             "referenceId": str(uuid.uuid4())[:8],
-            "performedBy": session['user']['email']
+            "performedBy": session['user']['email'],
+            "lotId": lot_id,
+            "lotNumber": lot_number,
+            "productionDate": production_date,
+            "expirationDate": expiration_date,
+            "lotNotes": lot_notes,
         }
         
         try:

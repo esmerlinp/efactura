@@ -21,7 +21,9 @@
                 <select id="itemId" name="itemId" class="form-select" required>
                     <option value="" disabled selected>-- Elige un artículo del catálogo --</option>
                     {% for item in items %}
-                    <option value="{{ item.id }}">{{ item.name }} {% if item.code %}(SKU: {{ item.code }}){% endif %} - Precio: RD$ {{ "{:,.2f}".format(item.price) }}</option>
+                    <option value="{{ item.id }}" data-track-lots="{{ 'true' if item.trackLots else 'false' }}">
+                        {{ item.name }} {% if item.code %}(SKU: {{ item.code }}){% endif %}{% if item.trackLots %} [Control de Lote]{% endif %} - Precio: RD$ {{ "{:,.2f}".format(item.price) }}
+                    </option>
                     {% endfor %}
                 </select>
             </div>
@@ -47,7 +49,7 @@
             <!-- Almacén Origen (Solo para SALIDAS y TRANSFERENCIAS) -->
             <div class="form-group" id="grp-origin-wh" style="display: none;">
                 <label for="originWarehouseId">Almacén Origen</label>
-                <select id="originWarehouseId" name="originWarehouseId" class="form-select">
+                <select id="originWarehouseId" name="originWarehouseId" class="form-select" onchange="checkItemLotRequirement()">
                     {% for wh in warehouses %}
                     <option value="{{ wh.id }}">{{ wh.name }}</option>
                     {% endfor %}
@@ -57,11 +59,85 @@
             <!-- Almacén Destino (Solo para ENTRADAS y TRANSFERENCIAS) -->
             <div class="form-group" id="grp-destination-wh">
                 <label for="destinationWarehouseId">Almacén de Destino</label>
-                <select id="destinationWarehouseId" name="destinationWarehouseId" class="form-select">
+                <select id="destinationWarehouseId" name="destinationWarehouseId" class="form-select" onchange="checkItemLotRequirement()">
                     {% for wh in warehouses %}
                     <option value="{{ wh.id }}">{{ wh.name }}</option>
                     {% endfor %}
                 </select>
+            </div>
+
+            <!-- Sección de Lotes / Partidas -->
+            <div id="grp-lot-section" style="grid-column: 1 / -1; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 8px; padding: 18px; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(139, 92, 246, 0.18); padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="font-weight: 700; font-size: 0.95rem; color: var(--accent-purple, #8b5cf6); display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-layer-group"></i>
+                            <span>Gestión de Lote / Partida</span>
+                        </div>
+                        <span id="lot-badge-status" class="badge" style="font-size: 0.72rem; padding: 3px 8px; border-radius: 4px;"></span>
+                    </div>
+
+                    <!-- Toggle para activar/desactivar lote -->
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <label id="lbl-enable-lot" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.84rem; font-weight: 600; margin: 0;">
+                            <input type="checkbox" id="chk-enable-lot" name="enableLot" onchange="toggleLotEnabled(this.checked)">
+                            <span id="txt-enable-lot">Asignar lote a este movimiento</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Mensaje explicativo cuando no está activo -->
+                <div id="lot-disabled-hint" style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">
+                    <i class="fa-solid fa-circle-info" style="color: var(--accent-purple); margin-right: 4px;"></i>
+                    Marque la casilla superior si desea ingresar o vincular un número de lote y fechas de vencimiento para este movimiento. Los productos configurados con <strong>Control por Lotes</strong> en el catálogo lo exigen automáticamente.
+                </div>
+
+                <!-- Campos de Lote -->
+                <div id="lot-fields-wrapper" style="display: none;">
+                    <div style="display: flex; justify-content: flex-end; gap: 16px; font-size: 0.84rem; margin-bottom: 14px;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="lotChoice" value="new" checked onchange="toggleLotChoice(this.value)">
+                            <span><i class="fa-solid fa-plus-circle"></i> Crear Nuevo Lote</span>
+                        </label>
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="lotChoice" value="existing" onchange="toggleLotChoice(this.value)">
+                            <span><i class="fa-solid fa-rotate"></i> Seleccionar Lote Existente</span>
+                        </label>
+                    </div>
+
+                    <!-- Bloque Lote Existente -->
+                    <div id="lot-existing-container" style="display: none; margin-bottom: 12px;">
+                        <label for="lotId">Selecciona el Lote Existente *</label>
+                        <select id="lotId" name="lotId" class="form-select">
+                            <option value="">-- Selecciona un lote registrado --</option>
+                        </select>
+                        <small style="color: var(--text-secondary); font-size: 0.75rem; display: block; margin-top: 4px;">
+                            Incrementará las existencias del lote existente seleccionado en este almacén.
+                        </small>
+                    </div>
+
+                    <!-- Bloque Nuevo Lote -->
+                    <div id="lot-new-container">
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 15px; margin-bottom: 12px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="lotNumber">Código / Lote # *</label>
+                                <input type="text" id="lotNumber" name="lotNumber" class="form-input" placeholder="Ej: LOT-2026-001" style="font-family: monospace;">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="productionDate">Fabricación</label>
+                                <input type="date" id="productionDate" name="productionDate" class="form-input">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="expirationDate">Vencimiento</label>
+                                <input type="date" id="expirationDate" name="expirationDate" class="form-input">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="lotNotes">Notas del Lote (Opcional)</label>
+                            <input type="text" id="lotNotes" name="lotNotes" class="form-input" placeholder="Observaciones o notas del fabricante...">
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Cantidad a Ajustar -->
@@ -144,9 +220,143 @@
             grpDest.style.display = 'block';
             selectDest.required = true;
         }
+
+        checkItemLotRequirement();
     }
 
-    // Inicializar motivos al cargar
+    function toggleLotChoice(choice) {
+        const newCont = document.getElementById('lot-new-container');
+        const existCont = document.getElementById('lot-existing-container');
+        const lotNumber = document.getElementById('lotNumber');
+        const lotId = document.getElementById('lotId');
+        const isEnabled = isLotActive();
+
+        if (choice === 'existing') {
+            newCont.style.display = 'none';
+            existCont.style.display = 'block';
+            lotNumber.required = false;
+            lotId.required = isEnabled;
+            loadExistingLots();
+        } else {
+            newCont.style.display = 'block';
+            existCont.style.display = 'none';
+            lotNumber.required = isEnabled;
+            lotId.required = false;
+        }
+    }
+
+    function isCurrentItemLotTracked() {
+        const itemSelect = document.getElementById('itemId');
+        const opt = itemSelect.options[itemSelect.selectedIndex];
+        return opt ? (opt.getAttribute('data-track-lots') === 'true') : false;
+    }
+
+    function isLotActive() {
+        const type = document.getElementById('type').value;
+        if (type !== 'ENTRADA') return false;
+        const isTracked = isCurrentItemLotTracked();
+        const chk = document.getElementById('chk-enable-lot');
+        return isTracked || (chk && chk.checked);
+    }
+
+    function toggleLotEnabled(enabled) {
+        const lotFields = document.getElementById('lot-fields-wrapper');
+        const lotDisabledHint = document.getElementById('lot-disabled-hint');
+        const lotNumber = document.getElementById('lotNumber');
+        const lotId = document.getElementById('lotId');
+
+        if (enabled) {
+            lotFields.style.display = 'block';
+            lotDisabledHint.style.display = 'none';
+            const choice = document.querySelector('input[name="lotChoice"]:checked')?.value || 'new';
+            if (choice === 'new') {
+                lotNumber.required = true;
+                lotId.required = false;
+            } else {
+                lotNumber.required = false;
+                lotId.required = true;
+                loadExistingLots();
+            }
+        } else {
+            lotFields.style.display = 'none';
+            lotDisabledHint.style.display = 'block';
+            lotNumber.required = false;
+            lotId.required = false;
+        }
+    }
+
+    function checkItemLotRequirement() {
+        const type = document.getElementById('type').value;
+        const grpLot = document.getElementById('grp-lot-section');
+        const chkEnable = document.getElementById('chk-enable-lot');
+        const txtEnable = document.getElementById('txt-enable-lot');
+        const badgeStatus = document.getElementById('lot-badge-status');
+        const isTracked = isCurrentItemLotTracked();
+
+        if (type !== 'ENTRADA') {
+            grpLot.style.display = 'none';
+            toggleLotEnabled(false);
+            return;
+        }
+
+        // Para ENTRADA, la sección "Gestión de Lote / Partida" siempre está disponible
+        grpLot.style.display = 'block';
+
+        if (isTracked) {
+            chkEnable.checked = true;
+            chkEnable.disabled = true;
+            txtEnable.textContent = 'Control de Lote Obligatorio (por Catálogo)';
+            badgeStatus.style.display = 'inline-block';
+            badgeStatus.style.background = 'rgba(239, 68, 68, 0.15)';
+            badgeStatus.style.color = 'var(--accent-red, #ef4444)';
+            badgeStatus.innerHTML = '<i class="fa-solid fa-lock"></i> Requerido';
+            toggleLotEnabled(true);
+        } else {
+            chkEnable.disabled = false;
+            txtEnable.textContent = 'Asignar lote a esta entrada';
+            badgeStatus.style.display = 'inline-block';
+            badgeStatus.style.background = 'rgba(107, 114, 128, 0.15)';
+            badgeStatus.style.color = 'var(--text-secondary)';
+            badgeStatus.innerHTML = 'Opcional';
+            toggleLotEnabled(chkEnable.checked);
+        }
+    }
+
+    function loadExistingLots() {
+        const itemSelect = document.getElementById('itemId');
+        const itemId = itemSelect.value;
+        const whId = document.getElementById('destinationWarehouseId').value;
+        const lotSelect = document.getElementById('lotId');
+
+        if (!itemId) return;
+
+        lotSelect.innerHTML = '<option value="">Cargando lotes...</option>';
+        fetch(`/inventory/lots/by-item/${itemId}?warehouseId=${encodeURIComponent(whId)}`)
+            .then(res => res.json())
+            .then(data => {
+                lotSelect.innerHTML = '<option value="">-- Selecciona un lote registrado --</option>';
+                if (data.success && data.lots && data.lots.length > 0) {
+                    data.lots.forEach(l => {
+                        const opt = document.createElement('option');
+                        opt.value = l.id;
+                        const exp = l.expirationDate ? ` (Vence: ${l.expirationDate.substring(0, 10)})` : '';
+                        const stock = l.quantity !== undefined ? ` [Disp: ${parseFloat(l.quantity).toFixed(2)}]` : '';
+                        opt.textContent = `${l.lotNumber || l.id}${exp}${stock}`;
+                        lotSelect.appendChild(opt);
+                    });
+                } else {
+                    lotSelect.innerHTML = '<option value="">No hay lotes previos en este almacén. Usa "Crear Nuevo Lote".</option>';
+                }
+            })
+            .catch(err => {
+                console.error("Error al cargar lotes:", err);
+                lotSelect.innerHTML = '<option value="">Error al cargar lotes existentes.</option>';
+            });
+    }
+
+    document.getElementById('itemId').addEventListener('change', checkItemLotRequirement);
+
+    // Inicializar motivos y validación de lote al cargar
     toggleWarehousePickers(document.getElementById('type').value);
 
     // Validación local del formulario
@@ -158,6 +368,36 @@
         if (type === 'TRANSFERENCIA' && origId === destId) {
             e.preventDefault();
             alert('¡Error! El almacén de origen y el almacén de destino no pueden ser el mismo para una transferencia.');
+            return;
+        }
+
+        if (type === 'ENTRADA' && isLotActive()) {
+            const choice = document.querySelector('input[name="lotChoice"]:checked')?.value || 'new';
+            if (choice === 'new') {
+                const num = document.getElementById('lotNumber').value.trim();
+                if (!num) {
+                    e.preventDefault();
+                    alert('Debe indicar el código o número de lote para esta partida.');
+                    document.getElementById('lotNumber').focus();
+                    return;
+                }
+                const pDate = document.getElementById('productionDate').value;
+                const eDate = document.getElementById('expirationDate').value;
+                if (pDate && eDate && eDate < pDate) {
+                    e.preventDefault();
+                    alert('La fecha de vencimiento no puede ser anterior a la fecha de fabricación.');
+                    document.getElementById('expirationDate').focus();
+                    return;
+                }
+            } else {
+                const lid = document.getElementById('lotId').value;
+                if (!lid) {
+                    e.preventDefault();
+                    alert('Debe seleccionar un lote existente o cambiar a "Crear Nuevo Lote".');
+                    document.getElementById('lotId').focus();
+                    return;
+                }
+            }
         }
     });
 </script>

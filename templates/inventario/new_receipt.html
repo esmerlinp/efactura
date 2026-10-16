@@ -68,7 +68,7 @@
                     {% set prev = item.get('receivedQuantity', 0)|float %}
                     {% set ordered = item.get('quantity', 0)|float %}
                     {% set remaining = (ordered - prev)|round(2) %}
-                    <tr>
+                    <tr class="po-item-row" data-po-item-id="{{ item.id }}">
                         <td style="font-weight:600;">{{ item.name or '—' }}</td>
                         <td style="text-align:center;">{{ ordered }}</td>
                         <td style="text-align:center;">
@@ -79,16 +79,81 @@
                             {% endif %}
                         </td>
                         <td>
-                            <input type="number" class="form-input" name="received_qty_{{ item.id }}" value="{{ remaining }}" min="0" step="0.01" style="text-align:center; width:100%;">
+                            <input type="number" class="form-input" name="received_qty_{{ item.id }}" id="received_qty_{{ item.id }}" value="{{ remaining }}" min="0" step="0.01" style="text-align:center; width:100%;">
                         </td>
                         <td>{{ item.unit|default('Unidad') }}</td>
                         <td style="text-align:right;">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
                         <td>
                             <div style="position:relative;">
                                 <input type="text" class="form-input catalog-search" data-item-id="{{ item.id }}" placeholder="Buscar en catálogo..." autocomplete="off" style="width:100%; font-size:0.78rem;">
-                                <input type="hidden" name="catalog_item_{{ item.id }}" class="catalog-item-id" value="">
-                                <input type="hidden" name="catalog_name_{{ item.id }}" class="catalog-item-name" value="{{ item.name }}">
+                                <input type="hidden" name="catalog_item_{{ item.id }}" id="catalog_item_{{ item.id }}" class="catalog-item-id" value="">
+                                <input type="hidden" name="catalog_name_{{ item.id }}" id="catalog_name_{{ item.id }}" class="catalog-item-name" value="{{ item.name }}">
+                                <input type="hidden" name="track_lots_{{ item.id }}" id="track_lots_{{ item.id }}" value="0">
                                 <div class="catalog-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:200px; overflow-y:auto; margin-top:2px;"></div>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- Fila de asignación de Lotes (solo visible si el producto seleccionado requiere lotes) -->
+                    <tr id="lot-subrow-{{ item.id }}" class="lot-subrow" style="display:none; background:rgba(99, 102, 241, 0.04); border-top:1px dashed var(--border-color); border-bottom:2px solid var(--accent-purple);">
+                        <td colspan="7" style="padding:14px 20px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="badge" style="background:rgba(99,102,241,0.15); color:var(--accent-purple); font-weight:700; font-size:0.75rem; padding:4px 8px; border-radius:4px;">
+                                        <i class="fa-solid fa-layer-group"></i> Lote Requerido
+                                    </span>
+                                    <span style="font-size:0.82rem; color:var(--text-secondary);">
+                                        Producto: <strong id="lot-item-name-label-{{ item.id }}" style="color:var(--text-primary);"></strong>
+                                    </span>
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <label style="cursor:pointer; font-size:0.8rem; display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-card);">
+                                        <input type="radio" name="lot_mode_{{ item.id }}" value="new" checked onchange="switchReceiptLotMode('{{ item.id }}', 'new')">
+                                        <span><i class="fa-solid fa-plus-circle"></i> Nuevo Lote</span>
+                                    </label>
+                                    <label style="cursor:pointer; font-size:0.8rem; display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-card);">
+                                        <input type="radio" name="lot_mode_{{ item.id }}" value="existing" onchange="switchReceiptLotMode('{{ item.id }}', 'existing')">
+                                        <span><i class="fa-solid fa-rotate"></i> Lote Existente</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Contenedor Nuevo Lote -->
+                            <div id="lot-new-box-{{ item.id }}" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+                                <div>
+                                    <label style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px; display:block;">
+                                        Número de Lote *
+                                    </label>
+                                    <input type="text" name="lot_number_{{ item.id }}" id="lot_number_{{ item.id }}" class="form-input" placeholder="Ej: LOT-2026-001" style="font-size:0.8rem; font-family:monospace;">
+                                </div>
+                                <div>
+                                    <label style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px; display:block;">
+                                        Fecha Fabricación
+                                    </label>
+                                    <input type="date" name="production_date_{{ item.id }}" id="production_date_{{ item.id }}" class="form-input" style="font-size:0.8rem;">
+                                </div>
+                                <div>
+                                    <label style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px; display:block;">
+                                        Fecha Vencimiento
+                                    </label>
+                                    <input type="date" name="expiration_date_{{ item.id }}" id="expiration_date_{{ item.id }}" class="form-input" style="font-size:0.8rem;">
+                                </div>
+                                <div>
+                                    <label style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px; display:block;">
+                                        Notas del Lote
+                                    </label>
+                                    <input type="text" name="lot_notes_{{ item.id }}" id="lot_notes_{{ item.id }}" class="form-input" placeholder="Opcional..." style="font-size:0.8rem;">
+                                </div>
+                            </div>
+
+                            <!-- Contenedor Lote Existente -->
+                            <div id="lot-existing-box-{{ item.id }}" style="display:none;">
+                                <label style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px; display:block;">
+                                    Seleccionar Lote Existente *
+                                </label>
+                                <select name="lot_id_{{ item.id }}" id="lot_id_{{ item.id }}" class="form-select" style="font-size:0.8rem;">
+                                    <option value="">-- Seleccionar lote disponible --</option>
+                                </select>
+                                <div id="lot-existing-hint-{{ item.id }}" style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;"></div>
                             </div>
                         </td>
                     </tr>
@@ -109,7 +174,7 @@
         <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=order.id) }}" class="btn btn-secondary">
             <i class="fa-solid fa-xmark"></i> Cancelar
         </a>
-        <button type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary" id="btn-submit-receipt">
             <i class="fa-solid fa-check"></i> Confirmar Recepción
         </button>
     </div>
@@ -118,9 +183,72 @@
 <script>
 // ── Catalog Item Search per Row ────────────────────────────────────
 const catalogItems = {{ catalog_items|tojson|safe if catalog_items else '[]' }};
+const cachedItemLots = {};
+
+function switchReceiptLotMode(poItemId, mode) {
+    const newBox = document.getElementById('lot-new-box-' + poItemId);
+    const existBox = document.getElementById('lot-existing-box-' + poItemId);
+    const lotNumInput = document.getElementById('lot_number_' + poItemId);
+    const lotSelect = document.getElementById('lot_id_' + poItemId);
+
+    if (mode === 'new') {
+        if (newBox) newBox.style.display = 'grid';
+        if (existBox) existBox.style.display = 'none';
+        if (lotNumInput) lotNumInput.required = true;
+        if (lotSelect) { lotSelect.required = false; lotSelect.value = ''; }
+    } else {
+        if (newBox) newBox.style.display = 'none';
+        if (existBox) existBox.style.display = 'block';
+        if (lotNumInput) { lotNumInput.required = false; lotNumInput.value = ''; }
+        if (lotSelect) lotSelect.required = true;
+
+        const catItemId = document.getElementById('catalog_item_' + poItemId)?.value;
+        if (catItemId) {
+            loadExistingLotsForReceipt(poItemId, catItemId);
+        }
+    }
+}
+
+function loadExistingLotsForReceipt(poItemId, catItemId) {
+    const lotSelect = document.getElementById('lot_id_' + poItemId);
+    const hintDiv = document.getElementById('lot-existing-hint-' + poItemId);
+    if (!lotSelect || !catItemId) return;
+
+    const whId = document.getElementById('warehouseId')?.value || '';
+    let url = `/inventory/lots/by-item/${encodeURIComponent(catItemId)}`;
+    if (whId) {
+        url += `?warehouse_id=${encodeURIComponent(whId)}`;
+    }
+
+    lotSelect.innerHTML = '<option value="">Cargando lotes...</option>';
+    if (hintDiv) hintDiv.textContent = '';
+
+    fetch(url)
+        .then(res => res.json())
+        .then(lots => {
+            lotSelect.innerHTML = '<option value="">-- Seleccionar lote existente --</option>';
+            if (!lots || lots.length === 0) {
+                lotSelect.innerHTML = '<option value="">Sin lotes registrados previamente</option>';
+                if (hintDiv) hintDiv.textContent = 'No hay lotes previos para este producto en el almacén. Puede crearlo con la opción "Nuevo Lote".';
+                return;
+            }
+            lots.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = l.id;
+                opt.textContent = `${l.lotNumber || 'S/N'} (Saldo: ${l.quantity} | Vence: ${l.expirationDate || 'N/A'})`;
+                opt.dataset.expirationDate = l.expirationDate || '';
+                opt.dataset.productionDate = l.productionDate || '';
+                lotSelect.appendChild(opt);
+            });
+        })
+        .catch(err => {
+            console.error('Error al cargar lotes:', err);
+            lotSelect.innerHTML = '<option value="">Error al cargar lotes</option>';
+        });
+}
 
 document.querySelectorAll('.catalog-search').forEach(input => {
-    const resultsDiv = input.nextElementSibling.nextElementSibling;
+    const resultsDiv = input.nextElementSibling.nextElementSibling.nextElementSibling.nextElementSibling;
     let timeout = null;
 
     input.addEventListener('input', function() {
@@ -137,17 +265,43 @@ document.querySelectorAll('.catalog-search').forEach(input => {
             if (matches.length) {
                 matches.slice(0, 10).forEach(item => {
                     const d = document.createElement('div');
-                    d.style.cssText = 'padding:8px 12px; cursor:pointer; border-bottom:1px solid var(--border-color); font-size:0.8rem; display:flex; justify-content:space-between;';
+                    d.style.cssText = 'padding:8px 12px; cursor:pointer; border-bottom:1px solid var(--border-color); font-size:0.8rem; display:flex; justify-content:space-between; align-items:center;';
                     d.onmouseenter = function() { this.style.background = 'rgba(255,255,255,0.04)'; };
                     d.onmouseleave = function() { this.style.background = 'transparent'; };
                     d.onclick = function() {
-                        const itemId = input.dataset.itemId;
+                        const poItemId = input.dataset.itemId;
                         input.value = item.name + (item.code ? ' [' + item.code + ']' : '');
-                        document.querySelector('input[name="catalog_item_' + itemId + '"]').value = item.id;
-                        document.querySelector('input[name="catalog_name_' + itemId + '"]').value = item.name;
+                        document.querySelector('input[name="catalog_item_' + poItemId + '"]').value = item.id;
+                        document.querySelector('input[name="catalog_name_' + poItemId + '"]').value = item.name;
+
+                        // Manejo dinámico de lotes
+                        const trackLots = !!item.trackLots;
+                        const trackLotsInput = document.getElementById('track_lots_' + poItemId);
+                        if (trackLotsInput) trackLotsInput.value = trackLots ? '1' : '0';
+
+                        const lotSubrow = document.getElementById('lot-subrow-' + poItemId);
+                        if (lotSubrow) {
+                            if (trackLots) {
+                                lotSubrow.style.display = '';
+                                const nameLabel = document.getElementById('lot-item-name-label-' + poItemId);
+                                if (nameLabel) nameLabel.textContent = item.name;
+
+                                // Asegurar modo activo
+                                const isNew = document.querySelector(`input[name="lot_mode_${poItemId}"][value="new"]`)?.checked;
+                                switchReceiptLotMode(poItemId, isNew ? 'new' : 'existing');
+                                loadExistingLotsForReceipt(poItemId, item.id);
+                            } else {
+                                lotSubrow.style.display = 'none';
+                                const lotNum = document.getElementById('lot_number_' + poItemId);
+                                if (lotNum) { lotNum.required = false; lotNum.value = ''; }
+                                const lotSel = document.getElementById('lot_id_' + poItemId);
+                                if (lotSel) { lotSel.required = false; lotSel.value = ''; }
+                            }
+                        }
                         resultsDiv.style.display = 'none';
                     };
-                    d.innerHTML = '<span>' + item.name + '</span><span style="color:var(--text-muted); font-size:0.7rem;">' + (item.code || '') + ' | Stock: ' + (item.totalStock||0) + '</span>';
+                    const lotBadge = item.trackLots ? '<span style="background:rgba(99,102,241,0.15); color:var(--accent-purple); font-size:0.65rem; padding:2px 5px; border-radius:3px; margin-left:6px;"><i class="fa-solid fa-layer-group"></i> Lotes</span>' : '';
+                    d.innerHTML = '<div><span>' + item.name + '</span>' + lotBadge + '</div><span style="color:var(--text-muted); font-size:0.7rem;">' + (item.code || '') + ' | Stock: ' + (item.totalStock||0) + '</span>';
                     resultsDiv.appendChild(d);
                 });
                 resultsDiv.style.display = 'block';
@@ -162,10 +316,68 @@ document.querySelectorAll('.catalog-search').forEach(input => {
     });
 });
 
-// ── Warehouse auto-fill name ──────────────────────────────────────
+// ── Warehouse auto-fill name and update lot selects ─────────────────
 document.getElementById('warehouseId').addEventListener('change', function() {
     const sel = this.options[this.selectedIndex];
     document.getElementById('warehouseName').value = sel ? sel.text : '';
+
+    // Actualizar selectores de lotes existentes visibles
+    document.querySelectorAll('.lot-subrow').forEach(row => {
+        if (row.style.display !== 'none') {
+            const poItemId = row.id.replace('lot-subrow-', '');
+            const catItemId = document.getElementById('catalog_item_' + poItemId)?.value;
+            if (catItemId) {
+                loadExistingLotsForReceipt(poItemId, catItemId);
+            }
+        }
+    });
+});
+
+// ── Validaciones pre-submit ─────────────────────────────────────────
+document.getElementById('receipt-form').addEventListener('submit', function(e) {
+    const rows = document.querySelectorAll('.po-item-row');
+    let hasError = false;
+
+    rows.forEach(row => {
+        if (hasError) return;
+        const poItemId = row.dataset.poItemId;
+        const rqtyInput = document.getElementById('received_qty_' + poItemId);
+        const rqty = parseFloat(rqtyInput?.value || '0');
+        if (rqty <= 0) return;
+
+        const trackLots = document.getElementById('track_lots_' + poItemId)?.value === '1';
+        if (trackLots) {
+            const isNew = document.querySelector(`input[name="lot_mode_${poItemId}"][value="new"]`)?.checked;
+            if (isNew) {
+                const lotNumber = (document.getElementById('lot_number_' + poItemId)?.value || '').trim();
+                if (!lotNumber) {
+                    alert('Debe indicar el número de lote para la partida con control de lotes.');
+                    document.getElementById('lot_number_' + poItemId)?.focus();
+                    hasError = true;
+                    e.preventDefault();
+                    return;
+                }
+                const prodDate = document.getElementById('production_date_' + poItemId)?.value;
+                const expDate = document.getElementById('expiration_date_' + poItemId)?.value;
+                if (prodDate && expDate && expDate < prodDate) {
+                    alert('La fecha de vencimiento no puede ser anterior a la de fabricación en el lote.');
+                    document.getElementById('expiration_date_' + poItemId)?.focus();
+                    hasError = true;
+                    e.preventDefault();
+                    return;
+                }
+            } else {
+                const lotId = (document.getElementById('lot_id_' + poItemId)?.value || '').trim();
+                if (!lotId) {
+                    alert('Debe seleccionar un lote existente para la partida con control de lotes.');
+                    document.getElementById('lot_id_' + poItemId)?.focus();
+                    hasError = true;
+                    e.preventDefault();
+                    return;
+                }
+            }
+        }
+    });
 });
 </script>
 {% endblock %}
