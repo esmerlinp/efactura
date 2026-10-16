@@ -1011,6 +1011,10 @@ def create_app():
     from app.web.certificacion import web_certificacion_bp
     from app.web.api_portal import web_api_portal_bp
 
+    # Registra las rutas del asistente de importación de artículos sobre web_invoices_bp
+    # antes de registrar el blueprint (las rutas se adjuntan al importar el módulo).
+    from app.web import items_import  # noqa: E402,F401
+
     app.register_blueprint(web_herramientas_bp)
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)

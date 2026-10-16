@@ -1,0 +1,4 @@
+﻿name,price,itbisRate,type,categoryId,code,barcode,unit,costPrice,minStock,maxStock,rackLocation,codigoImpuesto,tasaImpuestoAdicional,supplierName,wholesalePrice,brand,imageUrl,isActive
+Arroz Selecto 5 lb,275.0,0,Bien,CAT-ALIMENTOS,ARR-001,7461234567890,unidad,220.0,10,100,A-01,,,Distribuidora Ejemplo SRL,255.0,Selecto,https://ejemplo.com/imagenes/arroz-selecto.jpg,Activo
+Agua Mineral 500 ml,35.0,18,Bien,CAT-BEBIDAS,AGU-500,7461234567891,unidad,20.0,24,240,B-02,,,Bebidas del Caribe SRL,30.0,Manantial,,Activo
+Servicio de instalación,1500.0,18,Servicio,CAT-SERVICIOS,SRV-001,,servicio,650.0,,,,,,,,,,Activo

@@ -266,6 +266,25 @@ def physical_count_detail(count_id):
         return redirect(url_for("web_inventory.physical_count_list"))
 
     if request.method == "POST":
+        if "reopen" in request.form:
+            ok, result = PhysicalCountService.reopen_count(
+                company_id, count_id, session["user"].get("email", ""), sandbox=sb, owner_uid=owner_uid)
+            if ok:
+                flash(f"Conteo reabierto. {result['reversedTransactions']} ajustes revertidos.", "success")
+            else:
+                flash(result, "error")
+            return redirect(url_for("web_inventory.physical_count_detail", count_id=count_id))
+
+        qty_map = {}
+        for key, val in request.form.items():
+            if key.startswith("qty_"):
+                try:
+                    qty_map[key[4:]] = float(val)
+                except ValueError:
+                    qty_map[key[4:]] = 0.0
+        if qty_map:
+            PhysicalCountService.save_count_lines(company_id, count_id, qty_map, sandbox=sb)
+
         if "finalize" in request.form:
             ok, result = PhysicalCountService.finalize_count(
                 company_id, count_id, session["user"].get("email", ""), sandbox=sb, owner_uid=owner_uid)
@@ -275,17 +294,9 @@ def physical_count_detail(count_id):
             else:
                 flash(result, "error")
             return redirect(url_for("web_inventory.physical_count_list"))
-        else:
-            for key, val in request.form.items():
-                if key.startswith("qty_"):
-                    item_id = key[4:]
-                    try:
-                        qty = float(val)
-                    except ValueError:
-                        qty = 0.0
-                    PhysicalCountService.record_count_line(company_id, count_id, item_id, qty, sandbox=sb)
-            flash("Líneas actualizadas.", "success")
-            count = PhysicalCountService.get_count(company_id, count_id, sandbox=sb)
+
+        flash("Líneas actualizadas.", "success")
+        count = PhysicalCountService.get_count(company_id, count_id, sandbox=sb)
 
     return render_template("inventario/physical_count_detail.html", active_page="inventory_counts", count=count)
 
