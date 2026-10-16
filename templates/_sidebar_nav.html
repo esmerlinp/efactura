@@ -51,13 +51,13 @@
     <ul class="sidebar-section-content" id="quick-access-list"></ul>
 </div>
 
-<!-- SECCIÓN: VENTAS -->
-{% if (module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or check_permission('canInvoice') or check_permission('canManageFiscalNotes'))) or (module_enabled('cotizaciones') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageQuotations'))) or (module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePOS') or check_permission('canManageRUI')) and session.get('company_profile_pos_enabled', True)) or (module_enabled('price_lists') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePriceLists'))) %}
+<!-- SECCIÓN: VENTAS Y CLIENTES -->
+{% if (session.get('user', {}).get('role') == 'owner' or check_permission('canClients')) or (module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or check_permission('canInvoice') or check_permission('canManageFiscalNotes'))) or (module_enabled('cotizaciones') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageQuotations'))) or (module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePOS') or check_permission('canManageRUI')) and session.get('company_profile_pos_enabled', True)) or (module_enabled('price_lists') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePriceLists'))) %}
 <div class="sidebar-section" id="sidebar-section-ventas">
     <div class="sidebar-section-header">
         <div class="header-left">
             <i class="fa-regular fa-chart-bar section-icon"></i>
-            <span>Ventas</span>
+            <span>Ventas y Clientes</span>
         </div>
         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
     </div>
@@ -67,6 +67,14 @@
             data-tooltip="Facturación Electrónica">
             <a href="{{ url_for('web_invoices.list_invoices') }}">
                 <span>Facturación Electrónica</span>
+            </a>
+        </li>
+        {% endif %}
+        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canClients') %}
+        <li class="nav-item {% if (active_page == 'contacts' and (request.args.get('tab') == 'clientes' or not module_enabled('crm') and request.args.get('tab') != 'proveedores')) or active_page == 'clients' %}active{% endif %}"
+            data-tooltip="Directorio de Clientes">
+            <a href="{{ url_for('web_contacts.list_contacts', tab='clientes') }}">
+                <span>Clientes</span>
             </a>
         </li>
         {% endif %}
@@ -114,13 +122,13 @@
 </div>
 {% endif %}
 
-<!-- SECCIÓN: CRM Y CONTACTOS -->
+<!-- SECCIÓN: CRM Y OPORTUNIDADES -->
 {% if (module_enabled('crm') and (session.get('user', {}).get('role') == 'owner' or check_permission('canCRM') or check_permission('canCRMReports') or check_permission('canCRMOpportunities') or check_permission('canCRMActivities') or check_permission('canCRMContacts') or check_permission('canClients'))) or (module_enabled('comisiones') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageCommissions'))) %}
 <div class="sidebar-section" id="sidebar-section-crm">
     <div class="sidebar-section-header">
         <div class="header-left">
-            <i class="fa-regular fa-address-book section-icon"></i>
-            <span>CRM y Contactos</span>
+            <i class="fa-solid fa-bullseye section-icon"></i>
+            <span>CRM & Oportunidades</span>
         </div>
         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
     </div>
@@ -150,10 +158,10 @@
         </li>
         {% endif %}
         {% if module_enabled('crm') and (session.get('user', {}).get('role') == 'owner' or check_permission('canCRMContacts') or check_permission('canClients')) %}
-        <li class="nav-item {% if active_page == 'contacts' %}active{% endif %}"
-            data-tooltip="Contactos">
+        <li class="nav-item {% if active_page == 'contacts' and request.args.get('tab') != 'clientes' and request.args.get('tab') != 'proveedores' %}active{% endif %}"
+            data-tooltip="Todos los Contactos">
             <a href="{{ url_for('web_contacts.list_contacts') }}">
-                <span>Contactos</span>
+                <span>Todos los Contactos</span>
             </a>
         </li>
         {% endif %}
@@ -277,10 +285,10 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageSuppliers')) %}
-        <li class="nav-item {% if active_page == 'suppliers' %}active{% endif %}"
+        {% if (module_enabled('cxp_compras') or module_enabled('gastos') or module_enabled('crm')) and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageSuppliers')) %}
+        <li class="nav-item {% if active_page == 'suppliers' or (active_page == 'contacts' and request.args.get('tab') == 'proveedores') %}active{% endif %}"
             data-tooltip="Contactos (Proveedores)">
-            <a href="{{ url_for('web_contacts.list_contacts', tab='proveedores') }}">
+            <a href="{{ url_for('web_suppliers.list_suppliers') }}">
                 <span>Proveedores</span>
             </a>
         </li>

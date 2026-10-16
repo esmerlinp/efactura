@@ -472,6 +472,17 @@ def new_receipt():
             lot_notes = request.form.get(f"lot_notes_{item_id}", "").strip()
             track_lots = request.form.get(f"track_lots_{item_id}") == "1"
 
+            uprice = float(item.get("unitPrice", 0) or 0)
+            disc_pct = float(item.get("discount", 0) or 0)
+            net_uprice = uprice * (1.0 - (disc_pct / 100.0))
+            po_currency = po.get("currency", "DOP") or "DOP"
+            po_exchange_rate = float(po.get("exchangeRate", 1.0) or 1.0)
+            unit_cost_dop = round(net_uprice * po_exchange_rate, 4)
+            is_inv = item.get("isInventoriable")
+            if is_inv is None:
+                is_inv = True
+            is_inv = bool(is_inv)
+
             receipt_items.append({
                 "poItemId": item_id,
                 "itemId": cat_item_id,
@@ -480,7 +491,12 @@ def new_receipt():
                 "orderedQuantity": float(item.get("quantity", 0)),
                 "receivedQuantity": rqty,
                 "unit": item.get("unit", "Unidad"),
-                "unitPrice": float(item.get("unitPrice", 0)),
+                "unitPrice": uprice,
+                "discount": disc_pct,
+                "unitCost": unit_cost_dop,
+                "currency": po_currency,
+                "exchangeRate": po_exchange_rate,
+                "isInventoriable": is_inv,
                 "lotId": lot_id,
                 "lotNumber": lot_number,
                 "productionDate": prod_date,
@@ -504,6 +520,10 @@ def new_receipt():
             "supplierRnc": po.get("supplierRnc", ""),
             "warehouseId": warehouse_id,
             "warehouseName": warehouse_name,
+            "currency": po.get("currency", "DOP") or "DOP",
+            "exchangeRate": float(po.get("exchangeRate", 1.0) or 1.0),
+            "projectId": po.get("projectId") or "",
+            "branchId": po.get("branchId") or "",
             "receiptDate": request.form.get("receiptDate", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
             "items": receipt_items,
             "status": "completada",

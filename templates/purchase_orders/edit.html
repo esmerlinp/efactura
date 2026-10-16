@@ -67,6 +67,30 @@
                     <option value="credito_90d" {% if order.paymentTerms == 'credito_90d' %}selected{% endif %}>Crédito 90 Días</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label for="deliveryAddress">Dirección de Entrega</label>
+                <input type="text" id="deliveryAddress" name="deliveryAddress" class="form-input" value="{{ order.deliveryAddress or '' }}" placeholder="Dirección donde recibir la mercancía">
+            </div>
+            <div class="form-group">
+                <label for="warehouseId">Almacén Sugerido de Destino</label>
+                <select id="warehouseId" name="warehouseId" class="form-select">
+                    <option value="">-- Sin almacén predeterminado --</option>
+                    {% for w in warehouses %}
+                    <option value="{{ w.id }}" {% if order.warehouseId == w.id %}selected{% endif %}>{{ w.name }}</option>
+                    {% endfor %}
+                </select>
+                <small style="color:var(--text-muted); display:block; font-size:0.75rem; margin-top:4px;">Almacén sugerido para recibir la mercancía.</small>
+            </div>
+            <div class="form-group">
+                <label for="projectId">Proyecto</label>
+                <select id="projectId" name="projectId" class="form-select" style="width:100%;">
+                    <option value="" {% if not order.projectId %}selected{% endif %}>Sin proyecto</option>
+                    {% for p in projects %}
+                    <option value="{{ p.id }}" {% if p.id == order.projectId %}selected{% endif %}>{{ p.name }} ({{ p.code }})</option>
+                    {% endfor %}
+                </select>
+                <small style="color:var(--text-muted); display:block; font-size:0.75rem; margin-top:4px;">Asocia este registro a un proyecto específico (opcional).</small>
+            </div>
             <div class="form-group" style="display:flex; gap:12px;">
                 <div style="flex:1;">
                     <label for="currency">Moneda</label>
@@ -112,7 +136,15 @@
                     {% for item in order['items'] %}
                     <tr class="item-row">
                         <td>
-                            <input type="text" class="form-input item-name" name="items[][name]" value="{{ item.name or '' }}" placeholder="Descripción del producto/servicio" required style="width:100%;">
+                            <div style="position:relative;">
+                                <input type="text" class="form-input item-name" name="items[][name]" value="{{ item.name or '' }}" placeholder="Buscar en catálogo o escribir..." required autocomplete="off" style="width:100%;">
+                                <input type="hidden" name="items[][id]" value="{{ item.id or '' }}">
+                                <input type="hidden" class="item-id" name="items[][itemId]" value="{{ item.itemId or '' }}">
+                                <input type="hidden" class="item-code" name="items[][itemCode]" value="{{ item.itemCode or '' }}">
+                                <input type="hidden" class="item-track-lots" name="items[][trackLots]" value="{{ 1 if item.trackLots else 0 }}">
+                                <input type="hidden" class="item-is-inv" name="items[][isInventoriable]" value="{{ 0 if item.isInventoriable is False else 1 }}">
+                                <div class="item-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:220px; overflow-y:auto; margin-top:2px;"></div>
+                            </div>
                         </td>
                         <td>
                             <input type="number" class="form-input item-qty" name="items[][quantity]" value="{{ item.quantity|default(1) }}" min="0.01" step="0.01" required style="text-align:center; width:100%;">
@@ -150,7 +182,15 @@
                     {% else %}
                     <tr class="item-row">
                         <td>
-                            <input type="text" class="form-input item-name" name="items[][name]" placeholder="Descripción del producto/servicio" required style="width:100%;">
+                            <div style="position:relative;">
+                                <input type="text" class="form-input item-name" name="items[][name]" placeholder="Buscar en catálogo o escribir..." required autocomplete="off" style="width:100%;">
+                                <input type="hidden" name="items[][id]" value="">
+                                <input type="hidden" class="item-id" name="items[][itemId]" value="">
+                                <input type="hidden" class="item-code" name="items[][itemCode]" value="">
+                                <input type="hidden" class="item-track-lots" name="items[][trackLots]" value="0">
+                                <input type="hidden" class="item-is-inv" name="items[][isInventoriable]" value="1">
+                                <div class="item-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:220px; overflow-y:auto; margin-top:2px;"></div>
+                            </div>
                         </td>
                         <td>
                             <input type="number" class="form-input item-qty" name="items[][quantity]" value="1" min="0.01" step="0.01" required style="text-align:center; width:100%;">
@@ -326,7 +366,96 @@ function recalcTotals() {
     document.getElementById('sum-total').textContent = 'RD$ ' + totalAmt.toFixed(2);
 }
 
+// ── Catalog Items & Search ────────────────────────────────────────
+const catalogItems = {{ catalog_items|tojson|safe if catalog_items else '[]' }};
+
+function bindCatalogSearch(row) {
+    const input = row.querySelector('.item-name');
+    const resultsDiv = row.querySelector('.item-search-results');
+    const idInput = row.querySelector('.item-id');
+    const codeInput = row.querySelector('.item-code');
+    const lotsInput = row.querySelector('.item-track-lots');
+    const invInput = row.querySelector('.item-is-inv');
+    const unitSelect = row.querySelector('.item-unit');
+    const priceInput = row.querySelector('.item-price');
+    const itbisSelect = row.querySelector('.item-itbis');
+    if (!input || !resultsDiv) return;
+
+    let timeout = null;
+    input.addEventListener('input', function() {
+        clearTimeout(timeout);
+        const q = this.value.toLowerCase().trim();
+        if (q.length < 1) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+        timeout = setTimeout(() => {
+            const matches = catalogItems.filter(i =>
+                (i.name || '').toLowerCase().includes(q) ||
+                (i.code || '').toLowerCase().includes(q) ||
+                (i.barcode || '').toLowerCase().includes(q)
+            );
+            resultsDiv.innerHTML = '';
+            if (matches.length) {
+                matches.slice(0, 10).forEach(item => {
+                    const d = document.createElement('div');
+                    d.style.cssText = 'padding:8px 12px; cursor:pointer; border-bottom:1px solid var(--border-color); font-size:0.8rem; display:flex; justify-content:space-between; align-items:center;';
+                    d.onmouseenter = function() { this.style.background = 'rgba(255,255,255,0.04)'; };
+                    d.onmouseleave = function() { this.style.background = 'transparent'; };
+                    d.onclick = function() {
+                        input.value = item.name;
+                        if (idInput) idInput.value = item.id || '';
+                        if (codeInput) codeInput.value = item.code || '';
+                        if (lotsInput) lotsInput.value = item.trackLots ? '1' : '0';
+                        if (invInput) invInput.value = (item.isInventoriable === false || item.type === 'service') ? '0' : '1';
+                        
+                        if (unitSelect && item.unit) {
+                            let matched = false;
+                            for (let opt of unitSelect.options) {
+                                if (opt.value.toLowerCase() === item.unit.toLowerCase()) {
+                                    unitSelect.value = opt.value;
+                                    matched = true;
+                                    break;
+                                }
+                            }
+                            if (!matched) {
+                                const newOpt = document.createElement('option');
+                                newOpt.value = item.unit;
+                                newOpt.textContent = item.unit;
+                                unitSelect.appendChild(newOpt);
+                                unitSelect.value = item.unit;
+                            }
+                        }
+                        if (priceInput) {
+                            const cost = parseFloat(item.costPrice || item.price || 0);
+                            priceInput.value = cost.toFixed(2);
+                        }
+                        if (itbisSelect && item.itbisRate !== undefined) {
+                            itbisSelect.value = item.itbisRate.toString();
+                        }
+                        resultsDiv.style.display = 'none';
+                        recalcRow(row);
+                    };
+                    const typeBadge = (item.isInventoriable === false || item.type === 'service')
+                        ? '<span style="background:rgba(59,130,246,0.15); color:var(--accent-blue); font-size:0.65rem; padding:2px 5px; border-radius:3px; margin-left:6px;"><i class="fa-solid fa-handshake"></i> Servicio</span>'
+                        : (item.trackLots ? '<span style="background:rgba(99,102,241,0.15); color:var(--accent-purple); font-size:0.65rem; padding:2px 5px; border-radius:3px; margin-left:6px;"><i class="fa-solid fa-layer-group"></i> Lotes</span>' : '');
+                    d.innerHTML = '<div><span>' + (item.name || '') + '</span>' + typeBadge + '</div><span style="color:var(--text-muted); font-size:0.7rem;">' + (item.code || '') + ' | Costo: ' + (item.costPrice || 0) + '</span>';
+                    resultsDiv.appendChild(d);
+                });
+                resultsDiv.style.display = 'block';
+            } else {
+                resultsDiv.style.display = 'none';
+            }
+        }, 200);
+    });
+
+    input.addEventListener('blur', function() {
+        setTimeout(() => { resultsDiv.style.display = 'none'; }, 200);
+    });
+}
+
 function bindRowEvents(row) {
+    bindCatalogSearch(row);
     row.querySelectorAll('.item-qty, .item-price, .item-itbis, .item-discount').forEach(el => {
         el.addEventListener('input', function() { recalcRow(row); });
         el.addEventListener('change', function() { recalcRow(row); });
@@ -346,6 +475,12 @@ document.getElementById('btn-add-item').addEventListener('click', function() {
     const firstRow = tbody.querySelector('.item-row');
     const newRow = firstRow.cloneNode(true);
     newRow.querySelector('.item-name').value = '';
+    const lineIdInp = newRow.querySelector('input[name="items[][id]"]'); if (lineIdInp) lineIdInp.value = '';
+    const idInp = newRow.querySelector('.item-id'); if (idInp) idInp.value = '';
+    const codeInp = newRow.querySelector('.item-code'); if (codeInp) codeInp.value = '';
+    const lotsInp = newRow.querySelector('.item-track-lots'); if (lotsInp) lotsInp.value = '0';
+    const invInp = newRow.querySelector('.item-is-inv'); if (invInp) invInp.value = '1';
+    const resDiv = newRow.querySelector('.item-search-results'); if (resDiv) { resDiv.innerHTML = ''; resDiv.style.display = 'none'; }
     newRow.querySelector('.item-qty').value = '1';
     newRow.querySelector('.item-unit').value = 'Unidad';
     newRow.querySelector('.item-price').value = '0.00';

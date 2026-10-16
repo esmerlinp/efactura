@@ -1,6 +1,6 @@
 # app/utils/decorators.py
 from flask import session, render_template, flash
-from app.utils.module_gate import module_enabled
+from app.utils.module_gate import module_enabled, clients_module_enabled
 
 # ═════════════════════════════════════════════════════════════════════
 # MATRIZ DE SEGREGACIÓN DE FUNCIONES (SoD)
@@ -40,6 +40,15 @@ def check_permission(permission_name):
         if permission_name in user_perms:
             return bool(user_perms[permission_name])
         # Compatibilidad hacia atrás: si no está definido el permiso CRM específico, consultar canClients
+        if 'canClients' in user_perms:
+            return bool(user_perms['canClients'])
+        return True
+
+    # Permisos granulares de Clientes (Directorio, Creación y Eliminación)
+    if permission_name in ('canCreateClient', 'canDeleteClient'):
+        if permission_name in user_perms:
+            return bool(user_perms[permission_name])
+        # Compatibilidad hacia atrás: hereda de canClients
         if 'canClients' in user_perms:
             return bool(user_perms['canClients'])
         return True
@@ -334,6 +343,8 @@ def get_user_landing_url():
             return url_for('web_crm.activities')
         if check_permission('canCRMContacts') or check_permission('canClients'):
             return url_for('web_contacts.list_contacts')
+    elif clients_module_enabled() and check_permission('canClients'):
+        return url_for('web_contacts.list_contacts', tab='clientes')
 
     # 6. Catálogo de Productos
     if module_enabled('catalogo') and check_permission('canManageCatalog'):

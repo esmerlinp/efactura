@@ -210,6 +210,18 @@ def module_enabled(module_key):
     return True
 
 
+def clients_module_enabled():
+    """Verifica si la empresa tiene habilitado algún módulo comercial o transaccional que requiere acceso a Clientes."""
+    return any(module_enabled(k) for k in ('crm', 'e_cf', 'cotizaciones', 'pos', 'cxc', 'contratos', 'price_lists'))
+
+
+def contacts_module_enabled(tab=None):
+    """Verifica si la empresa tiene acceso a Contactos según el contexto (clientes o proveedores)."""
+    if tab == 'proveedores':
+        return module_enabled('cxp_compras') or module_enabled('gastos') or module_enabled('crm')
+    return clients_module_enabled() or module_enabled('cxp_compras') or module_enabled('gastos')
+
+
 def get_module_label(module_key):
     """Retorna el nombre legible de un módulo."""
     if module_key in MODULE_MAP:

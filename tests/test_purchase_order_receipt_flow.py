@@ -92,6 +92,73 @@ def test_validate_receipt_rejects_unknown_line():
         assert "no pertenece" in str(err.value)
 
 
+def test_validate_receipt_allows_service_without_warehouse_or_item_id():
+    service_po = {
+        "id": "po-serv",
+        "poNumber": "OC-2026-0002",
+        "status": "aprobada",
+        "items": [
+            {"id": "line-serv", "name": "Flete y Transporte", "quantity": 1, "receivedQuantity": 0,
+             "unitPrice": 500, "unit": "Servicio", "isInventoriable": False}
+        ],
+    }
+    payload = {
+        "receiptNumber": "RC-2026-0002",
+        "poId": "po-serv",
+        "warehouseId": "",  # Sin almacén porque es servicio
+        "items": [
+            {"poItemId": "line-serv", "itemId": "", "receivedQuantity": 1, "isInventoriable": False}
+        ],
+    }
+    with patch.object(PurchaseOrderService, "get_purchase_order", return_value=service_po):
+        assert GoodsReceiptService.validate_receipt(
+            "comp-1", payload, sandbox=True, owner_uid="own-1"
+        ) is True
+
+
+def test_validate_receipt_still_requires_warehouse_and_item_if_physical_item_present():
+    mixed_po = {
+        "id": "po-mixed",
+        "poNumber": "OC-2026-0003",
+        "status": "aprobada",
+        "items": [
+            {"id": "line-phys", "name": "Cemento", "quantity": 10, "receivedQuantity": 0,
+             "unitPrice": 400, "isInventoriable": True},
+            {"id": "line-serv", "name": "Descarga", "quantity": 1, "receivedQuantity": 0,
+             "unitPrice": 100, "isInventoriable": False},
+        ],
+    }
+    # Falta almacén con ítem físico presente
+    payload_no_wh = {
+        "receiptNumber": "RC-2026-0003",
+        "poId": "po-mixed",
+        "warehouseId": "",
+        "items": [
+            {"poItemId": "line-phys", "itemId": "cat-cemento", "receivedQuantity": 5, "isInventoriable": True},
+            {"poItemId": "line-serv", "itemId": "", "receivedQuantity": 1, "isInventoriable": False},
+        ],
+    }
+    with patch.object(PurchaseOrderService, "get_purchase_order", return_value=mixed_po):
+        with pytest.raises(ValueError) as err:
+            GoodsReceiptService.validate_receipt("comp-1", payload_no_wh)
+        assert "almacén" in str(err.value).lower()
+
+    # Falta ítem de catálogo para la partida física
+    payload_no_cat = {
+        "receiptNumber": "RC-2026-0003",
+        "poId": "po-mixed",
+        "warehouseId": "wh-1",
+        "items": [
+            {"poItemId": "line-phys", "itemId": "", "receivedQuantity": 5, "isInventoriable": True},
+            {"poItemId": "line-serv", "itemId": "", "receivedQuantity": 1, "isInventoriable": False},
+        ],
+    }
+    with patch.object(PurchaseOrderService, "get_purchase_order", return_value=mixed_po):
+        with pytest.raises(ValueError) as err:
+            GoodsReceiptService.validate_receipt("comp-1", payload_no_cat)
+        assert "catálogo" in str(err.value).lower()
+
+
 # ── Transiciones de estado ───────────────────────────────────────────────
 
 def test_can_transition_rules():
@@ -167,3 +234,99 @@ def test_receive_view_returns_410(app):
             body, status = view("po-1")
     assert status == 410
     save.assert_not_called()
+
+
+# ── Registro de inventario (moneda base, servicios y proyectos) ───────────
+
+def test_register_receipt_inventory_skips_services_and_converts_fx():
+    po = {
+        "id": "po-cur",
+        "poNumber": "OC-2026-0004",
+        "status": "aprobada",
+        "currency": "USD",
+        "exchangeRate": 60.0,
+        "projectId": "proj-101",
+        "branchId": "br-principal",
+        "items": [
+            {
+                "id": "line-phys",
+                "name": "Servidor Dell",
+                "quantity": 2,
+                "receivedQuantity": 0,
+                "unitPrice": 100.0,
+                "discount": 10.0,  # 10% de descuento
+                "isInventoriable": True,
+            },
+            {
+                "id": "line-serv",
+                "name": "Configuración en sitio",
+                "quantity": 1,
+                "receivedQuantity": 0,
+                "unitPrice": 80.0,
+                "discount": 0.0,
+                "isInventoriable": False,
+            },
+        ],
+    }
+    receipt = {
+        "id": "rc-cur-1",
+        "receiptNumber": "RC-2026-0004",
+        "poId": "po-cur",
+        "warehouseId": "wh-central",
+        "warehouseName": "Almacén Central",
+        "currency": "USD",
+        "exchangeRate": 60.0,
+        "projectId": "proj-101",
+        "branchId": "br-principal",
+        "items": [
+            {
+                "poItemId": "line-phys",
+                "itemId": "item-server",
+                "itemName": "Servidor Dell",
+                "receivedQuantity": 2,
+                "unitPrice": 100.0,
+                "discount": 10.0,
+                "isInventoriable": True,
+            },
+            {
+                "poItemId": "line-serv",
+                "itemId": "",
+                "itemName": "Configuración en sitio",
+                "receivedQuantity": 1,
+                "unitPrice": 80.0,
+                "discount": 0.0,
+                "isInventoriable": False,
+            },
+        ],
+    }
+
+    with patch.object(PurchaseOrderService, "get_purchase_order", return_value=po), \
+         patch("app.services.inventory_transaction_service.InventoryTransactionService.execute_transaction") as mock_exec, \
+         patch("app.services.inventory_costing_service.InventoryCostingService.recalculate_item_avg_cost") as mock_cost, \
+         patch("app.services.inventory_accounting_service.InventoryAccountingService.post_inventory_transaction"):
+
+        mock_exec.return_value = {"id": "tx-1", "itemId": "item-server"}
+
+        registered = GoodsReceiptService.register_receipt_inventory(
+            "comp-1", receipt, sandbox=True, owner_uid="own-1"
+        )
+
+        # 1. Solo debe registrar movimiento físico para el servidor (el servicio se omite del almacén)
+        assert len(registered) == 1
+        assert mock_exec.call_count == 1
+
+        tx_sent = mock_exec.call_args.kwargs["tx_dict"]
+        assert tx_sent["itemId"] == "item-server"
+        assert tx_sent["quantity"] == 2
+        assert tx_sent["destinationWarehouseId"] == "wh-central"
+        assert tx_sent["projectId"] == "proj-101"
+        assert tx_sent["branchId"] == "br-principal"
+
+        # 2. Costo unitario neto en DOP: 100 * (1 - 0.10) * 60 = 5400.0
+        assert tx_sent["unitCost"] == 5400.0
+
+        # 3. Recálculo de costo promedio invocado para el ítem de inventario
+        mock_cost.assert_called_once_with(
+            "comp-1", "item-server", "wh-central", sandbox=True, owner_uid="own-1"
+        )
+

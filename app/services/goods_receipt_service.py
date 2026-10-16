@@ -126,89 +126,104 @@ class GoodsReceiptService:
 
         Reúne todos los errores (no aborta en el primero) y lanza un único
         ValueError con el detalle. Incluye:
-          - almacén de destino obligatorio,
+          - almacén de destino obligatorio (si hay partidas físicas inventariables),
           - al menos una partida con cantidad > 0,
-          - cada partida recibida debe tener ítem de catálogo asociado,
+          - cada partida inventariable debe tener ítem de catálogo asociado,
           - la cantidad recibida no puede exceder el saldo de la orden de compra.
         """
         errors = []
 
-        warehouse_id = (receipt_data.get("warehouseId") or "").strip()
-        if not warehouse_id:
-            errors.append("Debe seleccionar un almacén de destino.")
-
-        items = receipt_data.get("items", [])
-        if not items:
-            errors.append("Debe indicar al menos una partida con cantidad mayor a 0.")
-
-        for item in items:
-            label = item.get("poItemName") or item.get("itemName") or "—"
-            item_id = (item.get("itemId") or "").strip()
-            if not item_id:
-                errors.append(f"La partida '{label}' no tiene ítem de catálogo asociado.")
-                continue
-
-            rqty = float(item.get("receivedQuantity", 0) or 0)
-            if rqty <= 0:
-                continue
-
-            # Verificación de control por lotes
-            track_lots = item.get("trackLots")
-            if track_lots is None and firebase_initialized and db_firestore is not None:
-                try:
-                    coll_name = "sandbox_items" if sandbox else "items"
-                    item_doc = _company_coll(company_id=company_id, coll_name=coll_name).document(item_id).get()
-                    if getattr(item_doc, "exists", False) is True:
-                        doc_data = item_doc.to_dict()
-                        if isinstance(doc_data, dict):
-                            track_lots = bool(doc_data.get("trackLots", False))
-                        else:
-                            track_lots = False
-                    else:
-                        track_lots = False
-                except Exception:
-                    track_lots = False
-            track_lots = bool(track_lots)
-
-            if track_lots:
-                lot_id = (item.get("lotId") or "").strip()
-                lot_number = (item.get("lotNumber") or "").strip()
-                if not lot_id and not lot_number:
-                    errors.append(
-                        f"La partida '{label}' requiere control por lotes. Debe indicar un número de lote o seleccionar uno existente."
-                    )
-                prod_date = (item.get("productionDate") or "").strip()
-                exp_date = (item.get("expirationDate") or "").strip()
-                if prod_date and exp_date and exp_date < prod_date:
-                    errors.append(
-                        f"En la partida '{label}', la fecha de vencimiento ({exp_date}) no puede ser anterior a la de producción ({prod_date})."
-                    )
-
         po_id = receipt_data.get("poId") or receipt_data.get("purchaseOrderId") or ""
+        po = None
+        po_items = []
         if po_id and PurchaseOrderService is not None:
             po = PurchaseOrderService.get_purchase_order(
                 owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id
             )
             if po:
                 po_items = po.get("items", [])
-                for item in items:
-                    line_id = item.get("poItemId") or item.get("id") or ""
-                    po_item = next((i for i in po_items if i.get("id") == line_id), None)
-                    if not po_item:
+
+        items = receipt_data.get("items", [])
+        if not items:
+            errors.append("Debe indicar al menos una partida con cantidad mayor a 0.")
+
+        has_physical_items = False
+
+        for item in items:
+            line_id = item.get("poItemId") or item.get("id") or ""
+            po_item = next((i for i in po_items if i.get("id") == line_id), None) if po_items else None
+            label = item.get("poItemName") or item.get("itemName") or (po_item.get("name") if po_item else "—")
+
+            rqty = float(item.get("receivedQuantity", 0) or 0)
+            if rqty <= 0:
+                continue
+
+            # Determinación de si la partida es física/inventariable o servicio
+            is_inv = item.get("isInventoriable")
+            if is_inv is None and po_item:
+                is_inv = po_item.get("isInventoriable")
+            if is_inv is None:
+                is_inv = True
+            is_inv = bool(is_inv)
+
+            if is_inv:
+                has_physical_items = True
+                item_id = (item.get("itemId") or "").strip()
+                if not item_id:
+                    errors.append(f"La partida '{label}' no tiene ítem de catálogo asociado.")
+                    continue
+
+                # Verificación de control por lotes
+                track_lots = item.get("trackLots")
+                if track_lots is None and po_item:
+                    track_lots = po_item.get("trackLots")
+                if track_lots is None and firebase_initialized and db_firestore is not None:
+                    try:
+                        coll_name = "sandbox_items" if sandbox else "items"
+                        item_doc = _company_coll(company_id=company_id, coll_name=coll_name).document(item_id).get()
+                        if getattr(item_doc, "exists", False) is True:
+                            doc_data = item_doc.to_dict()
+                            if isinstance(doc_data, dict):
+                                track_lots = bool(doc_data.get("trackLots", False))
+                            else:
+                                track_lots = False
+                        else:
+                            track_lots = False
+                    except Exception:
+                        track_lots = False
+                track_lots = bool(track_lots)
+
+                if track_lots:
+                    lot_id = (item.get("lotId") or "").strip()
+                    lot_number = (item.get("lotNumber") or "").strip()
+                    if not lot_id and not lot_number:
                         errors.append(
-                            f"La partida '{item.get('poItemName') or item.get('itemName') or '—'}' "
-                            "no pertenece a la orden de compra."
+                            f"La partida '{label}' requiere control por lotes. Debe indicar un número de lote o seleccionar uno existente."
                         )
-                        continue
-                    ordered_qty = float(po_item.get("quantity", 0))
-                    received_qty = float(po_item.get("receivedQuantity", 0))
-                    new_qty = float(item.get("receivedQuantity", 0))
-                    if received_qty + new_qty > ordered_qty + 1e-9:
+                    prod_date = (item.get("productionDate") or "").strip()
+                    exp_date = (item.get("expirationDate") or "").strip()
+                    if prod_date and exp_date and exp_date < prod_date:
                         errors.append(
-                            f"Cantidad excede la orden de compra para "
-                            f"{po_item.get('name', po_item.get('itemName', ''))}: "
-                            f"ordenado {ordered_qty}, recibido {received_qty}, nuevo {new_qty}."
+                            f"En la partida '{label}', la fecha de vencimiento ({exp_date}) no puede ser anterior a la de producción ({prod_date})."
                         )
+
+            # Validación de pertenencia y sobre-recepción contra la OC
+            if po_items:
+                if not po_item:
+                    errors.append(f"La partida '{label}' no pertenece a la orden de compra.")
+                    continue
+                ordered_qty = float(po_item.get("quantity", 0))
+                received_qty = float(po_item.get("receivedQuantity", 0))
+                if received_qty + rqty > ordered_qty + 1e-9:
+                    errors.append(
+                        f"Cantidad excede la orden de compra para "
+                        f"{po_item.get('name', po_item.get('itemName', ''))}: "
+                        f"ordenado {ordered_qty}, recibido {received_qty}, nuevo {rqty}."
+                    )
+
+        warehouse_id = (receipt_data.get("warehouseId") or "").strip()
+        if has_physical_items and not warehouse_id:
+            errors.append("Debe seleccionar un almacén de destino.")
 
         if errors:
             raise ValueError(" ".join(errors))
@@ -277,6 +292,7 @@ class GoodsReceiptService:
 
         po_id = receipt_data.get("poId") or receipt_data.get("purchaseOrderId") or ""
         po = None
+        po_items = []
         if po_id and PurchaseOrderService is not None:
             po = PurchaseOrderService.get_purchase_order(
                 owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id
@@ -306,7 +322,21 @@ class GoodsReceiptService:
         from app.services.inventory_transaction_service import InventoryTransactionService
         from app.services.inventory_costing_service import InventoryCostingService
 
+        project_id = receipt_data.get("projectId") or (po.get("projectId") if po else "") or ""
+        branch_id = receipt_data.get("branchId") or (po.get("branchId") if po else "") or ""
+        exchange_rate = float(receipt_data.get("exchangeRate") or (po.get("exchangeRate") if po else 1.0) or 1.0)
+
         for item in items:
+            line_id = item.get("poItemId") or item.get("id") or ""
+            po_item = next((i for i in po_items if i.get("id") == line_id), None) if po_items else None
+
+            # Si es un servicio o partida no inventariable, no mueve stock físico en almacén
+            is_inv = item.get("isInventoriable")
+            if is_inv is None and po_item:
+                is_inv = po_item.get("isInventoriable")
+            if is_inv is False:
+                continue
+
             item_id = item.get("itemId", "")
             if not item_id:
                 continue
@@ -314,7 +344,16 @@ class GoodsReceiptService:
             if qty <= 0:
                 continue
 
-            unit_cost = float(item.get("unitCost", item.get("costPrice", item.get("unitPrice", 0))) or 0)
+            # Determinación de costo unitario neto en DOP (moneda base)
+            unit_cost = item.get("unitCost")
+            if unit_cost is None or float(unit_cost) <= 0:
+                uprice = float(item.get("unitPrice", po_item.get("unitPrice", 0) if po_item else 0) or 0)
+                disc_pct = float(item.get("discount", po_item.get("discount", 0) if po_item else 0) or 0)
+                net_price = uprice * (1.0 - (disc_pct / 100.0))
+                unit_cost = round(net_price * exchange_rate, 4)
+            else:
+                unit_cost = float(unit_cost)
+
             line_ref = item.get("poItemId") or item.get("id") or item_id
             idempotency_key = InventoryTransactionService.build_idempotency_key(
                 company_id=company_id,
@@ -337,6 +376,8 @@ class GoodsReceiptService:
                 "idempotencyKey": idempotency_key,
                 "notes": f"Recepción {receipt_number} - OC {receipt_data.get('poNumber', '')}",
                 "performedBy": performed_by,
+                "projectId": project_id,
+                "branchId": branch_id,
                 "lotId": (item.get("lotId") or "").strip(),
                 "lotNumber": (item.get("lotNumber") or "").strip(),
                 "productionDate": (item.get("productionDate") or "").strip(),

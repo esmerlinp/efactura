@@ -193,7 +193,7 @@ def _log_dgii_emission_to_audit(owner_uid, invoice, res, performed_by_email, per
 
 ALL_PERMISSION_KEYS = [
     "canInvoice", "canManageFiscalNotes", "canManageQuotations", "canManagePOS", "canManageRUI",
-    "canExpenses", "canClients", "canModifySettings",
+    "canExpenses", "canClients", "canCreateClient", "canDeleteClient", "canModifySettings",
     "canManageInventory", "canViewDashboard",
     "canManageCXC", "canManageCXP", "canManageContracts",
     "canManageCommissions", "canViewBI", "canViewAuditLog",
@@ -242,7 +242,8 @@ ROLES_PRESETS = {
     "administrador": {k: True for k in ALL_PERMISSION_KEYS},
     "vendedor": {
         "canInvoice": True, "canManageFiscalNotes": True, "canManageQuotations": True,
-        "canManagePOS": True, "canManageRUI": False, "canExpenses": False, "canClients": True,
+        "canManagePOS": True, "canManageRUI": False, "canExpenses": False,
+        "canClients": True, "canCreateClient": True, "canDeleteClient": False,
         "canModifySettings": False, "canManageInventory": False,
         "canViewDashboard": True, "canManageCXC": False, "canManageCXP": False,
         "canManageContracts": False, "canManageCommissions": True, "canViewBI": False,
@@ -289,7 +290,8 @@ ROLES_PRESETS = {
     },
     "contador": {
         "canInvoice": True, "canManageFiscalNotes": True, "canManageQuotations": False,
-        "canManagePOS": False, "canManageRUI": True, "canExpenses": True, "canClients": False,
+        "canManagePOS": False, "canManageRUI": True, "canExpenses": True,
+        "canClients": False, "canCreateClient": False, "canDeleteClient": False,
         "canModifySettings": False, "canManageInventory": False,
         "canViewDashboard": True, "canManageCXC": True, "canManageCXP": True,
         "canManageContracts": False, "canManageCommissions": False, "canViewBI": True,
@@ -336,7 +338,8 @@ ROLES_PRESETS = {
     },
     "consulta": {
         "canInvoice": False, "canManageFiscalNotes": False, "canManageQuotations": False,
-        "canManagePOS": False, "canManageRUI": False, "canExpenses": False, "canClients": False,
+        "canManagePOS": False, "canManageRUI": False, "canExpenses": False,
+        "canClients": False, "canCreateClient": False, "canDeleteClient": False,
         "canModifySettings": False, "canManageInventory": False,
         "canViewDashboard": True, "canManageCXC": False, "canManageCXP": False,
         "canManageContracts": False, "canManageCommissions": False, "canViewBI": True,
@@ -394,7 +397,6 @@ PERMISSION_GROUPS = [
     {
         "name": "CRM y Contactos",
         "perms": [
-            "canClients",
             "canCRM",
             "canCRMContacts",
             "canCRMOpportunities",
@@ -403,7 +405,6 @@ PERMISSION_GROUPS = [
             "canManageCommissions",
         ],
         "labels": {
-            "canClients": "Control general de clientes (maestro)",
             "canCRM": "Acceso general a CRM",
             "canCRMContacts": "Directorio de contactos y clientes (ficha 360°)",
             "canCRMOpportunities": "Pipeline de ventas y oportunidades comerciales",
@@ -416,6 +417,9 @@ PERMISSION_GROUPS = [
         "name": "Ventas y Facturación",
         "perms": [
             "canInvoice",
+            "canClients",
+            "canCreateClient",
+            "canDeleteClient",
             "canManageFiscalNotes",
             "canManageQuotations",
             "canManagePOS",
@@ -425,6 +429,9 @@ PERMISSION_GROUPS = [
         ],
         "labels": {
             "canInvoice": "Facturación electrónica (e-CF)",
+            "canClients": "Directorio maestro de clientes (consultar y gestionar)",
+            "canCreateClient": "Crear y registrar nuevos clientes",
+            "canDeleteClient": "Eliminar clientes del sistema",
             "canManageFiscalNotes": "Notas de crédito y débito",
             "canManageQuotations": "Cotizaciones (crear y gestionar)",
             "canManagePOS": "Punto de Venta (POS / Caja)",

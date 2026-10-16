@@ -51,7 +51,7 @@
                     {% elif 'proveedor' in types %}
                         <span class="badge-type badge-proveedor"><i class="fa-solid fa-truck"></i> Proveedor</span>
                     {% endif %}
-                    {% if is_client %}
+                    {% if is_client and module_enabled('crm') %}
                     <span style="color:var(--border-color);">|</span>
                     <div style="display:inline-flex; align-items:center; gap:4px;">
                         <strong>Pipeline:</strong>
@@ -103,7 +103,7 @@
         </div>
 
         <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-            {% if is_client %}
+            {% if is_client and module_enabled('crm') %}
             <a href="{{ url_for('web_crm.opportunity_new', contact_id=contact.id) }}" class="btn btn-secondary" style="display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:0 14px; font-size:0.8rem; height:34px; border-radius:6px;">
                 <i class="fa-solid fa-bullseye"></i>
                 <span>Oportunidad</span>
@@ -184,16 +184,20 @@
     <a href="#tab-resumen" class="detail-tab active" onclick="switchTab(event, 'resumen')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--accent-emerald); border-bottom:2px solid var(--accent-emerald); margin-bottom:-2px; font-weight:600; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
         <i class="fa-solid fa-circle-info"></i> Resumen
     </a>
+    {% if module_enabled('crm') %}
     <a href="#tab-timeline" class="detail-tab" onclick="switchTab(event, 'timeline')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
         <i class="fa-solid fa-clock-rotate-left"></i> Timeline 360 ({{ (timeline|length) if timeline is defined else (interactions|length) }})
     </a>
+    {% endif %}
     {% if is_client %}
+    {% if module_enabled('crm') %}
     <a href="#tab-oportunidades" class="detail-tab" onclick="switchTab(event, 'oportunidades')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
         <i class="fa-solid fa-bullseye"></i> Oportunidades ({{ (opportunities|length) if opportunities is defined else 0 }})
     </a>
     <a href="#tab-actividades" class="detail-tab" onclick="switchTab(event, 'actividades')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
         <i class="fa-solid fa-calendar-check"></i> Actividades ({{ (activities|length) if activities is defined else 0 }})
     </a>
+    {% endif %}
     <a href="#tab-cotizaciones" class="detail-tab" onclick="switchTab(event, 'cotizaciones')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
         <i class="fa-solid fa-file-signature"></i> Cotizaciones ({{ (quotations|length) if quotations is defined else 0 }})
     </a>
@@ -465,6 +469,11 @@
             No hay gastos asociados a este proveedor.
         </div>
         {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% if module_enabled('crm') %}
 <!-- TAB: TIMELINE 360 (CRM-05 / CRM-06) -->
 <div id="tab-timeline" class="tab-content" style="display:none;">
     <div class="card-segment" style="margin-bottom:20px;">
@@ -509,9 +518,10 @@
         {% endif %}
     </div>
 </div>
+{% endif %}
 
 <!-- TAB: OPORTUNIDADES (CRM-05 / CRM-06) -->
-{% if is_client %}
+{% if is_client and module_enabled('crm') %}
 <div id="tab-oportunidades" class="tab-content" style="display:none;">
     <div class="card-segment">
         <div class="segment-header" style="display:flex; justify-content:space-between; align-items:center;">
@@ -567,7 +577,9 @@
         {% endif %}
     </div>
 </div>
+{% endif %}
 
+{% if is_client and module_enabled('crm') %}
 <!-- TAB: ACTIVIDADES (CRM-05 / CRM-06) -->
 <div id="tab-actividades" class="tab-content" style="display:none;">
     <div class="card-segment">
@@ -633,6 +645,7 @@
         {% endif %}
     </div>
 </div>
+{% endif %}
 
 <!-- TAB: COTIZACIONES (CRM-05 / CRM-06) -->
 <div id="tab-cotizaciones" class="tab-content" style="display:none;">
@@ -672,7 +685,6 @@
         {% endif %}
     </div>
 </div>
-{% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
