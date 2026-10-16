@@ -103,6 +103,39 @@ def transfer_list():
     return render_template("inventario/transfer_list.html", active_page="inventory_transfers", transfers=transfers)
 
 
+@web_inventory_bp.route("/inventory/transfers/<transfer_id>")
+def transfer_detail(transfer_id):
+    if "user" not in session:
+        return redirect(url_for("web_auth.login"))
+    if not check_permission("canInventoryTransfers"):
+        return render_template("auth/restricted.html", feature_name="Detalle de Transferencia", required_permission="canInventoryTransfers"), 403
+    from app.services.warehouse_transfer_service import WarehouseTransferService
+    transfer = WarehouseTransferService.get_transfer(_company_id(), transfer_id, sandbox=_sandbox())
+    if not transfer:
+        flash("Transferencia no encontrada.", "error")
+        return redirect(url_for("web_inventory.transfer_list"))
+
+    lines = transfer.get("lines", []) or []
+    total_units = sum(float(l.get("quantity", 0) or 0) for l in lines)
+    total_cost = sum(float(l.get("quantity", 0) or 0) * float(l.get("unitCost", 0) or 0) for l in lines)
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.args.get("format") == "json":
+        return jsonify({
+            "transfer": transfer,
+            "total_units": total_units,
+            "total_cost": total_cost,
+        })
+
+    return render_template(
+        "inventario/transfer_detail.html",
+        active_page="inventory_transfers",
+        transfer=transfer,
+        lines=lines,
+        total_units=total_units,
+        total_cost=total_cost,
+    )
+
+
 @web_inventory_bp.route("/inventory/transfers/new", methods=["GET", "POST"])
 def transfer_new():
     if "user" not in session:
@@ -192,6 +225,9 @@ def transfer_approve(transfer_id):
         company_id=_company_id(), transfer_id=transfer_id, approved_by=session["user"].get("email", ""),
         sandbox=_sandbox(), owner_uid=_owner())
     flash(msg, "success" if ok else "error")
+    referrer = request.referrer
+    if referrer and request.host in referrer:
+        return redirect(referrer)
     return redirect(url_for("web_inventory.transfer_list"))
 
 
@@ -205,6 +241,9 @@ def transfer_reject(transfer_id):
     from app.services.warehouse_transfer_service import WarehouseTransferService
     ok, msg = WarehouseTransferService.reject_transfer(_company_id(), transfer_id, reason, sandbox=_sandbox())
     flash(msg, "success" if ok else "error")
+    referrer = request.referrer
+    if referrer and request.host in referrer:
+        return redirect(referrer)
     return redirect(url_for("web_inventory.transfer_list"))
 
 
