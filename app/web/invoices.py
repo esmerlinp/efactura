@@ -91,7 +91,7 @@ def _check_invoices_module_gate():
         required_mod = 'cxc'
     elif path.startswith('/expenses') or path.startswith('/api/expenses') or path.startswith('/api/ai/classify-expense') or path.startswith('/api/ai/receipt-ocr'):
         required_mod = 'gastos'
-    elif path.startswith('/items') or path.startswith('/categories') or path.startswith('/api/quick-create-product'):
+    elif path.startswith('/items') or path.startswith('/categories') or path.startswith('/units') or path.startswith('/api/quick-create-product'):
         required_mod = 'catalogo'
     elif path.startswith('/reports/export/accounting'):
         required_mod = 'exportacion_contable'
@@ -809,7 +809,9 @@ def new_item():
         return redirect(url_for('web_invoices.list_items'))
         
     categories = DatabaseService.get_categories(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    return render_template('items/form.html', active_page='items', item=None, categories=categories)
+    units = DatabaseService.get_measurement_units(owner_uid, sandbox=sandbox, company_id=company_id)
+    dgii_units = DatabaseService.get_dgii_official_units()
+    return render_template('items/form.html', active_page='items', item=None, categories=categories, units=units, dgii_units=dgii_units)
 
 @web_invoices_bp.route('/items/<item_id>/edit', methods=['GET', 'POST'])
 def edit_item(item_id):
@@ -861,7 +863,9 @@ def edit_item(item_id):
         return redirect(url_for('web_invoices.list_items'))
         
     categories = DatabaseService.get_categories(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    return render_template('items/form.html', active_page='items', item=item, categories=categories)
+    units = DatabaseService.get_measurement_units(owner_uid, sandbox=sandbox, company_id=company_id)
+    dgii_units = DatabaseService.get_dgii_official_units()
+    return render_template('items/form.html', active_page='items', item=item, categories=categories, units=units, dgii_units=dgii_units)
 
 @web_invoices_bp.route('/items/<item_id>/delete', methods=['POST'])
 def delete_item_route(item_id):
@@ -1337,6 +1341,70 @@ def ajax_create_category():
     }
     DatabaseService.save_category(owner_uid, slug, cat_dict, sandbox=sandbox, company_id=company_id)
     return jsonify({'success': True, 'id': slug, 'name': name})
+
+
+@web_invoices_bp.route('/units/ajax_create', methods=['POST'])
+def ajax_create_measurement_unit():
+    """Endpoint AJAX para crear una unidad de medida desde el formulario de producto."""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    if not (check_permission('canManageCatalog') or check_permission('canClients') or check_permission('canManageInventory')):
+        return jsonify({'success': False, 'error': 'Permiso insuficiente'}), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    symbol = (data.get('symbol') or '').strip()
+    dgii_code = str(data.get('dgiiCode') or '43').strip()
+
+    if not name:
+        return jsonify({'success': False, 'error': 'El nombre de la unidad es obligatorio'}), 400
+
+    existing_units = DatabaseService.get_measurement_units(owner_uid, company_id=company_id, sandbox=sandbox)
+    for u in existing_units:
+        if u.get('name', '').strip().lower() == name.lower():
+            display = f"{u['name']} ({u['symbol']})" if u.get('symbol') else u['name']
+            return jsonify({
+                'success': True,
+                'id': u['id'],
+                'name': u['name'],
+                'symbol': u.get('symbol', ''),
+                'dgiiCode': u.get('dgiiCode', '43'),
+                'display': display,
+                'already_existed': True
+            })
+
+    import unicodedata
+    import re
+    slug = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
+    slug = re.sub(r'[^\w\s-]', '', slug).strip().lower()
+    slug = re.sub(r'[-\s]+', '-', slug)
+    if not slug:
+        slug = str(uuid.uuid4())[:8]
+
+    existing_ids = {u.get("id") for u in existing_units}
+    if slug in existing_ids:
+        slug = f"{slug}-{uuid.uuid4().hex[:4]}"
+
+    unit_dict = {
+        'id': slug,
+        'name': name,
+        'symbol': symbol,
+        'dgiiCode': dgii_code,
+        'isCustom': True,
+        'createdAt': datetime.now(timezone.utc).isoformat()
+    }
+    DatabaseService.save_measurement_unit(owner_uid, slug, unit_dict, sandbox=sandbox, company_id=company_id)
+    display = f"{name} ({symbol})" if symbol else name
+    return jsonify({
+        'success': True,
+        'id': slug,
+        'name': name,
+        'symbol': symbol,
+        'dgiiCode': dgii_code,
+        'display': display
+    })
 
 
 @web_invoices_bp.route('/api/quick-create-product', methods=['POST'])

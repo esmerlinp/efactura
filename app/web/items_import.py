@@ -59,7 +59,14 @@ ITEM_EXAMPLE_ROWS = [
 
 ITEM_TYPE_OPTIONS = ["Bien", "Servicio"]
 ITEM_ITBIS_OPTIONS = ["0.18", "0.16", "0.0"]
-ITEM_UNIT_OPTIONS = ["Unidad", "Hora", "Servicio", "Caja", "Mes", "Otros"]
+ITEM_UNIT_OPTIONS = [
+    "Unidad", "Caja", "Libra", "Kilogramo", "Litro", "Galón", "Paquete", "Saco",
+    "Docena", "Pieza", "Metro", "Metro Cuadrado", "Metro Cúbico", "Gramo", "Onza",
+    "Quintal", "Tonelada", "Botella", "Lata", "Barril", "Bidón", "Tanque", "Bulto",
+    "Huacal", "Fardo", "Display", "Bandeja", "Bolsa", "Rollo", "Sobre", "Par",
+    "Conjunto", "Centímetro", "Pie", "Pie Cuadrado", "Yarda", "Pulgada",
+    "Servicio", "Hora", "Día", "Mes", "Granel", "Lote", "Otros"
+]
 
 
 def _get_delimiter(first_line):

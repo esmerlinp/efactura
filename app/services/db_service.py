@@ -2965,6 +2965,214 @@ class DatabaseService:
         return slug
 
     # =========================================================================
+    # UNIDADES DE MEDIDA (MEASUREMENT UNITS & DGII CATALOG)
+    # =========================================================================
+    DGII_OFFICIAL_UNITS = [
+        {"code": "1", "symbol": "BARR", "label": "1 - Barril (BARR)"},
+        {"code": "2", "symbol": "BOL", "label": "2 - Bolsa (BOL)"},
+        {"code": "3", "symbol": "BOT", "label": "3 - Bote (BOT)"},
+        {"code": "4", "symbol": "BULTO", "label": "4 - Bultos (BULTO)"},
+        {"code": "5", "symbol": "BOTELLA", "label": "5 - Botella (BOTELLA)"},
+        {"code": "6", "symbol": "CAJ", "label": "6 - Caja/Cajón (CAJ)"},
+        {"code": "7", "symbol": "CAJETILLA", "label": "7 - Cajetilla (CAJETILLA)"},
+        {"code": "8", "symbol": "CM", "label": "8 - Centímetro (CM)"},
+        {"code": "9", "symbol": "CIL", "label": "9 - Cilindro (CIL)"},
+        {"code": "10", "symbol": "CONJ", "label": "10 - Conjunto (CONJ)"},
+        {"code": "11", "symbol": "CONT", "label": "11 - Contenedor (CONT)"},
+        {"code": "12", "symbol": "DÍA", "label": "12 - Día (DÍA)"},
+        {"code": "13", "symbol": "DOC", "label": "13 - Docena (DOC)"},
+        {"code": "14", "symbol": "FARD", "label": "14 - Fardo (FARD)"},
+        {"code": "15", "symbol": "GL", "label": "15 - Galones (GL)"},
+        {"code": "16", "symbol": "GRAD", "label": "16 - Grado (GRAD)"},
+        {"code": "17", "symbol": "GR", "label": "17 - Gramo (GR)"},
+        {"code": "18", "symbol": "GRAN", "label": "18 - Granel (GRAN)"},
+        {"code": "19", "symbol": "HOR", "label": "19 - Hora (HOR)"},
+        {"code": "20", "symbol": "HUAC", "label": "20 - Huacal (HUAC)"},
+        {"code": "21", "symbol": "KG", "label": "21 - Kilogramo (KG)"},
+        {"code": "22", "symbol": "kWh", "label": "22 - Kilovatio Hora (kWh)"},
+        {"code": "23", "symbol": "LB", "label": "23 - Libra (LB)"},
+        {"code": "24", "symbol": "LITRO", "label": "24 - Litro (LITRO)"},
+        {"code": "25", "symbol": "LOT", "label": "25 - Lote (LOT)"},
+        {"code": "26", "symbol": "M", "label": "26 - Metro (M)"},
+        {"code": "27", "symbol": "M2", "label": "27 - Metro Cuadrado (M2)"},
+        {"code": "28", "symbol": "M3", "label": "28 - Metro Cúbico (M3)"},
+        {"code": "29", "symbol": "MMBTU", "label": "29 - Millones de Unidades Térmicas (MMBTU)"},
+        {"code": "30", "symbol": "MIN", "label": "30 - Minuto (MIN)"},
+        {"code": "31", "symbol": "PAQ", "label": "31 - Paquete (PAQ)"},
+        {"code": "32", "symbol": "PAR", "label": "32 - Par (PAR)"},
+        {"code": "33", "symbol": "PIE", "label": "33 - Pie (PIE)"},
+        {"code": "34", "symbol": "PZA", "label": "34 - Pieza (PZA)"},
+        {"code": "35", "symbol": "ROL", "label": "35 - Rollo (ROL)"},
+        {"code": "36", "symbol": "SOBR", "label": "36 - Sobre (SOBR)"},
+        {"code": "37", "symbol": "SEG", "label": "37 - Segundo (SEG)"},
+        {"code": "38", "symbol": "TANQUE", "label": "38 - Tanque (TANQUE)"},
+        {"code": "39", "symbol": "TONE", "label": "39 - Tonelada (TONE)"},
+        {"code": "40", "symbol": "TUB", "label": "40 - Tubo (TUB)"},
+        {"code": "41", "symbol": "YD", "label": "41 - Yarda (YD)"},
+        {"code": "42", "symbol": "YD2", "label": "42 - Yarda cuadrada (YD2)"},
+        {"code": "43", "symbol": "UND", "label": "43 - Unidad (UND)"},
+        {"code": "44", "symbol": "EA", "label": "44 - Elemento (EA)"},
+        {"code": "45", "symbol": "MILLAR", "label": "45 - Millar (MILLAR)"},
+        {"code": "46", "symbol": "SAC", "label": "46 - Saco (SAC)"},
+        {"code": "47", "symbol": "LAT", "label": "47 - Lata (LAT)"},
+        {"code": "48", "symbol": "DIS", "label": "48 - Display (DIS)"},
+        {"code": "49", "symbol": "BID", "label": "49 - Bidón (BID)"},
+        {"code": "50", "symbol": "RAC", "label": "50 - Ración (RAC)"},
+        {"code": "51", "symbol": "Q", "label": "51 - Quintal (Q)"},
+        {"code": "52", "symbol": "GRT", "label": "52 - Toneladas de registro bruto (GRT)"},
+        {"code": "53", "symbol": "P2", "label": "53 - Pie Cuadrado (P2)"},
+        {"code": "54", "symbol": "PAX", "label": "54 - Pasajero (PAX)"},
+        {"code": "55", "symbol": "PULG", "label": "55 - Pulgadas (PULG)"},
+        {"code": "56", "symbol": "STAY", "label": "56 - Parqueo Barcos En Muelle (STAY)"},
+        {"code": "57", "symbol": "BDJ", "label": "57 - Bandeja (BDJ)"},
+        {"code": "58", "symbol": "HA", "label": "58 - Hectárea (HA)"},
+        {"code": "59", "symbol": "ML", "label": "59 - Mililitro (ML)"},
+        {"code": "60", "symbol": "MG", "label": "60 - Miligramo (MG)"},
+        {"code": "61", "symbol": "OZ", "label": "61 - Onzas (OZ)"},
+        {"code": "62", "symbol": "OZT", "label": "62 - Onzas Troy (OZT)"},
+    ]
+
+    STANDARD_MEASUREMENT_UNITS = [
+        {"id": "unidad", "name": "Unidad", "symbol": "ud", "dgiiCode": "43"},
+        {"id": "caja", "name": "Caja", "symbol": "cj", "dgiiCode": "6"},
+        {"id": "libra", "name": "Libra", "symbol": "lb", "dgiiCode": "23"},
+        {"id": "kilogramo", "name": "Kilogramo", "symbol": "kg", "dgiiCode": "21"},
+        {"id": "gramo", "name": "Gramo", "symbol": "gr", "dgiiCode": "17"},
+        {"id": "onza", "name": "Onza", "symbol": "oz", "dgiiCode": "61"},
+        {"id": "quintal", "name": "Quintal", "symbol": "q", "dgiiCode": "51"},
+        {"id": "tonelada", "name": "Tonelada", "symbol": "tone", "dgiiCode": "39"},
+        {"id": "litro", "name": "Litro", "symbol": "lt", "dgiiCode": "24"},
+        {"id": "galon", "name": "Galón", "symbol": "gl", "dgiiCode": "15"},
+        {"id": "mililitro", "name": "Mililitro", "symbol": "ml", "dgiiCode": "59"},
+        {"id": "botella", "name": "Botella", "symbol": "bot", "dgiiCode": "5"},
+        {"id": "lata", "name": "Lata", "symbol": "lat", "dgiiCode": "47"},
+        {"id": "barril", "name": "Barril", "symbol": "barr", "dgiiCode": "1"},
+        {"id": "bidon", "name": "Bidón", "symbol": "bid", "dgiiCode": "49"},
+        {"id": "tanque", "name": "Tanque", "symbol": "tq", "dgiiCode": "38"},
+        {"id": "paquete", "name": "Paquete", "symbol": "paq", "dgiiCode": "31"},
+        {"id": "saco", "name": "Saco", "symbol": "sac", "dgiiCode": "46"},
+        {"id": "bulto", "name": "Bulto", "symbol": "bulto", "dgiiCode": "4"},
+        {"id": "huacal", "name": "Huacal", "symbol": "huac", "dgiiCode": "20"},
+        {"id": "fardo", "name": "Fardo", "symbol": "fard", "dgiiCode": "14"},
+        {"id": "display", "name": "Display", "symbol": "dis", "dgiiCode": "48"},
+        {"id": "bandeja", "name": "Bandeja", "symbol": "bdj", "dgiiCode": "57"},
+        {"id": "bolsa", "name": "Bolsa", "symbol": "bol", "dgiiCode": "2"},
+        {"id": "rollo", "name": "Rollo", "symbol": "rol", "dgiiCode": "35"},
+        {"id": "sobre", "name": "Sobre", "symbol": "sobr", "dgiiCode": "36"},
+        {"id": "docena", "name": "Docena", "symbol": "doc", "dgiiCode": "13"},
+        {"id": "millar", "name": "Millar", "symbol": "millar", "dgiiCode": "45"},
+        {"id": "pieza", "name": "Pieza", "symbol": "pza", "dgiiCode": "34"},
+        {"id": "par", "name": "Par", "symbol": "par", "dgiiCode": "32"},
+        {"id": "conjunto", "name": "Conjunto", "symbol": "conj", "dgiiCode": "10"},
+        {"id": "metro", "name": "Metro", "symbol": "m", "dgiiCode": "26"},
+        {"id": "metro-cuadrado", "name": "Metro Cuadrado", "symbol": "m²", "dgiiCode": "27"},
+        {"id": "metro-cubico", "name": "Metro Cúbico", "symbol": "m³", "dgiiCode": "28"},
+        {"id": "centimetro", "name": "Centímetro", "symbol": "cm", "dgiiCode": "8"},
+        {"id": "pie", "name": "Pie", "symbol": "pie", "dgiiCode": "33"},
+        {"id": "pie-cuadrado", "name": "Pie Cuadrado", "symbol": "p²", "dgiiCode": "53"},
+        {"id": "yarda", "name": "Yarda", "symbol": "yd", "dgiiCode": "41"},
+        {"id": "pulgada", "name": "Pulgada", "symbol": "pulg", "dgiiCode": "55"},
+        {"id": "servicio", "name": "Servicio", "symbol": "srv", "dgiiCode": "43"},
+        {"id": "hora", "name": "Hora", "symbol": "hr", "dgiiCode": "19"},
+        {"id": "dia", "name": "Día", "symbol": "día", "dgiiCode": "12"},
+        {"id": "mes", "name": "Mes", "symbol": "mes", "dgiiCode": "43"},
+        {"id": "granel", "name": "Granel", "symbol": "gran", "dgiiCode": "18"},
+        {"id": "lote", "name": "Lote", "symbol": "lot", "dgiiCode": "25"},
+        {"id": "otros", "name": "Otros", "symbol": "", "dgiiCode": "43"},
+    ]
+
+    @classmethod
+    def get_dgii_official_units(cls):
+        """Retorna la tabla oficial de 62 unidades de medida reconocidas por DGII e-CF."""
+        return list(cls.DGII_OFFICIAL_UNITS)
+
+    @classmethod
+    def get_standard_measurement_units(cls):
+        """Retorna las unidades estándar base con formato de presentación."""
+        units = []
+        for u in cls.STANDARD_MEASUREMENT_UNITS:
+            symbol = u.get("symbol", "").strip()
+            name = u.get("name", "").strip()
+            display = f"{name} ({symbol})" if symbol else name
+            units.append({
+                "id": u["id"],
+                "name": name,
+                "symbol": symbol,
+                "dgiiCode": u.get("dgiiCode", "43"),
+                "display": display,
+                "isCustom": False
+            })
+        return units
+
+    @classmethod
+    def get_measurement_units(cls, owner_uid, sandbox=True, company_id=None):
+        """Retorna la combinación de unidades base y unidades personalizadas creadas por la empresa."""
+        # 1. Base estándar
+        base_units = cls.get_standard_measurement_units()
+        known_names = {u["name"].lower(): u for u in base_units}
+        custom_units = []
+
+        # 2. Unidades personalizadas de Firestore
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_units" if sandbox else "units"
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    name = (data.get("name") or doc.id).strip()
+                    if not name:
+                        continue
+                    symbol = (data.get("symbol") or "").strip()
+                    dgii_code = str(data.get("dgiiCode") or "43").strip()
+                    display = f"{name} ({symbol})" if symbol else name
+                    item = {
+                        "id": doc.id,
+                        "name": name,
+                        "symbol": symbol,
+                        "dgiiCode": dgii_code,
+                        "display": display,
+                        "isCustom": True,
+                        "createdAt": serialize_field(data.get("createdAt"))
+                    }
+                    nl = name.lower()
+                    if nl in known_names:
+                        # Si fue personalizada sobreescrita, actualizar metadatos
+                        known_names[nl].update(item)
+                    else:
+                        custom_units.append(item)
+            except Exception as e:
+                print(f"⚠️ Error al obtener unidades de medida personalizadas: {e}")
+
+        # Ordenamiento: 'Unidad' primero, luego el resto ordenado alfabéticamente
+        all_units = list(known_names.values()) + custom_units
+        first_unit = None
+        rest_units = []
+        for u in all_units:
+            if u["name"].lower() == "unidad":
+                first_unit = u
+            else:
+                rest_units.append(u)
+        rest_units.sort(key=lambda x: x["name"].lower())
+        return ([first_unit] if first_unit else []) + rest_units
+
+    @classmethod
+    def save_measurement_unit(cls, owner_uid, unit_id, unit_dict, sandbox=True, company_id=None):
+        """Guarda o actualiza una unidad de medida personalizada en Firestore."""
+        unit_dict["id"] = unit_id
+        unit_dict["ownerUID"] = owner_uid
+        if "createdAt" not in unit_dict or not unit_dict["createdAt"]:
+            unit_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
+        unit_dict["createdAt"] = serialize_field(unit_dict["createdAt"])
+
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_units" if sandbox else "units"
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(unit_id).set(unit_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar unidad de medida en Firestore: {e}")
+        return unit_dict
+
+    # =========================================================================
     # LISTAS DE PRECIOS (PRICE LISTS)
     # =========================================================================
     @classmethod
