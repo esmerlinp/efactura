@@ -143,8 +143,46 @@ class GoodsReceiptService:
 
         for item in items:
             label = item.get("poItemName") or item.get("itemName") or "—"
-            if not (item.get("itemId") or "").strip():
+            item_id = (item.get("itemId") or "").strip()
+            if not item_id:
                 errors.append(f"La partida '{label}' no tiene ítem de catálogo asociado.")
+                continue
+
+            rqty = float(item.get("receivedQuantity", 0) or 0)
+            if rqty <= 0:
+                continue
+
+            # Verificación de control por lotes
+            track_lots = item.get("trackLots")
+            if track_lots is None and firebase_initialized and db_firestore is not None:
+                try:
+                    coll_name = "sandbox_items" if sandbox else "items"
+                    item_doc = _company_coll(company_id=company_id, coll_name=coll_name).document(item_id).get()
+                    if getattr(item_doc, "exists", False) is True:
+                        doc_data = item_doc.to_dict()
+                        if isinstance(doc_data, dict):
+                            track_lots = bool(doc_data.get("trackLots", False))
+                        else:
+                            track_lots = False
+                    else:
+                        track_lots = False
+                except Exception:
+                    track_lots = False
+            track_lots = bool(track_lots)
+
+            if track_lots:
+                lot_id = (item.get("lotId") or "").strip()
+                lot_number = (item.get("lotNumber") or "").strip()
+                if not lot_id and not lot_number:
+                    errors.append(
+                        f"La partida '{label}' requiere control por lotes. Debe indicar un número de lote o seleccionar uno existente."
+                    )
+                prod_date = (item.get("productionDate") or "").strip()
+                exp_date = (item.get("expirationDate") or "").strip()
+                if prod_date and exp_date and exp_date < prod_date:
+                    errors.append(
+                        f"En la partida '{label}', la fecha de vencimiento ({exp_date}) no puede ser anterior a la de producción ({prod_date})."
+                    )
 
         po_id = receipt_data.get("poId") or receipt_data.get("purchaseOrderId") or ""
         if po_id and PurchaseOrderService is not None:
@@ -219,6 +257,9 @@ class GoodsReceiptService:
                     ),
                     "notes": f"Reversión automática de recepción {tx.get('referenceId', '')}",
                     "performedBy": tx.get("performedBy", "Sistema"),
+                    "lotId": (tx.get("lotId") or "").strip(),
+                    "lotNumber": (tx.get("lotNumber") or "").strip(),
+                    "allowNegativeStock": True,
                 }
                 InventoryTransactionService.execute_transaction(
                     owner_uid=owner_uid, company_id=company_id, tx_dict=rev, sandbox=sandbox
@@ -296,6 +337,11 @@ class GoodsReceiptService:
                 "idempotencyKey": idempotency_key,
                 "notes": f"Recepción {receipt_number} - OC {receipt_data.get('poNumber', '')}",
                 "performedBy": performed_by,
+                "lotId": (item.get("lotId") or "").strip(),
+                "lotNumber": (item.get("lotNumber") or "").strip(),
+                "productionDate": (item.get("productionDate") or "").strip(),
+                "expirationDate": (item.get("expirationDate") or "").strip(),
+                "lotNotes": (item.get("lotNotes") or "").strip(),
             }
             result = InventoryTransactionService.execute_transaction(
                 owner_uid=owner_uid,

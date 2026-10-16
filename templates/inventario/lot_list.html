@@ -4,42 +4,75 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
 {% endblock %}
 {% block content %}
-<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
-    <h1 class="page-title"
-        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
-        <i class="fa-solid fa-cubes"></i> Lotes de Inventario
-    </h1>
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div>
+        <h1 class="page-title"
+            style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+            <i class="fa-solid fa-cubes" style="color: var(--accent-purple); margin-right: 8px;"></i> Lotes de Inventario
+        </h1>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 4px 0 0 0;">
+            Partidas físicas, saldos y seguimiento de fechas de vencimiento.
+        </p>
+    </div>
+    <div>
+        <a href="{{ url_for('web_invoices.new_inventory_transaction') }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-plus-circle"></i> Nueva Entrada con Lote
+        </a>
+    </div>
 </div>
 
 <div class="card-table-wrapper">
     <div class="table-responsive">
         <table class="data-grid" style="width: 100%;">
             <thead>
-                <tr><th>Producto</th><th>Lote #</th><th>Almacén</th><th>Cantidad</th><th>Costo Unit.</th><th>Prod.</th><th>Vence</th><th>Estado</th></tr>
+                <tr>
+                    <th>Producto</th>
+                    <th>Lote #</th>
+                    <th>Almacén</th>
+                    <th style="text-align: right;">Cantidad</th>
+                    <th style="text-align: right;">Costo Unit.</th>
+                    <th>Fabricación</th>
+                    <th>Vencimiento</th>
+                    <th style="text-align: center;">Estado</th>
+                </tr>
             </thead>
             <tbody>
                 {% for l in lots %}
                 {% set days_left = ((l.expirationDate | string)[:10] | to_date_diff) if l.expirationDate else 999 %}
                 <tr>
-                    <td>{{ l.itemName }}</td>
-                    <td><strong>{{ l.lotNumber }}</strong></td>
-                    <td>{{ l.warehouseId }}</td>
-                    <td>{{ "%.2f"|format(l.quantity|float) }}</td>
-                    <td>{{ "RD$ %.2f"|format(l.unitCost|float) }}</td>
+                    <td><strong>{{ l.itemName or '—' }}</strong></td>
+                    <td><span style="font-family: monospace; font-weight: 700; color: var(--accent-purple);">{{ l.lotNumber or 'S/N' }}</span></td>
+                    <td>{{ l.warehouseName or l.warehouseId or '—' }}</td>
+                    <td style="text-align: right; font-weight: 600;">{{ "%.2f"|format(l.quantity|float) }}</td>
+                    <td style="text-align: right;">{{ "RD$ {:,.2f}".format(l.unitCost|float) }}</td>
                     <td>{{ l.productionDate[:10] if l.productionDate else '—' }}</td>
-                    <td>{{ l.expirationDate[:10] if l.expirationDate else '—' }}</td>
                     <td>
+                        {{ l.expirationDate[:10] if l.expirationDate else '—' }}
+                        {% if l.expirationDate and days_left < 0 %}
+                        <span style="display: block; font-size: 0.7rem; color: var(--accent-red); font-weight: 600;">(Vencido)</span>
+                        {% elif l.expirationDate and days_left <= 30 %}
+                        <span style="display: block; font-size: 0.7rem; color: #f59e0b; font-weight: 600;">(Vence en {{ days_left }} d)</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
                         {% if l.quantity|float <= 0 %}
-                        <span class="badge badge-danger">Agotado</span>
-                        {% elif l.expirationDate and l.expirationDate[:10] <= now().strftime('%Y-%m-%d') %}
-                        <span class="badge badge-danger">Vencido</span>
+                        <span class="badge" style="background: rgba(107, 114, 128, 0.15); color: var(--text-secondary); padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">Agotado</span>
+                        {% elif l.expirationDate and days_left < 0 %}
+                        <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-red); padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">Vencido</span>
+                        {% elif l.expirationDate and days_left <= 30 %}
+                        <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #d97706; padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">Por Vencer</span>
                         {% else %}
-                        <span class="badge badge-success">Activo</span>
+                        <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">Activo</span>
                         {% endif %}
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="8" class="text-center text-muted">No hay lotes registrados. Use las entradas de inventario para crear lotes.</td></tr>
+                <tr>
+                    <td colspan="8" class="text-center text-muted" style="text-align: center; padding: 36px 16px; color: var(--text-secondary);">
+                        <i class="fa-solid fa-layer-group" style="font-size: 2rem; color: var(--text-muted); display: block; margin-bottom: 10px; opacity: 0.5;"></i>
+                        No hay lotes registrados todavía. Puede crear o ingresar lotes desde <a href="{{ url_for('web_invoices.new_inventory_transaction') }}" style="color: var(--accent-purple); font-weight: 600;">Nueva Entrada de Inventario</a> o al recibir órdenes de compra.
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>

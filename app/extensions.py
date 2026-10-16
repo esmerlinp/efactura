@@ -71,6 +71,20 @@ def init_extensions(app):
     from app.utils.ecf_utils import get_modification_reason_dgii
     app.template_filter('ecf_mod_reason')(get_modification_reason_dgii)
     
+    # Filtro para días restantes hasta vencimiento (diferencia de fechas)
+    def to_date_diff_filter(target_date):
+        if not target_date:
+            return 999
+        try:
+            from datetime import datetime, date, timezone
+            d = str(target_date)[:10]
+            dt = date.fromisoformat(d)
+            today = datetime.now(timezone.utc).date()
+            return (dt - today).days
+        except Exception:
+            return 999
+    app.template_filter('to_date_diff')(to_date_diff_filter)
+
     # Registrar funciones matemáticas y utilidades en Jinja2
     from datetime import datetime
-    app.jinja_env.globals.update(min=min, max=max, datetime=datetime)
+    app.jinja_env.globals.update(min=min, max=max, datetime=datetime, now=datetime.now)

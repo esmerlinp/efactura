@@ -190,12 +190,14 @@ class InventoryTransactionService:
         coll_items = "sandbox_items" if sandbox else "items"
         coll_cost_ledger = "sandbox_inventory_cost_ledger" if sandbox else "inventory_cost_ledger"
         coll_idempotency = "sandbox_inventory_idempotency" if sandbox else "inventory_idempotency"
+        coll_lots = "sandbox_inventory_lots" if sandbox else "inventory_lots"
 
         stock_coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_stock)
         tx_coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_tx)
         items_coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_items)
         ledger_coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_cost_ledger)
         idempotency_coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_idempotency)
+        lots_coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_lots)
 
         # Mapeo de almacenes y sucursales (lectura fuera de transacción)
         whs = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
@@ -205,6 +207,20 @@ class InventoryTransactionService:
         dest_branch_id = wh_map.get(dest_wh_id, {}).get("branchId", "default-sucursal-principal") if dest_wh_id else ""
         orig_wh_name = wh_map.get(orig_wh_id, {}).get("name", orig_wh_id) if orig_wh_id else ""
         dest_wh_name = wh_map.get(dest_wh_id, {}).get("name", dest_wh_id) if dest_wh_id else ""
+
+        # Preparamos resolución canónica de lote
+        lot_id_in = (tx_dict.get("lotId") or "").strip()
+        lot_number_in = (tx_dict.get("lotNumber") or "").strip()
+        prod_date_in = (tx_dict.get("productionDate") or "").strip()
+        exp_date_in = (tx_dict.get("expirationDate") or "").strip()
+        lot_notes_in = (tx_dict.get("lotNotes") or "").strip()
+
+        from app.services.lot_service import LotService
+        target_lot_id = lot_id_in
+        if not target_lot_id and lot_number_in:
+            wh_for_lot = dest_wh_id if tx_type == cls.TYPE_ENTRADA else orig_wh_id
+            if wh_for_lot:
+                target_lot_id = LotService.build_canonical_lot_id(item_id, wh_for_lot, lot_number_in)
 
         # Preparamos hash seguro de idempotencia para doc ID si existe
         idempotency_doc_id = None
@@ -265,6 +281,13 @@ class InventoryTransactionService:
                 dest_stock_doc = dest_stock_ref.get(transaction=txn)
                 if dest_stock_doc.exists:
                     old_dest_qty = float(dest_stock_doc.to_dict().get("quantity", 0.0))
+
+            # 1.4 Lectura de Lote en la transacción (si aplica)
+            lot_ref = None
+            lot_doc = None
+            if target_lot_id and lots_coll is not None:
+                lot_ref = lots_coll.document(target_lot_id)
+                lot_doc = lot_ref.get(transaction=txn)
 
             active_fifo_layers = []
             fifo_doc_refs = {}
@@ -393,6 +416,96 @@ class InventoryTransactionService:
                         new_balance = new_orig_qty
                     new_item_total_stock = old_item_total_stock + delta
 
+            # Validación de requerimiento de lotes por catálogo
+            item_requires_lot = bool(item_data.get("trackLots", False))
+            if item_requires_lot and tx_type == cls.TYPE_ENTRADA and not target_lot_id and not lot_number_in:
+                raise InventoryTransactionError(
+                    f"El artículo '{item_name}' requiere control por lotes. Debe indicar o seleccionar un lote."
+                )
+
+            lot_record_to_write = None
+            final_lot_id = ""
+            final_lot_number = ""
+            final_prod_date = ""
+            final_exp_date = ""
+
+            if target_lot_id and lot_ref is not None:
+                final_lot_id = target_lot_id
+                if tx_type == cls.TYPE_ENTRADA:
+                    if lot_doc and lot_doc.exists:
+                        existing_lot = lot_doc.to_dict() or {}
+                        if existing_lot.get("itemId") and existing_lot.get("itemId") != item_id:
+                            raise InventoryTransactionError(
+                                f"El lote '{existing_lot.get('lotNumber')}' pertenece a otro producto y no puede ser asignado a '{item_name}'."
+                            )
+                        if existing_lot.get("warehouseId") and existing_lot.get("warehouseId") != dest_wh_id:
+                            raise InventoryTransactionError(
+                                f"El lote '{existing_lot.get('lotNumber')}' pertenece al almacén '{existing_lot.get('warehouseId')}' y no al almacén destino '{dest_wh_id}'."
+                            )
+                        old_l_qty = float(existing_lot.get("quantity", 0.0))
+                        old_l_init = float(existing_lot.get("initialQuantity", 0.0))
+                        new_l_qty = old_l_qty + qty
+                        new_l_init = old_l_init + qty
+                        final_lot_number = lot_number_in or existing_lot.get("lotNumber", "")
+                        final_prod_date = prod_date_in or existing_lot.get("productionDate", "")
+                        final_exp_date = exp_date_in or existing_lot.get("expirationDate", "")
+                        final_l_cost = unit_cost if unit_cost > 0 else float(existing_lot.get("unitCost", 0.0))
+                        final_created = existing_lot.get("createdAt") or server_timestamp
+                    else:
+                        new_l_qty = qty
+                        new_l_init = qty
+                        final_lot_number = lot_number_in
+                        final_prod_date = prod_date_in
+                        final_exp_date = exp_date_in
+                        final_l_cost = unit_cost
+                        final_created = server_timestamp
+
+                    if final_prod_date and final_exp_date and final_exp_date < final_prod_date:
+                        raise InventoryTransactionError(
+                            f"La fecha de vencimiento ({final_exp_date}) no puede ser anterior a la fecha de fabricación ({final_prod_date})."
+                        )
+
+                    lot_record_to_write = {
+                        "id": target_lot_id,
+                        "itemId": item_id,
+                        "itemName": item_name,
+                        "warehouseId": dest_wh_id,
+                        "lotNumber": final_lot_number,
+                        "productionDate": final_prod_date,
+                        "expirationDate": final_exp_date,
+                        "initialQuantity": new_l_init,
+                        "quantity": new_l_qty,
+                        "unitCost": final_l_cost,
+                        "notes": lot_notes_in,
+                        "companyId": company_id,
+                        "ownerUID": owner_uid,
+                        "lastMovementId": tx_id,
+                        "createdAt": final_created,
+                        "updatedAt": server_timestamp,
+                    }
+                elif tx_type == cls.TYPE_SALIDA:
+                    if lot_doc and lot_doc.exists:
+                        existing_lot = lot_doc.to_dict() or {}
+                        if existing_lot.get("itemId") and existing_lot.get("itemId") != item_id:
+                            raise InventoryTransactionError(
+                                f"El lote '{existing_lot.get('lotNumber')}' pertenece a otro producto y no puede ser asignado a '{item_name}'."
+                            )
+                        cur_l_qty = float(existing_lot.get("quantity", 0.0))
+                        if not allow_negative_stock and cur_l_qty < qty:
+                            raise InsufficientStockError(
+                                f"Stock insuficiente en el lote '{existing_lot.get('lotNumber')}'. Disponible: {cur_l_qty}, Solicitado: {qty}"
+                            )
+                        new_l_qty = cur_l_qty - qty
+                        final_lot_number = existing_lot.get("lotNumber", "")
+                        final_prod_date = existing_lot.get("productionDate", "")
+                        final_exp_date = existing_lot.get("expirationDate", "")
+                        lot_record_to_write = dict(existing_lot)
+                        lot_record_to_write.update({
+                            "quantity": new_l_qty,
+                            "lastMovementId": tx_id,
+                            "updatedAt": server_timestamp,
+                        })
+
             # Estructurar registro de transacción inmutable
             final_tx_record = {
                 "id": tx_id,
@@ -417,6 +530,10 @@ class InventoryTransactionService:
                 "newBalance": new_balance,
                 "previousTotalStock": old_item_total_stock,
                 "newTotalStock": new_item_total_stock,
+                "lotId": final_lot_id,
+                "lotNumber": final_lot_number,
+                "productionDate": final_prod_date,
+                "expirationDate": final_exp_date,
                 "reason": tx_dict.get("reason") or "MOVIMIENTO_INVENTARIO",
                 "referenceType": tx_dict.get("referenceType", ""),
                 "referenceId": tx_dict.get("referenceId", ""),
@@ -504,7 +621,11 @@ class InventoryTransactionService:
                     "createdAt": server_timestamp
                 })
 
-            # 3.7 Registro inmutable del movimiento en el historial de transacciones
+            # 3.7 Actualización o creación atómica del lote
+            if lot_ref and lot_record_to_write:
+                txn.set(lot_ref, lot_record_to_write)
+
+            # 3.8 Registro inmutable del movimiento en el historial de transacciones
             tx_doc_ref = tx_coll.document(tx_id)
             txn.set(tx_doc_ref, final_tx_record)
 

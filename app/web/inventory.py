@@ -350,26 +350,37 @@ def lot_list():
         return redirect(url_for("web_auth.login"))
     if not check_permission("canInventoryLots"):
         return render_template("auth/restricted.html", feature_name="Lotes y Vencimientos", required_permission="canInventoryLots"), 403
-    from app.services.db_service import db_firestore, firebase_initialized, _company_coll
+    from app.services.lot_service import LotService
+    from app.services.db_service import DatabaseService
+    company_id = _company_id()
+    sb = _sandbox()
+    owner_uid = _owner()
+    lots = LotService.get_lots(company_id=company_id, sandbox=sb, owner_uid=owner_uid)
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sb)
+    wh_map = {w["id"]: w["name"] for w in warehouses}
+    for l in lots:
+        l["warehouseName"] = wh_map.get(l.get("warehouseId"), l.get("warehouseId", "—"))
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return render_template("inventario/lot_list.html", active_page="inventory_lots", lots=lots, today=today)
 
-    lots = []
-    if firebase_initialized:
-        sb = _sandbox()
-        company_id = _company_id()
-        coll = "sandbox_inventory_lots" if sb else "inventory_lots"
-        try:
-            coll_ref = _company_coll(company_id=company_id, owner_uid=_owner(), coll_name=coll)
-            if coll_ref is not None:
-                docs = coll_ref.get()
-                for doc in docs:
-                    data = doc.to_dict()
-                    data["id"] = doc.id
-                    lots.append(data)
-                lots.sort(key=lambda l: l.get("expirationDate", ""))
-        except Exception as e:
-            print(f"⚠️ Error al obtener lotes: {e}")
 
-    return render_template("inventario/lot_list.html", active_page="inventory_lots", lots=lots)
+@web_inventory_bp.route("/inventory/lots/by-item/<item_id>")
+def lots_by_item(item_id):
+    if "user" not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    warehouse_id = request.args.get("warehouseId", "").strip() or None
+    company_id = _company_id()
+    sb = _sandbox()
+    owner_uid = _owner()
+    from app.services.lot_service import LotService
+    lots = LotService.get_lots(
+        company_id=company_id,
+        item_id=item_id,
+        warehouse_id=warehouse_id,
+        sandbox=sb,
+        owner_uid=owner_uid
+    )
+    return jsonify({"success": True, "lots": lots})
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -453,6 +464,14 @@ def new_receipt():
                 rqty = 0.0
             if rqty <= 0:
                 continue
+            lot_mode = request.form.get(f"lot_mode_{item_id}", "new")
+            lot_id = request.form.get(f"lot_id_{item_id}", "").strip() if lot_mode == "existing" else ""
+            lot_number = request.form.get(f"lot_number_{item_id}", "").strip() if lot_mode == "new" else ""
+            prod_date = request.form.get(f"production_date_{item_id}", "").strip() if lot_mode == "new" else ""
+            exp_date = request.form.get(f"expiration_date_{item_id}", "").strip() if lot_mode == "new" else ""
+            lot_notes = request.form.get(f"lot_notes_{item_id}", "").strip()
+            track_lots = request.form.get(f"track_lots_{item_id}") == "1"
+
             receipt_items.append({
                 "poItemId": item_id,
                 "itemId": cat_item_id,
@@ -462,6 +481,12 @@ def new_receipt():
                 "receivedQuantity": rqty,
                 "unit": item.get("unit", "Unidad"),
                 "unitPrice": float(item.get("unitPrice", 0)),
+                "lotId": lot_id,
+                "lotNumber": lot_number,
+                "productionDate": prod_date,
+                "expirationDate": exp_date,
+                "lotNotes": lot_notes,
+                "trackLots": track_lots,
             })
 
         if not receipt_items:
