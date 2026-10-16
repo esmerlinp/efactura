@@ -363,6 +363,22 @@ def _next_due_date(first_due_date_str, recurrence, reference_date=None, fiscal_e
     return None
 
 
+def _get_period_key(next_due: date, recurrence: str) -> str:
+    """
+    Retorna la clave de período canónica asociada al vencimiento.
+    - Mensuales (monthly_*): 'YYYY-MM'
+    - Anuales (annual_*): 'YYYY'
+    - Fijas / Únicas (fixed_date, one_time): 'YYYY-MM-DD'
+    """
+    if not next_due:
+        return ""
+    if recurrence and recurrence.startswith("annual"):
+        return str(next_due.year)
+    elif recurrence in ("fixed_date", "one_time"):
+        return next_due.isoformat()
+    return f"{next_due.year:04d}-{next_due.month:02d}"
+
+
 def _get_fiscal_end_month(owner_uid, company_id=None) -> int:
     """Obtiene el mes de cierre fiscal de la empresa (por defecto 12 = Diciembre)."""
     try:
@@ -576,7 +592,8 @@ class TaxObligationService:
                       "action_url", "action_label", "category", "is_custom",
                       "origin", "metadata",
                       "last_notified_at", "last_notified_period",
-                      "last_presented_period", "last_presented_at", "confirmation_number"):
+                      "last_presented_period", "last_presented_at", "confirmation_number",
+                      "completed_periods", "last_completed_period", "last_completed_at", "last_completed_by"):
             if field in obligation_data:
                 payload[field] = obligation_data[field]
         if "enabled" in obligation_data:
@@ -755,7 +772,27 @@ class TaxObligationService:
                 company_id=company_id,
             )
 
-            if next_due is None:
+            period_key = _get_period_key(next_due, recurrence) if next_due else ""
+
+            completed_periods = ob.get("completed_periods") or {}
+            last_comp_period = ob.get("last_completed_period", "")
+            is_completed = False
+            if period_key:
+                is_completed = bool((last_comp_period == period_key) or (period_key in completed_periods))
+
+            completed_at = ""
+            if is_completed:
+                if isinstance(completed_periods.get(period_key), dict):
+                    completed_at = completed_periods[period_key].get("completed_at", "")
+                elif period_key in completed_periods:
+                    completed_at = str(completed_periods[period_key])
+                else:
+                    completed_at = ob.get("last_completed_at", "")
+
+            if is_completed:
+                status = "completed"
+                days = (next_due - today).days if next_due else 0
+            elif next_due is None:
                 status = "unconfigured"
                 days = 0
             else:
@@ -779,12 +816,109 @@ class TaxObligationService:
                 "action_label": ob.get("action_label", ""),
                 "first_due_date": first,
                 "next_due_date": next_due.isoformat() if next_due else "",
+                "period_key": period_key,
                 "days_remaining": days if next_due else 0,
                 "status": status,
+                "is_completed": is_completed,
+                "completed_at": completed_at,
                 "enabled": True,
                 "is_custom": ob.get("is_custom", False),
             })
         return result
+
+    @classmethod
+    def toggle_complete(
+        cls,
+        owner_uid,
+        key,
+        period=None,
+        completed=None,
+        company_id=None,
+        completed_by=None,
+    ):
+        """
+        Marca o desmarca una obligación como completada/trabajada para un período específico.
+        Si period es None, se calcula a partir del próximo vencimiento actual.
+        Si completed es None, invierte el estado actual.
+        """
+        all_obs = cls.get_all(owner_uid, company_id=company_id)
+        ob = next((o for o in all_obs if (o.get("obligation_key") == key or o.get("key") == key)), None)
+        if not ob:
+            if key not in OBLIGATIONS_DICT:
+                return {"success": False, "error": f"Obligación '{key}' no encontrada"}
+            ob = dict(OBLIGATIONS_DICT[key])
+
+        recurrence = ob.get("recurrence", "monthly_15")
+        target_period = period
+        if not target_period:
+            fiscal_end_month = _get_fiscal_end_month(owner_uid, company_id=company_id)
+            next_due = _next_due_date(
+                first_due_date_str=ob.get("first_due_date", ""),
+                recurrence=recurrence,
+                reference_date=date.today(),
+                fiscal_end_month=fiscal_end_month,
+                company_id=company_id,
+            )
+            target_period = _get_period_key(next_due, recurrence) if next_due else ""
+
+        if not target_period:
+            return {"success": False, "error": "No se pudo determinar el período de la obligación"}
+
+        completed_periods = dict(ob.get("completed_periods") or {})
+        last_period = ob.get("last_completed_period", "")
+        is_currently_completed = (last_period == target_period) or (target_period in completed_periods)
+
+        if completed is not None:
+            new_state = bool(completed)
+        else:
+            new_state = not is_currently_completed
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        if new_state:
+            completed_periods[target_period] = {
+                "completed_at": now_iso,
+                "completed_by": completed_by or "user",
+            }
+            update_payload = {
+                "obligation_key": key,
+                "completed_periods": completed_periods,
+                "last_completed_period": target_period,
+                "last_completed_at": now_iso,
+                "last_completed_by": completed_by or "user",
+            }
+        else:
+            completed_periods.pop(target_period, None)
+            new_last_period = ""
+            new_last_at = ""
+            if last_period == target_period:
+                if completed_periods:
+                    new_last_period = max(completed_periods.keys())
+                    rec_info = completed_periods[new_last_period]
+                    new_last_at = rec_info.get("completed_at", "") if isinstance(rec_info, dict) else str(rec_info)
+            else:
+                new_last_period = last_period
+                new_last_at = ob.get("last_completed_at", "")
+
+            update_payload = {
+                "obligation_key": key,
+                "completed_periods": completed_periods,
+                "last_completed_period": new_last_period,
+                "last_completed_at": new_last_at,
+            }
+
+        saved = cls.save(owner_uid, update_payload, company_id=company_id)
+        if not saved:
+            return {"success": False, "error": "Error al persistir el estado de la obligación"}
+
+        return {
+            "success": True,
+            "key": key,
+            "period": target_period,
+            "is_completed": new_state,
+            "label": ob.get("label", key),
+            "completed_at": now_iso if new_state else "",
+        }
 
     @classmethod
     def get_pending_alerts(cls, owner_uid, reference_date=None, company_id=None):

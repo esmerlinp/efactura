@@ -2480,3 +2480,68 @@ def tax_obligations_apply_preset():
         status_map=status_map,
     )
 
+
+@web_accounting_bp.route('/accounting/tax-obligations/toggle-complete', methods=['POST'])
+@web_accounting_bp.route('/settings/alerts/toggle-complete', methods=['POST'])
+@web_accounting_bp.route('/dashboard/tax-alerts/toggle-complete', methods=['POST'])
+def tax_obligations_toggle_complete():
+    user = _auth()
+    if not user:
+        return jsonify(success=False, error="No autorizado"), 401
+    is_owner = session.get('user', {}).get('role') == 'owner'
+    has_perm = (
+        is_owner
+        or check_permission('canManageTaxes')
+        or check_permission('canModifySettings')
+        or check_permission('canAccounting')
+        or check_permission('canAccountingSettings')
+        or check_permission('canViewDashboard')
+    )
+    if not has_perm:
+        return jsonify(success=False, error="Permiso denegado"), 403
+
+    owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
+
+    data = request.get_json(silent=True) if request.is_json else request.form.to_dict()
+    if not data:
+        data = request.form.to_dict()
+
+    key = (data.get('key') or data.get('obligation_key') or '').strip()
+    if not key:
+        return jsonify(success=False, error="Identificador de alerta requerido"), 400
+
+    period = (data.get('period') or data.get('period_key') or '').strip() or None
+    completed_val = data.get('completed')
+    completed_bool = None
+    if completed_val is not None:
+        completed_bool = str(completed_val).lower() in ('1', 'true', 'yes', 'on')
+
+    user_email = user.get('email') or user.get('name') or 'user'
+
+    from app.services.tax_obligation_service import TaxObligationService
+    res = TaxObligationService.toggle_complete(
+        owner_uid,
+        key=key,
+        period=period,
+        completed=completed_bool,
+        company_id=company_id,
+        completed_by=user_email,
+    )
+
+    if not res.get("success"):
+        return jsonify(success=False, error=res.get("error", "Error al actualizar estado")), 400
+
+    all_status = TaxObligationService.get_status(owner_uid, company_id=company_id)
+    pending_alerts = [s for s in all_status if s["status"] in ("due_soon", "overdue", "upcoming")]
+
+    return jsonify(
+        success=True,
+        key=key,
+        period=res.get("period"),
+        is_completed=res.get("is_completed"),
+        label=res.get("label"),
+        completed_at=res.get("completed_at", ""),
+        pending_count=len(pending_alerts),
+    )
+
