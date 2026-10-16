@@ -573,8 +573,21 @@ def receipt_detail(receipt_id):
     if not receipt:
         flash("Recepción no encontrada.", "error")
         return redirect(url_for("web_inventory.list_receipts"))
-    return render_template("inventario/receipt_detail.html",
-                           receipt=receipt, active_page="inventory_receipts")
+
+    items = receipt.get("items", []) or []
+    total_units = sum(float(i.get("receivedQuantity", 0) or 0) for i in items)
+    total_amount = sum(float(i.get("receivedQuantity", 0) or 0) * float(i.get("unitPrice", 0) or 0) for i in items)
+    catalog_count = len([i for i in items if i.get("itemId")])
+
+    return render_template(
+        "inventario/receipt_detail.html",
+        receipt=receipt,
+        items=items,
+        total_units=total_units,
+        total_amount=total_amount,
+        catalog_count=catalog_count,
+        active_page="inventory_receipts",
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

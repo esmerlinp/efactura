@@ -1,153 +1,326 @@
 {% extends "layout.html" %}
 
-{% block title %}Recepción {{ receipt.receiptNumber }}{% endblock %}
+{% block title %}Recepción {{ receipt.receiptNumber }} — {{ product_name }}{% endblock %}
 {% block page_header %}Detalle de Recepción{% endblock %}
 
 {% block content %}
-<div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
-    <div>
-        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
-            <i class="fa-solid fa-truck-loading" style="color:var(--accent-purple); margin-right:10px;"></i>
-            {{ receipt.receiptNumber }}
-        </h1>
-        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
-            {{ receipt.supplierName or '—' }} · {{ receipt.receiptDate or (receipt.createdAt[:10] if receipt.createdAt else '') }}
-        </p>
-    </div>
-    <div>
-        <a href="{{ url_for('web_inventory.list_receipts') }}" class="btn btn-secondary">
-            <i class="fa-solid fa-arrow-left"></i> Volver
-        </a>
-    </div>
-</div>
+<div class="receipt-detail-wrapper" style="max-width: 1200px; margin: 0 auto; padding-bottom: 40px;">
 
-<div class="card-dashboard" style="display:grid; grid-template-columns:2fr 1fr; gap:24px; margin-bottom:24px;">
-    <div class="card-form-body" style="padding:20px;">
-        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
-            <i class="fa-solid fa-info-circle" style="margin-right:6px;"></i> Información
-        </h4>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:0.88rem;">
-            <div><span style="color:var(--text-muted);">Recepción:</span></div>
-            <div style="font-weight:600;">{{ receipt.receiptNumber }}</div>
-            <div><span style="color:var(--text-muted);">OC Relacionada:</span></div>
-            <div><a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=receipt.poId) }}" style="color:var(--accent-blue);">{{ receipt.poNumber or '—' }}</a></div>
-            <div><span style="color:var(--text-muted);">Proveedor:</span></div>
-            <div>{{ receipt.supplierName or '—' }}</div>
-            <div><span style="color:var(--text-muted);">RNC:</span></div>
-            <div class="mono">{{ receipt.supplierRnc or '—' }}</div>
-            <div><span style="color:var(--text-muted);">Almacén:</span></div>
-            <div>{{ receipt.warehouseName or '—' }}</div>
-            <div><span style="color:var(--text-muted);">Fecha Recepción:</span></div>
-            <div>{{ receipt.receiptDate or '—' }}</div>
-            <div><span style="color:var(--text-muted);">Estado:</span></div>
-            <div>
+    <!-- Breadcrumb & Top Bar -->
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; flex-wrap:wrap; gap:16px;">
+        <div>
+            <!-- Breadcrumbs -->
+            <div style="display:flex; align-items:center; gap:8px; font-size:0.84rem; color:var(--text-muted); margin-bottom:8px;">
+                <a href="{{ url_for('web_invoices.inventory_dashboard') }}" style="color:var(--text-muted); text-decoration:none;">Inventario</a>
+                <i class="fa-solid fa-chevron-right" style="font-size:0.7rem; opacity:0.6;"></i>
+                <a href="{{ url_for('web_inventory.list_receipts') }}" style="color:var(--text-muted); text-decoration:none;">Recepciones de Mercancía</a>
+                <i class="fa-solid fa-chevron-right" style="font-size:0.7rem; opacity:0.6;"></i>
+                <span style="color:var(--text-primary); font-weight:600;" class="mono">{{ receipt.receiptNumber }}</span>
+            </div>
+
+            <!-- Page Title & Status -->
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0; display:flex; align-items:center; gap:10px;">
+                    <i class="fa-solid fa-truck-loading" style="color:var(--accent-purple, #8b5cf6);"></i>
+                    Recepción <span class="mono" style="font-size:1.5rem; color:var(--text-secondary);">{{ receipt.receiptNumber }}</span>
+                </h1>
                 {% if receipt.status == 'completada' %}
-                <span class="badge badge-green">Completada</span>
+                <span class="badge-status badge-status-success"><i class="fa-solid fa-circle-check"></i> Completada</span>
+                {% elif receipt.status == 'cancelada' %}
+                <span class="badge-status badge-status-danger"><i class="fa-solid fa-circle-xmark"></i> Cancelada</span>
                 {% else %}
-                <span class="badge badge-amber">{{ receipt.status }}</span>
+                <span class="badge-status badge-status-warning"><i class="fa-solid fa-clock"></i> {{ receipt.status|capitalize }}</span>
+                {% endif %}
+            </div>
+            <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+                {{ receipt.supplierName or '—' }} · {{ receipt.receiptDate or (receipt.createdAt[:10] if receipt.createdAt else '') }}
+            </p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <a href="{{ url_for('web_inventory.list_receipts') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>Volver al Listado</span>
+            </a>
+            {% if receipt.poId %}
+            <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=receipt.poId) }}" class="btn btn-secondary">
+                <i class="fa-solid fa-file-invoice"></i>
+                <span>Ver OC {{ receipt.poNumber or '' }}</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Unified Document Sheet (card-table-wrapper) -->
+    <div class="card-table-wrapper" style="background:var(--bg-card, #ffffff); border:1px solid var(--border-color); border-radius:var(--radius-md, 12px); padding:24px 0;">
+
+        <!-- Metadata Section (Integrated 2-column layout, NO cardviews) -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:20px 32px; padding-bottom:24px; border-bottom:1px solid var(--border-color); margin-bottom:24px;">
+            <div>
+                <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); font-weight:700; display:block; margin-bottom:4px;">
+                    Proveedor
+                </span>
+                <span style="font-weight:700; color:var(--text-primary); font-size:1rem; display:block;">
+                    {{ receipt.supplierName or '—' }}
+                </span>
+                {% if receipt.supplierRnc %}
+                <span class="mono" style="font-size:0.8rem; color:var(--text-muted);">
+                    RNC: {{ receipt.supplierRnc }}
+                </span>
+                {% endif %}
+            </div>
+
+            <div>
+                <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); font-weight:700; display:block; margin-bottom:4px;">
+                    Almacén de Destino (Entrada de Stock)
+                </span>
+                <span style="font-weight:700; color:var(--text-primary); font-size:1rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-warehouse" style="color:var(--accent-purple, #8b5cf6); font-size:0.95rem;"></i>
+                    {{ receipt.warehouseName or '—' }}
+                </span>
+                {% if receipt.warehouseId %}
+                <span class="mono" style="font-size:0.78rem; color:var(--text-muted);">
+                    ID: {{ receipt.warehouseId }}
+                </span>
+                {% endif %}
+            </div>
+
+            <div>
+                <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); font-weight:700; display:block; margin-bottom:4px;">
+                    Orden de Compra Relacionada
+                </span>
+                {% if receipt.poId %}
+                <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=receipt.poId) }}" style="color:var(--accent-blue, #3b82f6); font-weight:700; font-size:1rem; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="fa-solid fa-file-lines" style="font-size:0.9rem;"></i>
+                    {{ receipt.poNumber or 'Ver OC' }}
+                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:0.75rem; opacity:0.8;"></i>
+                </a>
+                {% else %}
+                <span style="color:var(--text-muted); font-size:0.95rem;">—</span>
+                {% endif %}
+            </div>
+
+            <div>
+                <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); font-weight:700; display:block; margin-bottom:4px;">
+                    Fecha de Recepción
+                </span>
+                <span style="font-weight:700; color:var(--text-primary); font-size:1rem; display:flex; align-items:center; gap:6px;">
+                    <i class="fa-regular fa-calendar-check" style="color:var(--text-muted); font-size:0.9rem;"></i>
+                    {{ receipt.receiptDate or (receipt.createdAt[:10] if receipt.createdAt else '—') }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Integrated Summary Strip (Design system component, NO floating cards) -->
+        <div class="summary-strip" style="margin-bottom:24px;">
+            <div class="summary-strip-item">
+                <div class="summary-strip-label">
+                    <i class="fa-solid fa-list-check" style="margin-right:4px;"></i> Partidas
+                </div>
+                <div class="summary-strip-value">{{ items|length }}</div>
+                <div class="summary-strip-trend" style="color:var(--text-muted);">Líneas del comprobante</div>
+            </div>
+            <div class="summary-strip-item">
+                <div class="summary-strip-label">
+                    <i class="fa-solid fa-boxes-stacked" style="margin-right:4px;"></i> Total Unidades
+                </div>
+                <div class="summary-strip-value" style="color:var(--accent-purple, #8b5cf6);">{{ total_units }}</div>
+                <div class="summary-strip-trend" style="color:var(--text-muted);">Stock ingresado</div>
+            </div>
+            <div class="summary-strip-item">
+                <div class="summary-strip-label">
+                    <i class="fa-solid fa-link" style="margin-right:4px;"></i> Ítems Catálogo
+                </div>
+                <div class="summary-strip-value" style="color:var(--accent-emerald, #10b981);">
+                    {{ catalog_count }} / {{ items|length }}
+                </div>
+                <div class="summary-strip-trend" style="color:var(--text-muted);">
+                    {% if catalog_count == items|length %}
+                    <span style="color:var(--accent-emerald, #10b981); font-weight:600;"><i class="fa-solid fa-check"></i> 100% vinculados</span>
+                    {% else %}
+                    <span style="color:#f59e0b; font-weight:600;">{{ items|length - catalog_count }} sin vincular</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="summary-strip-item">
+                <div class="summary-strip-label">
+                    <i class="fa-solid fa-sack-dollar" style="margin-right:4px;"></i> Total Valorizado
+                </div>
+                <div class="summary-strip-value" style="color:var(--accent-emerald, #10b981);">
+                    RD$ {{ "{:,.2f}".format(total_amount) }}
+                </div>
+                <div class="summary-strip-trend" style="color:var(--text-muted);">Costo total estimado</div>
+            </div>
+        </div>
+
+        <!-- Table Header Row -->
+        <div class="table-header-row" style="margin-bottom:16px;">
+            <div>
+                <h3 style="font-size:1.1rem; font-family:var(--font-heading); font-weight:700; margin:0; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-boxes-packing" style="color:var(--accent-purple, #8b5cf6);"></i>
+                    Partidas Recibidas ({{ items|length }})
+                </h3>
+                <p style="color:var(--text-secondary); font-size:0.84rem; margin:4px 0 0 0;">
+                    Detalle de los artículos recibidos con actualización automática de stock en el almacén de destino.
+                </p>
+            </div>
+        </div>
+
+        <!-- Data Grid Table -->
+        <div class="table-responsive">
+            <table class="data-grid" style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr style="background:var(--bg-input, #f8fafc); border-bottom:1px solid var(--border-color);">
+                        <th style="width:48px; text-align:center; padding:12px 14px; font-size:0.78rem; text-transform:uppercase; color:var(--text-secondary);">#</th>
+                        <th style="padding:12px 16px; font-size:0.78rem; text-transform:uppercase; color:var(--text-secondary);">Descripción (Orden de Compra)</th>
+                        <th style="text-align:center; padding:12px 14px; font-size:0.78rem; text-transform:uppercase; color:var(--text-secondary);">Cant. Ordenada</th>
+                        <th style="text-align:center; padding:12px 14px; font-size:0.78rem; text-transform:uppercase; color:var(--text-secondary);">Cant. Recibida</th>
+                        <th style="padding:12px 14px; font-size:0.78rem; text-transform:uppercase; color:var(--text-secondary);">Unidad</th>
+                        <th style="text-align:right; padding:12px 16px; font-size:0.78rem; text-transform:uppercase; color:var(--text-secondary);">Precio Unit.</th>
+                        <th style="text-align:right; padding:12px 16px; font-size:0.78rem; text-transform:uppercase; color:var(--text-secondary);">Subtotal</th>
+                        <th style="padding:12px 16px; font-size:0.78rem; text-transform:uppercase; color:var(--text-secondary);">Ítem de Catálogo</th>
+                        <th style="padding:12px 16px; font-size:0.78rem; text-transform:uppercase; color:var(--text-secondary);">Kárdex / Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    {% set unit_price = item.unitPrice|default(0)|float %}
+                    {% set qty_rec = item.receivedQuantity|default(0)|float %}
+                    {% set line_subtotal = qty_rec * unit_price %}
+                    <tr style="border-bottom:1px solid var(--border-color); transition:background 0.15s ease;">
+                        <td style="text-align:center; color:var(--text-muted); font-size:0.85rem; padding:14px;">
+                            {{ loop.index }}
+                        </td>
+                        <td style="padding:14px 16px;">
+                            <div style="font-weight:600; color:var(--text-primary); font-size:0.92rem;">
+                                {{ item.poItemName or '—' }}
+                            </div>
+                        </td>
+                        <td style="text-align:center; padding:14px; font-size:0.9rem; color:var(--text-secondary);">
+                            {{ item.orderedQuantity|default(0) }}
+                        </td>
+                        <td style="text-align:center; padding:14px;">
+                            <span style="font-weight:700; font-size:0.98rem; color:var(--accent-purple, #8b5cf6);">
+                                {{ qty_rec }}
+                            </span>
+                        </td>
+                        <td style="padding:14px; font-size:0.85rem; color:var(--text-secondary);">
+                            {{ item.unit|default('Unidad') }}
+                        </td>
+                        <td style="text-align:right; padding:14px 16px; font-size:0.88rem; color:var(--text-secondary);" class="mono">
+                            RD$ {{ "{:,.2f}".format(unit_price) }}
+                        </td>
+                        <td style="text-align:right; padding:14px 16px; font-weight:700; font-size:0.92rem; color:var(--text-primary);" class="mono">
+                            RD$ {{ "{:,.2f}".format(line_subtotal) }}
+                        </td>
+                        <td style="padding:14px 16px;">
+                            {% if item.itemId %}
+                            <span style="color:var(--accent-emerald, #10b981); font-weight:600; font-size:0.86rem; display:inline-flex; align-items:center; gap:6px;">
+                                <i class="fa-solid fa-link"></i> {{ item.itemName or '—' }}
+                            </span>
+                            {% else %}
+                            <span style="color:var(--text-muted); font-size:0.8rem; font-style:italic;">
+                                Sin vincular a catálogo
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="padding:14px 16px; font-size:0.82rem;">
+                            {% if item.itemId %}
+                            <span class="mono" style="color:var(--accent-emerald, #10b981); font-size:0.78rem; background:rgba(16,185,129,0.08); padding:3px 8px; border-radius:4px; border:1px solid rgba(16,185,129,0.2);">
+                                <i class="fa-solid fa-check"></i> Stock Entrada
+                            </span>
+                            {% else %}
+                            <span style="color:var(--text-muted); font-size:0.78rem;">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" style="text-align:center; padding:40px; color:var(--text-muted);">
+                            <i class="fa-solid fa-boxes-stacked" style="font-size:2rem; display:block; margin-bottom:8px; opacity:0.3;"></i>
+                            No hay partidas registradas en esta recepción.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--bg-input, #f8fafc); border-top:2px solid var(--border-color); font-weight:700;">
+                        <td colspan="3" style="text-align:right; padding:14px 16px; font-size:0.85rem; text-transform:uppercase; color:var(--text-secondary);">
+                            Totales:
+                        </td>
+                        <td style="text-align:center; padding:14px; font-size:1.05rem; color:var(--accent-purple, #8b5cf6);">
+                            {{ total_units }} uds
+                        </td>
+                        <td colspan="2"></td>
+                        <td style="text-align:right; padding:14px 16px; font-size:1.05rem; color:var(--accent-emerald, #10b981);" class="mono">
+                            RD$ {{ "{:,.2f}".format(total_amount) }}
+                        </td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Integrated Notes Section (if notes exist) -->
+        {% if receipt.notes %}
+        <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border-color);">
+            <div style="font-size:0.82rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                <i class="fa-solid fa-note-sticky" style="color:var(--accent-purple, #8b5cf6);"></i>
+                Observaciones y Notas
+            </div>
+            <div style="background:var(--bg-input, #f8fafc); padding:12px 16px; border-radius:8px; border:1px solid var(--border-color); font-size:0.88rem; color:var(--text-primary); white-space:pre-wrap; line-height:1.5;">{{ receipt.notes }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Integrated Audit Footer -->
+        <div style="margin-top:24px; padding-top:16px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; font-size:0.78rem; color:var(--text-muted);">
+            <div>
+                <span>ID de Registro:</span> <span class="mono">{{ receipt.id }}</span>
+            </div>
+            <div>
+                Registrado por: <strong style="color:var(--text-secondary);">{{ receipt.createdBy or 'Sistema' }}</strong>
+                {% if receipt.createdAt %}
+                · {{ receipt.createdAt[:19]|replace('T', ' ') }}
                 {% endif %}
             </div>
         </div>
+
     </div>
-    <div class="card-form-body" style="padding:20px;">
-        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
-            <i class="fa-solid fa-cubes" style="margin-right:6px;"></i> Resumen
-        </h4>
-        {% set items = receipt.get('items', []) %}
-        {% set total_qty = items|sum(attribute='receivedQuantity') %}
-
-        {% set catalog_items = items|selectattr('itemId')|list %}
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-            <div style="text-align:center; padding:16px; background:rgba(139,92,246,0.06); border-radius:12px;">
-                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Partidas</div>
-                <div style="font-size:1.3rem; font-weight:700;">{{ items|length }}</div>
-            </div>
-            <div style="text-align:center; padding:16px; background:rgba(16,185,129,0.06); border-radius:12px;">
-                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Total Unidades</div>
-                <div style="font-size:1.3rem; font-weight:700;">{{ total_qty }}</div>
-            </div>
-            <div style="text-align:center; padding:16px; background:rgba(59,130,246,0.06); border-radius:12px;">
-                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Items Catálogo</div>
-                <div style="font-size:1.3rem; font-weight:700;">{{ catalog_items|length }}</div>
-            </div>
-            <div style="text-align:center; padding:16px; background:rgba(245,158,11,0.06); border-radius:12px;">
-                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Sin Vincular</div>
-                <div style="font-size:1.3rem; font-weight:700;">{{ items|length - catalog_items|length }}</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
-    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
-        <i class="fa-solid fa-box" style="margin-right:6px;"></i> Partidas Recibidas ({{ items|length }})
-    </h4>
-    <div class="table-responsive">
-        <table class="data-grid">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Descripción (OC)</th>
-                    <th style="text-align:center;">Cant. Ordenada</th>
-                    <th style="text-align:center;">Cant. Recibida</th>
-                    <th>Unidad</th>
-                    <th style="text-align:right;">Precio Unit.</th>
-                    <th style="text-align:right;">Total</th>
-                    <th>Ítem Catálogo</th>
-                    <th>Stock Actual</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in items %}
-                <tr>
-                    <td>{{ loop.index }}</td>
-                    <td style="font-weight:600;">{{ item.poItemName or '—' }}</td>
-                    <td style="text-align:center;">{{ item.orderedQuantity|default(0) }}</td>
-                    <td style="text-align:center; font-weight:600; color:var(--accent-emerald);">{{ item.receivedQuantity|default(0) }}</td>
-                    <td>{{ item.unit|default('Unidad') }}</td>
-                    <td style="text-align:right;">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
-                    <td style="text-align:right; font-weight:600;">{{ "{:,.2f}".format((item.receivedQuantity|default(0)) * (item.unitPrice|default(0))) }}</td>
-                    <td>
-                        {% if item.itemId %}
-                        <span style="color:var(--accent-emerald);"><i class="fa-solid fa-link"></i> {{ item.itemName or '—' }}</span>
-                        {% else %}
-                        <span style="color:var(--text-muted); font-size:0.78rem;">Sin vincular</span>
-                        {% endif %}
-                    </td>
-                    <td style="font-size:0.82rem;">
-                        {% if item.itemId %}
-                        <span class="mono" style="color:var(--text-muted);">Actualizado vía ENTRADA</span>
-                        {% else %}
-                        <span style="color:var(--text-muted); font-size:0.72rem;">—</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-{% if receipt.notes %}
-<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
-    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
-        <i class="fa-solid fa-note-sticky" style="margin-right:6px;"></i> Notas
-    </h4>
-    <p style="white-space:pre-wrap;">{{ receipt.notes }}</p>
-</div>
-{% endif %}
-
-<div style="font-size:0.78rem; color:var(--text-muted); text-align:right; padding-bottom:20px;">
-    Creada por: {{ receipt.createdBy or '—' }} · {{ receipt.createdAt[:19] if receipt.createdAt else '' }}
 </div>
 
 <style>
-.badge {
-    display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:99px;
-    font-size:0.75rem; font-weight:600;
+.badge-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 700;
 }
-.badge-green  { background:rgba(16,185,129,0.12); color:var(--accent-emerald); border:1px solid rgba(16,185,129,0.25); }
-.badge-amber  { background:rgba(245,158,11,0.1);  color:#f59e0b;              border:1px solid rgba(245,158,11,0.2);  }
-.mono { font-family:monospace; font-size:0.82rem; }
+.badge-status-warning {
+    background: rgba(245, 158, 11, 0.12);
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.badge-status-info {
+    background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.badge-status-success {
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.badge-status-danger {
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
 </style>
 {% endblock %}
