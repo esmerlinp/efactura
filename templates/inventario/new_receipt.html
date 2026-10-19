@@ -1,220 +1,976 @@
 {% extends "layout.html" %}
 
-{% block title %}Recibir {{ order.poNumber }}{% endblock %}
+{% block title %}Recibir {{ order.poNumber }} — {{ product_name }}{% endblock %}
 {% block page_header %}Recepción de Mercancía{% endblock %}
 
 {% block content %}
-<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
-    <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
-        <i class="fa-solid fa-truck-loading" style="color:var(--accent-purple); margin-right:10px;"></i>
-        Recibir {{ order.poNumber }}
-    </h1>
-    <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
-        {{ order.supplierName or 'Sin proveedor' }}
-    </p>
+<style>
+/* ── Layout del Documento y Contenedor Principal ───────────────────── */
+.receipt-container {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding-bottom: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+/* ── Breadcrumb & Top Bar ────────────────────────────────────────── */
+.receipt-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 4px;
+}
+
+.receipt-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.receipt-breadcrumb a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.receipt-breadcrumb a:hover {
+    color: var(--text-primary);
+}
+
+.receipt-page-title {
+    font-size: 1.65rem;
+    font-weight: 800;
+    font-family: var(--font-heading);
+    color: var(--text-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    line-height: 1.25;
+}
+
+.receipt-page-title .title-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(139, 92, 246, 0.12);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-purple, #8b5cf6);
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.receipt-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    margin: 6px 0 0 2px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* ── Badges y Pills ───────────────────────────────────────────────── */
+.badge-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.badge-status-warning {
+    background: rgba(245, 158, 11, 0.12);
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-status-info {
+    background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-status-success {
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-status-purple {
+    background: rgba(139, 92, 246, 0.12);
+    color: var(--accent-purple, #8b5cf6);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.badge-purple { background: rgba(139,92,246,0.1); color: #8b5cf6; border: 1px solid rgba(139,92,246,0.25); }
+.badge-green  { background: rgba(16,185,129,0.12); color: var(--accent-emerald, #10b981); border: 1px solid rgba(16,185,129,0.25); }
+.badge-gray   { background: rgba(107,114,128,0.1); color: #6b7280; border: 1px solid rgba(107,114,128,0.2); }
+.badge-amber  { background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+
+/* ── Section Cards ────────────────────────────────────────────────── */
+.section-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg, 12px);
+    padding: 24px 28px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s ease;
+}
+
+.section-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.section-card-title {
+    font-size: 0.98rem;
+    font-weight: 700;
+    font-family: var(--font-heading);
+    color: var(--text-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.section-card-title i {
+    font-size: 1rem;
+    color: var(--accent-purple, #8b5cf6);
+}
+
+.section-card-desc {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin: 4px 0 0 0;
+}
+
+/* ── Metadata Grid ────────────────────────────────────────────────── */
+.receipt-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px 24px;
+}
+
+.meta-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.meta-field label {
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.meta-field .form-input,
+.meta-field .form-select {
+    width: 100%;
+    font-size: 0.85rem;
+}
+
+.meta-field-static {
+    background: var(--bg-input, rgba(0,0,0,0.02));
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm, 6px);
+    padding: 9px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* ── Table & Items Grid ───────────────────────────────────────────── */
+.table-responsive {
+    overflow-x: auto;
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md, 8px);
+    background: var(--bg-card);
+}
+
+.receipt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    text-align: left;
+}
+
+.receipt-table th {
+    background: var(--bg-nav-hover, rgba(0, 0, 0, 0.02));
+    padding: 10px 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.receipt-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+    color: var(--text-primary);
+}
+
+.receipt-table tbody tr.po-item-row {
+    transition: background-color 0.15s ease;
+}
+
+.receipt-table tbody tr.po-item-row:hover {
+    background-color: var(--bg-table-hover, rgba(0,0,0,0.015));
+}
+
+.item-name-cell {
+    min-width: 200px;
+}
+
+.item-main-title {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    line-height: 1.3;
+}
+
+.item-meta-sub {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ── Quick Fill Controls ──────────────────────────────────────────── */
+.qty-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+}
+
+.qty-input {
+    width: 82px;
+    text-align: center;
+    font-family: var(--font-mono, monospace);
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm, 6px);
+    transition: all 0.2s ease;
+}
+
+.qty-input:focus {
+    border-color: var(--accent-purple, #8b5cf6);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.qty-input.over-limit {
+    border-color: var(--accent-red, #ef4444) !important;
+    color: var(--accent-red, #ef4444) !important;
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.btn-quick-max {
+    background: var(--bg-input, rgba(0,0,0,0.04));
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-quick-max:hover {
+    background: var(--accent-purple, #8b5cf6);
+    color: #fff;
+    border-color: var(--accent-purple, #8b5cf6);
+}
+
+/* ── Catalog Item Autocomplete ────────────────────────────────────── */
+.catalog-search-wrap {
+    position: relative;
+    min-width: 220px;
+}
+
+.catalog-search-wrap .form-input {
+    font-size: 0.78rem;
+    padding-left: 28px;
+}
+
+.catalog-search-wrap .search-icon {
+    position: absolute;
+    left: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.catalog-search-results {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md, 8px);
+    box-shadow: var(--shadow-lg, 0 10px 25px -5px rgba(0,0,0,0.1));
+    z-index: 1000;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.catalog-result-row {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.78rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.12s ease;
+}
+
+.catalog-result-row:last-child {
+    border-bottom: none;
+}
+
+.catalog-result-row:hover {
+    background: var(--bg-nav-hover, rgba(139, 92, 246, 0.05));
+}
+
+.catalog-result-row .item-sku {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono, monospace);
+}
+
+/* ── Lot Assignment Subrow (Drawer) ───────────────────────────────── */
+.lot-subrow {
+    background: rgba(139, 92, 246, 0.03);
+    border-top: 1px dashed var(--border-color);
+    border-bottom: 2px solid var(--accent-purple, #8b5cf6);
+}
+
+.lot-drawer {
+    padding: 16px 20px;
+}
+
+.lot-drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.lot-header-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.lot-mode-toggle {
+    display: inline-flex;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm, 6px);
+    padding: 2px;
+    gap: 2px;
+}
+
+.btn-lot-mode {
+    border: none;
+    background: transparent;
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-lot-mode.active {
+    background: var(--accent-purple, #8b5cf6);
+    color: #ffffff;
+    box-shadow: var(--shadow-sm);
+}
+
+.lot-fields-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+}
+
+.lot-fields-grid label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    display: block;
+}
+
+.lot-hint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 5px;
+}
+
+/* ── Bottom Summary & Actions Bar ─────────────────────────────────── */
+.receipt-actions-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 18px 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: var(--shadow-sm);
+    position: sticky;
+    bottom: 16px;
+    z-index: 100;
+}
+
+.footer-summary {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.footer-summary-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.footer-summary-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    font-weight: 700;
+}
+
+.footer-summary-val {
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.footer-buttons {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.footer-buttons .btn {
+    padding: 10px 22px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mono {
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+}
+</style>
+
+<div class="receipt-container">
+
+    <!-- Top Bar & Breadcrumb -->
+    <div class="receipt-top-bar">
+        <div>
+            <div class="receipt-breadcrumb">
+                <a href="{{ url_for('web_invoices.inventory_dashboard') }}">
+                    <i class="fa-solid fa-boxes-stacked"></i> Inventario
+                </a>
+                <i class="fa-solid fa-chevron-right" style="font-size:0.65rem; opacity:0.6;"></i>
+                <a href="{{ url_for('web_inventory.list_receipts') }}">Recepciones</a>
+                <i class="fa-solid fa-chevron-right" style="font-size:0.65rem; opacity:0.6;"></i>
+                <span style="color:var(--text-primary); font-weight:600;">Recibir {{ order.poNumber }}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <h1 class="receipt-page-title">
+                    <span class="title-icon"><i class="fa-solid fa-truck-ramp-box"></i></span>
+                    <span>Recibir Orden de Compra <span class="mono" style="color:var(--accent-purple, #8b5cf6);">{{ order.poNumber }}</span></span>
+                </h1>
+                {% set status = order.status|default('aprobada') %}
+                {% if status == 'aprobada' %}
+                <span class="badge-status badge-status-success"><i class="fa-solid fa-check"></i> OC Aprobada</span>
+                {% elif status == 'recibida_parcial' %}
+                <span class="badge-status badge-status-info"><i class="fa-solid fa-truck-fast"></i> Recibida Parcial</span>
+                {% else %}
+                <span class="badge-status badge-status-warning"><i class="fa-solid fa-clock"></i> {{ status|capitalize }}</span>
+                {% endif %}
+            </div>
+            <div class="receipt-subtitle">
+                <span class="badge-pill badge-gray">
+                    <i class="fa-solid fa-building"></i> <strong>Proveedor:</strong> {{ order.supplierName or 'Sin proveedor' }}
+                    {% if order.supplierRnc %} · <span class="mono">RNC {{ order.supplierRnc }}</span>{% endif %}
+                </span>
+                {% if order.currency and order.currency != 'DOP' %}
+                <span class="badge-pill badge-amber">
+                    <i class="fa-solid fa-coins"></i> {{ order.currency }} (TC: {{ order.exchangeRate|default(1.0) }})
+                </span>
+                {% endif %}
+                <span style="color:var(--text-muted); font-size:0.8rem;">
+                    <i class="fa-regular fa-calendar"></i> OC emitida: {{ order.date or (order.createdAt[:10] if order.createdAt else '—') }}
+                </span>
+            </div>
+        </div>
+
+        <div style="display:flex; gap:10px; align-items:center;">
+            <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=order.id) }}" class="btn btn-secondary" style="font-size:0.82rem; padding:8px 16px;">
+                <i class="fa-solid fa-arrow-left"></i> Volver a OC
+            </a>
+            <a href="{{ url_for('web_inventory.list_receipts') }}" class="btn btn-secondary" style="font-size:0.82rem; padding:8px 16px;">
+                <i class="fa-solid fa-list"></i> Historial
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary KPI Strip -->
+    {% set items_list = order.get('items', []) %}
+    {% set total_ordered = namespace(qty=0, prev=0, remaining=0) %}
+    {% for it in items_list %}
+        {% set it_ord = it.get('quantity', 0)|float %}
+        {% set it_prv = it.get('receivedQuantity', 0)|float %}
+        {% set total_ordered.qty = total_ordered.qty + it_ord %}
+        {% set total_ordered.prev = total_ordered.prev + it_prv %}
+        {% set rem_line = it_ord - it_prv %}
+        {% if rem_line > 0 %}
+            {% set total_ordered.remaining = total_ordered.remaining + rem_line %}
+        {% endif %}
+    {% endfor %}
+
+    <div class="summary-strip">
+        <div class="summary-strip-item">
+            <div class="summary-strip-label"><i class="fa-solid fa-list-check" style="margin-right:4px;"></i> Partidas en OC</div>
+            <div class="summary-strip-value">{{ items_list|length }}</div>
+            <div class="summary-strip-trend" style="color:var(--text-muted);">Líneas del pedido</div>
+        </div>
+        <div class="summary-strip-item">
+            <div class="summary-strip-label"><i class="fa-solid fa-boxes-stacked" style="margin-right:4px;"></i> Unidades Pendientes</div>
+            <div class="summary-strip-value" style="color:var(--accent-orange, #f59e0b);">{{ "%.2f"|format(total_ordered.remaining) }}</div>
+            <div class="summary-strip-trend" style="color:var(--text-muted);">Saldo total por ingresar</div>
+        </div>
+        <div class="summary-strip-item">
+            <div class="summary-strip-label"><i class="fa-solid fa-truck-loading" style="margin-right:4px;"></i> Unidades a Recibir</div>
+            <div class="summary-strip-value" id="kpi-receiving-units" style="color:var(--accent-purple, #8b5cf6);">0.00</div>
+            <div class="summary-strip-trend" style="color:var(--text-muted);">Calculado en tiempo real</div>
+        </div>
+        <div class="summary-strip-item">
+            <div class="summary-strip-label"><i class="fa-solid fa-warehouse" style="margin-right:4px;"></i> Almacén Destino</div>
+            <div class="summary-strip-value" id="kpi-warehouse-name" style="color:var(--accent-emerald, #10b981); font-size:1.15rem; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+                —
+            </div>
+            <div class="summary-strip-trend" style="color:var(--text-muted);">Ubicación de ingreso</div>
+        </div>
+    </div>
+
+    <!-- Formulario Principal -->
+    <form method="POST" action="{{ url_for('web_inventory.new_receipt', po_id=order.id) }}" id="receipt-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <!-- 1. Datos Generales de la Recepción -->
+        <div class="section-card">
+            <div class="section-card-header">
+                <div>
+                    <h3 class="section-card-title">
+                        <i class="fa-solid fa-receipt"></i>
+                        <span>Datos de la Recepción</span>
+                    </h3>
+                    <p class="section-card-desc">
+                        Identificador correlativo de entrada, fecha efectiva y almacén donde se registrará el stock.
+                    </p>
+                </div>
+            </div>
+
+            <div class="receipt-meta-grid">
+                <div class="meta-field">
+                    <label>
+                        <i class="fa-solid fa-hashtag" style="color:var(--text-muted);"></i>
+                        Recepción # <span class="badge-pill badge-purple" style="font-size:0.65rem;">Auto-generado</span>
+                    </label>
+                    <div class="meta-field-static">
+                        <span class="mono" style="font-weight:700; color:var(--accent-purple, #8b5cf6);">{{ receipt_number }}</span>
+                        <i class="fa-solid fa-lock" style="font-size:0.75rem; color:var(--text-muted);" title="Número asignado automáticamente"></i>
+                    </div>
+                </div>
+
+                <div class="meta-field">
+                    <label for="receiptDate">
+                        <i class="fa-regular fa-calendar-check" style="color:var(--text-muted);"></i>
+                        Fecha de Recepción *
+                    </label>
+                    <input type="date" id="receiptDate" name="receiptDate" class="form-input" value="{{ today }}" required>
+                </div>
+
+                <div class="meta-field" style="grid-column: span 2;">
+                    <label for="warehouseId">
+                        <i class="fa-solid fa-warehouse" style="color:var(--text-muted);"></i>
+                        Almacén de Destino *
+                    </label>
+                    <select id="warehouseId" name="warehouseId" class="form-select" required onchange="onWarehouseChange(this)">
+                        <option value="">-- Seleccionar almacén de recepción --</option>
+                        {% for w in warehouses %}
+                        <option value="{{ w.id }}" {% if order.warehouseId and w.id == order.warehouseId %}selected{% endif %}>{{ w.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" id="warehouseName" name="warehouseName" value="">
+                    <span style="font-size:0.73rem; color:var(--text-muted); margin-top:2px;">
+                        <i class="fa-solid fa-circle-info"></i> El inventario de las partidas inventariables se sumará directamente a este almacén.
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Partidas a Recibir -->
+        <div class="section-card" style="margin-top:22px;">
+            <div class="section-card-header">
+                <div>
+                    <h3 class="section-card-title">
+                        <i class="fa-solid fa-boxes-packing"></i>
+                        <span>Partidas a Recibir ({{ items_list|length }})</span>
+                    </h3>
+                    <p class="section-card-desc">
+                        Ajusta la cantidad recibida hoy para cada partida y verifica la vinculación con el catálogo.
+                    </p>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="fillAllRemaining()">
+                        <i class="fa-solid fa-check-double" style="color:var(--accent-emerald);"></i> Recibir Todo el Saldo
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="clearAllQuantities()">
+                        <i class="fa-solid fa-eraser" style="color:var(--text-muted);"></i> Poner en Cero
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="receipt-table" id="receipt-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px; text-align:center;">#</th>
+                            <th style="width:24%;">Partida (OC)</th>
+                            <th style="width:8%; text-align:center;">Ordenado</th>
+                            <th style="width:9%; text-align:center;">Recibido Prev.</th>
+                            <th style="width:8%; text-align:center;">Pendiente</th>
+                            <th style="width:14%; text-align:center;">Recibir Ahora *</th>
+                            <th style="width:7%;">Unidad</th>
+                            <th style="width:11%; text-align:right;">Precio</th>
+                            <th style="width:11%; text-align:right;">Subtotal</th>
+                            <th style="width:22%;">Ítem del Catálogo *</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items_list %}
+                        {% set prev = item.get('receivedQuantity', 0)|float %}
+                        {% set ordered = item.get('quantity', 0)|float %}
+                        {% set remaining = (ordered - prev)|round(2) %}
+                        {% if remaining < 0 %}{% set remaining = 0 %}{% endif %}
+                        {% set unit_price = item.get('unitPrice', 0)|float %}
+                        
+                        <tr class="po-item-row" data-po-item-id="{{ item.id }}" id="row-{{ item.id }}">
+                            <td style="text-align:center; color:var(--text-muted); font-size:0.8rem;">
+                                {{ loop.index }}
+                            </td>
+                            <td class="item-name-cell">
+                                <div class="item-main-title">{{ item.name or '—' }}</div>
+                                {% if item.isInventoriable is false %}
+                                <div style="font-size:0.72rem; color:var(--accent-blue, #3b82f6); font-weight:600; margin-top:3px; display:inline-flex; align-items:center; gap:5px;">
+                                    <i class="fa-solid fa-handshake"></i> Servicio / No inventariable
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:center; font-weight:600;" class="mono">{{ ordered }}</td>
+                            <td style="text-align:center;">
+                                {% if prev > 0 %}
+                                <span class="badge-pill badge-green mono">{{ prev }}</span>
+                                {% else %}
+                                <span style="color:var(--text-muted);" class="mono">—</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:center;">
+                                {% if remaining > 0 %}
+                                <span class="badge-pill badge-amber mono" id="rem-badge-{{ item.id }}">{{ remaining }}</span>
+                                {% else %}
+                                <span class="badge-pill badge-green"><i class="fa-solid fa-check"></i> 0.00</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="qty-input-wrap">
+                                    <input type="number" 
+                                           class="form-input qty-input" 
+                                           name="received_qty_{{ item.id }}" 
+                                           id="received_qty_{{ item.id }}" 
+                                           value="{{ remaining }}" 
+                                           min="0" 
+                                           max="{{ remaining }}"
+                                           step="0.01" 
+                                           data-ordered="{{ ordered }}"
+                                           data-prev="{{ prev }}"
+                                           data-remaining="{{ remaining }}"
+                                           data-price="{{ unit_price }}"
+                                           oninput="onQtyChange('{{ item.id }}')">
+                                    <button type="button" class="btn-quick-max" onclick="setQty('{{ item.id }}', {{ remaining }})" title="Recibir restante ({{ remaining }})">
+                                        Max
+                                    </button>
+                                </div>
+                                <div id="qty-hint-{{ item.id }}" style="font-size:0.68rem; color:var(--accent-red, #ef4444); text-align:center; display:none; margin-top:2px;">
+                                    Excede saldo
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge-pill badge-gray">{{ item.unit|default('Unidad') }}</span>
+                            </td>
+                            <td style="text-align:right;" class="mono">
+                                {{ "{:,.2f}".format(unit_price) }}
+                            </td>
+                            <td style="text-align:right; font-weight:700;" class="mono" id="subtotal-val-{{ item.id }}">
+                                {{ "{:,.2f}".format(remaining * unit_price) }}
+                            </td>
+                            <td>
+                                {% if item.isInventoriable is false %}
+                                <div>
+                                    <span class="badge-status badge-status-info" style="font-size:0.75rem;">
+                                        <i class="fa-solid fa-check"></i> Sin stock físico
+                                    </span>
+                                    <input type="hidden" name="catalog_item_{{ item.id }}" id="catalog_item_{{ item.id }}" value="">
+                                    <input type="hidden" name="catalog_name_{{ item.id }}" id="catalog_name_{{ item.id }}" value="{{ item.name }}">
+                                    <input type="hidden" name="track_lots_{{ item.id }}" id="track_lots_{{ item.id }}" value="0">
+                                </div>
+                                {% else %}
+                                <div class="catalog-search-wrap">
+                                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                                    <input type="text" 
+                                           class="form-input catalog-search" 
+                                           data-item-id="{{ item.id }}" 
+                                           placeholder="Buscar en catálogo..." 
+                                           autocomplete="off" 
+                                           value="{% if item.itemId %}{{ item.itemName or item.name }}{% if item.itemCode %} [{{ item.itemCode }}]{% endif %}{% endif %}">
+                                    <input type="hidden" name="catalog_item_{{ item.id }}" id="catalog_item_{{ item.id }}" class="catalog-item-id" value="{{ item.itemId or '' }}">
+                                    <input type="hidden" name="catalog_name_{{ item.id }}" id="catalog_name_{{ item.id }}" class="catalog-item-name" value="{{ item.name }}">
+                                    <input type="hidden" name="track_lots_{{ item.id }}" id="track_lots_{{ item.id }}" value="{{ 1 if item.trackLots else 0 }}">
+                                    <div class="catalog-search-results"></div>
+                                </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+
+                        <!-- Subfila de Asignación de Lotes -->
+                        <tr id="lot-subrow-{{ item.id }}" class="lot-subrow" style="{% if item.trackLots and item.isInventoriable is not false %}{% else %}display:none;{% endif %}">
+                            <td colspan="10" style="padding:0;">
+                                <div class="lot-drawer">
+                                    <div class="lot-drawer-header">
+                                        <div class="lot-header-title">
+                                            <span class="badge-status badge-status-warning">
+                                                <i class="fa-solid fa-layer-group"></i> Lote Requerido
+                                            </span>
+                                            <span style="font-size:0.82rem; color:var(--text-secondary);">
+                                                Partida: <strong id="lot-item-name-label-{{ item.id }}" style="color:var(--text-primary);">{{ item.name }}</strong>
+                                            </span>
+                                        </div>
+                                        <div class="lot-mode-toggle">
+                                            <button type="button" class="btn-lot-mode active" id="btn-mode-new-{{ item.id }}" onclick="switchReceiptLotMode('{{ item.id }}', 'new')">
+                                                <i class="fa-solid fa-plus-circle"></i> Nuevo Lote
+                                            </button>
+                                            <button type="button" class="btn-lot-mode" id="btn-mode-exist-{{ item.id }}" onclick="switchReceiptLotMode('{{ item.id }}', 'existing')">
+                                                <i class="fa-solid fa-rotate"></i> Lote Existente
+                                            </button>
+                                            <input type="radio" name="lot_mode_{{ item.id }}" id="lot_mode_radio_new_{{ item.id }}" value="new" checked style="display:none;">
+                                            <input type="radio" name="lot_mode_{{ item.id }}" id="lot_mode_radio_existing_{{ item.id }}" value="existing" style="display:none;">
+                                        </div>
+                                    </div>
+
+                                    <!-- Panel Nuevo Lote -->
+                                    <div id="lot-new-box-{{ item.id }}" class="lot-fields-grid">
+                                        <div>
+                                            <label for="lot_number_{{ item.id }}">Número de Lote *</label>
+                                            <input type="text" name="lot_number_{{ item.id }}" id="lot_number_{{ item.id }}" class="form-input mono" placeholder="Ej: LOT-2026-001" style="font-size:0.82rem;">
+                                        </div>
+                                        <div>
+                                            <label for="production_date_{{ item.id }}">Fecha Fabricación</label>
+                                            <input type="date" name="production_date_{{ item.id }}" id="production_date_{{ item.id }}" class="form-input" style="font-size:0.82rem;">
+                                        </div>
+                                        <div>
+                                            <label for="expiration_date_{{ item.id }}">Fecha Vencimiento</label>
+                                            <input type="date" name="expiration_date_{{ item.id }}" id="expiration_date_{{ item.id }}" class="form-input" style="font-size:0.82rem;">
+                                        </div>
+                                        <div>
+                                            <label for="lot_notes_{{ item.id }}">Notas del Lote</label>
+                                            <input type="text" name="lot_notes_{{ item.id }}" id="lot_notes_{{ item.id }}" class="form-input" placeholder="Opcional..." style="font-size:0.82rem;">
+                                        </div>
+                                    </div>
+
+                                    <!-- Panel Lote Existente -->
+                                    <div id="lot-existing-box-{{ item.id }}" style="display:none;">
+                                        <div style="max-width:440px;">
+                                            <label for="lot_id_{{ item.id }}" style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px; display:block;">
+                                                Seleccionar Lote Existente *
+                                            </label>
+                                            <select name="lot_id_{{ item.id }}" id="lot_id_{{ item.id }}" class="form-select" style="font-size:0.82rem;">
+                                                <option value="">-- Seleccionar lote disponible --</option>
+                                            </select>
+                                            <div id="lot-existing-hint-{{ item.id }}" class="lot-hint"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 3. Notas y Observaciones -->
+        <div class="section-card" style="margin-top:22px;">
+            <div class="section-card-header" style="margin-bottom:12px;">
+                <h3 class="section-card-title">
+                    <i class="fa-solid fa-comment-dots"></i>
+                    <span>Notas u Observaciones</span>
+                </h3>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <textarea id="notes" name="notes" class="form-input" rows="2" placeholder="Observaciones de almacén sobre el estado de la mercancía, transportista o empaque..."></textarea>
+            </div>
+        </div>
+
+        <!-- 4. Barra Inferior Flotante de Acciones y Resumen -->
+        <div class="receipt-actions-footer">
+            <div class="footer-summary">
+                <div class="footer-summary-item">
+                    <span class="footer-summary-label">Partidas a Recibir</span>
+                    <span class="footer-summary-val" id="summary-active-lines">0 / {{ items_list|length }}</span>
+                </div>
+                <div class="footer-summary-item">
+                    <span class="footer-summary-label">Total Unidades</span>
+                    <span class="footer-summary-val" id="summary-total-qty" style="color:var(--accent-purple, #8b5cf6);">0.00</span>
+                </div>
+                <div class="footer-summary-item">
+                    <span class="footer-summary-label">Monto Estimado</span>
+                    <span class="footer-summary-val mono" id="summary-total-amount" style="color:var(--accent-emerald, #10b981);">RD$ 0.00</span>
+                </div>
+            </div>
+
+            <div class="footer-buttons">
+                <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=order.id) }}" class="btn btn-secondary">
+                    <i class="fa-solid fa-xmark"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary" id="btn-submit-receipt">
+                    <i class="fa-solid fa-check"></i> Confirmar Recepción
+                </button>
+            </div>
+        </div>
+    </form>
 </div>
 
-<form method="POST" action="{{ url_for('web_inventory.new_receipt', po_id=order.id) }}" id="receipt-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
-        <h4 style="font-size:1rem; font-weight:700; font-family:var(--font-heading); margin-bottom:16px;">
-            <i class="fa-solid fa-receipt" style="margin-right:8px; color:var(--accent-purple);"></i> Datos de la Recepción
-        </h4>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
-            <div class="form-group">
-                <label>Recepción # <span style="color:var(--text-muted); font-size:0.72rem;">(auto-generado)</span></label>
-                <input type="text" class="form-input" value="{{ receipt_number }}" readonly style="font-family:monospace; font-weight:700; background:rgba(0,0,0,0.03);">
-            </div>
-            <div class="form-group">
-                <label for="receiptDate">Fecha de Recepción *</label>
-                <input type="date" id="receiptDate" name="receiptDate" class="form-input" value="{{ today }}" required>
-            </div>
-            <div class="form-group span-full">
-                <label for="warehouseId">Almacén de Destino *</label>
-                <select id="warehouseId" name="warehouseId" class="form-select" required onchange="document.getElementById('warehouseName').value = this.options[this.selectedIndex]?.text || '';">
-                    <option value="">Seleccionar almacén...</option>
-                    {% for w in warehouses %}
-                    <option value="{{ w.id }}" {% if order.warehouseId and w.id == order.warehouseId %}selected{% endif %}>{{ w.name }}</option>
-                    {% endfor %}
-                </select>
-                <input type="hidden" id="warehouseName" name="warehouseName" value="">
-            </div>
-        </div>
-    </div>
-
-    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
-        <h4 style="font-size:1rem; font-weight:700; font-family:var(--font-heading); margin-bottom:16px;">
-            <i class="fa-solid fa-box" style="margin-right:8px; color:var(--accent-purple);"></i> Partidas a Recibir
-        </h4>
-        <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:16px;">
-            Indica la cantidad recibida para cada partida y, opcionalmente, vincúlala a un ítem del catálogo
-            para que el inventario se actualice automáticamente.
-        </p>
-        <div class="table-responsive">
-            <table class="data-grid data-grid--editable data-grid--wide">
-                <thead>
-                    <tr>
-                        <th style="width:25%;">Partida (OC)</th>
-                        <th style="width:8%; text-align:center;">Ordenado</th>
-                        <th style="width:8%; text-align:center;">Recibido Prev.</th>
-                        <th style="width:10%; text-align:center;">Recibir Ahora *</th>
-                        <th style="width:8%;">Unidad</th>
-                        <th style="width:15%; text-align:right;">Precio</th>
-                        <th style="width:26%;">Ítem del Catálogo *</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in order.get('items', []) %}
-                    {% set prev = item.get('receivedQuantity', 0)|float %}
-                    {% set ordered = item.get('quantity', 0)|float %}
-                    {% set remaining = (ordered - prev)|round(2) %}
-                    <tr class="po-item-row" data-po-item-id="{{ item.id }}">
-                        <td style="font-weight:600;">
-                            {{ item.name or '—' }}
-                            {% if item.isInventoriable is False %}
-                            <div style="font-size:0.7rem; color:var(--accent-blue); font-weight:normal; margin-top:2px;">
-                                <i class="fa-solid fa-handshake"></i> Servicio / No inventariable
-                            </div>
-                            {% endif %}
-                        </td>
-                        <td style="text-align:center;">{{ ordered }}</td>
-                        <td style="text-align:center;">
-                            {% if prev > 0 %}
-                            <span style="color:var(--accent-emerald);">{{ prev }}</span>
-                            {% else %}
-                            <span style="color:var(--text-muted);">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <input type="number" class="form-input" name="received_qty_{{ item.id }}" id="received_qty_{{ item.id }}" value="{{ remaining }}" min="0" step="0.01" style="text-align:center; width:100%;">
-                        </td>
-                        <td>{{ item.unit|default('Unidad') }}</td>
-                        <td style="text-align:right;">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
-                        <td>
-                            {% if item.isInventoriable is False %}
-                            <span class="badge" style="background:rgba(59,130,246,0.12); color:var(--accent-blue); font-size:0.75rem; padding:4px 8px; border-radius:4px; display:inline-flex; align-items:center; gap:5px;">
-                                <i class="fa-solid fa-check"></i> Sin stock físico
-                            </span>
-                            <input type="hidden" name="catalog_item_{{ item.id }}" id="catalog_item_{{ item.id }}" value="">
-                            <input type="hidden" name="catalog_name_{{ item.id }}" id="catalog_name_{{ item.id }}" value="{{ item.name }}">
-                            <input type="hidden" name="track_lots_{{ item.id }}" id="track_lots_{{ item.id }}" value="0">
-                            {% else %}
-                            <div style="position:relative;">
-                                <input type="text" class="form-input catalog-search" data-item-id="{{ item.id }}" placeholder="Buscar en catálogo..." autocomplete="off" style="width:100%; font-size:0.78rem;" value="{% if item.itemId %}{{ item.itemName or item.name }}{% if item.itemCode %} [{{ item.itemCode }}]{% endif %}{% endif %}">
-                                <input type="hidden" name="catalog_item_{{ item.id }}" id="catalog_item_{{ item.id }}" class="catalog-item-id" value="{{ item.itemId or '' }}">
-                                <input type="hidden" name="catalog_name_{{ item.id }}" id="catalog_name_{{ item.id }}" class="catalog-item-name" value="{{ item.name }}">
-                                <input type="hidden" name="track_lots_{{ item.id }}" id="track_lots_{{ item.id }}" value="{{ 1 if item.trackLots else 0 }}">
-                                <div class="catalog-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:200px; overflow-y:auto; margin-top:2px;"></div>
-                            </div>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    <!-- Fila de asignación de Lotes (solo visible si el producto seleccionado requiere lotes) -->
-                    <tr id="lot-subrow-{{ item.id }}" class="lot-subrow" style="{% if item.trackLots and item.isInventoriable is not False %}{% else %}display:none;{% endif %} background:rgba(99, 102, 241, 0.04); border-top:1px dashed var(--border-color); border-bottom:2px solid var(--accent-purple);">
-                        <td colspan="7" style="padding:14px 20px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <span class="badge" style="background:rgba(99,102,241,0.15); color:var(--accent-purple); font-weight:700; font-size:0.75rem; padding:4px 8px; border-radius:4px;">
-                                        <i class="fa-solid fa-layer-group"></i> Lote Requerido
-                                    </span>
-                                    <span style="font-size:0.82rem; color:var(--text-secondary);">
-                                        Producto: <strong id="lot-item-name-label-{{ item.id }}" style="color:var(--text-primary);">{{ item.name }}</strong>
-                                    </span>
-                                </div>
-                                <div style="display:flex; gap:8px;">
-                                    <label style="cursor:pointer; font-size:0.8rem; display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-card);">
-                                        <input type="radio" name="lot_mode_{{ item.id }}" value="new" checked onchange="switchReceiptLotMode('{{ item.id }}', 'new')">
-                                        <span><i class="fa-solid fa-plus-circle"></i> Nuevo Lote</span>
-                                    </label>
-                                    <label style="cursor:pointer; font-size:0.8rem; display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-card);">
-                                        <input type="radio" name="lot_mode_{{ item.id }}" value="existing" onchange="switchReceiptLotMode('{{ item.id }}', 'existing')">
-                                        <span><i class="fa-solid fa-rotate"></i> Lote Existente</span>
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <!-- Contenedor Nuevo Lote -->
-                            <div id="lot-new-box-{{ item.id }}" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
-                                <div>
-                                    <label style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px; display:block;">
-                                        Número de Lote *
-                                    </label>
-                                    <input type="text" name="lot_number_{{ item.id }}" id="lot_number_{{ item.id }}" class="form-input" placeholder="Ej: LOT-2026-001" style="font-size:0.8rem; font-family:monospace;">
-                                </div>
-                                <div>
-                                    <label style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px; display:block;">
-                                        Fecha Fabricación
-                                    </label>
-                                    <input type="date" name="production_date_{{ item.id }}" id="production_date_{{ item.id }}" class="form-input" style="font-size:0.8rem;">
-                                </div>
-                                <div>
-                                    <label style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px; display:block;">
-                                        Fecha Vencimiento
-                                    </label>
-                                    <input type="date" name="expiration_date_{{ item.id }}" id="expiration_date_{{ item.id }}" class="form-input" style="font-size:0.8rem;">
-                                </div>
-                                <div>
-                                    <label style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px; display:block;">
-                                        Notas del Lote
-                                    </label>
-                                    <input type="text" name="lot_notes_{{ item.id }}" id="lot_notes_{{ item.id }}" class="form-input" placeholder="Opcional..." style="font-size:0.8rem;">
-                                </div>
-                            </div>
-
-                            <!-- Contenedor Lote Existente -->
-                            <div id="lot-existing-box-{{ item.id }}" style="display:none;">
-                                <label style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px; display:block;">
-                                    Seleccionar Lote Existente *
-                                </label>
-                                <select name="lot_id_{{ item.id }}" id="lot_id_{{ item.id }}" class="form-select" style="font-size:0.8rem;">
-                                    <option value="">-- Seleccionar lote disponible --</option>
-                                </select>
-                                <div id="lot-existing-hint-{{ item.id }}" style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;"></div>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
-        <div class="form-group">
-            <label for="notes">Notas de la Recepción</label>
-            <textarea id="notes" name="notes" class="form-input" rows="2" placeholder="Observaciones sobre la recepción..."></textarea>
-        </div>
-    </div>
-
-    <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:24px; padding:16px 0;">
-        <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=order.id) }}" class="btn btn-secondary">
-            <i class="fa-solid fa-xmark"></i> Cancelar
-        </a>
-        <button type="submit" class="btn btn-primary" id="btn-submit-receipt">
-            <i class="fa-solid fa-check"></i> Confirmar Recepción
-        </button>
-    </div>
-</form>
-
 <script>
-// ── Catalog Item Search per Row ────────────────────────────────────
+// ── Catálogo e inicialización ──────────────────────────────────────
 const catalogItems = {{ catalog_items|tojson|safe if catalog_items else '[]' }};
-const cachedItemLots = {};
+
+function onWarehouseChange(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    const name = opt && sel.value ? opt.text : '';
+    document.getElementById('warehouseName').value = name;
+    
+    const kpiWh = document.getElementById('kpi-warehouse-name');
+    if (kpiWh) {
+        kpiWh.textContent = name || '—';
+    }
+
+    // Actualizar selectores de lotes para filas con lotes activas
+    document.querySelectorAll('.lot-subrow').forEach(row => {
+        if (row.style.display !== 'none') {
+            const poItemId = row.id.replace('lot-subrow-', '');
+            const catItemId = document.getElementById('catalog_item_' + poItemId)?.value;
+            if (catItemId) {
+                loadExistingLotsForReceipt(poItemId, catItemId);
+            }
+        }
+    });
+}
 
 function switchReceiptLotMode(poItemId, mode) {
     const newBox = document.getElementById('lot-new-box-' + poItemId);
     const existBox = document.getElementById('lot-existing-box-' + poItemId);
     const lotNumInput = document.getElementById('lot_number_' + poItemId);
     const lotSelect = document.getElementById('lot_id_' + poItemId);
+    const btnNew = document.getElementById('btn-mode-new-' + poItemId);
+    const btnExist = document.getElementById('btn-mode-exist-' + poItemId);
+    const rNew = document.getElementById('lot_mode_radio_new_' + poItemId);
+    const rExist = document.getElementById('lot_mode_radio_existing_' + poItemId);
 
     if (mode === 'new') {
         if (newBox) newBox.style.display = 'grid';
         if (existBox) existBox.style.display = 'none';
+        if (btnNew) btnNew.classList.add('active');
+        if (btnExist) btnExist.classList.remove('active');
+        if (rNew) rNew.checked = true;
+        if (rExist) rExist.checked = false;
         if (lotNumInput) lotNumInput.required = true;
         if (lotSelect) { lotSelect.required = false; lotSelect.value = ''; }
     } else {
         if (newBox) newBox.style.display = 'none';
         if (existBox) existBox.style.display = 'block';
+        if (btnNew) btnNew.classList.remove('active');
+        if (btnExist) btnExist.classList.add('active');
+        if (rNew) rNew.checked = false;
+        if (rExist) rExist.checked = true;
         if (lotNumInput) { lotNumInput.required = false; lotNumInput.value = ''; }
         if (lotSelect) lotSelect.required = true;
 
@@ -236,7 +992,7 @@ function loadExistingLotsForReceipt(poItemId, catItemId) {
         url += `?warehouse_id=${encodeURIComponent(whId)}`;
     }
 
-    lotSelect.innerHTML = '<option value="">Cargando lotes...</option>';
+    lotSelect.innerHTML = '<option value="">Cargando lotes disponibles...</option>';
     if (hintDiv) hintDiv.textContent = '';
 
     fetch(url)
@@ -245,7 +1001,7 @@ function loadExistingLotsForReceipt(poItemId, catItemId) {
             lotSelect.innerHTML = '<option value="">-- Seleccionar lote existente --</option>';
             if (!lots || lots.length === 0) {
                 lotSelect.innerHTML = '<option value="">Sin lotes registrados previamente</option>';
-                if (hintDiv) hintDiv.textContent = 'No hay lotes previos para este producto en el almacén. Puede crearlo con la opción "Nuevo Lote".';
+                if (hintDiv) hintDiv.textContent = 'No hay lotes previos registrados para este producto en el almacén. Puede crearlo con la opción "Nuevo Lote".';
                 return;
             }
             lots.forEach(l => {
@@ -263,34 +1019,53 @@ function loadExistingLotsForReceipt(poItemId, catItemId) {
         });
 }
 
+// ── Búsqueda en Catálogo con Autocomplete ─────────────────────────
 document.querySelectorAll('.catalog-search').forEach(input => {
-    const resultsDiv = input.nextElementSibling.nextElementSibling.nextElementSibling.nextElementSibling;
+    const container = input.closest('.catalog-search-wrap');
+    const resultsDiv = container ? container.querySelector('.catalog-search-results') : null;
     let timeout = null;
 
     input.addEventListener('input', function() {
         clearTimeout(timeout);
         const q = this.value.toLowerCase().trim();
-        if (q.length < 1) { resultsDiv.style.display = 'none'; return; }
+        if (q.length < 1) { 
+            if (resultsDiv) resultsDiv.style.display = 'none'; 
+            return; 
+        }
         timeout = setTimeout(() => {
             const matches = catalogItems.filter(i =>
                 (i.name || '').toLowerCase().includes(q) ||
                 (i.code || '').toLowerCase().includes(q) ||
                 (i.barcode || '').toLowerCase().includes(q)
             );
+            if (!resultsDiv) return;
             resultsDiv.innerHTML = '';
             if (matches.length) {
                 matches.slice(0, 10).forEach(item => {
                     const d = document.createElement('div');
-                    d.style.cssText = 'padding:8px 12px; cursor:pointer; border-bottom:1px solid var(--border-color); font-size:0.8rem; display:flex; justify-content:space-between; align-items:center;';
-                    d.onmouseenter = function() { this.style.background = 'rgba(255,255,255,0.04)'; };
-                    d.onmouseleave = function() { this.style.background = 'transparent'; };
+                    d.className = 'catalog-result-row';
+                    
+                    const lotBadge = item.trackLots 
+                        ? '<span class="badge-pill badge-purple" style="font-size:0.65rem; margin-left:6px;"><i class="fa-solid fa-layer-group"></i> Lotes</span>' 
+                        : '';
+                    
+                    d.innerHTML = `
+                        <div>
+                            <div style="font-weight:600; color:var(--text-primary);">${item.name} ${lotBadge}</div>
+                            <div class="item-sku">${item.code || 'Sin código'} · Stock: ${item.totalStock || 0}</div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right" style="color:var(--text-muted); font-size:0.7rem;"></i>
+                    `;
+                    
                     d.onclick = function() {
                         const poItemId = input.dataset.itemId;
                         input.value = item.name + (item.code ? ' [' + item.code + ']' : '');
-                        document.querySelector('input[name="catalog_item_' + poItemId + '"]').value = item.id;
-                        document.querySelector('input[name="catalog_name_' + poItemId + '"]').value = item.name;
+                        const catItemInput = document.getElementById('catalog_item_' + poItemId);
+                        const catNameInput = document.getElementById('catalog_name_' + poItemId);
+                        if (catItemInput) catItemInput.value = item.id;
+                        if (catNameInput) catNameInput.value = item.name;
 
-                        // Manejo dinámico de lotes
+                        // Manejo de lotes
                         const trackLots = !!item.trackLots;
                         const trackLotsInput = document.getElementById('track_lots_' + poItemId);
                         if (trackLotsInput) trackLotsInput.value = trackLots ? '1' : '0';
@@ -302,8 +1077,7 @@ document.querySelectorAll('.catalog-search').forEach(input => {
                                 const nameLabel = document.getElementById('lot-item-name-label-' + poItemId);
                                 if (nameLabel) nameLabel.textContent = item.name;
 
-                                // Asegurar modo activo
-                                const isNew = document.querySelector(`input[name="lot_mode_${poItemId}"][value="new"]`)?.checked;
+                                const isNew = document.getElementById('lot_mode_radio_new_' + poItemId)?.checked;
                                 switchReceiptLotMode(poItemId, isNew ? 'new' : 'existing');
                                 loadExistingLotsForReceipt(poItemId, item.id);
                             } else {
@@ -316,42 +1090,121 @@ document.querySelectorAll('.catalog-search').forEach(input => {
                         }
                         resultsDiv.style.display = 'none';
                     };
-                    const lotBadge = item.trackLots ? '<span style="background:rgba(99,102,241,0.15); color:var(--accent-purple); font-size:0.65rem; padding:2px 5px; border-radius:3px; margin-left:6px;"><i class="fa-solid fa-layer-group"></i> Lotes</span>' : '';
-                    d.innerHTML = '<div><span>' + item.name + '</span>' + lotBadge + '</div><span style="color:var(--text-muted); font-size:0.7rem;">' + (item.code || '') + ' | Stock: ' + (item.totalStock||0) + '</span>';
                     resultsDiv.appendChild(d);
                 });
                 resultsDiv.style.display = 'block';
             } else {
                 resultsDiv.style.display = 'none';
             }
-        }, 250);
+        }, 200);
     });
 
     input.addEventListener('blur', function() {
-        setTimeout(() => { resultsDiv.style.display = 'none'; }, 200);
+        setTimeout(() => { if (resultsDiv) resultsDiv.style.display = 'none'; }, 250);
     });
 });
 
-// ── Warehouse auto-fill name and update lot selects ─────────────────
-document.getElementById('warehouseId').addEventListener('change', function() {
-    const sel = this.options[this.selectedIndex];
-    document.getElementById('warehouseName').value = sel ? sel.text : '';
+// ── Control de Cantidades y Totales ────────────────────────────────
+function setQty(itemId, val) {
+    const input = document.getElementById('received_qty_' + itemId);
+    if (input) {
+        input.value = val;
+        onQtyChange(itemId);
+    }
+}
 
-    // Actualizar selectores de lotes existentes visibles
-    document.querySelectorAll('.lot-subrow').forEach(row => {
-        if (row.style.display !== 'none') {
-            const poItemId = row.id.replace('lot-subrow-', '');
-            const catItemId = document.getElementById('catalog_item_' + poItemId)?.value;
-            if (catItemId) {
-                loadExistingLotsForReceipt(poItemId, catItemId);
-            }
+function fillAllRemaining() {
+    document.querySelectorAll('.qty-input').forEach(inp => {
+        const rem = parseFloat(inp.dataset.remaining || '0');
+        inp.value = rem;
+        const itemId = inp.id.replace('received_qty_', '');
+        onQtyChange(itemId, false);
+    });
+    recalculateAllTotals();
+}
+
+function clearAllQuantities() {
+    document.querySelectorAll('.qty-input').forEach(inp => {
+        inp.value = 0;
+        const itemId = inp.id.replace('received_qty_', '');
+        onQtyChange(itemId, false);
+    });
+    recalculateAllTotals();
+}
+
+function onQtyChange(itemId, triggerRecalc = true) {
+    const input = document.getElementById('received_qty_' + itemId);
+    if (!input) return;
+
+    const val = parseFloat(input.value || '0');
+    const remaining = parseFloat(input.dataset.remaining || '0');
+    const price = parseFloat(input.dataset.price || '0');
+    const hint = document.getElementById('qty-hint-' + itemId);
+    const subtotalCell = document.getElementById('subtotal-val-' + itemId);
+
+    if (val > remaining + 0.0001) {
+        input.classList.add('over-limit');
+        if (hint) {
+            hint.style.display = 'block';
+            hint.textContent = `Excede el saldo (${remaining})`;
+        }
+    } else {
+        input.classList.remove('over-limit');
+        if (hint) hint.style.display = 'none';
+    }
+
+    if (subtotalCell) {
+        const lineTotal = Math.max(0, val) * price;
+        subtotalCell.textContent = lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    if (triggerRecalc) {
+        recalculateAllTotals();
+    }
+}
+
+function recalculateAllTotals() {
+    let activeLines = 0;
+    let totalQty = 0;
+    let totalAmount = 0;
+    const inputs = document.querySelectorAll('.qty-input');
+
+    inputs.forEach(inp => {
+        const q = parseFloat(inp.value || '0');
+        const price = parseFloat(inp.dataset.price || '0');
+        if (q > 0) {
+            activeLines++;
+            totalQty += q;
+            totalAmount += (q * price);
         }
     });
-});
 
-// ── Validaciones pre-submit ─────────────────────────────────────────
+    const kpiReceiving = document.getElementById('kpi-receiving-units');
+    if (kpiReceiving) {
+        kpiReceiving.textContent = totalQty.toFixed(2);
+    }
+
+    const sumLines = document.getElementById('summary-active-lines');
+    if (sumLines) {
+        sumLines.textContent = `${activeLines} / ${inputs.length}`;
+    }
+
+    const sumQty = document.getElementById('summary-total-qty');
+    if (sumQty) {
+        sumQty.textContent = totalQty.toFixed(2);
+    }
+
+    const sumAmt = document.getElementById('summary-total-amount');
+    if (sumAmt) {
+        sumAmt.textContent = 'RD$ ' + totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+}
+
+// ── Validación Pre-Submit ──────────────────────────────────────────
 document.getElementById('receipt-form').addEventListener('submit', function(e) {
+    const wh = document.getElementById('warehouseId')?.value;
     const rows = document.querySelectorAll('.po-item-row');
+    let hasReceivingItem = false;
     let hasError = false;
 
     rows.forEach(row => {
@@ -359,58 +1212,83 @@ document.getElementById('receipt-form').addEventListener('submit', function(e) {
         const poItemId = row.dataset.poItemId;
         const rqtyInput = document.getElementById('received_qty_' + poItemId);
         const rqty = parseFloat(rqtyInput?.value || '0');
-        if (rqty <= 0) return;
+        
+        if (rqty > 0) {
+            hasReceivingItem = true;
+            const remaining = parseFloat(rqtyInput.dataset.remaining || '0');
+            if (rqty > remaining + 0.0001) {
+                alert(`La cantidad a recibir (${rqty}) supera el saldo disponible (${remaining}) en la partida.`);
+                rqtyInput.focus();
+                hasError = true;
+                e.preventDefault();
+                return;
+            }
 
-        const trackLots = document.getElementById('track_lots_' + poItemId)?.value === '1';
-        if (trackLots) {
-            const isNew = document.querySelector(`input[name="lot_mode_${poItemId}"][value="new"]`)?.checked;
-            if (isNew) {
-                const lotNumber = (document.getElementById('lot_number_' + poItemId)?.value || '').trim();
-                if (!lotNumber) {
-                    alert('Debe indicar el número de lote para la partida con control de lotes.');
-                    document.getElementById('lot_number_' + poItemId)?.focus();
-                    hasError = true;
-                    e.preventDefault();
-                    return;
-                }
-                const prodDate = document.getElementById('production_date_' + poItemId)?.value;
-                const expDate = document.getElementById('expiration_date_' + poItemId)?.value;
-                if (prodDate && expDate && expDate < prodDate) {
-                    alert('La fecha de vencimiento no puede ser anterior a la de fabricación en el lote.');
-                    document.getElementById('expiration_date_' + poItemId)?.focus();
-                    hasError = true;
-                    e.preventDefault();
-                    return;
-                }
-            } else {
-                const lotId = (document.getElementById('lot_id_' + poItemId)?.value || '').trim();
-                if (!lotId) {
-                    alert('Debe seleccionar un lote existente para la partida con control de lotes.');
-                    document.getElementById('lot_id_' + poItemId)?.focus();
-                    hasError = true;
-                    e.preventDefault();
-                    return;
+            const trackLots = document.getElementById('track_lots_' + poItemId)?.value === '1';
+            if (trackLots) {
+                const isNew = document.getElementById('lot_mode_radio_new_' + poItemId)?.checked;
+                if (isNew) {
+                    const lotNumber = (document.getElementById('lot_number_' + poItemId)?.value || '').trim();
+                    if (!lotNumber) {
+                        alert('Debe indicar el número de lote para la partida con control de lotes.');
+                        document.getElementById('lot_number_' + poItemId)?.focus();
+                        hasError = true;
+                        e.preventDefault();
+                        return;
+                    }
+                    const prodDate = document.getElementById('production_date_' + poItemId)?.value;
+                    const expDate = document.getElementById('expiration_date_' + poItemId)?.value;
+                    if (prodDate && expDate && expDate < prodDate) {
+                        alert('La fecha de vencimiento no puede ser anterior a la de fabricación en el lote.');
+                        document.getElementById('expiration_date_' + poItemId)?.focus();
+                        hasError = true;
+                        e.preventDefault();
+                        return;
+                    }
+                } else {
+                    const lotId = (document.getElementById('lot_id_' + poItemId)?.value || '').trim();
+                    if (!lotId) {
+                        alert('Debe seleccionar un lote existente para la partida con control de lotes.');
+                        document.getElementById('lot_id_' + poItemId)?.focus();
+                        hasError = true;
+                        e.preventDefault();
+                        return;
+                    }
                 }
             }
         }
     });
+
+    if (hasError) return;
+
+    if (!hasReceivingItem) {
+        alert('Debe ingresar al menos una partida con cantidad a recibir mayor a cero.');
+        e.preventDefault();
+        return;
+    }
+
+    if (!wh) {
+        alert('Debe seleccionar un almacén de destino para la recepción.');
+        document.getElementById('warehouseId')?.focus();
+        e.preventDefault();
+        return;
+    }
+
+    // Animación de submit
+    const btn = document.getElementById('btn-submit-receipt');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registrando Recepción...';
+    }
 });
 
-// Auto-llenar nombre de almacén y lotes en la carga si ya hay valores seleccionados
+// Inicialización al cargar la página
 window.addEventListener('DOMContentLoaded', function() {
     const whSelect = document.getElementById('warehouseId');
-    if (whSelect && whSelect.selectedIndex > 0) {
-        document.getElementById('warehouseName').value = whSelect.options[whSelect.selectedIndex]?.text || '';
+    if (whSelect) {
+        onWarehouseChange(whSelect);
     }
-    document.querySelectorAll('.lot-subrow').forEach(row => {
-        if (row.style.display !== 'none') {
-            const poItemId = row.id.replace('lot-subrow-', '');
-            const catItemId = document.getElementById('catalog_item_' + poItemId)?.value;
-            if (catItemId) {
-                loadExistingLotsForReceipt(poItemId, catItemId);
-            }
-        }
-    });
+    recalculateAllTotals();
 });
 </script>
 {% endblock %}

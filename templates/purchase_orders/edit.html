@@ -142,7 +142,7 @@
                                 <input type="hidden" class="item-id" name="items[][itemId]" value="{{ item.itemId or '' }}">
                                 <input type="hidden" class="item-code" name="items[][itemCode]" value="{{ item.itemCode or '' }}">
                                 <input type="hidden" class="item-track-lots" name="items[][trackLots]" value="{{ 1 if item.trackLots else 0 }}">
-                                <input type="hidden" class="item-is-inv" name="items[][isInventoriable]" value="{{ 0 if item.isInventoriable is False else 1 }}">
+                                <input type="hidden" class="item-is-inv" name="items[][isInventoriable]" value="{{ 0 if item.isInventoriable is false else 1 }}">
                                 <div class="item-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:220px; overflow-y:auto; margin-top:2px;"></div>
                             </div>
                         </td>

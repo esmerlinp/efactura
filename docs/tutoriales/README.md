@@ -60,6 +60,7 @@ de usuario. Los tutoriales están organizados por módulo.
 8. [Pagos recurrentes](compras/07-pagos-recurrentes.md)
 9. [e-CF Recibidos (recepción DGII)](compras/08-ecf-recibidos.md)
 10. [Estado de cuentas por pagar](compras/09-estado-cuentas-por-pagar.md)
+11. [De la orden de compra a la entrada al inventario](compras/10-orden-compra-a-inventario.md)
 
 ## Contabilidad
 

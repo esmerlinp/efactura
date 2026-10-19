@@ -110,7 +110,11 @@
                 {% if orders %}
                 {% for o in orders %}
                 <tr style="border-bottom: 1px solid var(--border-color);" class="po-row" data-status="{{ o.status|default('borrador') }}">
-                    <td style="padding: 14px 16px;"><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ o.poNumber or '—' }}</span></td>
+                    <td style="padding: 14px 16px;">
+                        <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=o.id) }}" class="po-link" title="Ver detalle de {{ o.poNumber or 'Orden de Compra' }}">
+                            <span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ o.poNumber or '—' }}</span>
+                        </a>
+                    </td>
                     <td style="padding: 14px 16px;">
                         <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=o.id) }}" style="color:var(--text-primary); text-decoration:none; font-weight:normal;">
                             {{ o.supplierName or '—' }}
@@ -221,6 +225,20 @@
 .badge-gray   { background:rgba(107,114,128,0.1);  color:#6b7280;              border:1px solid rgba(107,114,128,0.2); }
 .badge-red    { background:rgba(239,68,68,0.1);    color:#ef4444;              border:1px solid rgba(239,68,68,0.2);   }
 .mono { font-family:monospace; font-size:0.82rem; }
+.po-link {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.po-link:hover .mono {
+    text-decoration: underline;
+    filter: brightness(1.2);
+}
+.po-row:hover {
+    background-color: rgba(99, 102, 241, 0.02) !important;
+}
 </style>
 
 <script>

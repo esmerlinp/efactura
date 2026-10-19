@@ -58,8 +58,20 @@
                 {% if receipts %}
                 {% for r in receipts %}
                 <tr>
-                    <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ r.receiptNumber or '—' }}</span></td>
-                    <td><span class="mono">{{ r.poNumber or '—' }}</span></td>
+                    <td>
+                        <a href="{{ url_for('web_inventory.receipt_detail', receipt_id=r.id) }}" style="text-decoration:none;">
+                            <span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ r.receiptNumber or '—' }}</span>
+                        </a>
+                    </td>
+                    <td>
+                        {% if r.poId %}
+                        <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=r.poId) }}" style="text-decoration:none;" title="Ver Orden de Compra">
+                            <span class="mono" style="color:var(--accent-blue); font-weight:600; text-decoration:underline; text-decoration-color:transparent; transition:text-decoration-color 0.15s ease;">{{ r.poNumber or 'Ver OC' }}</span>
+                        </a>
+                        {% else %}
+                        <span class="mono">{{ r.poNumber or '—' }}</span>
+                        {% endif %}
+                    </td>
                     <td>{{ r.supplierName or '—' }}</td>
                     <td>{{ r.warehouseName or '—' }}</td>
                     <td style="font-size:0.82rem;">{{ r.receiptDate or r.createdAt[:10] if r.createdAt else '—' }}</td>

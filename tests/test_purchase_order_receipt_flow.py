@@ -330,3 +330,92 @@ def test_register_receipt_inventory_skips_services_and_converts_fx():
             "comp-1", "item-server", "wh-central", sandbox=True, owner_uid="own-1"
         )
 
+
+def test_new_receipt_template_renders_without_jinja_error(app):
+    from flask import render_template
+    po = {
+        "id": "po-1",
+        "poNumber": "OC-2026-0001",
+        "status": "aprobada",
+        "items": [
+            {"id": "line-1", "name": "Servicio de flete", "quantity": 1, "receivedQuantity": 0,
+             "unitPrice": 500, "unit": "Servicio", "isInventoriable": False},
+            {"id": "line-2", "name": "Cemento Titán", "quantity": 10, "receivedQuantity": 0,
+             "unitPrice": 450, "unit": "Funda", "isInventoriable": True, "trackLots": True},
+            {"id": "line-3", "name": "Artículo Legacy", "quantity": 5, "receivedQuantity": 1,
+             "unitPrice": 100, "unit": "Unidad"},
+        ],
+    }
+    with app.test_request_context("/inventory/receipts/new?po_id=po-1"):
+        with app.app_context():
+            html = render_template(
+                "inventario/new_receipt.html",
+                order=po,
+                receipt_number="RC-0001",
+                today="2026-10-19",
+                warehouses=[{"id": "wh-1", "name": "Principal"}],
+                catalog_items=[],
+                active_page="inventory_receipts",
+            )
+            assert "Servicio / No inventariable" in html
+            assert "Sin stock físico" in html
+            assert "Lote Requerido" in html
+
+
+def test_edit_purchase_order_template_renders_without_jinja_error(app):
+    from flask import render_template
+    po = {
+        "id": "po-1",
+        "poNumber": "OC-2026-0001",
+        "supplierId": "sup-1",
+        "issueDate": "2026-10-19",
+        "deliveryDate": "2026-10-25",
+        "currency": "DOP",
+        "subtotal": 500.0,
+        "total": 500.0,
+        "items": [
+            {"id": "line-1", "name": "Consultoría", "quantity": 1, "unitPrice": 500,
+             "unit": "Servicio", "isInventoriable": False, "trackLots": False},
+            {"id": "line-2", "name": "Bloques", "quantity": 100, "unitPrice": 40,
+             "unit": "Unidad", "isInventoriable": True, "trackLots": False},
+        ],
+    }
+    with app.test_request_context("/purchase-orders/po-1/edit"):
+        with app.app_context():
+            html = render_template(
+                "purchase_orders/edit.html",
+                order=po,
+                suppliers=[{"id": "sup-1", "name": "Proveedor Uno"}],
+                catalog_items=[],
+                active_page="purchase_orders",
+            )
+            assert "Consultoría" in html
+            assert 'value="0"' in html
+
+
+def test_purchase_orders_list_template_renders_oc_number_link(app):
+    from flask import render_template
+    po = {
+        "id": "po-link-123",
+        "poNumber": "OC-9999",
+        "supplierName": "Proveedor Test",
+        "supplierRnc": "101010101",
+        "orderDate": "2026-10-19",
+        "expectedDate": "2026-10-25",
+        "total": 5400.0,
+        "status": "aprobada",
+        "items": [{"description": "Item 1", "quantity": 1}],
+    }
+    with app.test_request_context("/purchase-orders"):
+        with app.app_context():
+            html = render_template(
+                "purchase_orders/list.html",
+                orders=[po],
+                total_items=1,
+                active_page="purchase_orders",
+            )
+            assert 'href="/purchase-orders/po-link-123"' in html
+            assert 'OC-9999' in html
+            assert 'po-link' in html
+
+
