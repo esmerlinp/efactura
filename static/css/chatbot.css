@@ -360,6 +360,21 @@
   background: var(--accent-emerald-hover, #059669);
 }
 
+#chatbot-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+#chatbot-send-btn:disabled {
+  background: var(--text-muted, #9ca9af);
+  cursor: not-allowed;
+}
+
+.chatbot-usage-bar.quota-exhausted .chatbot-usage-count {
+  color: #dc2626;
+  font-weight: 700;
+}
+
 /* Responsive */
 @media (max-width: 500px) {
   #chatbot-sidebar {

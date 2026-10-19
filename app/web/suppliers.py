@@ -20,7 +20,7 @@ def list_suppliers():
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
+    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
     expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
 
     for s in suppliers:
@@ -117,7 +117,8 @@ def new_supplier():
 
     if request.method == 'POST':
         rnc = "".join(filter(str.isdigit, request.form.get('rnc', '')))
-        if rnc and SupplierService.get_supplier_by_rnc(owner_uid, rnc, sandbox=sandbox):
+        from app.services.contact_service import ContactService
+        if rnc and ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id):
             flash('Ya existe un proveedor con ese RNC.', 'error')
             return render_template('suppliers/new.html', active_page='suppliers')
 
@@ -168,15 +169,34 @@ def new_supplier():
         supplier_dict["attachments"] = attachments
         supplier_dict["firebaseAttachmentURLs"] = attachment_urls
 
-        SupplierService.save_supplier(owner_uid, supplier_id, supplier_dict, sandbox=sandbox)
-
-        from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CXP
-        AuditService.log_from_request(
-            owner_uid=owner_uid, action=ACTION_CREATE, module=MODULE_CXP,
-            entity_id=supplier_id,
-            entity_label=f"Proveedor registrado: {supplier_dict['name']} (RNC: {supplier_dict['rnc']})",
-            user_session=session.get('user', {}), after=supplier_dict, sandbox=sandbox
-        )
+        from app.services.contact_service import ContactService
+        contact_dict = {
+            "rnc": supplier_dict.get("rnc", ""),
+            "razonSocial": supplier_dict.get("name", ""),
+            "email": supplier_dict.get("email", ""),
+            "telefono": supplier_dict.get("phone", ""),
+            "direccion": supplier_dict.get("address", ""),
+            "municipio": supplier_dict.get("city", ""),
+            "pais": supplier_dict.get("country", "República Dominicana"),
+            "tipoPersona": supplier_dict.get("tipoPersona", "fisica"),
+            "estado": supplier_dict.get("estado", "Activo"),
+            "supplierType": supplier_dict.get("supplierType", "formal"),
+            "currency": supplier_dict.get("currency", "DOP"),
+            "creditDays": supplier_dict.get("creditDays", 0),
+            "creditLimit": supplier_dict.get("creditLimit", 0.0),
+            "paymentMethod": supplier_dict.get("paymentMethod", "Efectivo"),
+            "ecfTypeEmits": supplier_dict.get("ecfTypeEmits", "E31"),
+            "itbisWithholding": supplier_dict.get("itbisWithholding", False),
+            "isrWithholding": supplier_dict.get("isrWithholding", False),
+            "tipoGastoDGII": supplier_dict.get("tipoGastoDGII", "02"),
+            "notes": supplier_dict.get("notes", ""),
+            "code": supplier_dict.get("code", ""),
+            "contactPerson": supplier_dict.get("contactPerson", ""),
+            "attachments": supplier_dict.get("attachments", []),
+            "firebaseAttachmentURLs": supplier_dict.get("firebaseAttachmentURLs", []),
+            "types": ["proveedor"],
+        }
+        ContactService.save_contact(owner_uid, supplier_id, contact_dict, sandbox=sandbox, company_id=company_id)
         flash('Proveedor registrado exitosamente.', 'success')
         return redirect(url_for('web_suppliers.list_suppliers'))
 
@@ -192,6 +212,7 @@ def ajax_create_supplier():
         return jsonify({"success": False, "error": "Sin permiso para registrar proveedores."}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     data = request.json or request.form
@@ -266,7 +287,7 @@ def supplier_detail(supplier_id):
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox)
+    supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
     if not supplier:
         flash('Proveedor no encontrado.', 'error')
         return redirect(url_for('web_suppliers.list_suppliers'))
@@ -297,7 +318,7 @@ def edit_supplier(supplier_id):
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox)
+    supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
     if not supplier:
         flash('Proveedor no encontrado.', 'error')
         return redirect(url_for('web_suppliers.list_suppliers'))
@@ -347,9 +368,40 @@ def edit_supplier(supplier_id):
                     except Exception as e:
                         print(f"⚠️ Error al subir adjunto: {e}")
 
-        SupplierService.save_supplier(owner_uid, supplier_id, supplier_dict, sandbox=sandbox)
-
-        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_CXP
+        from app.services.contact_service import ContactService
+        existing_contact = ContactService.get_contact_by_rnc(owner_uid, supplier_dict["rnc"], sandbox=sandbox, company_id=company_id) if supplier_dict.get("rnc") else None
+        contact_id = existing_contact["id"] if existing_contact else supplier_id
+        contact_upd = dict(existing_contact) if existing_contact else {}
+        contact_upd.update({
+            "rnc": supplier_dict.get("rnc", ""),
+            "razonSocial": supplier_dict.get("name", ""),
+            "email": supplier_dict.get("email", ""),
+            "telefono": supplier_dict.get("phone", ""),
+            "direccion": supplier_dict.get("address", ""),
+            "municipio": supplier_dict.get("city", ""),
+            "pais": supplier_dict.get("country", "República Dominicana"),
+            "tipoPersona": supplier_dict.get("tipoPersona", "fisica"),
+            "estado": supplier_dict.get("estado", "Activo"),
+            "supplierType": supplier_dict.get("supplierType", "formal"),
+            "currency": supplier_dict.get("currency", "DOP"),
+            "creditDays": supplier_dict.get("creditDays", 0),
+            "creditLimit": supplier_dict.get("creditLimit", 0.0),
+            "paymentMethod": supplier_dict.get("paymentMethod", "Efectivo"),
+            "ecfTypeEmits": supplier_dict.get("ecfTypeEmits", "E31"),
+            "itbisWithholding": supplier_dict.get("itbisWithholding", False),
+            "isrWithholding": supplier_dict.get("isrWithholding", False),
+            "tipoGastoDGII": supplier_dict.get("tipoGastoDGII", "02"),
+            "notes": supplier_dict.get("notes", ""),
+            "code": supplier_dict.get("code", ""),
+            "contactPerson": supplier_dict.get("contactPerson", ""),
+            "attachments": supplier_dict.get("attachments", []),
+            "firebaseAttachmentURLs": supplier_dict.get("firebaseAttachmentURLs", []),
+        })
+        types = list(contact_upd.get("types", []))
+        if "proveedor" not in types:
+            types.append("proveedor")
+        contact_upd["types"] = types
+        ContactService.save_contact(owner_uid, contact_id, contact_upd, sandbox=sandbox, company_id=company_id)
         AuditService.log_from_request(
             owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_CXP,
             entity_id=supplier_id,
@@ -369,22 +421,22 @@ def delete_supplier(supplier_id):
     if not check_permission('canManageSuppliers'):
         return render_template('auth/restricted.html', feature_name="Eliminar Proveedor", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox)
+    from app.services.contact_service import ContactService
+    supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
     if not supplier:
         flash('Proveedor no encontrado.', 'error')
         return redirect(url_for('web_suppliers.list_suppliers'))
 
-    SupplierService.delete_supplier(owner_uid, supplier_id, sandbox=sandbox)
-
-    from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_CXP
-    AuditService.log_from_request(
-        owner_uid=owner_uid, action=ACTION_DELETE, module=MODULE_CXP,
-        entity_id=supplier_id,
-        entity_label=f"Proveedor eliminado: {supplier.get('name', 'N/A')} (RNC: {supplier.get('rnc', 'N/A')})",
-        user_session=session.get('user', {}), before=supplier, sandbox=sandbox
-    )
+    # Soft delete vía ContactService (si existe contacto con ese id)
+    ContactService.delete_contact(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
+    # Intentar borrar también en legacy por si acaso
+    try:
+        SupplierService.delete_supplier(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
+    except Exception:
+        pass
     flash('Proveedor eliminado.', 'success')
     return redirect(url_for('web_suppliers.list_suppliers'))
 
@@ -394,10 +446,11 @@ def api_suppliers_search():
     if 'user' not in session:
         return jsonify({"success": False, "error": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     q = request.args.get('q', '').strip().lower()
-    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
+    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
 
     if q:
         suppliers = [s for s in suppliers if

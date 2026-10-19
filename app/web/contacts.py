@@ -342,10 +342,39 @@ def ajax_create_contact():
     sandbox = session.get('is_sandbox_mode', True)
 
     data = request.json or request.form
-    rnc = (data.get('rnc') or '').strip()
-    razon_social = (data.get('razonSocial') or '').strip()
+    rnc = "".join(filter(str.isdigit, (data.get('rnc') or '')))
+    razon_social = (data.get('razonSocial') or data.get('name') or '').strip()
     if not razon_social:
         return jsonify({"success": False, "error": "La Razón Social es obligatoria."}), 400
+
+    # Dedup by RNC if provided
+    if rnc:
+        existing = ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id)
+        if existing:
+            types = list(existing.get("types", []))
+            if "cliente" not in types:
+                types.append("cliente")
+            contact_dict = dict(existing)
+            contact_dict["types"] = types
+            contact_dict["rnc"] = rnc
+            contact_dict["razonSocial"] = razon_social or existing.get("razonSocial", "")
+            contact_dict["email"] = (data.get('email') or '').strip() or existing.get("email", "")
+            contact_dict["telefono"] = (data.get('telefono') or data.get('phone') or '').strip() or existing.get("telefono", "")
+            contact_dict["direccion"] = (data.get('direccion') or data.get('address') or '').strip() or existing.get("direccion", "")
+            ContactService.save_contact(owner_uid, existing["id"], contact_dict, sandbox=sandbox, company_id=company_id)
+            return jsonify({
+                "success": True,
+                "message": "Contacto existente vinculado como cliente.",
+                "existing": True,
+                "client": {
+                    "id": existing["id"],
+                    "rnc": rnc,
+                    "razonSocial": contact_dict["razonSocial"],
+                    "email": contact_dict["email"],
+                    "telefono": contact_dict["telefono"],
+                    "direccion": contact_dict["direccion"],
+                }
+            })
 
     contact_id = str(uuid.uuid4())
     import random
@@ -356,8 +385,8 @@ def ajax_create_contact():
         "rnc": rnc,
         "razonSocial": razon_social,
         "email": (data.get('email') or '').strip(),
-        "telefono": (data.get('telefono') or '').strip(),
-        "direccion": (data.get('direccion') or '').strip(),
+        "telefono": (data.get('telefono') or data.get('phone') or '').strip(),
+        "direccion": (data.get('direccion') or data.get('address') or '').strip(),
         "notes": "Registrado desde formulario de facturación",
         "pipelineStage": "Cliente Activo",
         "accessPin": access_pin,

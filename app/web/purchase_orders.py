@@ -180,13 +180,13 @@ def _resolve_supplier_email(owner_uid, invoice, sandbox, company_id):
     rnc = invoice.get('supplierRnc') or invoice.get('supplierCedula')
     if rnc:
         try:
-            email = _email_of(SupplierService.get_supplier_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id))
+            from app.services.contact_service import ContactService
+            email = _email_of(ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id))
         except Exception:
             email = ''
         if not email:
             try:
-                from app.services.contact_service import ContactService
-                email = _email_of(ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id))
+                email = _email_of(SupplierService.get_supplier_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id))
             except Exception:
                 email = ''
 
@@ -338,13 +338,33 @@ def new_purchase_order():
             })
 
         po_number = PurchaseOrderService.get_next_po_number(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
-        supplier_id = request.form.get('supplierId', '')
+        supplier_id = request.form.get('supplierId', '') or ''
+        supplier_rnc = request.form.get('supplierRnc', '')
+        supplier_name = request.form.get('supplierName', '')
+
+        # Asegurar proveedor vía ContactService al guardar (crear si no existe)
+        try:
+            from app.services.contact_service import ContactService
+            if supplier_id:
+                c = ContactService.get_contact(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
+                if c:
+                    types = list(c.get('types', []))
+                    if 'proveedor' not in types:
+                        types.append('proveedor')
+                        c2 = dict(c)
+                        c2['types'] = types
+                        ContactService.save_contact(owner_uid, supplier_id, c2, sandbox=sandbox, company_id=company_id)
+            elif supplier_rnc or supplier_name:
+                ensured = ContactService.ensure_supplier(owner_uid=owner_uid, supplier_id=None, rnc=supplier_rnc, razonSocial=supplier_name, direccion='', sandbox=sandbox, company_id=company_id)
+                supplier_id = ensured[0] or supplier_id
+        except Exception as e:
+            print(f"⚠️ Error asegurando proveedor en new PO: {e}")
 
         po_dict = {
             "poNumber": po_number,
             "supplierId": supplier_id,
-            "supplierName": request.form.get('supplierName', ''),
-            "supplierRnc": request.form.get('supplierRnc', ''),
+            "supplierName": supplier_name,
+            "supplierRnc": supplier_rnc,
             "status": "borrador",
             "orderDate": request.form.get('orderDate', datetime.now(timezone.utc).strftime('%Y-%m-%d')),
             "expectedDate": request.form.get('expectedDate', ''),
@@ -384,7 +404,7 @@ def new_purchase_order():
 
     po_number = PurchaseOrderService.get_next_po_number(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
+    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
     projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox, company_id=company_id) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
@@ -788,12 +808,33 @@ def edit_purchase_order(po_id):
             })
 
         supplier_id = request.form.get('supplierId', '')
+        supplier_name = request.form.get('supplierName', '')
+        supplier_rnc = request.form.get('supplierRnc', '')
+        supplier_cedula = request.form.get('supplierCedula', '')
+
+        # Asegurar proveedor al guardar orden editada
+        try:
+            from app.services.contact_service import ContactService
+            if supplier_id:
+                c = ContactService.get_contact(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
+                if c:
+                    types = list(c.get('types', []))
+                    if 'proveedor' not in types:
+                        types.append('proveedor')
+                        c2 = dict(c)
+                        c2['types'] = types
+                        ContactService.save_contact(owner_uid, supplier_id, c2, sandbox=sandbox, company_id=company_id)
+            elif supplier_rnc or supplier_name:
+                ensured = ContactService.ensure_supplier(owner_uid=owner_uid, supplier_id=None, rnc=supplier_rnc, razonSocial=supplier_name, direccion='', sandbox=sandbox, company_id=company_id)
+                supplier_id = ensured[0] or supplier_id
+        except Exception as e:
+            print(f"⚠️ Error asegurando proveedor en edit PO: {e}")
 
         before = dict(order)
         order.update({
             "supplierId": supplier_id,
-            "supplierName": request.form.get('supplierName', ''),
-            "supplierRnc": request.form.get('supplierRnc', ''),
+            "supplierName": supplier_name,
+            "supplierRnc": supplier_rnc,
             "orderDate": request.form.get('orderDate', order.get('orderDate', '')),
             "expectedDate": request.form.get('expectedDate', ''),
             "deliveryAddress": request.form.get('deliveryAddress', ''),
@@ -827,7 +868,7 @@ def edit_purchase_order(po_id):
         return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
+    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
     selected_bid = order.get('branchId') or g.get('branch_id') or session.get('selected_branch_id')
     projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox, company_id=company_id) if selected_bid else []
     catalog_items = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox, branch_id=selected_bid, project_id=order.get('projectId'))
@@ -1852,7 +1893,7 @@ def new_supplier_invoice_direct():
         return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv_data['id']))
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
+    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
     accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
     tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
@@ -2751,7 +2792,7 @@ def edit_supplier_invoice(invoice_id):
         return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
+    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
     accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
     tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)

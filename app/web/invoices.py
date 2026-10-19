@@ -7386,7 +7386,7 @@ def payments_new_route():
             try:
                 from app.services.supplier_service import SupplierService
                 supplier_id, created = SupplierService.get_or_create_supplier(
-                    owner_uid, rnc_emisor, provider_name, sandbox=sandbox
+                    owner_uid, rnc_emisor, provider_name, sandbox=sandbox, company_id=company_id
                 )
                 if created:
                     flash('Proveedor registrado automáticamente en el catálogo.', 'info')
@@ -11198,13 +11198,16 @@ def chatbot_usage_api():
     using_global_key = not api_key
     if not using_global_key:
         return jsonify({"usage_info": None})
+    from app.services.chatbot import DAILY_LIMIT
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    user_profile = DatabaseService.get_user_profile(user_uid) or {}
-    last_reset = user_profile.get("chatbotDailyReset", "")
-    usage_count = int(user_profile.get("chatbotDailyUsageCount", 0))
+    try:
+        usage_count, last_reset = DatabaseService.get_chatbot_quota(user_uid)
+    except Exception as ex:
+        print(f"⚠️ chatbot_usage_api: error al leer cuota: {ex}")
+        usage_count, last_reset = 0, today_str
     if last_reset != today_str:
         usage_count = 0
-    return jsonify({"usage_info": {"used": usage_count, "limit": 20}})
+    return jsonify({"usage_info": {"used": usage_count, "limit": DAILY_LIMIT}})
 
 @web_invoices_bp.route('/api/chatbot', methods=['POST'])
 @require_module('ia_bi')
@@ -11226,7 +11229,7 @@ def chatbot_api():
         return jsonify({"success": False, "message": "El mensaje no puede estar vacío."}), 400
         
     from app.services.chatbot import ChatbotService
-    result = ChatbotService.ask_chatbot(owner_uid, user_uid, message, history, sandbox=sandbox)
+    result = ChatbotService.ask_chatbot(owner_uid, user_uid, message, history, sandbox=sandbox, company_id=company_id)
     return jsonify(result)
 
 @web_invoices_bp.route('/chatbot')
@@ -12389,7 +12392,7 @@ def expense_import_preview():
     from app.services.supplier_service import SupplierService
     supplier_id, _ = SupplierService.get_or_create_supplier(
         owner_uid, parsed["supplierRnc"], parsed["supplierName"],
-        parsed.get("supplierAddress", ""), sandbox=sandbox
+        parsed.get("supplierAddress", ""), sandbox=sandbox, company_id=company_id
     )
 
     from app.services.ai_classifier_service import AIExpenseClassifier
@@ -12482,7 +12485,7 @@ def expense_import_confirm():
 
     from app.services.supplier_service import SupplierService
     supplier_id, supplier_created = SupplierService.get_or_create_supplier(
-        owner_uid, supplier_rnc, supplier_name, supplier_address, sandbox=sandbox
+        owner_uid, supplier_rnc, supplier_name, supplier_address, sandbox=sandbox, company_id=company_id
     )
 
     importMeta = {
@@ -12703,7 +12706,7 @@ def api_expenses_ocr_with_items():
     rnc_emisor = extracted.get("rncEmisor", "")
     if rnc_emisor and len(rnc_emisor) in [9, 11]:
         from app.services.supplier_service import SupplierService
-        existing_supplier = SupplierService.get_supplier_by_rnc(owner_uid, rnc_emisor, sandbox=sandbox)
+        existing_supplier = SupplierService.get_supplier_by_rnc(owner_uid, rnc_emisor, sandbox=sandbox, company_id=company_id)
         if existing_supplier:
             supplier_info["exists"] = True
             cr_fields = {"id": existing_supplier.get("id"), "rnc": existing_supplier.get("rnc"),

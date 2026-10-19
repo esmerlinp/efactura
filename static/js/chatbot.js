@@ -16,15 +16,30 @@ document.addEventListener('DOMContentLoaded', function () {
   var usageBar = document.getElementById('chatbot-usage-bar');
   var usageCountEl = document.getElementById('chatbot-usage-count');
   var usageLimitEl = document.getElementById('chatbot-usage-limit');
+  var sendBtn = document.getElementById('chatbot-send-btn');
+  var quotaExhausted = false;
+
+  function applyQuotaState(used, limit) {
+    if (!usageBar || typeof used !== 'number' || typeof limit !== 'number') return;
+    usageCountEl.textContent = used;
+    usageLimitEl.textContent = limit;
+    usageBar.style.display = '';
+    quotaExhausted = used >= limit;
+    usageBar.classList.toggle('quota-exhausted', quotaExhausted);
+    input.disabled = quotaExhausted;
+    if (sendBtn) sendBtn.disabled = quotaExhausted;
+    input.placeholder = quotaExhausted
+      ? 'Límite diario de consultas alcanzado...'
+      : 'Escribe tu consulta aquí...';
+    if (quotaExhausted) input.value = '';
+  }
 
   // Fetch initial usage
   fetch('/api/chatbot/usage')
     .then(function (r) { return r.json(); })
     .then(function (d) {
       if (d.usage_info) {
-        usageCountEl.textContent = d.usage_info.used;
-        usageLimitEl.textContent = d.usage_info.limit;
-        usageBar.style.display = '';
+        applyQuotaState(d.usage_info.used, d.usage_info.limit);
       }
     })
     .catch(function () {});
@@ -113,6 +128,12 @@ document.addEventListener('DOMContentLoaded', function () {
     var userText = input.value.trim();
     if (!userText) return;
 
+    if (quotaExhausted) {
+      appendMessage('ai', '⚠️ **Límite diario de consultas alcanzado.** Vuelve mañana o introduce tu propia clave de OpenAI en Configuración de Empresa para uso ilimitado.');
+      scrollToBottom();
+      return;
+    }
+
     appendMessage('user', userText);
     input.value = '';
 
@@ -131,9 +152,7 @@ document.addEventListener('DOMContentLoaded', function () {
     .then(function (data) {
       typingBubble.remove();
       if (data.usage_info) {
-        usageCountEl.textContent = data.usage_info.used;
-        usageLimitEl.textContent = data.usage_info.limit;
-        usageBar.style.display = '';
+        applyQuotaState(data.usage_info.used, data.usage_info.limit);
       }
       if (data.success) {
         appendMessage('ai', data.message);
@@ -187,6 +206,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function scrollToBottom() {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    requestAnimationFrame(function () {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    });
   }
 
   function renderSavedMessages() {
@@ -195,6 +217,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var role = item.role === 'assistant' ? 'ai' : 'user';
         appendMessage(role, item.content);
       });
+      scrollToBottom();
     }
   }
 

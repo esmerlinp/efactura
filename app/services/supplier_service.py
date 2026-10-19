@@ -19,13 +19,60 @@ def serialize_field(val):
     return str(val)
 
 
+def _contact_to_supplier(contact):
+    """Proyecta un contacto con tipo 'proveedor' al shape legacy de supplier."""
+    s = {
+        "id": contact.get("id", ""),
+        "rnc": contact.get("rnc", ""),
+        "name": contact.get("razonSocial", ""),
+        "tipoPersona": contact.get("tipoPersona", "fisica"),
+        "code": contact.get("code", ""),
+        "estado": contact.get("estado", "Activo"),
+        "phone": contact.get("telefono", ""),
+        "email": contact.get("email", ""),
+        "address": contact.get("direccion", ""),
+        "city": contact.get("municipio", ""),
+        "country": contact.get("pais", "República Dominicana"),
+        "contactPerson": contact.get("contactPerson", ""),
+        "supplierType": contact.get("supplierType", "formal"),
+        "currency": contact.get("currency", "DOP"),
+        "creditDays": contact.get("creditDays", 0),
+        "creditLimit": contact.get("creditLimit", 0.0),
+        "paymentMethod": contact.get("paymentMethod", "Efectivo"),
+        "ecfTypeEmits": contact.get("ecfTypeEmits", "E31"),
+        "itbisWithholding": contact.get("itbisWithholding", False),
+        "isrWithholding": contact.get("isrWithholding", False),
+        "tipoGastoDGII": contact.get("tipoGastoDGII", "02"),
+        "notes": contact.get("notes", ""),
+        "attachments": contact.get("attachments", []),
+        "firebaseAttachmentURLs": contact.get("firebaseAttachmentURLs", []),
+        "createdAt": contact.get("createdAt", ""),
+        "updatedAt": contact.get("updatedAt", ""),
+        "branchId": contact.get("branchId", "default-sucursal-principal"),
+        "projectId": contact.get("projectId"),
+    }
+    return s
+
+
 class SupplierService:
+
+    @classmethod
+    def _contacts_as_suppliers(cls, owner_uid=None, sandbox=True, company_id=None):
+        """Contactos con tipo 'proveedor' proyectados al shape de supplier (dual read)."""
+        try:
+            from app.services.contact_service import ContactService
+            contacts = ContactService.get_contacts(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
+        except Exception as e:
+            print(f"⚠️ Error al leer contactos proveedor: {e}")
+            return []
+        return [_contact_to_supplier(c) for c in contacts if "proveedor" in c.get("types", [])]
 
     @classmethod
     def get_suppliers(cls, owner_uid=None, sandbox=True, branch_id=None, project_id=None, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return []
         suppliers = []
+        seen_ids = set()
         try:
             coll_name = "sandbox_suppliers" if sandbox else "suppliers"
             docs = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=coll_name).get()
@@ -35,9 +82,15 @@ class SupplierService:
                 data["branchId"] = data.get("branchId", "default-sucursal-principal")
                 data["projectId"] = data.get("projectId")
                 suppliers.append(data)
-            suppliers.sort(key=lambda x: x.get("name", "").lower())
+                seen_ids.add(doc.id)
         except Exception as e:
             print(f"⚠️ Error al obtener proveedores: {e}")
+        # Dual read: contactos con tipo proveedor que aún no estén en legacy
+        for s in cls._contacts_as_suppliers(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id):
+            if s["id"] not in seen_ids:
+                suppliers.append(s)
+                seen_ids.add(s["id"])
+        suppliers.sort(key=lambda x: (x.get("name") or "").lower())
         if branch_id:
             suppliers = [s for s in suppliers if s.get("branchId") == branch_id]
         if project_id == '__no_project__':
@@ -61,6 +114,14 @@ class SupplierService:
                 return data
         except Exception as e:
             print(f"⚠️ Error al obtener proveedor {supplier_id}: {e}")
+        # Fallback dual read: contacto con tipo proveedor
+        try:
+            from app.services.contact_service import ContactService
+            c = ContactService.get_contact(owner_uid=owner_uid, contact_id=supplier_id, sandbox=sandbox, company_id=company_id)
+            if c and "proveedor" in c.get("types", []):
+                return _contact_to_supplier(c)
+        except Exception:
+            pass
         return None
 
     @classmethod
@@ -136,19 +197,37 @@ class SupplierService:
                 return data
         except Exception as e:
             print(f"⚠️ Error al buscar proveedor por RNC {rnc}: {e}")
+        # Fallback dual read: contacto con tipo proveedor
+        try:
+            from app.services.contact_service import ContactService
+            c = ContactService.get_contact_by_rnc(owner_uid=owner_uid, rnc=rnc_clean, sandbox=sandbox, company_id=company_id)
+            if c and "proveedor" in c.get("types", []):
+                return _contact_to_supplier(c)
+        except Exception:
+            pass
         return None
 
     @classmethod
     def get_or_create_supplier(cls, owner_uid=None, rnc=None, name=None, address="", sandbox=True, company_id=None):
+        """Crea/asegura un proveedor como contacto (fuente de verdad) con espejo legacy.
+
+        Delega en ContactService.ensure_supplier para mantener una sola vía de
+        escritura. Devuelve (supplier_id, created).
+        """
+        try:
+            from app.services.contact_service import ContactService
+            return ContactService.ensure_supplier(
+                owner_uid=owner_uid, supplier_id=None, rnc=rnc, razonSocial=name,
+                direccion=address or "", sandbox=sandbox, company_id=company_id,
+            )
+        except Exception as e:
+            print(f"⚠️ Error al asegurar proveedor {rnc}: {e}")
+        # Fallback legacy si ContactService no está disponible
         existing = cls.get_supplier_by_rnc(owner_uid=owner_uid, rnc=rnc, sandbox=sandbox, company_id=company_id)
         if existing:
             return (existing["id"], False)
         supplier_id = str(uuid.uuid4())
-        supplier_dict = {
-            "rnc": rnc,
-            "name": name,
-            "address": address,
-        }
+        supplier_dict = {"rnc": rnc, "name": name, "address": address}
         cls.save_supplier(owner_uid=owner_uid, supplier_id=supplier_id, supplier_dict=supplier_dict, sandbox=sandbox, company_id=company_id)
         return (supplier_id, True)
 

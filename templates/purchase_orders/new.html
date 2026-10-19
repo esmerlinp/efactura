@@ -256,41 +256,61 @@
 </form>
 
 <script>
-// ── Supplier Search ───────────────────────────────────────────────
+const suppliersList = {{ suppliers | tojson | safe }};
 let supplierSearchTimeout = null;
 const supplierSearchInput = document.getElementById('supplier-search');
 const supplierSearchResults = document.getElementById('supplier-search-results');
+const supplierNameInput = document.getElementById('supplierName');
+const supplierRncInput = document.getElementById('supplierRnc');
+const supplierIdInput = document.getElementById('supplierId');
+
+function setRncStatus(text, color) {
+    let el = document.getElementById('rnc-status');
+    if (!el) {
+        el = document.createElement('small');
+        el.id = 'rnc-status';
+        el.style.display = 'block';
+        el.style.fontSize = '0.72rem';
+        el.style.fontWeight = '600';
+        el.style.marginTop = '6px';
+        supplierRncInput.parentElement && supplierRncInput.parentElement.appendChild(el);
+    }
+    if (!color) color = 'var(--text-muted)';
+    el.style.color = color;
+    el.textContent = text;
+}
+
+function selectSupplier(s) {
+    document.getElementById('supplierId').value = s.id || '';
+    document.getElementById('supplierName').value = s.name || s.razonSocial || '';
+    document.getElementById('supplierRnc').value = s.rnc || '';
+    document.getElementById('supplier-search').value = s.name || s.razonSocial || '';
+    document.getElementById('supplier-search-results').style.display = 'none';
+    setRncStatus('✓ Proveedor existente', '#10b981');
+}
 
 if (supplierSearchInput) {
     supplierSearchInput.addEventListener('input', function() {
-        clearTimeout(supplierSearchTimeout);
-        const q = this.value.trim();
+        const q = (this.value || '').toLowerCase().trim();
         if (q.length < 2) { supplierSearchResults.style.display = 'none'; return; }
-        supplierSearchTimeout = setTimeout(() => {
-            fetch('/api/suppliers/search?q=' + encodeURIComponent(q))
-                .then(res => res.json())
-                .then(data => {
-                    supplierSearchResults.innerHTML = '';
-                    if (data.success && data.suppliers.length) {
-                        data.suppliers.forEach(s => {
-                            const div = document.createElement('div');
-                            div.style.cssText = 'padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); display:flex; flex-direction:column; gap:2px; transition:background 0.15s;';
-                            div.onmouseenter = function() { this.style.background = 'rgba(255,255,255,0.04)'; };
-                            div.onmouseleave = function() { this.style.background = 'transparent'; };
-                            div.onclick = function() { selectSupplier(s); };
-                            div.innerHTML = '<span style="font-weight:600; font-size:0.82rem;">' + s.name + '</span>' +
-                                '<span style="font-size:0.7rem; color:var(--text-muted);">RNC: ' + (s.rnc || '—') + ' | Crédito: ' + (s.creditDays || 0) + 'd</span>';
-                            supplierSearchResults.appendChild(div);
-                        });
-                        supplierSearchResults.style.display = 'block';
-                    } else {
-                        supplierSearchResults.style.display = 'none';
-                    }
-                })
-                .catch(() => { supplierSearchResults.style.display = 'none'; });
-        }, 300);
+        const matches = (suppliersList || []).filter(function(s) {
+            const name = (s.name || s.razonSocial || '').toLowerCase();
+            const rnc = (s.rnc || '').replace(/[^0-9]/g, '');
+            return name.includes(q) || (q.replace(/[^0-9]/g, '') && rnc.includes(q.replace(/[^0-9]/g, '')));
+        }).slice(0, 10);
+        supplierSearchResults.innerHTML = '';
+        matches.forEach(function(s) {
+            const div = document.createElement('div');
+            div.style.cssText = 'padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); display:flex; flex-direction:column; gap:2px;';
+            div.onmouseenter = function() { this.style.background = 'rgba(255,255,255,0.04)'; };
+            div.onmouseleave = function() { this.style.background = 'transparent'; };
+            div.onclick = function() { selectSupplier(s); };
+            div.innerHTML = '<span style="font-weight:600; font-size:0.82rem;">' + (s.name || s.razonSocial || '') + '</span>' +
+                '<span style="font-size:0.7rem; color:var(--text-muted);">RNC: ' + (s.rnc || '—') + '</span>';
+            supplierSearchResults.appendChild(div);
+        });
+        supplierSearchResults.style.display = matches.length ? 'block' : 'none';
     });
-
     document.addEventListener('click', function(e) {
         if (!supplierSearchInput.contains(e.target) && !supplierSearchResults.contains(e.target)) {
             supplierSearchResults.style.display = 'none';
@@ -298,12 +318,43 @@ if (supplierSearchInput) {
     });
 }
 
-function selectSupplier(s) {
-    document.getElementById('supplierId').value = s.id || '';
-    document.getElementById('supplierName').value = s.name || '';
-    document.getElementById('supplierRnc').value = s.rnc || '';
-    supplierSearchInput.value = s.name || '';
-    supplierSearchResults.style.display = 'none';
+if (supplierRncInput) {
+    supplierRncInput.addEventListener('input', function() {
+        const clean = (this.value || '').replace(/[^0-9]/g, '');
+        if (clean.length !== 9 && clean.length !== 11) {
+            supplierIdInput.value = '';
+            setRncStatus('');
+            return;
+        }
+        // lookup local exacto
+        const found = (suppliersList || []).find(function(s) {
+            const sr = (s.rnc || '').replace(/[^0-9]/g, '');
+            return sr === clean;
+        });
+        if (found) {
+            selectSupplier(found);
+            return;
+        }
+        supplierIdInput.value = '';
+        setRncStatus('⏳ Consultando DGII...', 'var(--accent-blue)');
+        fetch('/api/rnc-lookup?rnc=' + encodeURIComponent(clean))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    setRncStatus('✗ No registrado en DGII', '#ef4444');
+                } else if (data.razon_social) {
+                    if (supplierNameInput && !supplierNameInput.value.trim()) {
+                        supplierNameInput.value = data.razon_social;
+                    }
+                    setRncStatus('✓ DGII: ' + data.razon_social, '#10b981');
+                } else {
+                    setRncStatus('✗ No registrado en DGII', '#ef4444');
+                }
+            })
+            .catch(function() {
+                setRncStatus('✗ Error al consultar DGII', '#ef4444');
+            });
+    });
 }
 
 // ── Line Items ────────────────────────────────────────────────────
