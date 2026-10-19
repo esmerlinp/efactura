@@ -12,6 +12,9 @@ def _coll(owner_uid, sandbox, name, company_id=None):
     return _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=f"{prefix}{name}")
 
 
+DAILY_LIMIT = 20
+
+
 TOOLS = [
     {
         "type": "function",
@@ -462,7 +465,43 @@ class ChatbotService:
 
         profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
-        # FAQ cache: preguntas frecuentes respondidas sin llamar a OpenAI
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        api_key = (profile.get("openaiApiKey") or "").strip()
+
+        using_global_key = False
+        if not api_key:
+            api_key = (Config.OPENAI_API_KEY or "").strip()
+            using_global_key = True
+
+        def _bump_usage():
+            """Incrementa la cuota diaria (solo con la key global) y retorna el usage_info."""
+            if not using_global_key:
+                return None
+            try:
+                used = DatabaseService.bump_chatbot_quota(user_uid, today_str)
+                return {"used": used, "limit": DAILY_LIMIT}
+            except Exception as ex:
+                print(f"⚠️ Error al guardar incremento de cuota del chatbot: {ex}")
+                return None
+
+        # Bloqueo por cuota diaria: se evalúa ANTES del FAQ cache y de llamar a OpenAI.
+        if using_global_key:
+            try:
+                usage_count, last_reset = DatabaseService.get_chatbot_quota(user_uid)
+            except Exception as ex:
+                print(f"⚠️ Error al leer la cuota del chatbot: {ex}")
+                usage_count, last_reset = 0, today_str
+            if last_reset != today_str:
+                usage_count = 0
+            if usage_count >= DAILY_LIMIT:
+                return {
+                    "success": False,
+                    "message": f"⚠️ **Límite de consultas diarias alcanzado (Cuota del Servidor).**\n\nHaz consumido tus **{DAILY_LIMIT} consultas de cortesía** de hoy. El límite se reinicia cada día.\n\nPara seguir disfrutando del asistente IA de forma **ilimitada**, introduce tu propia clave de API de OpenAI en la pantalla de [Configuración de Empresa](/company/settings) o solicita una ampliación de cuota a soporte.",
+                    "usage_info": {"used": DAILY_LIMIT, "limit": DAILY_LIMIT}
+                }
+
+        # FAQ cache: preguntas frecuentes respondidas sin llamar a OpenAI (también consumen cuota)
         faq_answers = {
             "contingencia": (
                 "**Contingencia DGII (Ley 32-23, Art. 40-43)**\n\n"
@@ -510,39 +549,13 @@ class ChatbotService:
         msg_lower = message.lower().strip()
         for keyword, answer in faq_answers.items():
             if keyword in msg_lower:
-                return {"success": True, "message": answer, "source": "cache"}
-
-        api_key = profile.get("openaiApiKey", "").strip()
-
-        using_global_key = False
-        if not api_key:
-            api_key = Config.OPENAI_API_KEY.strip()
-            using_global_key = True
+                return {"success": True, "message": answer, "source": "cache", "usage_info": _bump_usage()}
 
         if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
             return {
                 "success": False,
                 "message": "⚠️ **Clave de API de OpenAI no configurada.**\n\nPor favor, introduce tu clave secreta de OpenAI en el panel de **Administrar Empresa** (sección Datos del Emisor) o solicita al administrador del servidor que la agregue al archivo `.env` como `OPENAI_API_KEY`."
             }
-
-        DAILY_LIMIT = 20
-        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-        if using_global_key:
-            user_profile = DatabaseService.get_user_profile(user_uid) or {}
-            last_reset = user_profile.get("chatbotDailyReset", "")
-            usage_count = int(user_profile.get("chatbotDailyUsageCount", 0))
-            if last_reset != today_str:
-                usage_count = 0
-                user_profile["chatbotDailyUsageCount"] = 0
-                user_profile["chatbotDailyReset"] = today_str
-                DatabaseService.save_user_profile(user_uid, user_profile)
-            if usage_count >= DAILY_LIMIT:
-                return {
-                    "success": False,
-                    "message": f"⚠️ **Límite de consultas diarias alcanzado (Cuota del Servidor).**\n\nHaz consumido tus **{DAILY_LIMIT} consultas de cortesía** de hoy. El límite se reinicia cada día.\n\nPara seguir disfrutando del asistente IA de forma **ilimitada**, introduce tu propia clave de API de OpenAI en la pantalla de [Configuración de Empresa](/company/settings) o solicita una ampliación de cuota a soporte.",
-                    "usage_info": {"used": DAILY_LIMIT, "limit": DAILY_LIMIT}
-                }
 
         product = get_product_name()
 
@@ -618,20 +631,7 @@ EMPRESA ACTUAL:
                 if not msg.get("tool_calls"):
                     assistant_reply = msg.get("content") or ""
 
-                    if using_global_key:
-                        try:
-                            user_profile = DatabaseService.get_user_profile(user_uid) or {}
-                            user_profile["chatbotDailyUsageCount"] = int(user_profile.get("chatbotDailyUsageCount", 0)) + 1
-                            user_profile["chatbotDailyReset"] = today_str
-                            DatabaseService.save_user_profile(user_uid, user_profile)
-                            usage_info = {"used": user_profile["chatbotDailyUsageCount"], "limit": DAILY_LIMIT}
-                        except Exception as ex:
-                            print(f"⚠️ Error al guardar incremento de cuota en Firestore: {ex}")
-                            usage_info = None
-                    else:
-                        usage_info = None
-
-                    return {"success": True, "message": assistant_reply, "usage_info": usage_info}
+                    return {"success": True, "message": assistant_reply, "usage_info": _bump_usage()}
 
                 api_messages.append(msg)
 

@@ -144,6 +144,13 @@ def _sync_to_legacy_suppliers(owner_uid=None, contact=None, sandbox=True, compan
         "tipoGastoDGII": contact.get("tipoGastoDGII", "02"),
         "notes": contact.get("notes", ""),
         "createdAt": contact.get("createdAt", datetime.now(timezone.utc).isoformat()),
+        "contactPerson": contact.get("contactPerson", ""),
+        "code": contact.get("code", ""),
+        "attachments": contact.get("attachments", []),
+        "firebaseAttachmentURLs": contact.get("firebaseAttachmentURLs", []),
+        "branchId": contact.get("branchId", "default-sucursal-principal"),
+        "projectId": contact.get("projectId"),
+        "updatedAt": contact.get("updatedAt", datetime.now(timezone.utc).isoformat()),
     }
     SupplierService.save_supplier(owner_uid, contact["id"], supplier_dict, sandbox=sandbox, company_id=company_id)
 
@@ -279,7 +286,7 @@ class ContactService:
         return None
 
     @classmethod
-    def get_or_create_contact(cls, owner_uid=None, rnc=None, razonSocial=None, direccion="", sandbox=True, company_id=None):
+    def get_or_create_contact(cls, owner_uid=None, rnc=None, razonSocial=None, direccion="", sandbox=True, company_id=None, types=None, extra=None):
         existing = cls.get_contact_by_rnc(owner_uid=owner_uid, rnc=rnc, sandbox=sandbox, company_id=company_id)
         if existing:
             return (existing["id"], False)
@@ -289,6 +296,10 @@ class ContactService:
             "razonSocial": razonSocial,
             "direccion": direccion,
         }
+        if types:
+            contact_dict["types"] = list(types)
+        if extra:
+            contact_dict.update(extra)
         cls.save_contact(owner_uid=owner_uid, contact_id=contact_id, contact_dict=contact_dict, sandbox=sandbox, company_id=company_id)
         return (contact_id, True)
 
@@ -304,6 +315,46 @@ class ContactService:
                 results.append(c)
         return results
 
+    @classmethod
+    def ensure_supplier(cls, owner_uid=None, supplier_id=None, rnc=None, razonSocial=None, direccion="", sandbox=True, company_id=None):
+        """Asegura que existe un contacto con tipo 'proveedor'. Devuelve (contact_id, created)."""
+        # Si viene supplier_id y existe
+        if supplier_id:
+            c = cls.get_contact(owner_uid=owner_uid, contact_id=supplier_id, sandbox=sandbox, company_id=company_id)
+            if c:
+                types = list(c.get("types", []))
+                if "proveedor" not in types:
+                    types.append("proveedor")
+                    c2 = dict(c)
+                    c2["types"] = types
+                    cls.save_contact(owner_uid=owner_uid, contact_id=supplier_id, contact_dict=c2, sandbox=sandbox, company_id=company_id)
+                return (supplier_id, False)
+
+        rnc_clean = "".join(filter(str.isdigit, str(rnc)))
+        if rnc_clean:
+            c = cls.get_contact_by_rnc(owner_uid=owner_uid, rnc=rnc_clean, sandbox=sandbox, company_id=company_id)
+            if c:
+                types = list(c.get("types", []))
+                if "proveedor" not in types:
+                    types.append("proveedor")
+                    c2 = dict(c)
+                    c2["types"] = types
+                    cls.save_contact(owner_uid=owner_uid, contact_id=c["id"], contact_dict=c2, sandbox=sandbox, company_id=company_id)
+                return (c["id"], False)
+
+        rs = (razonSocial or "").strip()
+        if not rs and not rnc_clean:
+            return (None, False)
+
+        contact_id = str(uuid.uuid4())
+        contact_dict = {
+            "rnc": rnc_clean,
+            "razonSocial": rs or rnc_clean,
+            "direccion": direccion,
+            "types": ["proveedor"],
+        }
+        cls.save_contact(owner_uid=owner_uid, contact_id=contact_id, contact_dict=contact_dict, sandbox=sandbox, company_id=company_id)
+        return (contact_id, True)
     @classmethod
     def update_pipeline(cls, owner_uid=None, contact_id=None, pipeline_stage=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:

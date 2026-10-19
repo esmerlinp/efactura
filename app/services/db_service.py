@@ -1700,6 +1700,58 @@ class DatabaseService:
         cache.delete_memoized(_cached_user_profile, uid)
 
     @classmethod
+    def _chatbot_quota_ref(cls, uid):
+        """Referencia al doc de perfil donde vive la cuota diaria del chatbot."""
+        return db_firestore.collection("users").document(uid).collection("config").document("user_profile")
+
+    @classmethod
+    def get_chatbot_quota(cls, uid):
+        """Lee la cuota diaria del chatbot (chatbotDailyUsageCount / chatbotDailyReset).
+
+        Lee el documento directamente porque esos campos NO forman parte del
+        whitelist de `_cached_user_profile`. Retorna (usados, fecha_reset).
+        """
+        if not firebase_initialized:
+            return 0, ""
+        doc = cls._chatbot_quota_ref(uid).get()
+        data = doc.to_dict() if doc.exists else {}
+        data = data or {}
+        try:
+            count = int(data.get("chatbotDailyUsageCount", 0))
+        except (TypeError, ValueError):
+            count = 0
+        return count, str(data.get("chatbotDailyReset", "") or "")
+
+    @classmethod
+    def bump_chatbot_quota(cls, uid, today_str):
+        """Incrementa atómicamente la cuota diaria del chatbot y retorna el nuevo conteo.
+
+        Si el reset guardado no es `today_str`, reinicia el contador a 0 antes
+        de incrementar. Usa transacción para evitar updates perdidos.
+        """
+        if not firebase_initialized:
+            raise RuntimeError("Firebase no está inicializado. No se puede actualizar la cuota del chatbot.")
+        ref = cls._chatbot_quota_ref(uid)
+        transaction = db_firestore.transaction()
+
+        @firestore.transactional
+        def run_in_transaction(txn):
+            doc = ref.get(transaction=txn)
+            data = doc.to_dict() if doc.exists else {}
+            data = data or {}
+            try:
+                count = int(data.get("chatbotDailyUsageCount", 0))
+            except (TypeError, ValueError):
+                count = 0
+            if str(data.get("chatbotDailyReset", "") or "") != today_str:
+                count = 0
+            count += 1
+            txn.set(ref, {"chatbotDailyUsageCount": count, "chatbotDailyReset": today_str}, merge=True)
+            return count
+
+        return run_in_transaction(transaction)
+
+    @classmethod
     def _company_team_coll(cls, owner_uid, company_id=None):
         """Retorna referencia a companies/{companyId}/team con fallback legacy."""
         cid = company_id or _resolve_company_id(owner_uid)
@@ -4692,10 +4744,10 @@ class DatabaseService:
                 rnc = exp_dict.get("rncEmisor", "")
                 if supplier_id:
                     from app.services.supplier_service import SupplierService
-                    supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox)
+                    supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
                 if not supplier and rnc:
                     from app.services.supplier_service import SupplierService
-                    supplier = SupplierService.get_supplier_by_rnc(owner_uid, rnc, sandbox=sandbox)
+                    supplier = SupplierService.get_supplier_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id)
                 if supplier:
                     from app.services.tax_engine import TaxEngine
                     engine = TaxEngine(owner_uid=owner_uid, sandbox=sandbox, country="DO")

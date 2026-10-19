@@ -1534,3 +1534,129 @@ Payload: {"employeeId": "emp_1"}
 Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
 
 ------------------------------------------------------------
+[2026-10-19 11:24:57] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 11:24:57] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 11:35:34] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 11:38:15] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 11:38:50] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 11:49:21] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 11:51:47] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 11:57:12] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 12:04:40] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 12:04:40] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 12:06:20] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 12:06:20] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 12:06:20] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 12:06:20] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 12:06:30] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 12:06:30] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 12:06:30] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-19 12:06:30] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
