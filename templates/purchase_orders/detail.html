@@ -1,411 +1,1390 @@
 {% extends "layout.html" %}
 
-{% block title %}OC {{ order.poNumber }}{% endblock %}
+{% block title %}OC {{ order.poNumber }} — {{ product_name }}{% endblock %}
 {% block page_header %}Detalle de Orden de Compra{% endblock %}
 
 {% block content %}
 <style>
-    .doc-main-col { max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:24px; }
-    .section-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:28px 32px; }
-    .section-card h3 { font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0 0 18px 0; display:flex; align-items:center; gap:10px; }
-    .section-card h3 i { font-size:0.95rem; }
+/* ── Layout y Grid General ────────────────────────────────────────── */
+.po-detail-container {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding-bottom: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
 
-    .field-row {
-        display: flex;
-        align-items: baseline;
-        gap: 8px;
-        padding: 7px 0;
-        border-bottom: 1px solid rgba(255,255,255,0.04);
-        font-size: 0.82rem;
+.detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(320px, 1fr);
+    gap: 26px;
+    align-items: flex-start;
+}
+
+@media screen and (max-width: 1080px) {
+    .detail-grid {
+        grid-template-columns: minmax(0, 1fr);
     }
-    .field-row:last-child { border-bottom: none; }
+}
 
-    .field-label {
-        color: var(--text-muted);
-        flex-shrink: 0;
-        min-width: 180px;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-    }
+/* ── Breadcrumb y Top Bar ────────────────────────────────────────── */
+.po-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+}
 
-    .field-value {
-        color: var(--text-primary);
-        font-weight: 500;
-        flex: 1;
-        word-break: break-all;
-    }
-    .field-value.mono { font-family: monospace; font-size: 0.85rem; }
+.po-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
 
-    .badge-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 3px 10px;
-        border-radius: 99px;
-        font-size: 0.72rem;
-        font-weight: 600;
-    }
-    .badge-green  { background: rgba(16,185,129,0.12); color: var(--accent-emerald); border: 1px solid rgba(16,185,129,0.25); }
-    .badge-red    { background: rgba(239,68,68,0.1);   color: #ef4444;               border: 1px solid rgba(239,68,68,0.2);   }
-    .badge-blue   { background: rgba(59,130,246,0.1);  color: #3b82f6;               border: 1px solid rgba(59,130,246,0.2);  }
-    .badge-purple { background: rgba(139,92,246,0.1);  color: #8b5cf6;               border: 1px solid rgba(139,92,246,0.2);  }
-    .badge-amber  { background: rgba(245,158,11,0.1);  color: #f59e0b;               border: 1px solid rgba(245,158,11,0.2);  }
-    .badge-gray   { background: rgba(107,114,128,0.1); color: #6b7280;               border: 1px solid rgba(107,114,128,0.2); }
+.po-breadcrumb a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
 
-    .actions-bar { display:flex; justify-content:flex-end; align-items:center; gap:12px; padding-top:8px; }
-    .actions-bar .btn { padding:10px 24px; font-size:0.85rem; }
-    .panel-btn { display:inline-flex; align-items:center; gap:6px; }
+.po-breadcrumb a:hover {
+    color: var(--text-primary);
+}
+
+.po-page-title {
+    font-size: 1.65rem;
+    font-weight: 800;
+    font-family: var(--font-heading);
+    color: var(--text-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    line-height: 1.25;
+}
+
+.po-page-title .title-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(139, 92, 246, 0.12);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-purple, #8b5cf6);
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.po-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    margin: 6px 0 0 2px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* ── Badges y Status Pills ────────────────────────────────────────── */
+.badge-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.badge-status-warning {
+    background: rgba(245, 158, 11, 0.12);
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-status-info {
+    background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-status-success {
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-status-danger {
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-status-purple {
+    background: rgba(139, 92, 246, 0.12);
+    color: var(--accent-purple, #8b5cf6);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.badge-purple { background: rgba(139,92,246,0.1); color: #8b5cf6; border: 1px solid rgba(139,92,246,0.25); }
+.badge-green  { background: rgba(16,185,129,0.12); color: var(--accent-emerald, #10b981); border: 1px solid rgba(16,185,129,0.25); }
+.badge-gray   { background: rgba(107,114,128,0.1); color: #6b7280; border: 1px solid rgba(107,114,128,0.2); }
+.badge-amber  { background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+.badge-blue   { background: rgba(59,130,246,0.1);  color: #3b82f6; border: 1px solid rgba(59,130,246,0.2); }
+.badge-red    { background: rgba(239,68,68,0.1);   color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+
+/* ── Document Card Sheet ──────────────────────────────────────────── */
+.document-card-sheet {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: var(--shadow-sm);
+    padding: 36px 40px;
+    overflow: hidden;
+}
+
+.document-card-sheet::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, var(--accent-purple, #8b5cf6), #c4b5fd);
+    z-index: 10;
+}
+
+/* ── Header Comercial del Documento ───────────────────────────────── */
+.doc-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 26px;
+    margin-bottom: 26px;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.doc-company-brand {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.doc-logo-img {
+    max-height: 70px;
+    max-width: 130px;
+    object-fit: contain;
+    border-radius: var(--radius-sm, 6px);
+}
+
+.doc-company-title {
+    font-size: 1.45rem;
+    font-weight: 800;
+    font-family: var(--font-heading);
+    color: var(--text-primary);
+    margin: 0 0 4px 0;
+}
+
+.doc-number-box {
+    text-align: right;
+}
+
+.doc-number-badge {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.doc-number-val {
+    font-size: 1.5rem;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    color: var(--accent-purple, #8b5cf6);
+    margin: 0 0 6px 0;
+}
+
+/* ── Información de Proveedor y Entrega ───────────────────────────── */
+.doc-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px 32px;
+    background: var(--bg-input, rgba(0,0,0,0.015));
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md, 8px);
+    padding: 22px 26px;
+    margin-bottom: 30px;
+}
+
+.info-block-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.info-item-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 0.84rem;
+}
+
+.info-item-label {
+    color: var(--text-muted);
+    min-width: 120px;
+    font-size: 0.78rem;
+}
+
+.info-item-val {
+    color: var(--text-primary);
+    font-weight: 600;
+    flex: 1;
+}
+
+/* ── Tabla de Partidas ────────────────────────────────────────────── */
+.table-responsive {
+    overflow-x: auto;
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md, 8px);
+    background: var(--bg-card);
+    margin-bottom: 24px;
+}
+
+.data-grid-detail {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    text-align: left;
+}
+
+.data-grid-detail th {
+    background: var(--bg-nav-hover, rgba(0, 0, 0, 0.02));
+    padding: 10px 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.data-grid-detail td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+    color: var(--text-primary);
+}
+
+.data-grid-detail tbody tr:hover {
+    background-color: var(--bg-table-hover, rgba(0,0,0,0.015));
+}
+
+/* ── Mini Barra de Progreso de Recepción ───────────────────────────── */
+.progress-pill-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.progress-pill-bar {
+    width: 60px;
+    height: 4px;
+    background: rgba(0,0,0,0.08);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.progress-pill-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.3s ease;
+}
+
+/* ── Totales Financieros ──────────────────────────────────────────── */
+.doc-totals-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 28px;
+}
+
+.doc-totals-box {
+    width: 340px;
+    max-width: 100%;
+    background: var(--bg-input, rgba(0,0,0,0.015));
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md, 8px);
+    padding: 18px 22px;
+}
+
+.total-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 0.84rem;
+    color: var(--text-secondary);
+}
+
+.total-line.grand-total {
+    border-top: 2px solid var(--border-color);
+    margin-top: 8px;
+    padding-top: 12px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.total-line.grand-total .amount {
+    color: var(--accent-purple, #8b5cf6);
+    font-family: var(--font-heading);
+}
+
+/* ── Trazabilidad & Firmas ────────────────────────────────────────── */
+.doc-audit-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--border-color);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.doc-audit-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.doc-audit-item i {
+    font-size: 1.1rem;
+    color: var(--accent-purple, #8b5cf6);
+    opacity: 0.8;
+}
+
+/* ── Section Cards Relacionales ───────────────────────────────────── */
+.relational-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg, 12px);
+    padding: 24px 28px;
+    box-shadow: var(--shadow-sm);
+}
+
+.relational-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.relational-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: var(--font-heading);
+    color: var(--text-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.relational-empty-box {
+    text-align: center;
+    padding: 36px 20px;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    background: var(--bg-input, rgba(0,0,0,0.01));
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-md, 8px);
+}
+
+/* ── Right Sidebar Components ─────────────────────────────────────── */
+.sidebar-col {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.sidebar-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg, 12px);
+    padding: 22px 24px;
+    box-shadow: var(--shadow-sm);
+}
+
+.sidebar-card-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    font-family: var(--font-heading);
+    color: var(--text-primary);
+    margin: 0 0 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ── Stepper del Ciclo de Vida ────────────────────────────────────── */
+.timeline-stepper {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+    padding-left: 12px;
+}
+
+.timeline-step {
+    display: flex;
+    gap: 16px;
+    position: relative;
+    padding-bottom: 22px;
+}
+
+.timeline-step:last-child {
+    padding-bottom: 0;
+}
+
+.timeline-step::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 32px;
+    bottom: -6px;
+    width: 2px;
+    background: var(--border-color);
+}
+
+.timeline-step:last-child::before {
+    display: none;
+}
+
+.timeline-step.completed::before {
+    background: var(--accent-emerald, #10b981);
+}
+
+.timeline-step-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    background: var(--bg-input);
+    border: 2px solid var(--border-color);
+    color: var(--text-muted);
+    flex-shrink: 0;
+    z-index: 2;
+    transition: all 0.2s ease;
+}
+
+.timeline-step.completed .timeline-step-icon {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: var(--accent-emerald, #10b981);
+    color: var(--accent-emerald, #10b981);
+}
+
+.timeline-step.active .timeline-step-icon {
+    background: rgba(139, 92, 246, 0.15);
+    border-color: var(--accent-purple, #8b5cf6);
+    color: var(--accent-purple, #8b5cf6);
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
+}
+
+.timeline-step-content {
+    flex: 1;
+    padding-top: 4px;
+}
+
+.timeline-step-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.timeline-step-desc {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+}
+
+/* ── Botones de Barra Lateral ─────────────────────────────────────── */
+.sidebar-action-btn {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm, 6px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    margin-bottom: 8px;
+    border: 1px solid transparent;
+}
+
+.sidebar-action-btn:last-child {
+    margin-bottom: 0;
+}
+
+.mono {
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+}
+
+/* ── Estilos para Impresión Limpia ────────────────────────────────── */
+@media print {
+    body { background: #fff !important; }
+    .po-top-bar, .po-breadcrumb, .summary-strip, .sidebar-col,
+    .comments-wrapper, #comments-section, .btn, .action-menu,
+    .panel-btn { display: none !important; }
+    .po-detail-container { max-width: 100% !important; padding: 0 !important; }
+    .detail-grid { display: block !important; }
+    .document-card-sheet { border: 1px solid #ccc !important; box-shadow: none !important; padding: 20px !important; }
+}
 </style>
 
-<div class="doc-main-col">
+<div class="po-detail-container">
 
-    <!-- TOP ACTIONS BAR -->
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
-        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span class="badge-pill badge-purple"><i class="fa-solid fa-cart-shopping"></i> OC {{ order.poNumber }}</span>
+    <!-- Top Bar & Breadcrumbs -->
+    <div class="po-top-bar">
+        <div>
+            <div class="po-breadcrumb">
+                <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}">
+                    <i class="fa-solid fa-cart-shopping"></i> Órdenes de Compra
+                </a>
+                <i class="fa-solid fa-chevron-right" style="font-size:0.65rem; opacity:0.6;"></i>
+                <span style="color:var(--text-primary); font-weight:600;">OC {{ order.poNumber }}</span>
+            </div>
+            
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <h1 class="po-page-title">
+                    <span class="title-icon"><i class="fa-solid fa-cart-shopping"></i></span>
+                    <span>Orden de Compra <span class="mono" style="color:var(--accent-purple, #8b5cf6);">{{ order.poNumber }}</span></span>
+                </h1>
+                
+                {% set status = order.status|default('borrador') %}
+                {% if status == 'borrador' %}
+                <span class="badge-status badge-gray"><i class="fa-solid fa-pencil"></i> Borrador</span>
+                {% elif status == 'pendiente_aprobacion' %}
+                <span class="badge-status badge-status-warning"><i class="fa-solid fa-clock"></i> Pendiente Aprobación</span>
+                {% elif status == 'aprobada' %}
+                <span class="badge-status badge-status-success"><i class="fa-solid fa-circle-check"></i> Aprobada</span>
+                {% elif status == 'recibida_parcial' %}
+                <span class="badge-status badge-status-info"><i class="fa-solid fa-truck-fast"></i> Recibida Parcial</span>
+                {% elif status == 'recibida_completa' %}
+                <span class="badge-status badge-status-purple"><i class="fa-solid fa-circle-check"></i> Recibida Completa</span>
+                {% elif status == 'cancelada' %}
+                <span class="badge-status badge-status-danger"><i class="fa-solid fa-ban"></i> Cancelada</span>
+                {% elif status == 'rechazada' %}
+                <span class="badge-status badge-status-danger"><i class="fa-solid fa-circle-xmark"></i> Rechazada</span>
+                {% endif %}
+            </div>
 
-            {% set status = order.status|default('borrador') %}
-            {% if status == 'borrador' %}
-            <span class="badge-pill badge-gray"><i class="fa-solid fa-pencil"></i> Borrador</span>
-            {% elif status == 'pendiente_aprobacion' %}
-            <span class="badge-pill badge-amber"><i class="fa-solid fa-clock"></i> Pendiente Aprobación</span>
-            {% elif status == 'aprobada' %}
-            <span class="badge-pill badge-green"><i class="fa-solid fa-check"></i> Aprobada</span>
-            {% elif status == 'recibida_parcial' %}
-            <span class="badge-pill badge-blue"><i class="fa-solid fa-truck-fast"></i> Recibida Parcial</span>
-            {% elif status == 'recibida_completa' %}
-            <span class="badge-pill badge-purple"><i class="fa-solid fa-circle-check"></i> Recibida Completa</span>
-            {% elif status == 'cancelada' %}
-            <span class="badge-pill badge-red"><i class="fa-solid fa-ban"></i> Cancelada</span>
-            {% elif status == 'rechazada' %}
-            <span class="badge-pill badge-red"><i class="fa-solid fa-xmark"></i> Rechazada</span>
-            {% endif %}
+            <div class="po-subtitle">
+                <span class="badge-pill badge-gray">
+                    <i class="fa-solid fa-building"></i> <strong>Proveedor:</strong> {{ order.supplierName or 'Sin proveedor' }}
+                    {% if order.supplierRnc %} · <span class="mono">RNC {{ order.supplierRnc }}</span>{% endif %}
+                </span>
+                {% if order.currency and order.currency != 'DOP' %}
+                <span class="badge-pill badge-amber">
+                    <i class="fa-solid fa-coins"></i> {{ order.currency }} (TC: {{ order.exchangeRate|default(1.0) }})
+                </span>
+                {% endif %}
+                <span style="color:var(--text-muted); font-size:0.8rem;">
+                    <i class="fa-regular fa-calendar"></i> Emisión: {{ order.orderDate or (order.createdAt[:10] if order.createdAt else '—') }}
+                </span>
+                {% if order.expectedDate %}
+                <span style="color:var(--text-muted); font-size:0.8rem;">
+                    <i class="fa-regular fa-calendar-check"></i> Entrega: {{ order.expectedDate }}
+                </span>
+                {% endif %}
+            </div>
         </div>
 
-        <div style="display:flex; gap:10px; align-items:center;">
+        <!-- Top Right Actions -->
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             {% set total_docs = (order.attachments|length if order.attachments else 0) or (order.firebaseAttachmentURLs|length if order.firebaseAttachmentURLs else 0) %}
-            <button type="button" class="btn btn-secondary panel-btn" onclick="openAttachmentPanelFromDetail()" style="font-size:0.78rem;padding:9px 16px;">
-                <i class="fa-solid fa-paperclip"></i> Adjuntos{% if total_docs > 0 %} ({{ total_docs }}){% endif %}
+            <button type="button" class="btn btn-secondary panel-btn" onclick="openAttachmentPanelFromDetail()" style="font-size:0.82rem; padding:8px 16px;">
+                <i class="fa-solid fa-paperclip"></i> Adjuntos{% if total_docs > 0 %} <span class="badge-pill badge-purple" style="padding:1px 6px; font-size:0.65rem;">{{ total_docs }}</span>{% endif %}
             </button>
-            <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}" class="btn btn-secondary">
+            <a href="{{ url_for('web_purchase_orders.purchase_order_pdf', po_id=order.id) }}?action=print" target="_blank" class="btn btn-secondary" style="font-size:0.82rem; padding:8px 16px;" title="Imprimir Orden de Compra">
+                <i class="fa-solid fa-print"></i> Imprimir
+            </a>
+            <a href="{{ url_for('web_purchase_orders.purchase_order_pdf', po_id=order.id) }}?action=download" class="btn btn-secondary" style="font-size:0.82rem; padding:8px 16px;" title="Descargar PDF">
+                <i class="fa-solid fa-file-pdf" style="color:var(--accent-red, #ef4444);"></i> PDF
+            </a>
+            <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}" class="btn btn-secondary" style="font-size:0.82rem; padding:8px 16px;">
                 <i class="fa-solid fa-arrow-left"></i> Volver
             </a>
+            
             {% if order.status in ('borrador', 'pendiente_aprobacion') %}
-            <a href="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=order.id) }}" class="btn btn-primary">
+            <a href="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=order.id) }}" class="btn btn-secondary" style="font-size:0.82rem; padding:8px 16px;">
                 <i class="fa-solid fa-pen-to-square"></i> Editar
             </a>
-            <button type="button" class="btn btn-primary" onclick="approvePO()">
+            <button type="button" class="btn btn-success" onclick="approvePO()" style="font-size:0.82rem; padding:8px 16px; font-weight:700;">
                 <i class="fa-solid fa-check"></i> Aprobar
             </button>
             {% endif %}
+
             {% if order.status == 'aprobada' or order.status == 'recibida_parcial' %}
-            <a href="{{ url_for('web_inventory.new_receipt', po_id=order.id) }}" class="btn btn-primary">
-                <i class="fa-solid fa-truck-loading"></i> Recibir Mercancía
+            <a href="{{ url_for('web_inventory.new_receipt', po_id=order.id) }}" class="btn btn-primary" style="font-size:0.82rem; padding:8px 16px; font-weight:700;">
+                <i class="fa-solid fa-truck-ramp-box"></i> Recibir Mercancía
             </a>
             {% endif %}
+
             {% if order.status in ('recibida_parcial', 'recibida_completa') %}
-            <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=order.id) }}" class="btn btn-primary" style="background:var(--accent-purple, #8B5CF6); border-color:var(--accent-purple, #8B5CF6);color:#fff;">
-                <i class="fa-solid fa-file-invoice"></i> Registrar Factura Proveedor
+            <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=order.id) }}" class="btn btn-secondary" style="font-size:0.82rem; padding:8px 16px; border-color:var(--accent-purple); color:var(--accent-purple); font-weight:700;">
+                <i class="fa-solid fa-file-invoice-dollar"></i> Registrar Factura
             </a>
             {% endif %}
-            {% if order.status not in ('cancelada', 'recibida_completa') %}
-            <button type="button" class="btn btn-danger" onclick="cancelPO()">
-                <i class="fa-solid fa-ban"></i> Cancelar
-            </button>
-            {% endif %}
-            {% if order.status in ('borrador', 'pendiente_aprobacion', 'rechazada') %}
-            <form action="{{ url_for('web_purchase_orders.delete_purchase_order', po_id=order.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar permanentemente esta orden?');">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-danger">
-                    <i class="fa-solid fa-trash-can"></i> Eliminar
-                </button>
-            </form>
-            {% endif %}
         </div>
     </div>
 
-    <!-- ① INFORMACION GENERAL -->
-    <div class="section-card">
-        <h3><i class="fa-solid fa-info-circle" style="color:var(--accent-blue);"></i> Información General</h3>
+    <!-- Summary KPI Strip -->
+    {% set items_list = order.get('items', []) %}
+    {% set total_ord_qty = namespace(val=0) %}
+    {% set total_rec_qty = namespace(val=0) %}
+    {% for it in items_list %}
+        {% set total_ord_qty.val = total_ord_qty.val + (it.get('quantity', 0)|float) %}
+        {% set total_rec_qty.val = total_rec_qty.val + (it.get('receivedQuantity', 0)|float) %}
+    {% endfor %}
+    {% set progress_pct = 0 %}
+    {% if total_ord_qty.val > 0 %}
+        {% set progress_pct = ((total_rec_qty.val / total_ord_qty.val) * 100)|round(1) %}
+        {% if progress_pct > 100 %}{% set progress_pct = 100 %}{% endif %}
+    {% endif %}
 
-        <div class="field-row">
-            <span class="field-label">Proveedor</span>
-            <span class="field-value" style="font-weight:600;">{{ order.supplierName or '—' }}</span>
-        </div>
-        <div class="field-row">
-            <span class="field-label">RNC</span>
-            <span class="field-value mono">{{ order.supplierRnc or '—' }}</span>
-        </div>
-        <div class="field-row">
-            <span class="field-label">Fecha de Orden</span>
-            <span class="field-value">{{ order.orderDate or '—' }}</span>
-        </div>
-        <div class="field-row">
-            <span class="field-label">Fecha Esperada</span>
-            <span class="field-value">{{ order.expectedDate or '—' }}</span>
-        </div>
-        <div class="field-row">
-            <span class="field-label">Términos de Pago</span>
-            <span class="field-value">{{ order.paymentTerms|replace('_', ' ')|title if order.paymentTerms else 'Contado' }}</span>
-        </div>
-        <div class="field-row">
-            <span class="field-label">Moneda</span>
-            <span class="field-value">
-                {{ order.currency or 'DOP' }}
-                {% if order.currency and order.currency != 'DOP' and order.exchangeRate %}
-                <span style="font-size:0.72rem; color:var(--text-muted);">
-                    &nbsp;(Tasa: {{ "%.2f"|format(order.exchangeRate) }} × DOP)
-                </span>
-                {% endif %}
-            </span>
-        </div>
-        {% if order.deliveryAddress %}
-        <div class="field-row">
-            <span class="field-label">Dirección de Entrega</span>
-            <span class="field-value">{{ order.deliveryAddress }}</span>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- ② TOTALES -->
-    <div class="section-card">
-        <h3><i class="fa-solid fa-calculator" style="color:var(--accent-purple);"></i> Totales</h3>
-
-        <div class="field-row">
-            <span class="field-label">Total</span>
-            <span class="field-value" style="font-size:1.15rem; font-weight:700; font-family:monospace; color:var(--accent-purple);">
+    <div class="summary-strip">
+        <div class="summary-strip-item">
+            <div class="summary-strip-label"><i class="fa-solid fa-sack-dollar" style="margin-right:4px;"></i> Total de la Orden</div>
+            <div class="summary-strip-value" style="color:var(--accent-purple, #8b5cf6);">
                 {% if order.currency and order.currency != 'DOP' %}{{ order.currency }} {% else %}RD$ {% endif %}
                 {{ "{:,.2f}".format(order.total|default(0)) }}
-            </span>
+            </div>
+            <div class="summary-strip-trend" style="color:var(--text-muted);">
+                Subtotal: RD$ {{ "{:,.2f}".format(order.subtotal|default(0)) }}
+            </div>
         </div>
-        <div class="field-row">
-            <span class="field-label">Subtotal</span>
-            <span class="field-value">RD$ {{ "{:,.2f}".format(order.subtotal|default(0)) }}</span>
+
+        <div class="summary-strip-item">
+            <div class="summary-strip-label"><i class="fa-solid fa-list-check" style="margin-right:4px;"></i> Partidas Totales</div>
+            <div class="summary-strip-value">{{ items_list|length }}</div>
+            <div class="summary-strip-trend" style="color:var(--text-muted);">
+                {{ "%.2f"|format(total_ord_qty.val) }} unidades en pedido
+            </div>
         </div>
-        <div class="field-row">
-            <span class="field-label">ITBIS</span>
-            <span class="field-value" style="color:var(--accent-blue);">RD$ {{ "{:,.2f}".format(order.itbis|default(0)) }}</span>
+
+        <div class="summary-strip-item">
+            <div class="summary-strip-label"><i class="fa-solid fa-truck-loading" style="margin-right:4px;"></i> Progreso Recepción</div>
+            <div class="summary-strip-value" style="color:{% if progress_pct >= 100 %}var(--accent-emerald, #10b981){% elif progress_pct > 0 %}var(--accent-blue, #3b82f6){% else %}var(--text-muted){% endif %};">
+                {{ "%.1f"|format(progress_pct) }}%
+            </div>
+            <div class="summary-strip-trend" style="color:var(--text-muted);">
+                {{ "%.2f"|format(total_rec_qty.val) }} de {{ "%.2f"|format(total_ord_qty.val) }} unidades
+            </div>
         </div>
-        {% if order.discount and order.discount > 0 %}
-        <div class="field-row">
-            <span class="field-label">Descuento</span>
-            <span class="field-value" style="color:#d97706;">RD$ {{ "{:,.2f}".format(order.discount) }}</span>
+
+        <div class="summary-strip-item">
+            <div class="summary-strip-label"><i class="fa-solid fa-link" style="margin-right:4px;"></i> Trazabilidad</div>
+            <div class="summary-strip-value" style="color:var(--accent-emerald, #10b981); font-size:1.15rem;">
+                {{ order.receipts|length if order.receipts else 0 }} Rec. · {{ order.supplier_invoices|length if order.supplier_invoices else 0 }} Fact.
+            </div>
+            <div class="summary-strip-trend" style="color:var(--text-muted);">
+                Documentos vinculados
+            </div>
         </div>
-        {% endif %}
-        {% if order.approvedBy %}
-        <div class="field-row" style="margin-top:8px; padding-top:12px; border-top:1px dashed var(--border-color);">
-            <span class="field-label">Aprobado por</span>
-            <span class="field-value">{{ order.approvedBy }}{% if order.approvedAt %} · {{ order.approvedAt[:10] }}{% endif %}</span>
-        </div>
-        {% endif %}
-        {% if order.receivedBy %}
-        <div class="field-row">
-            <span class="field-label">Recibido por</span>
-            <span class="field-value">{{ order.receivedBy }}{% if order.receivedAt %} · {{ order.receivedAt[:10] }}{% endif %}</span>
-        </div>
-        {% endif %}
     </div>
 
-    <!-- ③ PARTIDAS -->
-    <div class="section-card">
-        <h3><i class="fa-solid fa-box" style="color:var(--accent-amber);"></i> Partidas ({{ order['items']|length if order['items'] else 0 }})</h3>
-        <div class="table-responsive">
-            <table class="data-grid">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Descripción</th>
-                        <th style="text-align:center;">Cant.</th>
-                        <th>Unidad</th>
-                        <th style="text-align:right;">Precio Unit.</th>
-                        <th style="text-align:right;">ITBIS</th>
-                        <th style="text-align:right;">Desc. %</th>
-                        <th style="text-align:right;">Subtotal</th>
-                        <th style="text-align:right;">Total</th>
-                        <th style="text-align:center;">Recibido</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% if order['items'] %}
-                    {% for item in order['items'] %}
-                    <tr>
-                        <td>{{ loop.index }}</td>
-                        <td style="font-weight:600;">{{ item.name or '—' }}</td>
-                        <td style="text-align:center;">{{ item.quantity|default(0) }}</td>
-                        <td>{{ item.unit|default('Unidad') }}</td>
-                        <td style="text-align:right;">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
-                        <td style="text-align:right;">{{ "%.0f%%"|format((item.itbisRate|default(0))*100) if item.itbisRate else '0%' }}</td>
-                        <td style="text-align:right;">{{ item.discount|default(0) }}%</td>
-                        <td style="text-align:right;">{{ "{:,.2f}".format(item.subtotal|default(0)) }}</td>
-                        <td style="text-align:right; font-weight:600;">{{ "{:,.2f}".format(item.total|default(0)) }}</td>
-                        <td style="text-align:center;">
-                            {% set rqty = item.receivedQuantity|default(0) %}
-                            {% set oqty = item.quantity|default(0) %}
-                            {% if rqty >= oqty %}
-                            <span class="badge-pill badge-green">{{ rqty }}</span>
-                            {% elif rqty > 0 %}
-                            <span class="badge-pill badge-amber">{{ rqty }}</span>
-                            {% else %}
-                            <span style="color:var(--text-muted);">—</span>
+    <!-- Main Detail Grid: 3fr Content / 1fr Sidebar -->
+    <div class="detail-grid">
+
+        <!-- ════════════════════════ LEFT COLUMN (DOCUMENT SHEET) ═══════════ -->
+        <div style="display:flex; flex-direction:column; gap:24px;">
+
+            <!-- Document Card Sheet -->
+            <div class="document-card-sheet">
+                
+                <!-- Commercial Header -->
+                <div class="doc-header-row">
+                    <div class="doc-company-brand">
+                        {% if company_logo_url %}
+                        <img src="{{ company_logo_url }}" alt="{{ product_name }}" class="doc-logo-img">
+                        {% else %}
+                        <div style="width:48px; height:48px; border-radius:10px; background:rgba(139,92,246,0.12); display:flex; align-items:center; justify-content:center; color:var(--accent-purple); font-size:1.5rem;">
+                            <i class="fa-solid fa-cart-flatbed"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h2 class="doc-company-title">{{ product_name }}</h2>
+                            <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); font-weight:700;">
+                                Documento de Adquisición Comercial
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="doc-number-box">
+                        <div class="doc-number-badge">Orden de Compra</div>
+                        <div class="doc-number-val mono">{{ order.poNumber }}</div>
+                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:2px;">
+                            Fecha: <strong>{{ order.orderDate or (order.createdAt[:10] if order.createdAt else '—') }}</strong>
+                        </div>
+                        {% if order.expectedDate %}
+                        <div style="font-size:0.8rem; color:var(--text-secondary);">
+                            Vence/Entrega: <strong>{{ order.expectedDate }}</strong>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Commercial & Delivery Info Grid -->
+                <div class="doc-info-grid">
+                    <div>
+                        <div class="info-block-title">
+                            <i class="fa-solid fa-building" style="color:var(--accent-purple);"></i> Datos del Proveedor
+                        </div>
+                        <div style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-bottom:4px;">
+                            {{ order.supplierName or '—' }}
+                        </div>
+                        <div class="info-item-row">
+                            <span class="info-item-label">RNC / Cédula:</span>
+                            <span class="info-item-val mono">{{ order.supplierRnc or '—' }}</span>
+                        </div>
+                        {% if order.supplierPhone or order.supplierEmail %}
+                        <div class="info-item-row">
+                            <span class="info-item-label">Contacto:</span>
+                            <span class="info-item-val" style="font-size:0.78rem;">
+                                {{ order.supplierPhone or '' }} {% if order.supplierPhone and order.supplierEmail %}·{% endif %} {{ order.supplierEmail or '' }}
+                            </span>
+                        </div>
+                        {% endif %}
+                        <div class="info-item-row">
+                            <span class="info-item-label">Términos Pago:</span>
+                            <span class="info-item-val">
+                                <span class="badge-pill badge-gray">
+                                    {{ order.paymentTerms|replace('_', ' ')|title if order.paymentTerms else 'Contado' }}
+                                </span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="info-block-title">
+                            <i class="fa-solid fa-truck-fast" style="color:var(--accent-blue);"></i> Condiciones y Destino
+                        </div>
+                        <div class="info-item-row">
+                            <span class="info-item-label">Moneda:</span>
+                            <span class="info-item-val">
+                                {{ order.currency or 'DOP' }}
+                                {% if order.currency and order.currency != 'DOP' and order.exchangeRate %}
+                                <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">
+                                    (Tasa: {{ "%.2f"|format(order.exchangeRate) }} × DOP)
+                                </span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% if order.warehouseName %}
+                        <div class="info-item-row">
+                            <span class="info-item-label">Almacén:</span>
+                            <span class="info-item-val">
+                                <i class="fa-solid fa-warehouse" style="color:var(--text-muted); margin-right:4px;"></i> {{ order.warehouseName }}
+                            </span>
+                        </div>
+                        {% endif %}
+                        {% if order.deliveryAddress %}
+                        <div class="info-item-row">
+                            <span class="info-item-label">Entrega:</span>
+                            <span class="info-item-val" style="font-size:0.8rem;">{{ order.deliveryAddress }}</span>
+                        </div>
+                        {% endif %}
+                        {% if order.projectName %}
+                        <div class="info-item-row">
+                            <span class="info-item-label">Proyecto:</span>
+                            <span class="info-item-val">{{ order.projectName }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Items Table -->
+                <div class="table-responsive">
+                    <table class="data-grid-detail">
+                        <thead>
+                            <tr>
+                                <th style="width:40px; text-align:center;">#</th>
+                                <th>Descripción</th>
+                                <th style="text-align:center; width:9%;">Cant. Ord.</th>
+                                <th style="text-align:center; width:13%;">Cumplimiento</th>
+                                <th style="width:7%;">Unidad</th>
+                                <th style="text-align:right; width:12%;">Precio Unit.</th>
+                                <th style="text-align:center; width:8%;">ITBIS</th>
+                                <th style="text-align:right; width:8%;">Desc. %</th>
+                                <th style="text-align:right; width:12%;">Subtotal</th>
+                                <th style="text-align:right; width:14%;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if items_list %}
+                            {% for item in items_list %}
+                            {% set rqty = item.receivedQuantity|default(0)|float %}
+                            {% set oqty = item.quantity|default(0)|float %}
+                            {% set item_pct = 0 %}
+                            {% if oqty > 0 %}
+                                {% set item_pct = ((rqty / oqty) * 100)|round(0) %}
+                                {% if item_pct > 100 %}{% set item_pct = 100 %}{% endif %}
                             {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    {% else %}
-                    <tr>
-                        <td colspan="10" style="text-align:center; padding:20px; color:var(--text-muted);">Sin partidas registradas.</td>
-                    </tr>
+                            <tr>
+                                <td style="text-align:center; color:var(--text-muted); font-size:0.75rem;">
+                                    {{ loop.index }}
+                                </td>
+                                <td>
+                                    <div style="font-weight:700; color:var(--text-primary); font-size:0.86rem;">
+                                        {{ item.name or '—' }}
+                                    </div>
+                                    {% if item.isInventoriable is false %}
+                                    <div style="font-size:0.7rem; color:var(--accent-blue, #3b82f6); margin-top:2px; display:inline-flex; align-items:center; gap:4px;">
+                                        <i class="fa-solid fa-handshake"></i> Servicio / No inventariable
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align:center; font-weight:700;" class="mono">{{ oqty }}</td>
+                                <td style="text-align:center;">
+                                    <div class="progress-pill-wrap">
+                                        {% if rqty >= oqty and oqty > 0 %}
+                                        <span class="badge-pill badge-green mono"><i class="fa-solid fa-check"></i> {{ rqty }}</span>
+                                        <div class="progress-pill-bar">
+                                            <div class="progress-pill-fill" style="width:100%; background:var(--accent-emerald, #10b981);"></div>
+                                        </div>
+                                        {% elif rqty > 0 %}
+                                        <span class="badge-pill badge-amber mono">{{ rqty }} / {{ oqty }}</span>
+                                        <div class="progress-pill-bar">
+                                            <div class="progress-pill-fill" style="width:{{ item_pct }}%; background:var(--accent-orange, #f59e0b);"></div>
+                                        </div>
+                                        {% else %}
+                                        <span style="color:var(--text-muted); font-size:0.78rem;" class="mono">—</span>
+                                        <div class="progress-pill-bar">
+                                            <div class="progress-pill-fill" style="width:0%;"></div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td><span class="badge-pill badge-gray">{{ item.unit|default('Unidad') }}</span></td>
+                                <td style="text-align:right;" class="mono">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
+                                <td style="text-align:center;">
+                                    <span class="badge-pill badge-gray" style="font-size:0.68rem;">
+                                        {{ "%.0f%%"|format((item.itbisRate|default(0))*100) if item.itbisRate else '0%' }}
+                                    </span>
+                                </td>
+                                <td style="text-align:right;" class="mono">{{ item.discount|default(0) }}%</td>
+                                <td style="text-align:right;" class="mono">{{ "{:,.2f}".format(item.subtotal|default(0)) }}</td>
+                                <td style="text-align:right; font-weight:700;" class="mono">{{ "{:,.2f}".format(item.total|default(0)) }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="10" style="text-align:center; padding:24px; color:var(--text-muted);">
+                                    Sin partidas registradas en esta orden de compra.
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Financial Totals Block -->
+                <div class="doc-totals-wrapper">
+                    <div class="doc-totals-box">
+                        <div class="total-line">
+                            <span>Subtotal Neto:</span>
+                            <span class="mono" style="font-weight:600; color:var(--text-primary);">
+                                RD$ {{ "{:,.2f}".format(order.subtotal|default(0)) }}
+                            </span>
+                        </div>
+                        {% if order.discount and order.discount > 0 %}
+                        <div class="total-line" style="color:var(--accent-orange, #f59e0b);">
+                            <span>Descuento General:</span>
+                            <span class="mono font-weight:600;">
+                                - RD$ {{ "{:,.2f}".format(order.discount) }}
+                            </span>
+                        </div>
+                        {% endif %}
+                        <div class="total-line">
+                            <span>ITBIS Total:</span>
+                            <span class="mono" style="font-weight:600; color:var(--accent-blue, #3b82f6);">
+                                RD$ {{ "{:,.2f}".format(order.itbis|default(0)) }}
+                            </span>
+                        </div>
+                        <div class="total-line grand-total">
+                            <span>Total General:</span>
+                            <span class="amount mono">
+                                {% if order.currency and order.currency != 'DOP' %}{{ order.currency }} {% else %}RD$ {% endif %}
+                                {{ "{:,.2f}".format(order.total|default(0)) }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Audit and Traceability Strip -->
+                <div class="doc-audit-strip">
+                    <div class="doc-audit-item">
+                        <i class="fa-solid fa-user-pen"></i>
+                        <div>
+                            <div style="font-weight:600; color:var(--text-secondary);">Creada por</div>
+                            <div>{{ order.createdBy or 'Usuario' }} · {{ (order.createdAt[:10] if order.createdAt else '') }}</div>
+                        </div>
+                    </div>
+                    {% if order.approvedBy %}
+                    <div class="doc-audit-item">
+                        <i class="fa-solid fa-user-check" style="color:var(--accent-emerald);"></i>
+                        <div>
+                            <div style="font-weight:600; color:var(--text-secondary);">Aprobada por</div>
+                            <div>{{ order.approvedBy }} · {{ (order.approvedAt[:10] if order.approvedAt else '') }}</div>
+                        </div>
+                    </div>
                     {% endif %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+                    {% if order.receivedBy %}
+                    <div class="doc-audit-item">
+                        <i class="fa-solid fa-dolly" style="color:var(--accent-purple);"></i>
+                        <div>
+                            <div style="font-weight:600; color:var(--text-secondary);">Recibida por</div>
+                            <div>{{ order.receivedBy }} · {{ (order.receivedAt[:10] if order.receivedAt else '') }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
 
-    <!-- ④ RECEPCIONES -->
-    <div class="section-card">
-        <h3><i class="fa-solid fa-truck-loading" style="color:var(--accent-emerald);"></i> Recepciones</h3>
-        {% if order.receipts and order.receipts|length > 0 %}
-        <div class="table-responsive">
-            <table class="data-grid">
-                <thead>
-                    <tr>
-                        <th>Recepción #</th>
-                        <th>Fecha</th>
-                        <th>Almacén</th>
-                        <th style="text-align:center;">Partidas</th>
-                        <th style="text-align:center;">Items Catálogo</th>
-                        <th style="text-align:right; width: 50px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for r in order.receipts %}
-                    <tr>
-                        <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ r.receiptNumber }}</span></td>
-                        <td style="font-size:0.82rem;">{{ r.receiptDate or (r.createdAt[:10] if r.createdAt else '') or '—' }}</td>
-                        <td>{{ r.warehouseName or '—' }}</td>
-                        <td style="text-align:center;">{{ r['items']|length if r['items'] else 0 }}</td>
-                        <td style="text-align:center;">
-                            {% set cat_count = r['items']|selectattr('itemId')|list|length if r['items'] else 0 %}
-                            {% if cat_count > 0 %}
-                            <span class="badge-pill badge-green">{{ cat_count }}</span>
-                            {% else %}
-                            <span style="color:var(--text-muted);">—</span>
-                            {% endif %}
-                        </td>
-                        <td style="text-align:right;">
-                            <div class="action-menu">
-                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
-                                    <i class="fa-solid fa-ellipsis-vertical"></i>
-                                </button>
-                                <div class="action-menu-dropdown">
-                                    <a href="{{ url_for('web_inventory.receipt_detail', receipt_id=r.id) }}" class="action-menu-item">
-                                        <i class="fa-solid fa-eye"></i> Ver Detalle
+                <!-- Notes Section inside sheet if present -->
+                {% if order.notes or order.internalNotes %}
+                <div style="margin-top:24px; padding-top:20px; border-top:1px dashed var(--border-color);">
+                    {% if order.notes %}
+                    <div style="margin-bottom:12px;">
+                        <span style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); font-weight:700; display:block; margin-bottom:4px;">
+                            <i class="fa-solid fa-comment-dots" style="color:var(--accent-purple);"></i> Observaciones de la Orden:
+                        </span>
+                        <div style="font-size:0.84rem; color:var(--text-secondary); background:var(--bg-input, rgba(0,0,0,0.02)); padding:10px 14px; border-radius:6px; border:1px solid var(--border-color); white-space:pre-wrap;">{{ order.notes }}</div>
+                    </div>
+                    {% endif %}
+                    {% if order.internalNotes %}
+                    <div>
+                        <span style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--accent-orange, #f59e0b); font-weight:700; display:block; margin-bottom:4px;">
+                            <i class="fa-solid fa-lock"></i> Notas Internas (Confidencial):
+                        </span>
+                        <div style="font-size:0.84rem; color:var(--text-muted); background:rgba(245,158,11,0.04); padding:10px 14px; border-radius:6px; border:1px solid rgba(245,158,11,0.2); white-space:pre-wrap;">{{ order.internalNotes }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+            </div>
+
+            <!-- Relational Section 1: Recepciones de Mercancía -->
+            <div class="relational-card">
+                <div class="relational-card-header">
+                    <h3 class="relational-card-title">
+                        <i class="fa-solid fa-truck-loading" style="color:var(--accent-purple);"></i>
+                        <span>Recepciones de Mercancía ({{ order.receipts|length if order.receipts else 0 }})</span>
+                    </h3>
+                    {% if order.status in ('aprobada', 'recibida_parcial') %}
+                    <a href="{{ url_for('web_inventory.new_receipt', po_id=order.id) }}" class="btn btn-sm btn-primary">
+                        <i class="fa-solid fa-plus"></i> Nueva Recepción
+                    </a>
+                    {% endif %}
+                </div>
+
+                {% if order.receipts and order.receipts|length > 0 %}
+                <div class="table-responsive" style="margin-bottom:0;">
+                    <table class="data-grid-detail">
+                        <thead>
+                            <tr>
+                                <th>Recepción #</th>
+                                <th>Fecha de Entrada</th>
+                                <th>Almacén Destino</th>
+                                <th style="text-align:center;">Partidas Recibidas</th>
+                                <th style="text-align:center;">Ítems Catálogo</th>
+                                <th style="text-align:right; width:60px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in order.receipts %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('web_inventory.receipt_detail', receipt_id=r.id) }}" style="font-weight:700; color:var(--accent-purple, #8b5cf6); text-decoration:none;" class="mono">
+                                        <i class="fa-solid fa-receipt" style="font-size:0.75rem; margin-right:4px;"></i> {{ r.receiptNumber }}
                                     </a>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <p style="color:var(--text-muted); font-size:0.85rem;">No hay recepciones registradas para esta orden.</p>
-        {% endif %}
-    </div>
-
-    <!-- ⑤ FACTURAS DE PROVEEDOR -->
-    <div class="section-card">
-        <h3><i class="fa-solid fa-file-invoice" style="color:var(--accent-purple);"></i> Facturas de Proveedor</h3>
-        {% if order.supplier_invoices and order.supplier_invoices|length > 0 %}
-        <div class="table-responsive">
-            <table class="data-grid">
-                <thead>
-                    <tr>
-                        <th>Factura#</th>
-                        <th>Factura Prov.</th>
-                        <th>NCF</th>
-                        <th>Fecha</th>
-                        <th>Vence</th>
-                        <th style="text-align:right;">Total (RD$)</th>
-                        <th style="text-align:right;">Balance (RD$)</th>
-                        <th>Estado CxP</th>
-                        <th style="text-align:right; width: 50px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for inv in order.supplier_invoices %}
-                    <tr>
-                        <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ inv.invoiceNumber }}</span></td>
-                        <td>{{ inv.supplierInvoiceNumber or '—' }}</td>
-                        <td class="mono">{{ inv.ncf or '—' }}</td>
-                        <td style="font-size:0.82rem;">{{ (inv.date or '')[:10] }}</td>
-                        <td style="font-size:0.82rem;">{{ (inv.dueDate or '')[:10] }}</td>
-                        <td style="font-weight:600;">{{ "{:,.2f}".format(inv.total|default(0)) }}</td>
-                        <td style="font-weight:600; color:{% if inv.cxpStatus == 'Vencido' %}var(--accent-red){% elif inv.cxpStatus == 'Pagado' %}var(--accent-emerald){% else %}var(--accent-amber){% endif %}">
-                            {{ "{:,.2f}".format(inv.cxpRemainingBalance|default(inv.total|default(0))) }}
-                        </td>
-                        <td>
-                            {% set st = inv.cxpStatus|default('Pendiente') %}
-                            {% if st == 'Pagado' %}<span class="badge-pill badge-green">Pagado</span>
-                            {% elif st == 'Abonado' %}<span class="badge-pill badge-blue">Abonado</span>
-                            {% elif st == 'Vencido' %}<span class="badge-pill badge-red">Vencido</span>
-                            {% else %}<span class="badge-pill badge-amber">Pendiente</span>{% endif %}
-                        </td>
-                        <td style="text-align:right;">
-                            <div class="action-menu">
-                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
-                                    <i class="fa-solid fa-ellipsis-vertical"></i>
-                                </button>
-                                <div class="action-menu-dropdown">
-                                    <a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv.id) }}" class="action-menu-item">
-                                        <i class="fa-solid fa-eye"></i> Ver Detalle
+                                </td>
+                                <td>{{ r.receiptDate or (r.createdAt[:10] if r.createdAt else '') or '—' }}</td>
+                                <td>
+                                    <span style="font-weight:600;">
+                                        <i class="fa-solid fa-warehouse" style="color:var(--text-muted); font-size:0.75rem; margin-right:4px;"></i>
+                                        {{ r.warehouseName or '—' }}
+                                    </span>
+                                </td>
+                                <td style="text-align:center;">
+                                    <span class="badge-pill badge-gray">{{ r['items']|length if r['items'] else 0 }}</span>
+                                </td>
+                                <td style="text-align:center;">
+                                    {% set cat_count = r['items']|selectattr('itemId')|list|length if r['items'] else 0 %}
+                                    {% if cat_count > 0 %}
+                                    <span class="badge-pill badge-green"><i class="fa-solid fa-link"></i> {{ cat_count }}</span>
+                                    {% else %}
+                                    <span style="color:var(--text-muted);">—</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align:right;">
+                                    <a href="{{ url_for('web_inventory.receipt_detail', receipt_id=r.id) }}" class="btn btn-sm btn-secondary" style="font-size:0.72rem; padding:4px 8px;" title="Ver Detalle de Recepción">
+                                        <i class="fa-solid fa-eye"></i> Ver
                                     </a>
-                                </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="relational-empty-box">
+                    <i class="fa-solid fa-box-open" style="font-size:2rem; opacity:0.4; margin-bottom:10px; display:block;"></i>
+                    No se han registrado recepciones físicas de mercancía para esta orden de compra.
+                    {% if order.status in ('aprobada', 'recibida_parcial') %}
+                    <div style="margin-top:12px;">
+                        <a href="{{ url_for('web_inventory.new_receipt', po_id=order.id) }}" class="btn btn-sm btn-primary">
+                            <i class="fa-solid fa-truck-ramp-box"></i> Iniciar Recepción
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Relational Section 2: Facturas de Proveedor (CxP) -->
+            <div class="relational-card">
+                <div class="relational-card-header">
+                    <h3 class="relational-card-title">
+                        <i class="fa-solid fa-file-invoice-dollar" style="color:var(--accent-emerald);"></i>
+                        <span>Facturas de Proveedor CxP ({{ order.supplier_invoices|length if order.supplier_invoices else 0 }})</span>
+                    </h3>
+                    {% if order.status in ('recibida_parcial', 'recibida_completa') %}
+                    <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=order.id) }}" class="btn btn-sm btn-secondary" style="border-color:var(--accent-purple); color:var(--accent-purple);">
+                        <i class="fa-solid fa-plus"></i> Registrar Factura
+                    </a>
+                    {% endif %}
+                </div>
+
+                {% if order.supplier_invoices and order.supplier_invoices|length > 0 %}
+                <div class="table-responsive" style="margin-bottom:0;">
+                    <table class="data-grid-detail">
+                        <thead>
+                            <tr>
+                                <th>Factura #</th>
+                                <th>Factura Prov.</th>
+                                <th>NCF / e-NCF</th>
+                                <th>Fecha</th>
+                                <th>Vence</th>
+                                <th style="text-align:right;">Total</th>
+                                <th style="text-align:right;">Balance CxP</th>
+                                <th style="text-align:center;">Estado</th>
+                                <th style="text-align:right; width:60px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for inv in order.supplier_invoices %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv.id) }}" style="font-weight:700; color:var(--accent-blue, #3b82f6); text-decoration:none;" class="mono">
+                                        {{ inv.invoiceNumber }}
+                                    </a>
+                                </td>
+                                <td>{{ inv.supplierInvoiceNumber or '—' }}</td>
+                                <td class="mono" style="font-size:0.75rem;">{{ inv.encf or inv.ncf or '—' }}</td>
+                                <td>{{ (inv.date or '')[:10] }}</td>
+                                <td>{{ (inv.dueDate or '')[:10] }}</td>
+                                <td style="text-align:right; font-weight:700;" class="mono">
+                                    {{ "{:,.2f}".format(inv.total|default(0)) }}
+                                </td>
+                                <td style="text-align:right; font-weight:700;" class="mono">
+                                    {% set st = inv.cxpStatus|default('Pendiente') %}
+                                    <span style="color:{% if st == 'Pagado' %}var(--accent-emerald){% elif st == 'Vencido' %}var(--accent-red){% else %}var(--accent-orange){% endif %};">
+                                        {{ "{:,.2f}".format(inv.cxpRemainingBalance|default(inv.total|default(0))) }}
+                                    </span>
+                                </td>
+                                <td style="text-align:center;">
+                                    {% if st == 'Pagado' %}
+                                    <span class="badge-pill badge-green">Pagado</span>
+                                    {% elif st == 'Abonado' %}
+                                    <span class="badge-pill badge-blue">Abonado</span>
+                                    {% elif st == 'Vencido' %}
+                                    <span class="badge-pill badge-red">Vencido</span>
+                                    {% else %}
+                                    <span class="badge-pill badge-amber">Pendiente</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align:right;">
+                                    <a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv.id) }}" class="btn btn-sm btn-secondary" style="font-size:0.72rem; padding:4px 8px;" title="Ver Detalle de Factura">
+                                        <i class="fa-solid fa-eye"></i> Ver
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="relational-empty-box">
+                    <i class="fa-solid fa-file-circle-question" style="font-size:2rem; opacity:0.4; margin-bottom:10px; display:block;"></i>
+                    No hay facturas de proveedor registradas contra esta orden de compra.
+                    {% if order.status in ('recibida_parcial', 'recibida_completa') %}
+                    <div style="margin-top:12px;">
+                        <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=order.id) }}" class="btn btn-sm btn-secondary" style="border-color:var(--accent-purple); color:var(--accent-purple);">
+                            <i class="fa-solid fa-file-invoice-dollar"></i> Registrar Factura Ahora
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Comments Timeline Block -->
+            {% set submit_url   = "/purchase-orders/" ~ order.id ~ "/comments/new" %}
+            {% set edit_url_prefix   = "/purchase-orders/" ~ order.id ~ "/comments" %}
+            {% set delete_url_prefix = "/purchase-orders/" ~ order.id ~ "/comments" %}
+            {% include 'components/_comments.html' %}
+
+        </div>
+
+        <!-- ════════════════════════ RIGHT COLUMN (SIDEBAR) ══════════════════ -->
+        <div class="sidebar-col">
+
+            <!-- Stepper del Ciclo de Vida -->
+            <div class="sidebar-card">
+                <h4 class="sidebar-card-title">
+                    <i class="fa-solid fa-diagram-project" style="color:var(--accent-purple);"></i>
+                    <span>Ciclo de la Orden</span>
+                </h4>
+
+                <div class="timeline-stepper">
+                    <!-- Paso 1: Creación -->
+                    <div class="timeline-step completed">
+                        <div class="timeline-step-icon">
+                            <i class="fa-solid fa-file-lines"></i>
+                        </div>
+                        <div class="timeline-step-content">
+                            <div class="timeline-step-title">1. Emisión / Borrador</div>
+                            <div class="timeline-step-desc">
+                                Creada {{ order.createdAt[:10] if order.createdAt else (order.orderDate or '') }}
                             </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <p style="color:var(--text-muted); font-size:0.85rem;">No hay facturas de proveedor registradas para esta orden.</p>
-        {% endif %}
-    </div>
+                        </div>
+                    </div>
 
-    <!-- ⑥ NOTAS -->
-    {% if order.notes or order.internalNotes %}
-    <div class="section-card">
-        <h3><i class="fa-solid fa-note-sticky" style="color:var(--accent-amber);"></i> Notas</h3>
-        {% if order.notes %}
-        <div class="field-row">
-            <span class="field-label">Notas</span>
-            <span class="field-value" style="white-space:pre-wrap;">{{ order.notes }}</span>
-        </div>
-        {% endif %}
-        {% if order.internalNotes %}
-        <div class="field-row">
-            <span class="field-label">Notas Internas</span>
-            <span class="field-value" style="white-space:pre-wrap; color:var(--text-muted);">{{ order.internalNotes }}</span>
-        </div>
-        {% endif %}
-    </div>
-    {% endif %}
+                    <!-- Paso 2: Aprobación -->
+                    {% set is_approved = order.status in ('aprobada', 'recibida_parcial', 'recibida_completa') %}
+                    <div class="timeline-step {% if is_approved %}completed{% elif order.status == 'pendiente_aprobacion' %}active{% endif %}">
+                        <div class="timeline-step-icon">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+                        <div class="timeline-step-content">
+                            <div class="timeline-step-title">2. Aprobación Comercial</div>
+                            <div class="timeline-step-desc">
+                                {% if order.approvedBy %}
+                                Aprobada por {{ order.approvedBy }}
+                                {% elif is_approved %}
+                                Aprobada
+                                {% elif order.status == 'pendiente_aprobacion' %}
+                                Esperando aprobación
+                                {% else %}
+                                Pendiente
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
 
-    <!-- ─── COMENTARIOS ──────────────────────────────────────────────────── -->
-    {% set submit_url   = "/purchase-orders/" ~ order.id ~ "/comments/new" %}
-    {% set edit_url_prefix   = "/purchase-orders/" ~ order.id ~ "/comments" %}
-    {% set delete_url_prefix = "/purchase-orders/" ~ order.id ~ "/comments" %}
-    {% include 'components/_comments.html' %}
+                    <!-- Paso 3: Recepción Física -->
+                    {% set is_rec_complete = order.status == 'recibida_completa' or progress_pct >= 100 %}
+                    {% set is_rec_partial = order.status == 'recibida_parcial' or (progress_pct > 0 and progress_pct < 100) %}
+                    <div class="timeline-step {% if is_rec_complete %}completed{% elif is_rec_partial %}active{% endif %}">
+                        <div class="timeline-step-icon">
+                            <i class="fa-solid fa-truck-ramp-box"></i>
+                        </div>
+                        <div class="timeline-step-content">
+                            <div class="timeline-step-title">3. Recepción en Almacén</div>
+                            <div class="timeline-step-desc">
+                                {% if is_rec_complete %}
+                                100% de mercancía recibida
+                                {% elif is_rec_partial %}
+                                Recepción parcial ({{ "%.0f"|format(progress_pct) }}%)
+                                {% else %}
+                                Sin ingresos registrados
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
 
-    <!-- FOOTER -->
-    {% if order.createdBy %}
-    <div style="font-size:0.78rem; color:var(--text-muted); text-align:right;">
-        Creada por: {{ order.createdBy }} · {{ order.createdAt[:19] if order.createdAt else '' }}
+                    <!-- Paso 4: Facturación CxP -->
+                    {% set has_invoices = order.supplier_invoices and order.supplier_invoices|length > 0 %}
+                    <div class="timeline-step {% if has_invoices %}completed{% endif %}">
+                        <div class="timeline-step-icon">
+                            <i class="fa-solid fa-file-invoice-dollar"></i>
+                        </div>
+                        <div class="timeline-step-content">
+                            <div class="timeline-step-title">4. Facturación de Proveedor</div>
+                            <div class="timeline-step-desc">
+                                {% if has_invoices %}
+                                {{ order.supplier_invoices|length }} factura(s) vinculada(s)
+                                {% else %}
+                                Pendiente de facturar
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Acciones Rápidas -->
+            <div class="sidebar-card">
+                <h4 class="sidebar-card-title">
+                    <i class="fa-solid fa-bolt" style="color:var(--accent-amber);"></i>
+                    <span>Acciones Disponibles</span>
+                </h4>
+
+                <!-- Botón Principal de Flujo -->
+                {% if order.status in ('borrador', 'pendiente_aprobacion') %}
+                <button type="button" class="sidebar-action-btn btn-success" onclick="approvePO()" style="background:var(--accent-emerald, #10b981); color:#fff;">
+                    <i class="fa-solid fa-check"></i> Aprobar Orden
+                </button>
+                <a href="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=order.id) }}" class="sidebar-action-btn btn-secondary">
+                    <i class="fa-solid fa-pen-to-square"></i> Editar Datos
+                </a>
+                {% endif %}
+
+                {% if order.status in ('aprobada', 'recibida_parcial') %}
+                <a href="{{ url_for('web_inventory.new_receipt', po_id=order.id) }}" class="sidebar-action-btn btn-primary" style="background:var(--accent-purple, #8b5cf6); color:#fff;">
+                    <i class="fa-solid fa-truck-ramp-box"></i> Recibir Mercancía
+                </a>
+                {% endif %}
+
+                {% if order.status in ('recibida_parcial', 'recibida_completa') %}
+                <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=order.id) }}" class="sidebar-action-btn btn-secondary" style="border-color:var(--accent-purple); color:var(--accent-purple);">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> Registrar Factura Proveedor
+                </a>
+                {% endif %}
+
+                <button type="button" class="sidebar-action-btn btn-secondary" onclick="openAttachmentPanelFromDetail()">
+                    <i class="fa-solid fa-paperclip"></i> Ver Adjuntos{% if total_docs > 0 %} ({{ total_docs }}){% endif %}
+                </button>
+
+                <a href="{{ url_for('web_purchase_orders.purchase_order_pdf', po_id=order.id) }}?action=print" target="_blank" class="sidebar-action-btn btn-secondary">
+                    <i class="fa-solid fa-print"></i> Imprimir Orden
+                </a>
+
+                <a href="{{ url_for('web_purchase_orders.purchase_order_pdf', po_id=order.id) }}?action=download" class="sidebar-action-btn btn-secondary">
+                    <i class="fa-solid fa-file-pdf" style="color:#ef4444;"></i> Descargar PDF
+                </a>
+
+                {% if order.status not in ('cancelada', 'recibida_completa') %}
+                <button type="button" class="sidebar-action-btn btn-danger" onclick="cancelPO()" style="background:transparent; border-color:rgba(239,68,68,0.3); color:#ef4444;">
+                    <i class="fa-solid fa-ban"></i> Cancelar Orden
+                </button>
+                {% endif %}
+
+                {% if order.status in ('borrador', 'pendiente_aprobacion', 'rechazada') %}
+                <form action="{{ url_for('web_purchase_orders.delete_purchase_order', po_id=order.id) }}" method="POST" onsubmit="return confirm('¿Eliminar permanentemente esta orden de compra?');" style="margin-top:4px;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="sidebar-action-btn btn-danger" style="background:rgba(239,68,68,0.1); border-color:rgba(239,68,68,0.3); color:#ef4444;">
+                        <i class="fa-solid fa-trash-can"></i> Eliminar Orden
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+
+            <!-- Ficha Rápida del Proveedor -->
+            <div class="sidebar-card">
+                <h4 class="sidebar-card-title">
+                    <i class="fa-solid fa-building-user" style="color:var(--accent-blue);"></i>
+                    <span>Proveedor</span>
+                </h4>
+                <div style="font-weight:700; color:var(--text-primary); font-size:0.95rem; margin-bottom:4px;">
+                    {{ order.supplierName or '—' }}
+                </div>
+                <div class="mono" style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
+                    RNC: {{ order.supplierRnc or 'No especificado' }}
+                </div>
+                <div style="font-size:0.78rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:6px; border-top:1px solid var(--border-color); padding-top:12px;">
+                    <div><strong>Condición de pago:</strong> {{ order.paymentTerms|replace('_', ' ')|title if order.paymentTerms else 'Contado' }}</div>
+                    {% if order.supplierPhone %}<div><strong>Teléfono:</strong> {{ order.supplierPhone }}</div>{% endif %}
+                    {% if order.supplierEmail %}<div><strong>Email:</strong> {{ order.supplierEmail }}</div>{% endif %}
+                </div>
+            </div>
+
+            <!-- Metadatos de Sistema -->
+            <div class="sidebar-card">
+                <h4 class="sidebar-card-title">
+                    <i class="fa-solid fa-circle-info" style="color:var(--text-muted);"></i>
+                    <span>Registro del Sistema</span>
+                </h4>
+                <div style="font-size:0.76rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:8px;">
+                    <div>
+                        <span style="color:var(--text-muted); display:block; margin-bottom:2px;">ID Interno (GUID):</span>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span class="mono" style="font-size:0.72rem; word-break:break-all; background:var(--bg-input); padding:4px 6px; border-radius:4px; flex:1;">
+                                {{ order.id }}
+                            </span>
+                            <button type="button" class="btn-quick-max" onclick="copyPoId(this)" title="Copiar ID" style="padding:4px 7px;">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="color:var(--text-muted); display:block;">Fecha de Registro:</span>
+                        <span>{{ order.createdAt[:19] if order.createdAt else '—' }}</span>
+                    </div>
+                    {% if order.updatedAt %}
+                    <div>
+                        <span style="color:var(--text-muted); display:block;">Última Modificación:</span>
+                        <span>{{ order.updatedAt[:19] }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
     </div>
-    {% endif %}
 
 </div>
 
@@ -422,32 +1401,61 @@
     window.ATT_PANEL_BASE_URL = '/purchase-orders';
 
     function openAttachmentPanelFromDetail() {
-        openAttachmentPanel(detailEntityId, detailAttachments);
+        if (typeof openAttachmentPanel === 'function') {
+            openAttachmentPanel(detailEntityId, detailAttachments);
+        } else {
+            alert('El panel de adjuntos no está disponible.');
+        }
     }
 
     function approvePO() {
-        if (!confirm('¿Aprobar esta orden de compra?')) return;
-        fetch("{{ url_for('web_purchase_orders.approve_purchase_order', po_id=order.id) }}", { method: 'POST' })
-            .then(r => r.json())
-            .then(d => {
-                if (d.success) { location.reload(); }
-                else { alert('Error: ' + (d.error || 'Desconocido')); }
-            })
-            .catch(() => alert('Error de red'));
+        if (!confirm('¿Desea aprobar formalmente esta orden de compra?')) return;
+        fetch("{{ url_for('web_purchase_orders.approve_purchase_order', po_id=order.id) }}", { 
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) { 
+                location.reload(); 
+            } else { 
+                alert('Error al aprobar la orden: ' + (d.error || 'Desconocido')); 
+            }
+        })
+        .catch(() => alert('Error de conexión al aprobar la orden.'));
     }
 
     function cancelPO() {
-        if (!confirm('¿Cancelar esta orden de compra?')) return;
-        fetch("{{ url_for('web_purchase_orders.cancel_purchase_order', po_id=order.id) }}", { method: 'POST' })
-            .then(r => r.json())
-            .then(d => {
-                if (d.success) { location.reload(); }
-                else { alert('Error: ' + (d.error || 'Desconocido')); }
-            })
-            .catch(() => alert('Error de red'));
+        if (!confirm('¿Desea cancelar esta orden de compra? Esta acción no se puede deshacer.')) return;
+        fetch("{{ url_for('web_purchase_orders.cancel_purchase_order', po_id=order.id) }}", { 
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) { 
+                location.reload(); 
+            } else { 
+                alert('Error al cancelar la orden: ' + (d.error || 'Desconocido')); 
+            }
+        })
+        .catch(() => alert('Error de conexión al cancelar la orden.'));
+    }
+
+    function copyPoId(btn) {
+        navigator.clipboard.writeText('{{ order.id }}').then(() => {
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check" style="color:var(--accent-emerald);"></i>';
+            setTimeout(() => { btn.innerHTML = original; }, 1500);
+        });
     }
 </script>
 
 {% include 'components/_attachment_panel.html' %}
-
 {% endblock %}

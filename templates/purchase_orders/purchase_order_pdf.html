@@ -1,0 +1,614 @@
+{% set apply_brand = company.applyColorMarcaReports if company else false %}
+{% set brand_color = company.colorMarca if (apply_brand and company and company.colorMarca) else '#7c3aed' %}
+{% set company_color_marca = brand_color %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orden de Compra {{ order.poNumber }} - {{ company.companyName if company else product_name }}</title>
+    {% if auto_print %}
+    <script>
+        window.addEventListener('load', function () {
+            setTimeout(function () { window.print(); }, 400);
+        });
+    </script>
+    {% endif %}
+    <style>
+        @page {
+            size: letter;
+            margin: 10mm 12mm 12mm 12mm;
+            @bottom-right {
+                content: "Página " counter(page) " de " counter(pages);
+                font-size: 9px;
+                color: #64748b;
+                font-family: Arial, sans-serif;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 11px;
+            color: #1e293b;
+            background: #ffffff;
+            padding: 0;
+            line-height: 1.45;
+        }
+
+        /* ── Toolbar de Impresión Web ────────────────────────────────────── */
+        .print-toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: #0f172a;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 9999;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            font-size: 13px;
+        }
+
+        .print-toolbar button,
+        .print-toolbar a {
+            padding: 7px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+        }
+
+        .btn-print-action {
+            background: #7c3aed;
+            color: #ffffff;
+            transition: background 0.15s;
+        }
+
+        .btn-print-action:hover {
+            background: #6d28d9;
+        }
+
+        .btn-close-action {
+            background: rgba(255,255,255,0.15);
+            color: #ffffff;
+            margin-left: 10px;
+        }
+
+        .btn-close-action:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        /* ── Document Page Canvas ────────────────────────────────────────── */
+        .po-page {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: {% if auto_print %}64px 10px 20px{% else %}10px{% endif %};
+            background: #ffffff;
+            position: relative;
+        }
+
+        /* ── Marca de Agua Sandbox ───────────────────────────────────────── */
+        .sandbox-watermark {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 58px;
+            font-weight: 900;
+            color: rgba(239, 68, 68, 0.08);
+            border: 6px solid rgba(239, 68, 68, 0.1);
+            padding: 12px 30px;
+            border-radius: 14px;
+            letter-spacing: 4px;
+            pointer-events: none;
+            z-index: 100;
+            text-transform: uppercase;
+        }
+
+        /* ── Header ──────────────────────────────────────────────────────── */
+        .doc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid {{ company_color_marca }};
+            padding-bottom: 14px;
+            margin-bottom: 16px;
+        }
+
+        .doc-company {
+            width: 58%;
+        }
+
+        .doc-logo {
+            max-height: 65px;
+            max-width: 170px;
+            object-fit: contain;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .doc-company-name {
+            font-size: 16px;
+            font-weight: 800;
+            color: {{ company_color_marca }};
+            margin-bottom: 3px;
+        }
+
+        .doc-company-info {
+            font-size: 10px;
+            color: #475569;
+            line-height: 1.4;
+        }
+
+        .doc-meta {
+            width: 40%;
+            text-align: right;
+        }
+
+        .doc-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: {{ company_color_marca }};
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 2px;
+        }
+
+        .doc-number {
+            font-family: monospace;
+            font-size: 16px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .status-approved { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        .status-partial  { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+        .status-draft    { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+        .meta-line {
+            font-size: 10px;
+            color: #475569;
+            margin-bottom: 2px;
+        }
+
+        .meta-line strong {
+            color: #0f172a;
+        }
+
+        /* ── Grilla de Partes (Proveedor y Entrega) ───────────────────────── */
+        .parties-grid {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .party-box {
+            flex: 1;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 14px;
+        }
+
+        .party-box-title {
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: {{ company_color_marca }};
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+        }
+
+        .party-name {
+            font-size: 12px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 3px;
+        }
+
+        .party-info-row {
+            font-size: 10px;
+            color: #475569;
+            margin-bottom: 2px;
+        }
+
+        .party-info-row strong {
+            color: #1e293b;
+        }
+
+        /* ── Tabla de Partidas ────────────────────────────────────────────── */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+
+        .items-table thead th {
+            background: #f1f5f9;
+            color: #1e293b;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 6px 8px;
+            border-top: 1px solid #cbd5e1;
+            border-bottom: 2px solid {{ company_color_marca }};
+            text-align: left;
+        }
+
+        .items-table tbody td {
+            padding: 7px 8px;
+            font-size: 10px;
+            color: #334155;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+
+        .items-table tbody tr:nth-child(even) {
+            background: #f8fafc;
+        }
+
+        .text-center { text-align: center; }
+        .text-right  { text-align: right; }
+        .mono { font-family: monospace; }
+        .bold { font-weight: 700; }
+
+        /* ── Totales ──────────────────────────────────────────────────────── */
+        .totals-wrapper {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+        }
+
+        .totals-table {
+            width: 280px;
+            border-collapse: collapse;
+        }
+
+        .totals-table td {
+            padding: 4px 6px;
+            font-size: 10px;
+            color: #475569;
+        }
+
+        .totals-table td.val {
+            text-align: right;
+            font-family: monospace;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .totals-table tr.grand-total td {
+            border-top: 2px solid #0f172a;
+            border-bottom: 2px solid #0f172a;
+            padding: 6px;
+            font-size: 12px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .totals-table tr.grand-total td.val {
+            font-size: 14px;
+            color: {{ company_color_marca }};
+        }
+
+        /* ── Observaciones ────────────────────────────────────────────────── */
+        .notes-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 3px solid {{ company_color_marca }};
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-bottom: 24px;
+            font-size: 10px;
+            color: #334155;
+        }
+
+        .notes-title {
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 9px;
+            letter-spacing: 0.05em;
+            color: {{ company_color_marca }};
+            margin-bottom: 4px;
+        }
+
+        /* ── Firmas y Autorizaciones ──────────────────────────────────────── */
+        .signatures-grid {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-top: 30px;
+            page-break-inside: avoid;
+        }
+
+        .sig-block {
+            flex: 1;
+            text-align: center;
+        }
+
+        .sig-line {
+            border-top: 1px solid #94a3b8;
+            margin-bottom: 4px;
+            height: 1px;
+        }
+
+        .sig-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #475569;
+        }
+
+        .sig-name {
+            font-size: 10px;
+            color: #0f172a;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        /* ── Pie de Documento ─────────────────────────────────────────────── */
+        .doc-footer {
+            margin-top: 26px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 8px;
+            text-align: center;
+            font-size: 9px;
+            color: #94a3b8;
+        }
+
+        @media print {
+            .print-toolbar { display: none !important; }
+            .po-page { padding: 0 !important; max-width: 100% !important; }
+        }
+    </style>
+</head>
+<body>
+
+    {% if auto_print %}
+    <!-- Barra Superior de Impresión -->
+    <div class="print-toolbar" id="printToolbar">
+        <div>
+            📄 <strong>Orden de Compra {{ order.poNumber }}</strong> — Vista para Imprimir / Guardar en PDF
+        </div>
+        <div>
+            <button type="button" class="btn-print-action" onclick="window.print()">
+                🖨️ Imprimir / Guardar PDF
+            </button>
+            <button type="button" class="btn-close-action" onclick="window.close()">
+                ✕ Cerrar
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="po-page">
+
+        {% if sandbox %}
+        <div class="sandbox-watermark">Ambiente de Pruebas</div>
+        {% endif %}
+
+        <!-- Header -->
+        <div class="doc-header">
+            <div class="doc-company">
+                {% set _logo = logo_src(company) if (company and logo_src) else '' %}
+                {% if _logo %}
+                <img src="{{ _logo }}" alt="{{ company.tradeName or company.companyName }}" class="doc-logo">
+                {% endif %}
+                <div class="doc-company-name">{{ company.tradeName or company.companyName if company else product_name }}</div>
+                <div class="doc-company-info">
+                    {% if company and company.companyRNC %}
+                    <strong>RNC:</strong> {{ company.companyRNC }}<br>
+                    {% endif %}
+                    {% if branch %}
+                    <strong>Sucursal:</strong> {{ branch.name }} ({{ branch.code }})<br>
+                    {% endif %}
+                    {% if company and company.companyAddress %}
+                    {{ company.companyAddress }}<br>
+                    {% endif %}
+                    {% if company and (company.companyPhone or company.companyEmail) %}
+                    Tel: {{ company.companyPhone or '—' }} &nbsp;|&nbsp; Email: {{ company.companyEmail or '—' }}
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="doc-meta">
+                <div class="doc-title">Orden de Compra</div>
+                <div class="doc-number mono">{{ order.poNumber }}</div>
+
+                {% set st = order.status|default('borrador') %}
+                {% if st in ('aprobada', 'recibida_completa') %}
+                <span class="status-badge status-approved">● {{ st|replace('_', ' ')|upper }}</span>
+                {% elif st == 'recibida_parcial' %}
+                <span class="status-badge status-partial">● RECIBIDA PARCIAL</span>
+                {% else %}
+                <span class="status-badge status-draft">● {{ st|replace('_', ' ')|upper }}</span>
+                {% endif %}
+
+                <div class="meta-line">
+                    Fecha de Emisión: <strong>{{ order.orderDate or (order.createdAt[:10] if order.createdAt else '—') }}</strong>
+                </div>
+                <div class="meta-line">
+                    Fecha de Entrega: <strong>{{ order.expectedDate or 'Inmediata' }}</strong>
+                </div>
+                <div class="meta-line">
+                    Moneda: <strong>{{ order.currency or 'DOP' }}</strong>
+                    {% if order.currency and order.currency != 'DOP' and order.exchangeRate %}
+                    (Tasa: {{ "%.2f"|format(order.exchangeRate) }})
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Bloque de Proveedor y Entrega -->
+        <div class="parties-grid">
+            <div class="party-box">
+                <div class="party-box-title">Proveedor</div>
+                <div class="party-name">{{ order.supplierName or 'Sin proveedor asignado' }}</div>
+                <div class="party-info-row"><strong>RNC / Cédula:</strong> <span class="mono">{{ order.supplierRnc or '—' }}</span></div>
+                {% if order.supplierPhone %}
+                <div class="party-info-row"><strong>Teléfono:</strong> {{ order.supplierPhone }}</div>
+                {% endif %}
+                {% if order.supplierEmail %}
+                <div class="party-info-row"><strong>Correo:</strong> {{ order.supplierEmail }}</div>
+                {% endif %}
+                <div class="party-info-row"><strong>Condición de Pago:</strong> {{ order.paymentTerms|replace('_', ' ')|title if order.paymentTerms else 'Contado' }}</div>
+            </div>
+
+            <div class="party-box">
+                <div class="party-box-title">Lugar de Entrega y Destino</div>
+                {% if order.warehouseName %}
+                <div class="party-info-row"><strong>Almacén:</strong> {{ order.warehouseName }}</div>
+                {% endif %}
+                <div class="party-info-row">
+                    <strong>Dirección:</strong> {{ order.deliveryAddress or (company.companyAddress if company else 'Instalaciones de la empresa') }}
+                </div>
+                {% if order.projectName %}
+                <div class="party-info-row"><strong>Proyecto:</strong> {{ order.projectName }}</div>
+                {% endif %}
+                {% if order.branchName %}
+                <div class="party-info-row"><strong>Sucursal:</strong> {{ order.branchName }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tabla de Partidas -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width:30px;" class="text-center">#</th>
+                    <th>Descripción de la Partida</th>
+                    <th style="width:55px;" class="text-center">Cant.</th>
+                    <th style="width:55px;" class="text-center">Unidad</th>
+                    <th style="width:80px;" class="text-right">Precio Unit.</th>
+                    <th style="width:55px;" class="text-center">ITBIS</th>
+                    <th style="width:55px;" class="text-right">Desc. %</th>
+                    <th style="width:85px;" class="text-right">Subtotal</th>
+                    <th style="width:90px;" class="text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set items = order.get('items', []) %}
+                {% if items %}
+                {% for item in items %}
+                <tr>
+                    <td class="text-center mono">{{ loop.index }}</td>
+                    <td>
+                        <span class="bold">{{ item.name or '—' }}</span>
+                        {% if item.isInventoriable is false %}
+                        <span style="font-size:8px; color:#2563eb; display:block;">[Servicio / No inventariable]</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center mono bold">{{ item.quantity|default(0) }}</td>
+                    <td class="text-center">{{ item.unit|default('UND') }}</td>
+                    <td class="text-right mono">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
+                    <td class="text-center mono">{{ "%.0f%%"|format((item.itbisRate|default(0))*100) if item.itbisRate else '0%' }}</td>
+                    <td class="text-right mono">{{ item.discount|default(0) }}%</td>
+                    <td class="text-right mono">{{ "{:,.2f}".format(item.subtotal|default(0)) }}</td>
+                    <td class="text-right mono bold">{{ "{:,.2f}".format(item.total|default(0)) }}</td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="9" class="text-center" style="padding:16px; color:#94a3b8;">
+                        Sin partidas registradas en esta orden.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <!-- Resumen Financiero -->
+        <div class="totals-wrapper">
+            <table class="totals-table">
+                <tr>
+                    <td>Subtotal Neto:</td>
+                    <td class="val">RD$ {{ "{:,.2f}".format(order.subtotal|default(0)) }}</td>
+                </tr>
+                {% if order.discount and order.discount > 0 %}
+                <tr>
+                    <td>Descuento General:</td>
+                    <td class="val" style="color:#d97706;">- RD$ {{ "{:,.2f}".format(order.discount) }}</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td>ITBIS Total:</td>
+                    <td class="val">RD$ {{ "{:,.2f}".format(order.itbis|default(0)) }}</td>
+                </tr>
+                <tr class="grand-total">
+                    <td>TOTAL ORDEN:</td>
+                    <td class="val">
+                        {% if order.currency and order.currency != 'DOP' %}{{ order.currency }} {% else %}RD$ {% endif %}
+                        {{ "{:,.2f}".format(order.total|default(0)) }}
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Instrucciones y Observaciones -->
+        {% if order.notes %}
+        <div class="notes-box">
+            <div class="notes-title">Instrucciones de Entrega y Observaciones</div>
+            <div style="white-space: pre-wrap;">{{ order.notes }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Firmas y Autorizaciones -->
+        <div class="signatures-grid">
+            <div class="sig-block">
+                <div class="sig-line"></div>
+                <div class="sig-label">Elaborado por</div>
+                <div class="sig-name">{{ order.createdBy or 'Departamento de Compras' }}</div>
+            </div>
+            <div class="sig-block">
+                <div class="sig-line"></div>
+                <div class="sig-label">Aprobado por</div>
+                <div class="sig-name">{{ order.approvedBy or 'Gerencia General / Compras' }}</div>
+            </div>
+            <div class="sig-block">
+                <div class="sig-line"></div>
+                <div class="sig-label">Recibido Conforme (Proveedor)</div>
+                <div class="sig-name">{{ order.supplierName or 'Firma y Sello' }}</div>
+            </div>
+        </div>
+
+        <!-- Pie de Página -->
+        <div class="doc-footer">
+            Documento generado por <strong>{{ product_name }} ERP</strong> · Facturación Electrónica y Gestión Empresarial
+        </div>
+
+    </div>
+
+</body>
+</html>

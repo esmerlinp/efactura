@@ -430,6 +430,44 @@ def purchase_order_detail(po_id):
                            active_page='purchase_orders')
 
 
+@web_purchase_orders_bp.route('/purchase-orders/<po_id>/pdf')
+def purchase_order_pdf(po_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')):
+        return render_template('auth/restricted.html', active_page='purchase_orders', feature_name="Órdenes de Compra", required_permission="canManagePurchaseOrders"), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    order = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
+    if not order:
+        flash('❌ Orden de compra no encontrada.', 'error')
+        return redirect(url_for('web_purchase_orders.list_purchase_orders'))
+
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
+    branch = next((b for b in branches if b.get('id') == order.get("branchId")), None) if branches else None
+
+    action = request.args.get('action', 'download')
+    po_num = order.get('poNumber', po_id)
+
+    if WEASYPRINT_AVAILABLE and action == 'download':
+        rendered_html = render_template('purchase_orders/purchase_order_pdf.html',
+            order=order, company=company, branch=branch, auto_print=False, sandbox=sandbox)
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename="Orden_Compra_{po_num}.pdf"'
+        return response
+    else:
+        rendered_html = render_template('purchase_orders/purchase_order_pdf.html',
+            order=order, company=company, branch=branch, auto_print=True, sandbox=sandbox)
+        response = make_response(rendered_html)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        return response
+
+
 @web_purchase_orders_bp.route('/purchase-orders/<po_id>/comments/new', methods=['POST'])
 def add_po_comment(po_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
