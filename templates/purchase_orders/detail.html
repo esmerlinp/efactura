@@ -660,9 +660,15 @@
             <a href="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=order.id) }}" class="btn btn-secondary" style="font-size:0.82rem; padding:8px 16px;">
                 <i class="fa-solid fa-pen-to-square"></i> Editar
             </a>
+            {% if approval_allowed %}
             <button type="button" class="btn btn-success" onclick="approvePO()" style="font-size:0.82rem; padding:8px 16px; font-weight:700;">
                 <i class="fa-solid fa-check"></i> Aprobar
             </button>
+            {% elif self_approval_blocked %}
+            <button type="button" class="btn btn-secondary" disabled style="font-size:0.82rem; padding:8px 16px; opacity:0.65; cursor:not-allowed;" title="Control Interno: No puedes auto-aprobar una orden creada por ti mismo.">
+                <i class="fa-solid fa-shield-halved" style="color:var(--accent-amber);"></i> Requiere 2do Aprobador
+            </button>
+            {% endif %}
             {% endif %}
 
             {% if order.status == 'aprobada' or order.status == 'recibida_parcial' %}
@@ -678,6 +684,16 @@
             {% endif %}
         </div>
     </div>
+
+    {% if order.status in ('borrador', 'pendiente_aprobacion') and self_approval_blocked %}
+    <div style="background:rgba(245, 158, 11, 0.08); border:1px solid rgba(245, 158, 11, 0.4); border-radius:10px; padding:14px 18px; margin-bottom:18px; display:flex; align-items:center; gap:14px;">
+        <i class="fa-solid fa-shield-halved" style="font-size:1.4rem; color:var(--accent-amber, #f59e0b);"></i>
+        <div style="font-size:0.88rem; color:var(--text-primary); line-height:1.45;">
+            <strong>Control Interno (Segregación de Funciones):</strong>
+            Esta orden de compra fue creada por ti. Conforme a las políticas de control interno (principio de cuatro ojos), debe ser revisada y aprobada por otro usuario autorizado o el propietario de la empresa.
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Summary KPI Strip -->
     {% set items_list = order.get('items', []) %}
@@ -1284,9 +1300,15 @@
 
                 <!-- Botón Principal de Flujo -->
                 {% if order.status in ('borrador', 'pendiente_aprobacion') %}
+                {% if approval_allowed %}
                 <button type="button" class="sidebar-action-btn btn-success" onclick="approvePO()" style="background:var(--accent-emerald, #10b981); color:#fff;">
                     <i class="fa-solid fa-check"></i> Aprobar Orden
                 </button>
+                {% elif self_approval_blocked %}
+                <div style="background:rgba(245, 158, 11, 0.12); border:1px dashed var(--accent-amber, #f59e0b); border-radius:8px; padding:10px; font-size:0.78rem; color:var(--text-secondary); margin-bottom:10px; text-align:center;">
+                    <i class="fa-solid fa-shield-halved" style="color:var(--accent-amber);"></i> Esperando aprobación de otro usuario (SoD)
+                </div>
+                {% endif %}
                 <a href="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=order.id) }}" class="sidebar-action-btn btn-secondary">
                     <i class="fa-solid fa-pen-to-square"></i> Editar Datos
                 </a>
