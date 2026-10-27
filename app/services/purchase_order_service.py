@@ -184,7 +184,7 @@ class PurchaseOrderService:
         return new_status in ALLOWED_TRANSITIONS.get(current, set())
 
     @classmethod
-    def update_status(cls, owner_uid=None, po_id=None, new_status=None, sandbox=True, user="", company_id=None, enforce=True):
+    def update_status(cls, owner_uid=None, po_id=None, new_status=None, sandbox=True, user="", company_id=None, enforce=True, approver_uid="", approver_email=""):
         po = cls.get_purchase_order(owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id)
         if not po:
             return None
@@ -197,9 +197,17 @@ class PurchaseOrderService:
         now = serialize_field(datetime.now(timezone.utc))
         if new_status == "aprobada":
             po["approvedBy"] = user
+            if approver_uid:
+                po["approvedByUid"] = approver_uid
+            if approver_email:
+                po["approvedByEmail"] = approver_email
             po["approvedAt"] = now
         elif new_status in ("recibida_parcial", "recibida_completa"):
             po["receivedBy"] = user
+            if approver_uid:
+                po["receivedByUid"] = approver_uid
+            if approver_email:
+                po["receivedByEmail"] = approver_email
             po["receivedAt"] = now
         cls.save_purchase_order(owner_uid=owner_uid, po_id=po_id, po_dict=po, sandbox=sandbox, company_id=company_id)
         return po

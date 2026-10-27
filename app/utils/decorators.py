@@ -17,6 +17,8 @@ SOD_CONFLICT_MATRIX = {
     "canApprovePayroll": {"conflicts": ["canHR"], "label": "autorizar pagos de nómina"},
     "canExpenses": {"conflicts": ["canApproveExpenses"], "label": "registrar gastos"},
     "canApproveExpenses": {"conflicts": ["canExpenses"], "label": "aprobar gastos"},
+    "canManagePurchaseOrders": {"conflicts": ["canApprovePurchaseOrders"], "label": "crear/gestionar órdenes de compra"},
+    "canApprovePurchaseOrders": {"conflicts": ["canManagePurchaseOrders"], "label": "aprobar órdenes de compra"},
     "canModifySettings": {"conflicts": ["canViewAuditLog"], "label": "modificar configuración"},
     "canViewAuditLog": {"conflicts": ["canModifySettings"], "label": "ver pistas de auditoría"},
 }
@@ -168,6 +170,11 @@ def check_permission(permission_name):
         if 'canExpenses' in user_perms:
             return bool(user_perms['canExpenses'])
         return True
+
+    if permission_name in ('canApprovePurchaseOrders', 'canSelfApprovePurchaseOrders'):
+        if permission_name in user_perms:
+            return bool(user_perms[permission_name])
+        return False
 
     if permission_name == 'canManagePurchaseCreditNotes':
         if 'canManagePurchaseCreditNotes' in user_perms:
@@ -388,7 +395,7 @@ def get_user_landing_url():
     if module_enabled('cxp_compras'):
         if check_permission('canManagePurchaseCXP'):
             return url_for('web_purchase_orders.list_supplier_invoices')
-        if check_permission('canManagePurchaseOrders'):
+        if check_permission('canManagePurchaseOrders') or check_permission('canApprovePurchaseOrders'):
             return url_for('web_purchase_orders.list_purchase_orders')
         if check_permission('canManagePurchaseCreditNotes'):
             return url_for('web_purchase_orders.list_credit_notes')

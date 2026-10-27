@@ -251,7 +251,7 @@
 {% endif %}
 
 <!-- SECCIÓN: COMPRAS Y PROVEEDORES -->
-{% if (module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseCXP') or check_permission('canManagePurchaseOrders') or check_permission('canManagePurchaseCreditNotes') or check_permission('canManageSuppliers'))) or (module_enabled('gastos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canExpenses') or check_permission('canManageMinorExpenses') or check_permission('canManageRecurringExpenses'))) or (module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageReceivedECF'))) %}
+{% if (module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseCXP') or check_permission('canManagePurchaseOrders') or check_permission('canApprovePurchaseOrders') or check_permission('canManagePurchaseCreditNotes') or check_permission('canManageSuppliers'))) or (module_enabled('gastos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canExpenses') or check_permission('canManageMinorExpenses') or check_permission('canManageRecurringExpenses'))) or (module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageReceivedECF'))) %}
 <div class="sidebar-section" id="sidebar-section-compras">
     <div class="sidebar-section-header">
         <div class="header-left">
@@ -269,7 +269,7 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')) %}
+        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders') or check_permission('canApprovePurchaseOrders')) %}
         <li class="nav-item {% if active_page == 'purchase_orders' %}active{% endif %}"
             data-tooltip="Crea órdenes de compra para solicitar a tus proveedores mercancías o servicios. Este documento es de control y no genera movimientos en tu inventario.">
             <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}">

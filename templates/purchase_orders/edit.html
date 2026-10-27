@@ -1,119 +1,133 @@
 {% extends "layout.html" %}
 
-{% block title %}Editar Orden de Compra{% endblock %}
+{% block title %}Editar {{ order.get('poNumber', '') }}{% endblock %}
 {% block page_header %}Editar Orden de Compra{% endblock %}
 
 {% block content %}
+<style>
+    .doc-main-col { max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:24px; }
+</style>
+<div class="doc-main-col">
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
     <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
         <i class="fa-solid fa-cart-shopping" style="color:var(--accent-purple); margin-right:10px;"></i>
-        Editar {{ order.poNumber }}
+        Editar Orden de Compra
     </h1>
     <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
-        Estado: <strong>{{ order.status|default('borrador') }}</strong>
+        OC# <strong>{{ order.get('poNumber', '') }}</strong> &middot; Estado: <strong>{{ (order.get('status', 'borrador'))|capitalize }}</strong>
     </p>
 </div>
 
-<form method="POST" action="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=order.id) }}" id="po-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+<form method="POST" action="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=order.get('id', '')) }}" id="po-form" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-file-lines"></i>
+            </div>
+            <h3>Encabezado</h3>
+        </div>
+        <div class="form-grid">
             <div class="form-group">
                 <label>OC #</label>
-                <input type="text" class="form-input" value="{{ order.poNumber or '' }}" readonly style="font-family:monospace; font-weight:700; background:rgba(0,0,0,0.03);">
+                <input type="text" class="form-input" value="{{ order.get('poNumber', '') }}" readonly style="font-family:monospace; font-weight:700; background:rgba(0,0,0,0.03);">
+            </div>
+            <div class="form-group">
+                <label>Estado</label>
+                <input type="text" class="form-input" value="{{ (order.get('status', 'borrador'))|capitalize }}" readonly style="background:rgba(0,0,0,0.03);">
             </div>
             <div class="form-group">
                 <label for="orderDate">Fecha de Orden *</label>
-                <input type="date" id="orderDate" name="orderDate" class="form-input" value="{{ order.orderDate or today }}" required>
+                <input type="date" id="orderDate" name="orderDate" class="form-input" value="{{ order.get('orderDate') or order.get('issueDate') or today|default('') }}" required>
             </div>
             <div class="form-group">
                 <label for="expectedDate">Fecha Esperada de Entrega</label>
-                <input type="date" id="expectedDate" name="expectedDate" class="form-input" value="{{ order.expectedDate or '' }}">
-            </div>
-            <div class="form-group">
-                <label for="deliveryAddress">Dirección de Entrega</label>
-                <input type="text" id="deliveryAddress" name="deliveryAddress" class="form-input" value="{{ order.deliveryAddress or '' }}" placeholder="Dirección donde recibir la mercancía">
+                <input type="date" id="expectedDate" name="expectedDate" class="form-input" value="{{ order.get('expectedDate') or order.get('deliveryDate') or '' }}">
             </div>
         </div>
     </div>
 
-    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
-        <h4 style="font-size:1rem; font-weight:700; font-family:var(--font-heading); margin-bottom:16px;">
-            <i class="fa-solid fa-truck" style="margin-right:8px; color:var(--accent-purple);"></i> Proveedor
-        </h4>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
-            <div class="form-group span-full" style="position:relative;">
-                <label for="supplier-search">Buscar Proveedor</label>
-                <input type="text" id="supplier-search" class="form-input" value="{{ order.supplierName or '' }}" placeholder="Buscar proveedor..." autocomplete="off" style="width:100%;">
-                <div id="supplier-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:250px; overflow-y:auto; margin-top:4px;"></div>
-                <input type="hidden" id="supplierId" name="supplierId" value="{{ order.supplierId or '' }}">
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-truck"></i>
+            </div>
+            <h3>Proveedor</h3>
+        </div>
+        <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1; position:relative;">
+                <label for="supplier-search">Buscar Proveedor <span style="font-size:0.7rem; color:var(--text-muted);">(opcional — escribe nombre o RNC)</span></label>
+                <input type="text" id="supplier-search" class="form-input" value="{{ order.get('supplierName', '') }}" placeholder="Buscar proveedor..." autocomplete="off" style="width:100%;">
+                <div id="supplier-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:250px; overflow-y:auto; margin-top:4px;"></div>
+                <input type="hidden" id="supplierId" name="supplierId" value="{{ order.get('supplierId', '') }}">
             </div>
             <div class="form-group">
                 <label for="supplierName">Razón Social</label>
-                <input type="text" id="supplierName" name="supplierName" class="form-input" value="{{ order.supplierName or '' }}">
+                <input type="text" id="supplierName" name="supplierName" class="form-input" value="{{ order.get('supplierName', '') }}" placeholder="Nombre del proveedor">
             </div>
             <div class="form-group">
                 <label for="supplierRnc">RNC</label>
-                <input type="text" id="supplierRnc" name="supplierRnc" class="form-input mono" value="{{ order.supplierRnc or '' }}">
-            </div>
-            <div class="form-group">
-                <label for="paymentTerms">Términos de Pago</label>
-                <select id="paymentTerms" name="paymentTerms" class="form-select">
-                    <option value="contado" {% if order.paymentTerms == 'contado' %}selected{% endif %}>Contado</option>
-                    <option value="credito_15d" {% if order.paymentTerms == 'credito_15d' %}selected{% endif %}>Crédito 15 Días</option>
-                    <option value="credito_30d" {% if order.paymentTerms == 'credito_30d' %}selected{% endif %}>Crédito 30 Días</option>
-                    <option value="credito_45d" {% if order.paymentTerms == 'credito_45d' %}selected{% endif %}>Crédito 45 Días</option>
-                    <option value="credito_60d" {% if order.paymentTerms == 'credito_60d' %}selected{% endif %}>Crédito 60 Días</option>
-                    <option value="credito_90d" {% if order.paymentTerms == 'credito_90d' %}selected{% endif %}>Crédito 90 Días</option>
-                </select>
+                <input type="text" id="supplierRnc" name="supplierRnc" class="form-input mono" value="{{ order.get('supplierRnc', '') }}" placeholder="101001011">
             </div>
             <div class="form-group">
                 <label for="deliveryAddress">Dirección de Entrega</label>
-                <input type="text" id="deliveryAddress" name="deliveryAddress" class="form-input" value="{{ order.deliveryAddress or '' }}" placeholder="Dirección donde recibir la mercancía">
+                <input type="text" id="deliveryAddress" name="deliveryAddress" class="form-input" value="{{ order.get('deliveryAddress', '') }}" placeholder="Dirección donde recibir la mercancía">
             </div>
             <div class="form-group">
                 <label for="warehouseId">Almacén Sugerido de Destino</label>
                 <select id="warehouseId" name="warehouseId" class="form-select">
                     <option value="">-- Sin almacén predeterminado --</option>
-                    {% for w in warehouses %}
-                    <option value="{{ w.id }}" {% if order.warehouseId == w.id %}selected{% endif %}>{{ w.name }}</option>
+                    {% for w in warehouses|default([]) %}
+                    <option value="{{ w.id }}" {% if order.get('warehouseId') == w.id %}selected{% endif %}>{{ w.name }}</option>
                     {% endfor %}
                 </select>
                 <small style="color:var(--text-muted); display:block; font-size:0.75rem; margin-top:4px;">Almacén sugerido para recibir la mercancía.</small>
             </div>
             <div class="form-group">
-                <label for="projectId">Proyecto</label>
-                <select id="projectId" name="projectId" class="form-select" style="width:100%;">
-                    <option value="" {% if not order.projectId %}selected{% endif %}>Sin proyecto</option>
-                    {% for p in projects %}
-                    <option value="{{ p.id }}" {% if p.id == order.projectId %}selected{% endif %}>{{ p.name }} ({{ p.code }})</option>
-                    {% endfor %}
+                <label for="paymentTerms">Términos de Pago</label>
+                <select id="paymentTerms" name="paymentTerms" class="form-select">
+                    <option value="contado" {% if order.get('paymentTerms') == 'contado' %}selected{% endif %}>Contado</option>
+                    <option value="credito_15d" {% if order.get('paymentTerms') == 'credito_15d' %}selected{% endif %}>Crédito 15 Días</option>
+                    <option value="credito_30d" {% if order.get('paymentTerms') == 'credito_30d' %}selected{% endif %}>Crédito 30 Días</option>
+                    <option value="credito_45d" {% if order.get('paymentTerms') == 'credito_45d' %}selected{% endif %}>Crédito 45 Días</option>
+                    <option value="credito_60d" {% if order.get('paymentTerms') == 'credito_60d' %}selected{% endif %}>Crédito 60 Días</option>
+                    <option value="credito_90d" {% if order.get('paymentTerms') == 'credito_90d' %}selected{% endif %}>Crédito 90 Días</option>
                 </select>
-                <small style="color:var(--text-muted); display:block; font-size:0.75rem; margin-top:4px;">Asocia este registro a un proyecto específico (opcional).</small>
             </div>
             <div class="form-group" style="display:flex; gap:12px;">
                 <div style="flex:1;">
                     <label for="currency">Moneda</label>
                     <select id="currency" name="currency" class="form-select">
-                        <option value="DOP" {% if order.currency == 'DOP' or not order.currency %}selected{% endif %}>RD$ (DOP)</option>
-                        <option value="USD" {% if order.currency == 'USD' %}selected{% endif %}>US$ (USD)</option>
-                        <option value="EUR" {% if order.currency == 'EUR' %}selected{% endif %}>€ (EUR)</option>
+                        <option value="DOP" {% if order.get('currency') == 'DOP' or not order.get('currency') %}selected{% endif %}>RD$ (DOP)</option>
+                        <option value="USD" {% if order.get('currency') == 'USD' %}selected{% endif %}>US$ (USD)</option>
+                        <option value="EUR" {% if order.get('currency') == 'EUR' %}selected{% endif %}>€ (EUR)</option>
                     </select>
                 </div>
                 <div style="flex:1;">
                     <label for="exchangeRate">Tasa de Cambio</label>
-                    <input type="number" id="exchangeRate" name="exchangeRate" class="form-input" value="{{ order.exchangeRate|default(1.0) }}" step="0.01" min="0.01">
+                    <input type="number" id="exchangeRate" name="exchangeRate" class="form-input" value="{{ order.get('exchangeRate', 1.0) }}" step="0.01" min="0.01">
                 </div>
+            </div>
+            <div class="form-group">
+                <label for="projectId">Proyecto</label>
+                <select id="projectId" name="projectId" class="form-select" style="width:100%;">
+                    <option value="" {% if not order.get('projectId') %}selected{% endif %}>Sin proyecto</option>
+                    {% for p in projects|default([]) %}
+                    <option value="{{ p.id }}" {% if p.id == order.get('projectId') %}selected{% endif %}>{{ p.name }} ({{ p.code }})</option>
+                    {% endfor %}
+                </select>
+                <small style="color:var(--text-muted); display:block; font-size:0.75rem; margin-top:4px;">Asocia este registro a un proyecto específico (opcional).</small>
             </div>
         </div>
     </div>
 
-    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h4 style="font-size:1rem; font-weight:700; font-family:var(--font-heading); margin:0;">
-                <i class="fa-solid fa-box" style="margin-right:8px; color:var(--accent-purple);"></i> Productos / Servicios
-            </h4>
-            <button type="button" id="btn-add-item" class="btn btn-secondary">
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-box"></i>
+            </div>
+            <h3 style="flex-grow:1;">Productos / Servicios</h3>
+            <button type="button" id="btn-add-item" class="btn btn-secondary" style="padding:6px 14px; font-size:0.82rem;">
                 <i class="fa-solid fa-plus"></i> Añadir Partida
             </button>
         </div>
@@ -132,45 +146,50 @@
                     </tr>
                 </thead>
                 <tbody id="items-body">
-                    {% if order['items'] and order['items']|length > 0 %}
-                    {% for item in order['items'] %}
+                    {% if order.get('items') and order.get('items')|length > 0 %}
+                    {% for item in order.get('items') %}
+                    {% set item_itbis = item.get('itbisRate', 0.18)|float if item.get('itbisRate') is not none else 0.18 %}
                     <tr class="item-row">
                         <td>
                             <div style="position:relative;">
-                                <input type="text" class="form-input item-name" name="items[][name]" value="{{ item.name or '' }}" placeholder="Buscar en catálogo o escribir..." required autocomplete="off" style="width:100%;">
-                                <input type="hidden" name="items[][id]" value="{{ item.id or '' }}">
-                                <input type="hidden" class="item-id" name="items[][itemId]" value="{{ item.itemId or '' }}">
-                                <input type="hidden" class="item-code" name="items[][itemCode]" value="{{ item.itemCode or '' }}">
-                                <input type="hidden" class="item-track-lots" name="items[][trackLots]" value="{{ 1 if item.trackLots else 0 }}">
-                                <input type="hidden" class="item-is-inv" name="items[][isInventoriable]" value="{{ 0 if item.isInventoriable is false else 1 }}">
+                                <input type="text" class="form-input item-name" name="items[][name]" value="{{ item.get('name', '') }}" placeholder="Buscar en catálogo o escribir..." required autocomplete="off" style="width:100%;">
+                                <input type="hidden" name="items[][id]" value="{{ item.get('id', '') }}">
+                                <input type="hidden" class="item-id" name="items[][itemId]" value="{{ item.get('itemId', '') }}">
+                                <input type="hidden" class="item-code" name="items[][itemCode]" value="{{ item.get('itemCode', '') }}">
+                                <input type="hidden" class="item-track-lots" name="items[][trackLots]" value="{{ 1 if item.get('trackLots') else 0 }}">
+                                <input type="hidden" class="item-is-inv" name="items[][isInventoriable]" value="{{ 0 if item.get('isInventoriable') is false else 1 }}">
                                 <div class="item-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:220px; overflow-y:auto; margin-top:2px;"></div>
                             </div>
                         </td>
                         <td>
-                            <input type="number" class="form-input item-qty" name="items[][quantity]" value="{{ item.quantity|default(1) }}" min="0.01" step="0.01" required style="text-align:center; width:100%;">
+                            <input type="number" class="form-input item-qty" name="items[][quantity]" value="{{ item.get('quantity', 1) }}" min="0.01" step="0.01" required style="text-align:center; width:100%;">
                         </td>
                         <td>
                             <select class="form-select item-unit" name="items[][unit]" style="width:100%;">
-                                {% for u in ['Unidad', 'Caja', 'Kg', 'Lb', 'Galón', 'Litro', 'Hora', 'Servicio', 'Lote'] %}
-                                <option value="{{ u }}" {% if item.unit == u %}selected{% endif %}>{{ u }}</option>
+                                {% set units = ['Unidad', 'Caja', 'Kg', 'Lb', 'Galón', 'Litro', 'Hora', 'Servicio', 'Lote'] %}
+                                {% if item.get('unit') and item.get('unit') not in units %}
+                                <option value="{{ item.get('unit') }}" selected>{{ item.get('unit') }}</option>
+                                {% endif %}
+                                {% for u in units %}
+                                <option value="{{ u }}" {% if item.get('unit') == u %}selected{% endif %}>{{ u }}</option>
                                 {% endfor %}
                             </select>
                         </td>
                         <td>
-                            <input type="number" class="form-input item-price" name="items[][unitPrice]" value="{{ item.unitPrice|default(0) }}" step="0.01" min="0" required style="text-align:right; width:100%;">
+                            <input type="number" class="form-input item-price" name="items[][unitPrice]" value="{{ item.get('unitPrice', 0) }}" step="0.01" min="0" required style="text-align:right; width:100%;">
                         </td>
                         <td>
                             <select class="form-select item-itbis" name="items[][itbisRate]">
-                                <option value="0.18" {% if item.itbisRate == 0.18 or item.itbisRate is undefined %}selected{% endif %}>18%</option>
-                                <option value="0.16" {% if item.itbisRate == 0.16 %}selected{% endif %}>16%</option>
-                                <option value="0.0" {% if item.itbisRate == 0.0 %}selected{% endif %}>Exento</option>
+                                <option value="0.18" {% if item_itbis == 0.18 %}selected{% endif %}>18%</option>
+                                <option value="0.16" {% if item_itbis == 0.16 %}selected{% endif %}>16%</option>
+                                <option value="0.0" {% if item_itbis == 0.0 %}selected{% endif %}>Exento</option>
                             </select>
                         </td>
                         <td>
-                            <input type="number" class="form-input item-discount" name="items[][discount]" value="{{ item.discount|default(0) }}" step="0.01" min="0" max="100" style="text-align:right; width:100%;">
+                            <input type="number" class="form-input item-discount" name="items[][discount]" value="{{ item.get('discount', 0) }}" step="0.01" min="0" max="100" style="text-align:right; width:100%;">
                         </td>
                         <td style="text-align:right; vertical-align:middle;">
-                            <strong class="item-total-label">RD$ {{ "{:,.2f}".format(item.total|default(0)) }}</strong>
+                            <strong class="item-total-label">RD$ {{ "{:,.2f}".format(item.get('total', 0)|float) }}</strong>
                         </td>
                         <td style="text-align:center;">
                             <button type="button" class="btn btn-danger btn-sm btn-remove-row" style="padding:4px 8px; font-size:0.75rem;">
@@ -235,22 +254,22 @@
                 <tfoot>
                     <tr>
                         <td colspan="5" style="text-align:right; font-weight:600; padding:8px 12px;">Subtotal</td>
-                        <td id="sum-subtotal" style="text-align:right; font-weight:600; padding:8px 12px;">RD$ {{ "{:,.2f}".format(order.subtotal|default(0)) }}</td>
+                        <td id="sum-subtotal" style="text-align:right; font-weight:600; padding:8px 12px;">RD$ {{ "{:,.2f}".format(order.get('subtotal', 0)|float) }}</td>
                         <td></td>
                     </tr>
                     <tr>
                         <td colspan="5" style="text-align:right; font-size:0.82rem; padding:4px 12px; color:var(--text-secondary);">Descuento</td>
-                        <td id="sum-discount" style="text-align:right; font-size:0.82rem; padding:4px 12px; color:var(--text-secondary);">RD$ {{ "{:,.2f}".format(order.discount|default(0)) }}</td>
+                        <td id="sum-discount" style="text-align:right; font-size:0.82rem; padding:4px 12px; color:var(--text-secondary);">RD$ {{ "{:,.2f}".format(order.get('discount', 0)|float) }}</td>
                         <td></td>
                     </tr>
                     <tr>
                         <td colspan="5" style="text-align:right; font-size:0.82rem; padding:4px 12px; color:var(--text-secondary);">ITBIS</td>
-                        <td id="sum-itbis" style="text-align:right; font-size:0.82rem; padding:4px 12px; color:var(--text-secondary);">RD$ {{ "{:,.2f}".format(order.itbis|default(0)) }}</td>
+                        <td id="sum-itbis" style="text-align:right; font-size:0.82rem; padding:4px 12px; color:var(--text-secondary);">RD$ {{ "{:,.2f}".format(order.get('itbis', 0)|float) }}</td>
                         <td></td>
                     </tr>
                     <tr>
                         <td colspan="5" style="text-align:right; font-weight:700; font-size:1.05rem; padding:10px 12px; border-top:2px solid var(--border-color);">Total</td>
-                        <td id="sum-total" style="text-align:right; font-weight:700; font-size:1.05rem; padding:10px 12px; border-top:2px solid var(--border-color);">RD$ {{ "{:,.2f}".format(order.total|default(0)) }}</td>
+                        <td id="sum-total" style="text-align:right; font-weight:700; font-size:1.05rem; padding:10px 12px; border-top:2px solid var(--border-color);">RD$ {{ "{:,.2f}".format(order.get('total', 0)|float) }}</td>
                         <td></td>
                     </tr>
                 </tfoot>
@@ -258,63 +277,119 @@
         </div>
     </div>
 
-    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
-        <h4 style="font-size:1rem; font-weight:700; font-family:var(--font-heading); margin-bottom:16px;">
-            <i class="fa-solid fa-note-sticky" style="margin-right:8px; color:var(--accent-purple);"></i> Notas
-        </h4>
-        <div class="form-group">
-            <label for="notes">Notas</label>
-            <textarea id="notes" name="notes" class="form-input" rows="3">{{ order.notes or '' }}</textarea>
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-note-sticky"></i>
+            </div>
+            <h3>Notas</h3>
         </div>
-        <div class="form-group">
-            <label for="internalNotes">Notas Internas</label>
-            <textarea id="internalNotes" name="internalNotes" class="form-input" rows="2">{{ order.internalNotes or '' }}</textarea>
+        <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1;">
+                <label for="notes">Notas (visibles para el proveedor)</label>
+                <textarea id="notes" name="notes" class="form-input" rows="3" placeholder="Condiciones especiales, instrucciones de entrega, etc.">{{ order.get('notes', '') }}</textarea>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+                <label for="internalNotes">Notas Internas</label>
+                <textarea id="internalNotes" name="internalNotes" class="form-input" rows="2" placeholder="Notas visibles solo internamente.">{{ order.get('internalNotes', '') }}</textarea>
+            </div>
         </div>
     </div>
 
-    <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:24px; padding:16px 0;">
-        <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=order.id) }}" class="btn btn-secondary">
-            <i class="fa-solid fa-xmark"></i> Cancelar
+    <!-- BARRA DE ACCIONES FINAL -->
+    <div style="display:flex; justify-content:flex-end; gap:15px; border-top:1px solid var(--border-color); padding-top:24px; margin-bottom:12px;">
+        <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=order.get('id', '')) }}" class="btn btn-secondary">
+            <span>Cancelar</span>
         </a>
-        <button type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary" style="padding:14px 28px;">
             <i class="fa-solid fa-floppy-disk"></i> Guardar Cambios
         </button>
     </div>
 </form>
 
 <script>
+const suppliersList = {{ suppliers | tojson | safe if suppliers else '[]' }};
 let supplierSearchTimeout = null;
 const supplierSearchInput = document.getElementById('supplier-search');
 const supplierSearchResults = document.getElementById('supplier-search-results');
+const supplierNameInput = document.getElementById('supplierName');
+const supplierRncInput = document.getElementById('supplierRnc');
+const supplierIdInput = document.getElementById('supplierId');
+
+function setRncStatus(text, color) {
+    let el = document.getElementById('rnc-status');
+    if (!el) {
+        el = document.createElement('small');
+        el.id = 'rnc-status';
+        el.style.display = 'block';
+        el.style.fontSize = '0.72rem';
+        el.style.fontWeight = '600';
+        el.style.marginTop = '6px';
+        supplierRncInput.parentElement && supplierRncInput.parentElement.appendChild(el);
+    }
+    if (!color) color = 'var(--text-muted)';
+    el.style.color = color;
+    el.textContent = text;
+}
+
+function selectSupplier(s) {
+    document.getElementById('supplierId').value = s.id || '';
+    document.getElementById('supplierName').value = s.name || s.razonSocial || '';
+    document.getElementById('supplierRnc').value = s.rnc || '';
+    document.getElementById('supplier-search').value = s.name || s.razonSocial || '';
+    document.getElementById('supplier-search-results').style.display = 'none';
+    setRncStatus('✓ Proveedor existente', '#10b981');
+}
 
 if (supplierSearchInput) {
     supplierSearchInput.addEventListener('input', function() {
-        clearTimeout(supplierSearchTimeout);
-        const q = this.value.trim();
+        const q = (this.value || '').toLowerCase().trim();
         if (q.length < 2) { supplierSearchResults.style.display = 'none'; return; }
-        supplierSearchTimeout = setTimeout(() => {
-            fetch('/api/suppliers/search?q=' + encodeURIComponent(q))
-                .then(res => res.json())
-                .then(data => {
-                    supplierSearchResults.innerHTML = '';
-                    if (data.success && data.suppliers.length) {
-                        data.suppliers.forEach(s => {
-                            const div = document.createElement('div');
-                            div.style.cssText = 'padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); display:flex; flex-direction:column; gap:2px;';
-                            div.onmouseenter = function() { this.style.background = 'rgba(255,255,255,0.04)'; };
-                            div.onmouseleave = function() { this.style.background = 'transparent'; };
-                            div.onclick = function() { selectSupplier(s); };
-                            div.innerHTML = '<span style="font-weight:600; font-size:0.82rem;">' + s.name + '</span>' +
-                                '<span style="font-size:0.7rem; color:var(--text-muted);">RNC: ' + (s.rnc || '—') + '</span>';
-                            supplierSearchResults.appendChild(div);
-                        });
-                        supplierSearchResults.style.display = 'block';
-                    } else {
-                        supplierSearchResults.style.display = 'none';
-                    }
-                })
-                .catch(() => { supplierSearchResults.style.display = 'none'; });
-        }, 300);
+        const matches = (suppliersList || []).filter(function(s) {
+            const name = (s.name || s.razonSocial || '').toLowerCase();
+            const rnc = (s.rnc || '').replace(/[^0-9]/g, '');
+            return name.includes(q) || (q.replace(/[^0-9]/g, '') && rnc.includes(q.replace(/[^0-9]/g, '')));
+        }).slice(0, 10);
+        
+        supplierSearchResults.innerHTML = '';
+        if (matches.length > 0) {
+            matches.forEach(function(s) {
+                const div = document.createElement('div');
+                div.style.cssText = 'padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); display:flex; flex-direction:column; gap:2px;';
+                div.onmouseenter = function() { this.style.background = 'rgba(255,255,255,0.04)'; };
+                div.onmouseleave = function() { this.style.background = 'transparent'; };
+                div.onclick = function() { selectSupplier(s); };
+                div.innerHTML = '<span style="font-weight:600; font-size:0.82rem;">' + (s.name || s.razonSocial || '') + '</span>' +
+                    '<span style="font-size:0.7rem; color:var(--text-muted);">RNC: ' + (s.rnc || '—') + '</span>';
+                supplierSearchResults.appendChild(div);
+            });
+            supplierSearchResults.style.display = 'block';
+        } else {
+            clearTimeout(supplierSearchTimeout);
+            supplierSearchTimeout = setTimeout(() => {
+                fetch('/api/suppliers/search?q=' + encodeURIComponent(q))
+                    .then(res => res.json())
+                    .then(data => {
+                        supplierSearchResults.innerHTML = '';
+                        if (data.success && data.suppliers && data.suppliers.length) {
+                            data.suppliers.forEach(s => {
+                                const div = document.createElement('div');
+                                div.style.cssText = 'padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); display:flex; flex-direction:column; gap:2px;';
+                                div.onmouseenter = function() { this.style.background = 'rgba(255,255,255,0.04)'; };
+                                div.onmouseleave = function() { this.style.background = 'transparent'; };
+                                div.onclick = function() { selectSupplier(s); };
+                                div.innerHTML = '<span style="font-weight:600; font-size:0.82rem;">' + s.name + '</span>' +
+                                    '<span style="font-size:0.7rem; color:var(--text-muted);">RNC: ' + (s.rnc || '—') + '</span>';
+                                supplierSearchResults.appendChild(div);
+                            });
+                            supplierSearchResults.style.display = 'block';
+                        } else {
+                            supplierSearchResults.style.display = 'none';
+                        }
+                    })
+                    .catch(() => { supplierSearchResults.style.display = 'none'; });
+            }, 250);
+        }
     });
 
     document.addEventListener('click', function(e) {
@@ -324,42 +399,24 @@ if (supplierSearchInput) {
     });
 }
 
-function setRncStatus(text, color) {
-    const rncInput = document.getElementById('supplierRnc');
-    if (!rncInput) return;
-    let el = document.getElementById('rnc-status');
-    if (!el) {
-        el = document.createElement('small');
-        el.id = 'rnc-status';
-        el.style.display = 'block';
-        el.style.fontSize = '0.72rem';
-        el.style.fontWeight = '600';
-        el.style.marginTop = '6px';
-        rncInput.parentElement && rncInput.parentElement.appendChild(el);
-    }
-    if (!color) color = 'var(--text-muted)';
-    el.style.color = color;
-    el.textContent = text;
-}
-
-function selectSupplier(s) {
-    document.getElementById('supplierId').value = s.id || '';
-    document.getElementById('supplierName').value = s.name || '';
-    document.getElementById('supplierRnc').value = s.rnc || '';
-    supplierSearchInput.value = s.name || '';
-    supplierSearchResults.style.display = 'none';
-    setRncStatus('✓ Proveedor existente', '#10b981');
-}
-
-const supplierRncInput = document.getElementById('supplierRnc');
-const supplierNameInput = document.getElementById('supplierName');
 if (supplierRncInput) {
     supplierRncInput.addEventListener('input', function() {
         const clean = (this.value || '').replace(/[^0-9]/g, '');
         if (clean.length !== 9 && clean.length !== 11) {
+            supplierIdInput.value = '';
             setRncStatus('');
             return;
         }
+        // lookup local exacto
+        const found = (suppliersList || []).find(function(s) {
+            const sr = (s.rnc || '').replace(/[^0-9]/g, '');
+            return sr === clean;
+        });
+        if (found) {
+            selectSupplier(found);
+            return;
+        }
+        supplierIdInput.value = '';
         setRncStatus('⏳ Consultando DGII...', 'var(--accent-blue)');
         fetch('/api/rnc-lookup?rnc=' + encodeURIComponent(clean))
             .then(function(r) { return r.json(); })
@@ -379,18 +436,26 @@ if (supplierRncInput) {
                 setRncStatus('✗ Error al consultar DGII', '#ef4444');
             });
     });
+
+    if (supplierRncInput.value && supplierIdInput && supplierIdInput.value) {
+        setRncStatus('✓ Proveedor existente', '#10b981');
+    }
 }
 
+// ── Line Items ────────────────────────────────────────────────────
 function recalcRow(row) {
     const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
     const price = parseFloat(row.querySelector('.item-price').value) || 0;
     const itbisRate = parseFloat(row.querySelector('.item-itbis').value) || 0;
     const discountPct = parseFloat(row.querySelector('.item-discount').value) || 0;
+
     const lineSub = qty * price;
     const lineDiscount = lineSub * (discountPct / 100);
     const lineItbis = (lineSub - lineDiscount) * itbisRate;
     const lineTotal = lineSub - lineDiscount + lineItbis;
-    row.querySelector('.item-total-label').textContent = 'RD$ ' + lineTotal.toFixed(2);
+
+    const label = row.querySelector('.item-total-label');
+    label.textContent = 'RD$ ' + lineTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     recalcTotals();
 }
 
@@ -409,10 +474,10 @@ function recalcTotals() {
         totalItbis += lineItbis;
         totalAmt += lineSub - lineDiscount + lineItbis;
     });
-    document.getElementById('sum-subtotal').textContent = 'RD$ ' + totalSub.toFixed(2);
-    document.getElementById('sum-discount').textContent = 'RD$ ' + totalDiscount.toFixed(2);
-    document.getElementById('sum-itbis').textContent = 'RD$ ' + totalItbis.toFixed(2);
-    document.getElementById('sum-total').textContent = 'RD$ ' + totalAmt.toFixed(2);
+    document.getElementById('sum-subtotal').textContent = 'RD$ ' + totalSub.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('sum-discount').textContent = 'RD$ ' + totalDiscount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('sum-itbis').textContent = 'RD$ ' + totalItbis.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('sum-total').textContent = 'RD$ ' + totalAmt.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
 // ── Catalog Items & Search ────────────────────────────────────────
@@ -544,4 +609,5 @@ document.getElementById('btn-add-item').addEventListener('click', function() {
 document.querySelectorAll('.item-row').forEach(row => bindRowEvents(row));
 recalcTotals();
 </script>
+</div>
 {% endblock %}

@@ -223,7 +223,7 @@ MODULE_SINV = "Facturas Proveedor"
 def list_purchase_orders():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders') or check_permission('canApprovePurchaseOrders')) :
         return render_template('auth/restricted.html', active_page='purchase_orders', feature_name="Órdenes de Compra", required_permission="canManagePurchaseOrders"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -380,7 +380,10 @@ def new_purchase_order():
             "notes": request.form.get('notes', ''),
             "internalNotes": request.form.get('internalNotes', ''),
             "items": items,
-            "createdBy": session['user'].get('displayName', 'Usuario'),
+            "createdBy": session['user'].get('displayName') or session['user'].get('name', 'Usuario'),
+            "createdByUid": session['user'].get('uid', ''),
+            "createdByEmail": session['user'].get('email', ''),
+            "createdByName": session['user'].get('displayName') or session['user'].get('name', 'Usuario'),
             "branchId": g.get('branch_id', 'default-sucursal-principal'),
             "projectId": request.form.get('projectId') or g.get('project_id'),
         }
@@ -426,10 +429,9 @@ def new_purchase_order():
 def purchase_order_detail(po_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders') or check_permission('canApprovePurchaseOrders')):
         return render_template('auth/restricted.html', active_page='purchase_orders', feature_name="Órdenes de Compra", required_permission="canManagePurchaseOrders"), 403
     owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     order = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
@@ -442,11 +444,41 @@ def purchase_order_detail(po_id):
     order['supplier_invoices'] = supplier_invoices
     comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", po_id, sandbox=sandbox, company_id=company_id)
     taggable_users = _get_taggable_users(owner_uid, company_id=company_id)
+
+    user_sess = session.get('user', {})
+    is_owner = user_sess.get('role') == 'owner'
+    can_approve = is_owner or check_permission('canApprovePurchaseOrders')
+    can_self_approve = is_owner or check_permission('canSelfApprovePurchaseOrders')
+
+    current_uid = str(user_sess.get('uid') or '').strip()
+    current_email = str(user_sess.get('email') or '').lower().strip()
+    current_name = str(user_sess.get('displayName') or user_sess.get('name') or '').strip()
+
+    order_creator_uid = str(order.get('createdByUid') or '').strip()
+    order_creator_email = str(order.get('createdByEmail') or '').lower().strip()
+    order_creator_name = str(order.get('createdBy') or order.get('createdByName') or '').strip()
+
+    is_creator = False
+    if order_creator_uid and current_uid and order_creator_uid == current_uid:
+        is_creator = True
+    elif order_creator_email and current_email and order_creator_email == current_email:
+        is_creator = True
+    elif order_creator_name and current_name and order_creator_name.lower() == current_name.lower():
+        is_creator = True
+
+    approval_allowed = can_approve and (not is_creator or can_self_approve)
+    self_approval_blocked = can_approve and is_creator and not can_self_approve
+
     return render_template('purchase_orders/detail.html',
                            order=order,
                            comments=comments,
                            taggable_users=taggable_users,
                            format_mentions=format_mentions,
+                           can_approve=can_approve,
+                           is_creator=is_creator,
+                           can_self_approve=can_self_approve,
+                           approval_allowed=approval_allowed,
+                           self_approval_blocked=self_approval_blocked,
                            active_page='purchase_orders')
 
 
@@ -454,7 +486,7 @@ def purchase_order_detail(po_id):
 def purchase_order_pdf(po_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')):
+    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders') or check_permission('canApprovePurchaseOrders')):
         return render_template('auth/restricted.html', active_page='purchase_orders', feature_name="Órdenes de Compra", required_permission="canManagePurchaseOrders"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -930,19 +962,66 @@ def delete_purchase_order(po_id):
 def approve_purchase_order(po_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePurchaseOrders')):
-        return jsonify(success=False, error="Permiso denegado"), 403
-    owner_uid = session['user']['ownerUID']
+
+    user_sess = session.get('user', {})
+    is_owner = user_sess.get('role') == 'owner'
+    if not (is_owner or check_permission('canApprovePurchaseOrders')):
+        return jsonify(success=False, error="Permiso denegado: no tienes autorización para aprobar órdenes de compra."), 403
+
+    owner_uid = user_sess['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    user = session['user'].get('displayName', 'Usuario')
+    user_display = user_sess.get('displayName') or user_sess.get('name') or 'Usuario'
+    current_uid = str(user_sess.get('uid') or '').strip()
+    current_email = str(user_sess.get('email') or '').lower().strip()
+    current_name = str(user_sess.get('displayName') or user_sess.get('name') or '').strip()
+
+    order = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
+    if not order:
+        return jsonify(success=False, error="Orden no encontrada"), 404
+
+    if order.get('status') not in ('borrador', 'pendiente_aprobacion'):
+        return jsonify(success=False, error=f"No se puede aprobar una orden en estado '{order.get('status', '')}'."), 409
+
+    # Segregación de funciones (SoD): El creador no puede aprobar su propia orden a menos que sea owner o tenga canSelfApprovePurchaseOrders
+    order_creator_uid = str(order.get('createdByUid') or '').strip()
+    order_creator_email = str(order.get('createdByEmail') or '').lower().strip()
+    order_creator_name = str(order.get('createdBy') or order.get('createdByName') or '').strip()
+
+    is_creator = False
+    if order_creator_uid and current_uid and order_creator_uid == current_uid:
+        is_creator = True
+    elif order_creator_email and current_email and order_creator_email == current_email:
+        is_creator = True
+    elif order_creator_name and current_name and order_creator_name.lower() == current_name.lower():
+        is_creator = True
+
+    can_self_approve = is_owner or check_permission('canSelfApprovePurchaseOrders')
+    if is_creator and not can_self_approve:
+        return jsonify(
+            success=False,
+            error="Conflicto de segregación de funciones: La persona que crea la orden de compra no puede aprobarla. Debe ser aprobada por otro usuario autorizado o el propietario.",
+            code="SOD_SELF_APPROVAL_DENIED"
+        ), 403
 
     try:
-        po = PurchaseOrderService.update_status(owner_uid=owner_uid, po_id=po_id, new_status='aprobada', company_id=company_id, sandbox=sandbox, user=user)
+        po = PurchaseOrderService.update_status(
+            owner_uid=owner_uid,
+            po_id=po_id,
+            new_status='aprobada',
+            company_id=company_id,
+            sandbox=sandbox,
+            user=user_display,
+            approver_uid=current_uid,
+            approver_email=current_email,
+        )
     except ValueError as tr_err:
         return jsonify(success=False, error=str(tr_err)), 409
     if not po:
         return jsonify(success=False, error="Orden no encontrada"), 404
+
+    from app.utils.decorators import record_sod_from_session
+    record_sod_from_session('canApprovePurchaseOrders', po_id, 'purchase_order')
 
     AuditService.log_from_request(
         owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_PO,

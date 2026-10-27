@@ -277,6 +277,9 @@ def gate_blueprint_module(bp, module_key, feature_name=None, login_endpoint='web
         if "user" not in session:
             return redirect(url_for(login_endpoint))
         if not module_enabled(module_key):
+            if bp.name == 'web_suppliers' and request.path.startswith('/api/suppliers/search'):
+                if module_enabled('cxp_compras') or module_enabled('gastos') or module_enabled('crm'):
+                    return None
             label = feature_name or get_module_label(module_key)
             if (request.is_json or 
                 request.headers.get("Accept") == "application/json" or 

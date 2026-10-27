@@ -450,26 +450,61 @@ def api_suppliers_search():
     sandbox = session.get('is_sandbox_mode', True)
 
     q = request.args.get('q', '').strip().lower()
+    include_contacts = request.args.get('include_contacts', '1') == '1'
     suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
+    seen_ids = {s['id'] for s in suppliers if s.get('id')}
+    seen_rncs = {s.get('rnc') for s in suppliers if s.get('rnc')}
+
+    if include_contacts:
+        try:
+            from app.services.contact_service import ContactService
+            contacts = ContactService.get_contacts(owner_uid, sandbox=sandbox, company_id=company_id)
+            for c in contacts:
+                cid = c.get('id')
+                crnc = c.get('rnc', '')
+                if cid and cid not in seen_ids and (not crnc or crnc not in seen_rncs):
+                    suppliers.append({
+                        "id": cid,
+                        "rnc": crnc,
+                        "name": c.get("razonSocial") or c.get("name", ""),
+                        "phone": c.get("telefono") or c.get("celular", ""),
+                        "email": c.get("email", ""),
+                        "supplierType": c.get("supplierType", "formal" if crnc else "informal"),
+                        "creditDays": c.get("creditDays", 0),
+                        "ecfTypeEmits": c.get("ecfTypeEmits", "E31"),
+                        "currency": c.get("currency", "DOP"),
+                        "isContact": True,
+                    })
+                    seen_ids.add(cid)
+        except Exception as e:
+            print(f"⚠️ Error loading contacts in api_suppliers_search: {e}")
 
     if q:
-        suppliers = [s for s in suppliers if
-                     q in s.get('name', '').lower() or
-                     q in s.get('rnc', '') or
-                     q in s.get('email', '').lower()]
+        import re
+        clean_q = re.sub(r'\D', '', q)
+        filtered = []
+        for s in suppliers:
+            name = (s.get('name') or s.get('razonSocial') or '').lower()
+            rnc = (s.get('rnc') or '').strip()
+            clean_rnc = re.sub(r'\D', '', rnc)
+            email = (s.get('email') or '').lower()
+            if q in name or q in email or (clean_q and clean_q in clean_rnc) or q in rnc.lower():
+                filtered.append(s)
+        suppliers = filtered
 
     results = []
     for s in suppliers:
         results.append({
-            "id": s["id"],
+            "id": s.get("id", ""),
             "rnc": s.get("rnc", ""),
-            "name": s.get("name", ""),
-            "phone": s.get("phone", ""),
+            "name": s.get("name") or s.get("razonSocial", ""),
+            "phone": s.get("phone") or s.get("telefono", ""),
             "email": s.get("email", ""),
             "supplierType": s.get("supplierType", "formal"),
             "creditDays": s.get("creditDays", 0),
             "ecfTypeEmits": s.get("ecfTypeEmits", _by_code("E31").code),
             "currency": s.get("currency", "DOP"),
+            "isContact": bool(s.get("isContact", False)),
         })
 
-    return jsonify({"success": True, "suppliers": results[:20]})
+    return jsonify({"success": True, "suppliers": results[:30]})

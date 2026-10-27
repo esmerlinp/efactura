@@ -122,10 +122,10 @@
             </h3>
             <div class="inp-row">
                 <div class="inp-group wide" style="position:relative;">
-                    <label for="supplier-search">Buscar Proveedor</label>
+                    <label for="supplier-search">Buscar Proveedor <span style="font-size:0.7rem; color:var(--text-muted);">(clic para ver lista)</span></label>
                     <button type="button" id="btn-create-supplier-modal" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--accent-emerald);font-size:0.72rem;font-weight:600;cursor:pointer;padding:0;">+ Nuevo</button>
-                    <input type="text" id="supplier-search" class="form-input" placeholder="Escribe el nombre o RNC..." autocomplete="off" style="width:100%;">
-                    <div id="supplier-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:250px; overflow-y:auto; margin-top:4px;"></div>
+                    <input type="text" id="supplier-search" class="form-input" placeholder="Buscar o seleccionar proveedor..." autocomplete="off" style="width:100%;" value="{{ expense_data.get('providerName', '') if is_edit else '' }}">
+                    <div id="supplier-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:9999; max-height:280px; overflow-y:auto; margin-top:4px;"></div>
                     <input type="hidden" id="supplierId" name="supplierId" value="{{ expense_data.get('supplierId', '') }}">
                 </div>
                 <div class="inp-group" style="max-width:170px;">
@@ -394,7 +394,7 @@
     const accountingAccounts = {{ accounting_accounts | tojson | safe }};
     const itbisGeneral = {{ itbis_general }};
     const itbisReduced = {{ itbis_reduced }};
-    const suppliers = {{ suppliers | tojson | safe }};
+    let suppliers = {{ suppliers | tojson | safe }} || [];
     console.log('[minor_new] suppliers count:', suppliers ? suppliers.length : 'null/undefined', suppliers);
     const isEdit = {{ 'true' if is_edit else 'false' }};
 
@@ -732,71 +732,239 @@
         }
     });
 
-    // ===== SUPPLIER SEARCH =====
+    // ===== SUPPLIER SEARCH & AUTOCOMPLETE =====
     const searchInput = document.getElementById('supplier-search');
     const searchResults = document.getElementById('supplier-search-results');
-    let clientLookupTimeout = null;
+    let supplierLookupTimeout = null;
+    let isFetchingSuppliers = false;
 
-    searchInput.addEventListener('input', function() {
-        const q = this.value.toLowerCase().trim();
-        if (q.length < 1) { searchResults.style.display = 'none'; return; }
-        console.log('[minor_new] searchInput fired, q:', q, 'suppliers:', suppliers ? suppliers.length : 'N/A');
-        const matches = suppliers.filter(function(s) {
-            return (s.name || '').toLowerCase().indexOf(q) !== -1 || (s.rnc || '').indexOf(q) !== -1;
-        });
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
 
-        let html = '';
-        const matchedIds = new Set();
-        matches.slice(0, 8).forEach(function(s) {
-            matchedIds.add(s.id);
-            html += '<div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); transition:background 0.15s;" onmouseover="this.style.background=\'rgba(16,185,129,0.06)\'" onmouseout="this.style.background=\'\'" onclick="selectSupplier({id:\'' + (s.id || '').replace(/'/g, "\\'") + '\', name:\'' + (s.name || '').replace(/'/g, "\\'") + '\', rnc:\'' + (s.rnc || '').replace(/'/g, "\\'") + '\'})">';
-            html += '<div style="font-weight:600;font-size:0.85rem;">' + (s.name || '') + '</div>';
-            html += '<div style="font-size:0.72rem;color:var(--text-muted);">RNC: ' + (s.rnc || '—') + '</div>';
-            html += '</div>';
-        });
-
-        const renderResults = function(extraHtml) {
-            var finalHtml = html + (extraHtml || '');
-            if (!finalHtml) { searchResults.style.display = 'none'; return; }
-            searchResults.innerHTML = finalHtml;
-            searchResults.style.display = 'block';
+    function renderSupplierRow(s) {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; gap:8px; transition:background 0.15s;';
+        div.onmouseenter = function() { this.style.background = 'rgba(16,185,129,0.08)'; };
+        div.onmouseleave = function() { this.style.background = 'transparent'; };
+        div.onclick = function(e) {
+            e.stopPropagation();
+            selectSupplier(s);
         };
 
-        renderResults('');
+        const name = s.name || s.razonSocial || 'Sin nombre';
+        const rnc = (s.rnc || '').trim();
+        const cleanRnc = rnc.replace(/\D/g, '');
+        const isFormal = s.supplierType === 'formal' || cleanRnc.length === 9 || cleanRnc.length === 11;
 
-        var rncDigits = q.replace(/\D/g, '');
-        if (rncDigits.length >= 3) {
-            clearTimeout(clientLookupTimeout);
-            clientLookupTimeout = setTimeout(function() {
-                fetch('/api/clients/lookup_by_rnc?rnc=' + encodeURIComponent(rncDigits))
-                    .then(function(res) { return res.json(); })
-                    .then(function(result) {
-                        if (result.success && result.found && !matchedIds.has(result.client.id)) {
-                            var c = result.client;
-                            var extraHtml = '<div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); transition:background 0.15s; background:rgba(59,130,246,0.04);" onmouseover="this.style.background=\'rgba(59,130,246,0.1)\'" onmouseout="this.style.background=\'rgba(59,130,246,0.04)\'" onclick="selectClientAsSupplier(\'' + (c.name || '').replace(/'/g, "\\'") + '\', \'' + (c.rnc || '').replace(/'/g, "\\'") + '\')">';
-                            extraHtml += '<div style="font-weight:600;font-size:0.85rem;">' + (c.name || '') + ' <span style="font-size:0.65rem;color:var(--accent-blue);font-weight:500;">(Cliente)</span></div>';
-                            extraHtml += '<div style="font-size:0.72rem;color:var(--text-muted);">RNC: ' + (c.rnc || '—') + ' · Clic para usar como proveedor</div>';
-                            extraHtml += '</div>';
-                            renderResults(extraHtml);
-                            return;
+        let badgeHtml = '';
+        if (s.isDgii) {
+            badgeHtml = '<span style="font-size:0.65rem; padding:2px 6px; border-radius:4px; background:rgba(139,92,246,0.15); color:var(--accent-purple); font-weight:600;">DGII</span>';
+        } else if (s.isContact || s.isClient) {
+            badgeHtml = '<span style="font-size:0.65rem; padding:2px 6px; border-radius:4px; background:rgba(59,130,246,0.15); color:var(--accent-blue); font-weight:600;">Contacto</span>';
+        } else if (isFormal) {
+            badgeHtml = '<span style="font-size:0.65rem; padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.12); color:#10b981; font-weight:600;">Formal</span>';
+        } else {
+            badgeHtml = '<span style="font-size:0.65rem; padding:2px 6px; border-radius:4px; background:rgba(245,158,11,0.12); color:#f59e0b; font-weight:600;">Informal</span>';
+        }
+
+        const phoneText = s.phone ? ` · Tel: ${escapeHtml(s.phone)}` : '';
+        const subText = rnc ? `RNC/Céd: <span style="font-family:monospace;font-weight:600;">${escapeHtml(rnc)}</span>${phoneText}` : `Sin RNC (Proveedor informal)${phoneText}`;
+
+        div.innerHTML = `
+            <div style="flex:1; min-width:0;">
+                <div style="font-weight:600; font-size:0.85rem; display:flex; align-items:center; gap:6px;">
+                    <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(name)}</span>
+                    ${badgeHtml}
+                </div>
+                <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">
+                    ${subText}
+                </div>
+            </div>
+            <div style="color:var(--text-muted); font-size:0.75rem;">
+                <i class="fa-solid fa-chevron-right" style="font-size:0.68rem;opacity:0.6;"></i>
+            </div>
+        `;
+        return div;
+    }
+
+    function showSupplierDropdown(query) {
+        query = (query || '').trim();
+        const qLower = query.toLowerCase();
+        const qDigits = query.replace(/\D/g, '');
+
+        searchResults.innerHTML = '';
+
+        // If local suppliers list is empty, fetch via API
+        if (!suppliers || suppliers.length === 0) {
+            if (!isFetchingSuppliers) {
+                isFetchingSuppliers = true;
+                searchResults.innerHTML = '<div style="padding:14px; text-align:center; color:var(--text-muted); font-size:0.8rem;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando proveedores...</div>';
+                searchResults.style.display = 'block';
+                fetch('/api/suppliers/search?include_contacts=1')
+                    .then(r => r.json())
+                    .then(data => {
+                        isFetchingSuppliers = false;
+                        if (data.success && data.suppliers) {
+                            suppliers = data.suppliers;
                         }
-                        return fetch('/api/rnc-lookup?rnc=' + encodeURIComponent(rncDigits));
+                        showSupplierDropdown(searchInput.value);
                     })
-                    .then(function(res) {
-                        if (!res) return;
-                        return res.json();
-                    })
-                    .then(function(dgiiResult) {
-                        if (dgiiResult && !dgiiResult.error && dgiiResult.razon_social) {
-                            var extraHtml = '<div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); transition:background 0.15s; background:rgba(139,92,246,0.04);" onmouseover="this.style.background=\'rgba(139,92,246,0.1)\'" onmouseout="this.style.background=\'rgba(139,92,246,0.04)\'" onclick="selectDgiiAsSupplier(\'' + (dgiiResult.razon_social || '').replace(/'/g, "\\'") + '\', \'' + (dgiiResult.rnc || '').replace(/'/g, "\\'") + '\')">';
-                            extraHtml += '<div style="font-weight:600;font-size:0.85rem;">' + (dgiiResult.razon_social || '') + ' <span style="font-size:0.65rem;color:var(--accent-purple);font-weight:500;">(DGII)</span></div>';
-                            extraHtml += '<div style="font-size:0.72rem;color:var(--text-muted);">RNC: ' + (dgiiResult.rnc || '—') + ' · Datos obtenidos de la DGII</div>';
-                            extraHtml += '</div>';
-                            renderResults(extraHtml);
+                    .catch(() => {
+                        isFetchingSuppliers = false;
+                        searchResults.innerHTML = '<div style="padding:14px; text-align:center; color:var(--text-muted); font-size:0.8rem;">No se pudieron cargar proveedores.<br><button type="button" class="btn btn-xs btn-outline" style="margin-top:6px;" onclick="document.getElementById(\'btn-create-supplier-modal\').click();">+ Registrar proveedor</button></div>';
+                        searchResults.style.display = 'block';
+                    });
+                return;
+            }
+        }
+
+        // Filter local suppliers
+        let matches = [];
+        if (!qLower) {
+            matches = (suppliers || []).slice(0, 15);
+        } else {
+            matches = (suppliers || []).filter(function(s) {
+                const name = (s.name || s.razonSocial || '').toLowerCase();
+                const rnc = (s.rnc || '').toLowerCase();
+                const cleanRnc = rnc.replace(/\D/g, '');
+                const email = (s.email || '').toLowerCase();
+                return name.includes(qLower) || email.includes(qLower) || rnc.includes(qLower) || (qDigits && cleanRnc.includes(qDigits));
+            }).slice(0, 12);
+        }
+
+        if (matches.length > 0) {
+            const header = document.createElement('div');
+            header.style.cssText = 'padding:6px 14px; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); background:rgba(0,0,0,0.03); border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;';
+            header.innerHTML = `<span>${qLower ? 'Resultados (' + matches.length + ')' : 'Proveedores disponibles (' + (suppliers.length) + ')'}</span><span style="font-size:0.64rem; font-weight:normal;">Clic para seleccionar</span>`;
+            searchResults.appendChild(header);
+
+            matches.forEach(function(s) {
+                searchResults.appendChild(renderSupplierRow(s));
+            });
+            searchResults.style.display = 'block';
+        } else if (!qLower) {
+            searchResults.innerHTML = `
+                <div style="padding:16px 14px; text-align:center; color:var(--text-muted); font-size:0.82rem;">
+                    <div>No hay proveedores registrados aún.</div>
+                    <button type="button" class="btn btn-sm btn-primary" style="margin-top:8px; font-size:0.75rem;" onclick="document.getElementById('btn-create-supplier-modal').click();">
+                        <i class="fa-solid fa-plus"></i> Registrar nuevo proveedor
+                    </button>
+                </div>
+            `;
+            searchResults.style.display = 'block';
+        } else {
+            searchResults.innerHTML = `
+                <div style="padding:14px; text-align:center; color:var(--text-muted); font-size:0.82rem;">
+                    <div>No se encontró ningún proveedor para "<b>${escapeHtml(query)}</b>"</div>
+                    <div style="margin-top:8px; display:flex; justify-content:center; gap:8px; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="useAsInformalSupplier('${escapeHtml(query)}')">
+                            Usar como proveedor informal
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('btn-create-supplier-modal').click();">
+                            + Registrar en catálogo
+                        </button>
+                    </div>
+                </div>
+            `;
+            searchResults.style.display = 'block';
+        }
+
+        // Debounced async search to find more or check DGII / clients
+        if (qLower) {
+            clearTimeout(supplierLookupTimeout);
+            supplierLookupTimeout = setTimeout(function() {
+                fetch('/api/suppliers/search?include_contacts=1&q=' + encodeURIComponent(qLower))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && data.suppliers && data.suppliers.length > 0) {
+                            const currentIds = new Set(matches.map(m => m.id));
+                            const newItems = data.suppliers.filter(s => s.id && !currentIds.has(s.id));
+                            if (newItems.length > 0) {
+                                newItems.forEach(s => {
+                                    suppliers.push(s);
+                                    searchResults.appendChild(renderSupplierRow(s));
+                                });
+                            }
                         }
                     })
-                    .catch(function() {});
-            }, 350);
+                    .catch(() => {});
+
+                if (qDigits.length >= 3) {
+                    fetch('/api/clients/lookup_by_rnc?rnc=' + encodeURIComponent(qDigits))
+                        .then(r => r.json())
+                        .then(result => {
+                            if (result.success && result.found && result.client) {
+                                const c = result.client;
+                                const isAlready = (suppliers || []).some(m => (m.rnc || '').replace(/\D/g, '') === (c.rnc || '').replace(/\D/g, ''));
+                                if (!isAlready) {
+                                    const clientSupplier = {
+                                        id: c.id || '',
+                                        name: c.name || '',
+                                        rnc: c.rnc || '',
+                                        phone: c.phone || '',
+                                        supplierType: 'formal',
+                                        isContact: true,
+                                    };
+                                    searchResults.appendChild(renderSupplierRow(clientSupplier));
+                                }
+                            } else {
+                                return fetch('/api/rnc-lookup?rnc=' + encodeURIComponent(qDigits))
+                                    .then(r => r.json())
+                                    .then(dgii => {
+                                        if (dgii && !dgii.error && dgii.razon_social) {
+                                            const dgiiSup = {
+                                                id: '',
+                                                name: dgii.razon_social,
+                                                rnc: dgii.rnc || qDigits,
+                                                supplierType: 'formal',
+                                                isDgii: true,
+                                            };
+                                            searchResults.appendChild(renderSupplierRow(dgiiSup));
+                                        }
+                                    });
+                            }
+                        })
+                        .catch(() => {});
+                }
+            }, 300);
+        }
+    }
+
+    function useAsInformalSupplier(name) {
+        document.getElementById('supplierId').value = '';
+        document.getElementById('supplierName').value = name;
+        document.getElementById('supplierType').value = 'informal';
+        searchInput.value = name;
+        searchResults.style.display = 'none';
+        const status = document.getElementById('rnc-status');
+        const warning = document.getElementById('rnc-warning');
+        if (status) status.innerHTML = '<span style="color:#f59e0b;">✓ Proveedor informal: ' + escapeHtml(name) + '</span>';
+        if (warning) warning.style.display = 'none';
+    }
+    window.useAsInformalSupplier = useAsInformalSupplier;
+
+    searchInput.addEventListener('focus', function() {
+        showSupplierDropdown(this.value);
+    });
+
+    searchInput.addEventListener('click', function() {
+        showSupplierDropdown(this.value);
+    });
+
+    searchInput.addEventListener('input', function() {
+        showSupplierDropdown(this.value);
+    });
+
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            searchResults.style.display = 'none';
         }
     });
 
@@ -808,7 +976,7 @@
     }
 
     function validateRncFromDgii(rnc) {
-        var clean = rnc.replace(/[^0-9]/g, '');
+        var clean = (rnc || '').replace(/[^0-9]/g, '');
         var status = document.getElementById('rnc-status');
         var warning = document.getElementById('rnc-warning');
         var cedulaInput = document.getElementById('supplierCedula');
@@ -855,45 +1023,54 @@
     });
 
     function selectSupplier(s) {
+        if (!s) return;
+        const name = s.name || s.razonSocial || '';
+        const rnc = (s.rnc || '').trim();
+        const cleanRnc = rnc.replace(/\D/g, '');
+
         document.getElementById('supplierId').value = s.id || '';
-        document.getElementById('supplierName').value = s.name || '';
-        document.getElementById('supplierRnc').value = s.rnc || '';
-        setSupplierCedula(s.rnc);
-        searchInput.value = s.name || '';
+        document.getElementById('supplierName').value = name;
+        document.getElementById('supplierRnc').value = rnc;
+        setSupplierCedula(rnc);
+        searchInput.value = name;
         searchResults.style.display = 'none';
-        if (s.id && !suppliers.some(function(sp) { return sp.id === s.id; })) {
-            suppliers.push({ id: s.id, rnc: s.rnc, name: s.name });
+
+        const typeSelect = document.getElementById('supplierType');
+        if (s.supplierType) {
+            typeSelect.value = s.supplierType;
+        } else if (cleanRnc.length === 9 || cleanRnc.length === 11) {
+            typeSelect.value = 'formal';
+        } else {
+            typeSelect.value = 'informal';
         }
-        if (s.rnc) {
-            document.getElementById('supplierType').value = 'formal';
-            validateRncFromDgii(s.rnc);
+
+        if (s.id && !(suppliers || []).some(function(sp) { return sp.id === s.id; })) {
+            suppliers.push({ id: s.id, rnc: rnc, name: name, supplierType: typeSelect.value });
+        }
+
+        if (rnc) {
+            validateRncFromDgii(rnc);
+        } else {
+            const status = document.getElementById('rnc-status');
+            const warning = document.getElementById('rnc-warning');
+            if (status) status.innerHTML = '<span style="color:#f59e0b;">✓ Proveedor informal: ' + escapeHtml(name) + '</span>';
+            if (warning) warning.style.display = 'none';
         }
     }
+    window.selectSupplier = selectSupplier;
 
     function selectClientAsSupplier(name, rnc) {
-        document.getElementById('supplierId').value = '';
-        document.getElementById('supplierName').value = name;
-        document.getElementById('supplierRnc').value = rnc;
-        setSupplierCedula(rnc);
-        searchInput.value = name;
-        searchResults.style.display = 'none';
-        document.getElementById('supplierType').value = 'formal';
-        validateRncFromDgii(rnc);
+        selectSupplier({ id: '', name: name, rnc: rnc, supplierType: 'formal', isContact: true });
     }
+    window.selectClientAsSupplier = selectClientAsSupplier;
 
     function selectDgiiAsSupplier(name, rnc) {
-        document.getElementById('supplierId').value = '';
-        document.getElementById('supplierName').value = name;
-        document.getElementById('supplierRnc').value = rnc;
-        setSupplierCedula(rnc);
-        searchInput.value = name;
-        searchResults.style.display = 'none';
-        document.getElementById('supplierType').value = 'formal';
-        validateRncFromDgii(rnc);
+        selectSupplier({ id: '', name: name, rnc: rnc, supplierType: 'formal', isDgii: true });
     }
+    window.selectDgiiAsSupplier = selectDgiiAsSupplier;
 
     document.addEventListener('click', function(e) {
-        if (!e.target.closest('#supplier-search') && !e.target.closest('#supplier-search-results')) {
+        if (!e.target.closest('#supplier-search') && !e.target.closest('#supplier-search-results') && !e.target.closest('#btn-create-supplier-modal')) {
             searchResults.style.display = 'none';
         }
     });
