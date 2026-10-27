@@ -2,8 +2,10 @@
 {% block title %}Nueva Cotización Personalizada{% endblock %}
 
 {% block extra_head %}
-<div id="catalog-data-json" style="display:none;">{{ catalog_json or '[]' }}</div>
-<div id="wz-initial-data-json" style="display:none;">{{ initial_data_json or 'null' }}</div>
+<div id="catalog-data-json" style="display:none;">{{ (catalog_json or '[]') | safe }}</div>
+<div id="wz-initial-data-json" style="display:none;">{{ (initial_data_json or 'null') | safe }}</div>
+<div id="wz-bank-accounts-data-json" style="display:none;">{{ (bank_accounts_json or '[]') | safe }}</div>
+<div id="wz-company-data-json" style="display:none;">{{ (company_json or '{}') | safe }}</div>
 <style>
 :root {
     --wz-primary: #7c3aed;
@@ -736,6 +738,90 @@
     padding: 6px 8px;
     border-radius: 4px;
 }
+
+/* Estilos de Cuentas Bancarias */
+.wz-bank-account-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+.wz-bank-account-card:hover {
+    border-color: #a78bfa;
+    box-shadow: 0 4px 12px rgba(124,58,237,0.08);
+}
+.wz-bank-account-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.wz-bank-account-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.wz-bank-badge {
+    font-size: 10.5px;
+    background: #f1f5f9;
+    color: #475569;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+.wz-bank-account-num {
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: 0.5px;
+}
+.wz-bank-account-meta {
+    font-size: 11.5px;
+    color: #64748b;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.wz-bank-account-actions {
+    display: flex;
+    gap: 6px;
+}
+.wz-bank-account-actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: background 0.15s;
+}
+.wz-bank-account-actions .btn-edit { color: #6366f1; }
+.wz-bank-account-actions .btn-edit:hover { background: #eef2ff; }
+.wz-bank-account-actions .btn-del { color: #ef4444; }
+.wz-bank-account-actions .btn-del:hover { background: #fef2f2; }
+
+.wz-saved-bank-item {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    transition: all 0.2s;
+}
+.wz-saved-bank-item:hover {
+    border-color: #7c3aed;
+    background: #faf5ff;
+}
 </style>
 {% endblock %}
 {% block content %}
@@ -981,6 +1067,24 @@
             <button type="button" class="wz-add-btn wz-add-payment" style="margin-top:8px;">
                 <i class="fa-solid fa-plus"></i> Agregar Hito de Pago
             </button>
+
+            <!-- Cuentas Bancarias para Depósito o Transferencia -->
+            <div class="wz-section-header" style="margin-top:24px;">
+                <h3>Cuentas Bancarias para Pago / Depósito</h3>
+                <div style="display:flex;gap:8px;">
+                    <button type="button" class="btn-wz-secondary" id="wz-add-saved-bank-btn" style="font-size:12px;padding:6px 12px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;color:#334155;font-weight:600;">
+                        <i class="fa-solid fa-building-columns"></i> Cuentas de la Empresa
+                    </button>
+                    <button type="button" class="wz-add-btn" id="wz-add-custom-bank-btn" style="font-size:12px;padding:6px 12px;margin:0;">
+                        <i class="fa-solid fa-plus"></i> Nueva Cuenta
+                    </button>
+                </div>
+            </div>
+            <div id="wz-bank-accounts-container" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+                <p style="color:#94a3b8;font-size:13px;text-align:center;padding:12px;" id="wz-bank-accounts-empty">
+                    Sin cuentas bancarias seleccionadas
+                </p>
+            </div>
         </div>
 
         <!-- STEP 6: Términos y Revisión -->
@@ -1098,7 +1202,8 @@
                     <label>ITBIS</label>
                     <select id="edit-item-itbis">
                         <option value="0.18">18%</option>
-                        <option value="0">0%</option>
+                        <option value="0.16">16%</option>
+                        <option value="0">0% (Exento)</option>
                     </select>
                 </div>
                 <div class="wz-edit-field">
@@ -1131,6 +1236,96 @@
         </div>
         <div class="wz-catalog-modal-body" id="wz-catalog-modal-body">
             <div class="wz-catalog-empty">Cargando catálogo...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Bank Account Add/Edit Modal -->
+<div class="wz-item-edit-modal" id="wz-bank-account-modal">
+    <div class="wz-item-edit-content">
+        <div class="wz-item-edit-header">
+            <h3 id="wz-bank-modal-title"><i class="fa-solid fa-building-columns"></i> Cuenta Bancaria</h3>
+            <button type="button" class="wz-item-edit-close" id="wz-bank-modal-close">&times;</button>
+        </div>
+        <div class="wz-item-edit-body">
+            <input type="hidden" id="edit-bank-index" value="-1">
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;">
+                <div class="wz-edit-field">
+                    <label>Banco <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="edit-bank-name" list="rd-banks-list" placeholder="Ej: Banco Popular Dominicano">
+                    <datalist id="rd-banks-list">
+                        <option value="Banco Popular Dominicano">
+                        <option value="Banco de Reservas (Banreservas)">
+                        <option value="Banco BHD">
+                        <option value="Scotiabank República Dominicana">
+                        <option value="Banco Santa Cruz">
+                        <option value="Banco Promerica">
+                        <option value="Banco Caribe">
+                        <option value="Banco BDI">
+                        <option value="Banco Vimenca">
+                        <option value="Banco López de Haro">
+                        <option value="Banco Ademi">
+                        <option value="Asociación Popular de Ahorros y Préstamos (APAP)">
+                        <option value="Asociación Cibao de Ahorros y Préstamos">
+                        <option value="Asociación La Nacional de Ahorros y Préstamos">
+                    </datalist>
+                </div>
+                <div class="wz-edit-field">
+                    <label>Moneda</label>
+                    <select id="edit-bank-currency">
+                        <option value="DOP">DOP (RD$)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="wz-edit-field">
+                    <label>Tipo de Cuenta</label>
+                    <select id="edit-bank-type">
+                        <option value="Corriente">Corriente</option>
+                        <option value="Ahorros">Ahorros</option>
+                    </select>
+                </div>
+                <div class="wz-edit-field">
+                    <label>Número de Cuenta <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="edit-bank-number" placeholder="Ej: 798123456">
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="wz-edit-field">
+                    <label>Titular de la Cuenta</label>
+                    <input type="text" id="edit-bank-holder" placeholder="Nombre o Razón Social">
+                </div>
+                <div class="wz-edit-field">
+                    <label>Cédula / RNC del Titular</label>
+                    <input type="text" id="edit-bank-rnc" placeholder="Ej: 131-88068-1">
+                </div>
+            </div>
+            <div class="wz-edit-field">
+                <label>Notas o Instrucciones (Opcional)</label>
+                <input type="text" id="edit-bank-notes" placeholder="Ej: Favor indicar número de cotización en la referencia">
+            </div>
+        </div>
+        <div class="wz-edit-footer">
+            <button type="button" class="btn-edit-cancel" id="wz-bank-modal-cancel">Cancelar</button>
+            <button type="button" class="btn-edit-save" id="wz-bank-modal-save"><i class="fa-solid fa-check"></i> Guardar Cuenta</button>
+        </div>
+    </div>
+</div>
+
+<!-- Saved Banks Selection Modal -->
+<div class="wz-catalog-modal" id="wz-saved-banks-modal">
+    <div class="wz-catalog-modal-content">
+        <div class="wz-catalog-modal-header">
+            <h3><i class="fa-solid fa-building-columns"></i> Cuentas Bancarias de la Empresa</h3>
+            <button type="button" class="wz-catalog-modal-close" id="wz-saved-banks-close">&times;</button>
+        </div>
+        <div class="wz-catalog-modal-body" id="wz-saved-banks-body" style="padding:16px;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;">
+            <!-- Dynamically populated -->
+        </div>
+        <div class="wz-edit-footer">
+            <button type="button" class="btn-edit-cancel" id="wz-saved-banks-done">Cerrar</button>
         </div>
     </div>
 </div>

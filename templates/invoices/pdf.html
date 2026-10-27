@@ -919,9 +919,10 @@
     </div>
     {% endif %}
 
-    {% if pd.get('paymentSchedule') %}
+    {% if pd.get('paymentSchedule') or pd.get('bankAccounts') %}
     <div class="prof-section" style="margin-top: 20px;">
         <div class="prof-section-title">Forma de Pago</div>
+        {% if pd.get('paymentSchedule') %}
         <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;">
             <thead>
                 <tr style="background:#f8fafc;">
@@ -952,6 +953,44 @@
                 </tr>
             </tbody>
         </table>
+        {% endif %}
+
+        {% if pd.get('bankAccounts') %}
+        <div style="margin-top:{% if pd.get('paymentSchedule') %}14px{% else %}6px{% endif %};">
+            <div style="font-size:10.5px;font-weight:700;color:#1e293b;margin-bottom:6px;">
+                Cuentas Bancarias para Depósito o Transferencia:
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:10px;">
+                <thead>
+                    <tr style="background:#f8fafc;">
+                        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:9.5px;text-transform:uppercase;color:#64748b;">Banco</th>
+                        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:9.5px;text-transform:uppercase;color:#64748b;">Tipo de Cuenta</th>
+                        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:9.5px;text-transform:uppercase;color:#64748b;">Número de Cuenta</th>
+                        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:9.5px;text-transform:uppercase;color:#64748b;">Titular</th>
+                        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:9.5px;text-transform:uppercase;color:#64748b;">RNC / Cédula</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for acc in pd.bankAccounts %}
+                    <tr>
+                        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">{{ acc.bank }}</td>
+                        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#334155;">{{ acc.accountType or 'Corriente' }} {% if acc.currency %}({{ acc.currency }}){% endif %}</td>
+                        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-weight:700;color:#0f172a;">{{ acc.accountNumber }}</td>
+                        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#334155;">{{ acc.holderName or company.companyName or company.tradeName or '' }}</td>
+                        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#334155;">{{ acc.holderRnc or company.companyRNC or company.rnc or '' }}</td>
+                    </tr>
+                    {% if acc.notes %}
+                    <tr>
+                        <td colspan="5" style="padding:2px 8px 6px 8px;border-bottom:1px solid #f1f5f9;font-size:9px;color:#64748b;font-style:italic;">
+                            Nota: {{ acc.notes }}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 

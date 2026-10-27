@@ -8,8 +8,12 @@ class QuotationWizard {
         this._clients = [];
         this._catalogItems = [];
         this._catalogTargetIdx = null;
+        this._savedBanks = [];
+        this._companyInfo = {};
         this._loadClients();
         this._loadCatalog();
+        this._loadSavedBanks();
+        this._loadCompanyInfo();
         this._applyInitialData(this._loadInitialData());
 
         this._bindEvents();
@@ -33,6 +37,7 @@ class QuotationWizard {
             deliverables: [],
             timeline: [],
             paymentSchedule: [],
+            bankAccounts: [],
             validityDays: 15,
             termsAndConditions: '',
             intellectualProperty: '',
@@ -77,6 +82,34 @@ class QuotationWizard {
         }
     }
 
+    _loadSavedBanks() {
+        try {
+            const el = document.getElementById('wz-bank-accounts-data-json');
+            if (el) {
+                this._savedBanks = JSON.parse(el.textContent || '[]');
+            }
+        } catch (e) {
+            console.error('Error loading saved banks:', e);
+            this._savedBanks = [];
+        }
+        const btn = document.getElementById('wz-add-saved-bank-btn');
+        if (btn && this._savedBanks.length > 0) {
+            btn.style.display = 'inline-flex';
+        }
+    }
+
+    _loadCompanyInfo() {
+        try {
+            const el = document.getElementById('wz-company-data-json');
+            if (el) {
+                this._companyInfo = JSON.parse(el.textContent || '{}');
+            }
+        } catch (e) {
+            console.error('Error loading company info:', e);
+            this._companyInfo = {};
+        }
+    }
+
     _loadInitialData() {
         try {
             const el = document.getElementById('wz-initial-data-json');
@@ -101,12 +134,22 @@ class QuotationWizard {
         this.formData.clientPhone = this._formatPhone(data.clientPhone || '');
         this.formData.clientAddress = data.clientAddress || '';
         this.formData.subject = data.subject || '';
-        this.formData.items = data.items || [];
+        if (data.id) {
+            this.formData.id = data.id;
+        }
+        if (data.isEdit) {
+            this.formData.isEdit = true;
+        }
+        this.formData.items = (data.items || []).map(i => ({
+            ...i,
+            itbisRate: (i.itbisRate !== undefined && i.itbisRate !== null && i.itbisRate !== '') ? parseFloat(i.itbisRate) : 0.18
+        }));
         this.formData.scopeIncluded = data.scopeIncluded || [];
         this.formData.scopeExcluded = data.scopeExcluded || [];
         this.formData.deliverables = data.deliverables || [];
         this.formData.timeline = data.timeline || [];
         this.formData.paymentSchedule = data.paymentSchedule || [];
+        this.formData.bankAccounts = data.bankAccounts || [];
         this.formData.validityDays = data.validityDays || 15;
         this.formData.termsAndConditions = data.termsAndConditions || '';
         this.formData.intellectualProperty = data.intellectualProperty || '';
@@ -126,6 +169,7 @@ class QuotationWizard {
         const sel = document.getElementById('wz-client');
         if (sel) sel.value = this.formData.clientId;
         this._renderItemsPreview();
+        this._renderBankAccountsPreview();
         this._updatePreview();
         this._goToStep(1);
     }
@@ -160,7 +204,15 @@ class QuotationWizard {
                 this._closeEditModal();
                 return;
             }
-            const btn = e.target.closest('.wz-nav-next, .wz-nav-prev, .wz-btn-ai-full, .wz-btn-ai-section, .wz-add-item, .wz-remove-item, .wz-add-scope-include, .wz-add-scope-exclude, .wz-remove-scope, .wz-add-deliverable, .wz-remove-deliverable, .wz-add-timeline, .wz-remove-timeline, .wz-add-payment, .wz-remove-payment, #wz-catalog-open-btn, .wz-item-catalog-btn, .wz-catalog-item .btn-select-item, #wz-voice-btn');
+            if (e.target.matches('#wz-bank-modal-close, #wz-bank-modal-cancel') || e.target.closest('#wz-bank-account-modal') === e.target) {
+                this._closeBankModal();
+                return;
+            }
+            if (e.target.matches('#wz-saved-banks-close, #wz-saved-banks-done') || e.target.closest('#wz-saved-banks-modal') === e.target) {
+                this._closeSavedBanksModal();
+                return;
+            }
+            const btn = e.target.closest('.wz-nav-next, .wz-nav-prev, .wz-btn-ai-full, .wz-btn-ai-section, .wz-add-item, .wz-remove-item, .wz-add-scope-include, .wz-add-scope-exclude, .wz-remove-scope, .wz-add-deliverable, .wz-remove-deliverable, .wz-add-timeline, .wz-remove-timeline, .wz-add-payment, .wz-remove-payment, #wz-catalog-open-btn, .wz-item-catalog-btn, .wz-catalog-item .btn-select-item, #wz-voice-btn, #wz-add-custom-bank-btn, #wz-add-saved-bank-btn');
             if (!btn) return;
             if (btn.matches('.wz-nav-next')) this._nextStep();
             else if (btn.matches('.wz-nav-prev')) this._prevStep();
@@ -178,6 +230,8 @@ class QuotationWizard {
             else if (btn.matches('.wz-remove-timeline')) this._removeTimeline(btn);
             else if (btn.matches('.wz-add-payment')) this._addPayment();
             else if (btn.matches('.wz-remove-payment')) this._removePayment(btn);
+            else if (btn.matches('#wz-add-custom-bank-btn')) this._openBankModal(-1);
+            else if (btn.matches('#wz-add-saved-bank-btn')) this._openSavedBanksModal();
             else if (btn.matches('#wz-catalog-open-btn')) this._openCatalogModal(null);
             else if (btn.matches('.wz-item-catalog-btn')) this._openCatalogModal(btn);
             else if (btn.matches('.wz-catalog-item .btn-select-item')) this._selectCatalogItem(btn);
@@ -186,6 +240,7 @@ class QuotationWizard {
         document.getElementById('edit-save-btn')?.addEventListener('click', () => this._saveEditItem());
         document.getElementById('edit-cancel-btn')?.addEventListener('click', () => this._closeEditModal());
         document.getElementById('edit-add-catalog-btn')?.addEventListener('click', () => this._addItemToCatalog());
+        document.getElementById('wz-bank-modal-save')?.addEventListener('click', () => this._saveBankAccount());
 
         document.addEventListener('change', (e) => {
             if (e.target.matches('#wz-client')) this._onClientChange(e.target);
@@ -338,6 +393,9 @@ class QuotationWizard {
 
     _collectFormData() {
         const data = { ...this.formData };
+        if (this.formData.id) {
+            data.id = this.formData.id;
+        }
 
         data.items = this._collectItems();
         data.scopeIncluded = this._collectList('scope-included');
@@ -345,6 +403,7 @@ class QuotationWizard {
         data.deliverables = this._collectDeliverables();
         data.timeline = this._collectTimeline();
         data.paymentSchedule = this._collectPayments();
+        data.bankAccounts = this.formData.bankAccounts || [];
 
         return data;
     }
@@ -355,7 +414,7 @@ class QuotationWizard {
             name: item.name || '',
             quantity: item.quantity || 1,
             price: item.price || 0,
-            itbisRate: (item.itbisRate !== undefined && item.itbisRate !== null) ? item.itbisRate : 0.18,
+            itbisRate: (item.itbisRate !== undefined && item.itbisRate !== null && item.itbisRate !== '') ? parseFloat(item.itbisRate) : 0.18,
             discountRate: item.discountRate || 0,
             catalogId: item.catalogId || ''
         }));
@@ -497,8 +556,8 @@ class QuotationWizard {
             const row = document.createElement('div');
             row.className = 'wz-item-row';
             row.dataset.catalogId = item.catalogId || '';
-            const itemRate = (item.itbisRate !== undefined && item.itbisRate !== null) ? item.itbisRate : 0.18;
-            const itbisLabel = (itemRate === 0.18) ? '18%' : (itemRate === 0.16 ? '16%' : (itemRate === 0 ? '0%' : `${itemRate * 100}%`));
+            const itemRate = (item.itbisRate !== undefined && item.itbisRate !== null && item.itbisRate !== '') ? parseFloat(item.itbisRate) : 0.18;
+            const itbisLabel = (itemRate === 0.18) ? '18%' : (itemRate === 0.16 ? '16%' : (itemRate === 0 ? '0%' : `${Math.round(itemRate * 100)}%`));
             const discount = parseFloat(item.discountRate) || 0;
             row.innerHTML = `
                 <span class="wz-item-name-display" title="${this._escapeAttr(item.code || '')}">${this._escapeHtml(item.name || '—')}</span>
@@ -546,8 +605,21 @@ class QuotationWizard {
         document.getElementById('edit-item-name').value = item.name || '';
         document.getElementById('edit-item-qty').value = item.quantity || 1;
         document.getElementById('edit-item-price').value = item.price || 0;
-        const editRate = (item.itbisRate !== undefined && item.itbisRate !== null) ? item.itbisRate : 0.18;
-        document.getElementById('edit-item-itbis').value = editRate === 0 ? '0.0' : editRate.toString();
+        const editRate = (item.itbisRate !== undefined && item.itbisRate !== null && item.itbisRate !== '') ? parseFloat(item.itbisRate) : 0.18;
+        const itbisSelect = document.getElementById('edit-item-itbis');
+        if (itbisSelect) {
+            let matched = false;
+            for (let opt of itbisSelect.options) {
+                if (parseFloat(opt.value) === editRate || opt.value === String(editRate)) {
+                    itbisSelect.value = opt.value;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                itbisSelect.value = editRate === 0 ? '0' : editRate.toString();
+            }
+        }
         document.getElementById('edit-item-discount').value = item.discountRate || 0;
 
         const addCatBtn = document.getElementById('edit-add-catalog-btn');
@@ -570,7 +642,7 @@ class QuotationWizard {
         this.formData.items[idx].quantity = parseFloat(document.getElementById('edit-item-qty').value) || 1;
         this.formData.items[idx].price = parseFloat(document.getElementById('edit-item-price').value) || 0;
         const editItbisVal = document.getElementById('edit-item-itbis')?.value;
-        this.formData.items[idx].itbisRate = (editItbisVal !== undefined && editItbisVal !== '') ? parseFloat(editItbisVal) : 0.18;
+        this.formData.items[idx].itbisRate = (editItbisVal !== undefined && editItbisVal !== null && editItbisVal !== '') ? parseFloat(editItbisVal) : 0.18;
         this.formData.items[idx].discountRate = parseFloat(document.getElementById('edit-item-discount').value) || 0;
 
         this._closeEditModal();
@@ -588,7 +660,7 @@ class QuotationWizard {
         const price = parseFloat(document.getElementById('edit-item-price').value) || 0;
         const code = document.getElementById('edit-item-code').value.trim();
         const addItbisVal = document.getElementById('edit-item-itbis')?.value;
-        const itbis = (addItbisVal !== undefined && addItbisVal !== '') ? parseFloat(addItbisVal) : 0.18;
+        const itbis = (addItbisVal !== undefined && addItbisVal !== null && addItbisVal !== '') ? parseFloat(addItbisVal) : 0.18;
 
         if (!name || price <= 0) {
             this._showToast('Complete nombre y precio antes de agregar al catálogo', 'warning');
@@ -692,7 +764,7 @@ class QuotationWizard {
         const name = btn.dataset.name;
         const price = parseFloat(btn.dataset.price) || 0;
         const rawItbis = btn.dataset.itbis;
-        const itbis = (rawItbis !== undefined && rawItbis !== '') ? parseFloat(rawItbis) : 0.18;
+        const itbis = (rawItbis !== undefined && rawItbis !== null && rawItbis !== '') ? parseFloat(rawItbis) : 0.18;
         const code = btn.dataset.code || '';
         const item = { code, name, quantity: 1, price, itbisRate: itbis, discountRate: 0, catalogId: id };
 
@@ -860,6 +932,206 @@ class QuotationWizard {
             `;
             container.appendChild(row);
         });
+    }
+
+    _renderBankAccountsPreview() {
+        const container = document.getElementById('wz-bank-accounts-container');
+        if (!container) return;
+        container.innerHTML = '';
+        const accounts = this.formData.bankAccounts || [];
+        if (accounts.length === 0) {
+            container.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:12px;" id="wz-bank-accounts-empty">Sin cuentas bancarias seleccionadas</p>';
+            return;
+        }
+        accounts.forEach((acc, idx) => {
+            const card = document.createElement('div');
+            card.className = 'wz-bank-account-card';
+            card.innerHTML = `
+                <div class="wz-bank-account-header">
+                    <div class="wz-bank-account-title">
+                        <i class="fa-solid fa-building-columns" style="color:var(--wz-primary);"></i>
+                        <span>${this._escapeHtml(acc.bank)}</span>
+                        <span class="wz-bank-badge">${this._escapeHtml(acc.currency || 'DOP')}</span>
+                    </div>
+                    <div class="wz-bank-account-actions">
+                        <button type="button" class="btn-edit" data-idx="${idx}" title="Editar cuenta"><i class="fa-solid fa-pen"></i></button>
+                        <button type="button" class="btn-del" data-idx="${idx}" title="Eliminar cuenta"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:2px;">
+                    <span style="font-size:11.5px;color:#64748b;">${this._escapeHtml(acc.accountType || 'Corriente')}:</span>
+                    <span class="wz-bank-account-num">${this._escapeHtml(acc.accountNumber)}</span>
+                </div>
+                <div class="wz-bank-account-meta">
+                    <span>Titular: <strong>${this._escapeHtml(acc.holderName || this._companyInfo.name || '')}</strong></span>
+                    ${(acc.holderRnc || this._companyInfo.rnc) ? `<span>RNC/Cédula: <strong>${this._escapeHtml(acc.holderRnc || this._companyInfo.rnc || '')}</strong></span>` : ''}
+                </div>
+                ${acc.notes ? `<div style="font-size:11px;color:#64748b;font-style:italic;margin-top:2px;">Nota: ${this._escapeHtml(acc.notes)}</div>` : ''}
+            `;
+            card.querySelector('.btn-edit').addEventListener('click', () => this._openBankModal(idx));
+            card.querySelector('.btn-del').addEventListener('click', () => this._removeBankAccount(idx));
+            container.appendChild(card);
+        });
+    }
+
+    _openBankModal(idx = -1) {
+        const modal = document.getElementById('wz-bank-account-modal');
+        if (!modal) return;
+        const titleEl = document.getElementById('wz-bank-modal-title');
+        const idxEl = document.getElementById('edit-bank-index');
+        const bankEl = document.getElementById('edit-bank-name');
+        const numEl = document.getElementById('edit-bank-number');
+        const typeEl = document.getElementById('edit-bank-type');
+        const currEl = document.getElementById('edit-bank-currency');
+        const holderEl = document.getElementById('edit-bank-holder');
+        const rncEl = document.getElementById('edit-bank-rnc');
+        const notesEl = document.getElementById('edit-bank-notes');
+
+        if (idxEl) idxEl.value = idx;
+        if (idx >= 0 && this.formData.bankAccounts && this.formData.bankAccounts[idx]) {
+            const acc = this.formData.bankAccounts[idx];
+            if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Editar Cuenta Bancaria';
+            if (bankEl) bankEl.value = acc.bank || '';
+            if (numEl) numEl.value = acc.accountNumber || '';
+            if (typeEl) typeEl.value = acc.accountType || 'Corriente';
+            if (currEl) currEl.value = acc.currency || 'DOP';
+            if (holderEl) holderEl.value = acc.holderName || this._companyInfo.name || '';
+            if (rncEl) rncEl.value = acc.holderRnc || this._companyInfo.rnc || '';
+            if (notesEl) notesEl.value = acc.notes || '';
+        } else {
+            if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-building-columns"></i> Nueva Cuenta Bancaria';
+            if (bankEl) bankEl.value = '';
+            if (numEl) numEl.value = '';
+            if (typeEl) typeEl.value = 'Corriente';
+            if (currEl) currEl.value = 'DOP';
+            if (holderEl) holderEl.value = this._companyInfo.name || '';
+            if (rncEl) rncEl.value = this._companyInfo.rnc || '';
+            if (notesEl) notesEl.value = '';
+        }
+        modal.classList.add('active');
+        if (bankEl) bankEl.focus();
+    }
+
+    _closeBankModal() {
+        const modal = document.getElementById('wz-bank-account-modal');
+        if (modal) modal.classList.remove('active');
+    }
+
+    _saveBankAccount() {
+        const idx = parseInt(document.getElementById('edit-bank-index')?.value, 10);
+        const bank = document.getElementById('edit-bank-name')?.value.trim();
+        const accountNumber = document.getElementById('edit-bank-number')?.value.trim();
+        const accountType = document.getElementById('edit-bank-type')?.value || 'Corriente';
+        const currency = document.getElementById('edit-bank-currency')?.value || 'DOP';
+        const holderName = document.getElementById('edit-bank-holder')?.value.trim() || this._companyInfo.name || '';
+        const holderRnc = document.getElementById('edit-bank-rnc')?.value.trim() || this._companyInfo.rnc || '';
+        const notes = document.getElementById('edit-bank-notes')?.value.trim();
+
+        if (!bank) {
+            this._showToast('Debe ingresar o seleccionar el nombre del Banco', 'error');
+            return;
+        }
+        if (!accountNumber) {
+            this._showToast('Debe ingresar el número de cuenta', 'error');
+            return;
+        }
+
+        const accountData = {
+            bank,
+            accountNumber,
+            accountType,
+            currency,
+            holderName,
+            holderRnc,
+            notes
+        };
+
+        if (!this.formData.bankAccounts) {
+            this.formData.bankAccounts = [];
+        }
+
+        if (idx >= 0 && idx < this.formData.bankAccounts.length) {
+            this.formData.bankAccounts[idx] = accountData;
+        } else {
+            this.formData.bankAccounts.push(accountData);
+        }
+
+        this._closeBankModal();
+        this._renderBankAccountsPreview();
+        this._schedulePreview();
+    }
+
+    _removeBankAccount(idx) {
+        if (!this.formData.bankAccounts || idx < 0 || idx >= this.formData.bankAccounts.length) return;
+        this.formData.bankAccounts.splice(idx, 1);
+        this._renderBankAccountsPreview();
+        this._schedulePreview();
+    }
+
+    _openSavedBanksModal() {
+        const modal = document.getElementById('wz-saved-banks-modal');
+        const body = document.getElementById('wz-saved-banks-body');
+        if (!modal || !body) return;
+
+        body.innerHTML = '';
+        if (!this._savedBanks || this._savedBanks.length === 0) {
+            body.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">No se encontraron cuentas bancarias registradas en la empresa.<br><br>Puede agregar una cuenta personalizada con el botón "+ Nueva Cuenta".</p>';
+        } else {
+            this._savedBanks.forEach(b => {
+                const alreadyAdded = (this.formData.bankAccounts || []).some(
+                    acc => acc.accountNumber === b.accountNumber && acc.bank.toLowerCase() === b.bank.toLowerCase()
+                );
+                const item = document.createElement('div');
+                item.className = 'wz-saved-bank-item';
+                item.innerHTML = `
+                    <div>
+                        <div style="font-weight:700;font-size:13px;color:#1e293b;">
+                            <i class="fa-solid fa-building-columns" style="color:#64748b;margin-right:4px;"></i>${this._escapeHtml(b.bank)}
+                            <span class="wz-bank-badge" style="margin-left:6px;">${b.currency || 'DOP'}</span>
+                        </div>
+                        <div style="font-size:12px;color:#475569;margin-top:2px;">
+                            ${this._escapeHtml(b.accountType || 'Corriente')}: <strong style="font-family:monospace;">${this._escapeHtml(b.accountNumber)}</strong>
+                        </div>
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;">
+                            Titular: ${this._escapeHtml(b.holderName || this._companyInfo.name || '')}
+                            ${(b.holderRnc || this._companyInfo.rnc) ? `| RNC: ${this._escapeHtml(b.holderRnc || this._companyInfo.rnc || '')}` : ''}
+                        </div>
+                    </div>
+                    <div>
+                        ${alreadyAdded
+                            ? '<span style="font-size:11.5px;color:#16a34a;font-weight:600;"><i class="fa-solid fa-check"></i> Agregada</span>'
+                            : `<button type="button" class="btn btn-sm btn-primary btn-add-saved" style="padding:4px 10px;font-size:12px;background:#7c3aed;color:#fff;border:none;border-radius:4px;cursor:pointer;">
+                                <i class="fa-solid fa-plus"></i> Agregar
+                               </button>`
+                        }
+                    </div>
+                `;
+                if (!alreadyAdded) {
+                    item.querySelector('.btn-add-saved')?.addEventListener('click', () => {
+                        if (!this.formData.bankAccounts) this.formData.bankAccounts = [];
+                        this.formData.bankAccounts.push({
+                            bank: b.bank,
+                            accountNumber: b.accountNumber,
+                            accountType: b.accountType || 'Corriente',
+                            currency: b.currency || 'DOP',
+                            holderName: b.holderName || this._companyInfo.name || '',
+                            holderRnc: b.holderRnc || this._companyInfo.rnc || '',
+                            notes: b.notes || ''
+                        });
+                        this._renderBankAccountsPreview();
+                        this._openSavedBanksModal();
+                        this._schedulePreview();
+                    });
+                }
+                body.appendChild(item);
+            });
+        }
+        modal.classList.add('active');
+    }
+
+    _closeSavedBanksModal() {
+        const modal = document.getElementById('wz-saved-banks-modal');
+        if (modal) modal.classList.remove('active');
     }
 
     async _save(e) {

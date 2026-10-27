@@ -637,9 +637,10 @@
                 </div>
                 {% endif %}
 
-                {% if pd.get('paymentSchedule') %}
+                {% if pd.get('paymentSchedule') or pd.get('bankAccounts') %}
                 <div style="margin-top: 14px;">
                     <strong style="font-size:0.8rem;color:#7c3aed;">FORMA DE PAGO</strong>
+                    {% if pd.get('paymentSchedule') %}
                     <table style="width:100%;border-collapse:collapse;margin-top:4px;font-size:0.8rem;">
                         <thead>
                             <tr style="background:#f8fafc;">
@@ -662,6 +663,40 @@
                             {% endfor %}
                         </tbody>
                     </table>
+                    {% endif %}
+
+                    {% if pd.get('bankAccounts') %}
+                    <div style="margin-top:{% if pd.get('paymentSchedule') %}10px{% else %}4px{% endif %};">
+                        <span style="font-size:0.75rem;font-weight:600;color:#475569;">Cuentas Bancarias para Depósito / Transferencia:</span>
+                        <table style="width:100%;border-collapse:collapse;margin-top:4px;font-size:0.78rem;">
+                            <thead>
+                                <tr style="background:#f8fafc;">
+                                    <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #e2e8f0;color:#64748b;">Banco</th>
+                                    <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #e2e8f0;color:#64748b;">Tipo</th>
+                                    <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #e2e8f0;color:#64748b;">Número de Cuenta</th>
+                                    <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #e2e8f0;color:#64748b;">Titular</th>
+                                    <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #e2e8f0;color:#64748b;">RNC / Cédula</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for acc in pd.bankAccounts %}
+                                <tr>
+                                    <td style="padding:3px 6px;border-bottom:1px solid #f1f5f9;font-weight:600;">{{ acc.bank }}</td>
+                                    <td style="padding:3px 6px;border-bottom:1px solid #f1f5f9;">{{ acc.accountType or 'Corriente' }} ({{ acc.currency or 'DOP' }})</td>
+                                    <td style="padding:3px 6px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-weight:600;">{{ acc.accountNumber }}</td>
+                                    <td style="padding:3px 6px;border-bottom:1px solid #f1f5f9;">{{ acc.holderName or '' }}</td>
+                                    <td style="padding:3px 6px;border-bottom:1px solid #f1f5f9;">{{ acc.holderRnc or '' }}</td>
+                                </tr>
+                                {% if acc.notes %}
+                                <tr>
+                                    <td colspan="5" style="padding:1px 6px 4px 6px;border-bottom:1px solid #f1f5f9;font-size:0.72rem;color:#64748b;font-style:italic;">Nota: {{ acc.notes }}</td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
                 </div>
                 {% endif %}
 
@@ -1368,7 +1403,7 @@
             {% endif %}
 
             {% if invoice.status == 'Borrador' %}
-            <a href="{% if invoice.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?clone={{ invoice.id }}{% else %}{{ url_for('web_invoices.new_invoice_route', invoice_id=invoice.id) }}{% endif %}" class="btn btn-primary"
+            <a href="{% if invoice.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?edit={{ invoice.id }}{% else %}{{ url_for('web_invoices.new_invoice_route', invoice_id=invoice.id) }}{% endif %}" class="btn btn-primary"
                 style="width: 100%; {% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-hover));{% else %}background: var(--accent-purple);{% endif %} border: none; color: white;">
                 <i class="fa-solid fa-pen-to-square"></i>
                 <span>Editar {% if invoice.isQuotation %}Cotización{% else %}Borrador{% endif %}</span>
