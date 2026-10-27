@@ -209,7 +209,8 @@ ALL_PERMISSION_KEYS = [
     "canInventoryLots", "canManageWarehouses", "canInventoryAdjustments",
     "canManagePriceLists",
     # Permisos granulares de Compras y Proveedores
-    "canManagePurchaseOrders", "canManagePurchaseCreditNotes",
+    "canManagePurchaseOrders", "canApprovePurchaseOrders", "canSelfApprovePurchaseOrders",
+    "canManagePurchaseCreditNotes",
     "canManageMinorExpenses", "canManageRecurringExpenses",
     "canManageReceivedECF",
     # Permisos granulares de CRM y Contactos
@@ -261,7 +262,8 @@ ROLES_PRESETS = {
         "canInventoryLots": False, "canManageWarehouses": False, "canInventoryAdjustments": False,
         "canManagePriceLists": False,
         # Compras y Proveedores para Vendedor
-        "canManagePurchaseOrders": False, "canManagePurchaseCreditNotes": False,
+        "canManagePurchaseOrders": False, "canApprovePurchaseOrders": False, "canSelfApprovePurchaseOrders": False,
+        "canManagePurchaseCreditNotes": False,
         "canManageMinorExpenses": False, "canManageRecurringExpenses": False,
         "canManageReceivedECF": False,
         # CRM y Contactos para Vendedor
@@ -309,7 +311,8 @@ ROLES_PRESETS = {
         "canInventoryLots": False, "canManageWarehouses": False, "canInventoryAdjustments": False,
         "canManagePriceLists": False,
         # Compras y Proveedores para Contador
-        "canManagePurchaseOrders": True, "canManagePurchaseCreditNotes": True,
+        "canManagePurchaseOrders": True, "canApprovePurchaseOrders": True, "canSelfApprovePurchaseOrders": False,
+        "canManagePurchaseCreditNotes": True,
         "canManageMinorExpenses": True, "canManageRecurringExpenses": True,
         "canManageReceivedECF": True,
         # CRM y Contactos para Contador
@@ -357,7 +360,8 @@ ROLES_PRESETS = {
         "canInventoryLots": False, "canManageWarehouses": False, "canInventoryAdjustments": False,
         "canManagePriceLists": False,
         # Compras y Proveedores para Consulta
-        "canManagePurchaseOrders": False, "canManagePurchaseCreditNotes": False,
+        "canManagePurchaseOrders": False, "canApprovePurchaseOrders": False, "canSelfApprovePurchaseOrders": False,
+        "canManagePurchaseCreditNotes": False,
         "canManageMinorExpenses": False, "canManageRecurringExpenses": False,
         "canManageReceivedECF": False,
         # CRM y Contactos para Consulta
@@ -472,6 +476,8 @@ PERMISSION_GROUPS = [
         "perms": [
             "canManagePurchaseCXP",
             "canManagePurchaseOrders",
+            "canApprovePurchaseOrders",
+            "canSelfApprovePurchaseOrders",
             "canManagePurchaseCreditNotes",
             "canManageSuppliers",
             "canCreateSupplier",
@@ -483,6 +489,8 @@ PERMISSION_GROUPS = [
         "labels": {
             "canManagePurchaseCXP": "Facturas de proveedores y cuentas por pagar (CxP)",
             "canManagePurchaseOrders": "Órdenes de compra a proveedores",
+            "canApprovePurchaseOrders": "Aprobar órdenes de compra a proveedores",
+            "canSelfApprovePurchaseOrders": "Auto-aprobar órdenes de compra creadas por el mismo usuario",
             "canManagePurchaseCreditNotes": "Notas de crédito en compras (devoluciones/descuentos)",
             "canManageSuppliers": "Directorio de proveedores y condiciones de pago",
             "canCreateSupplier": "Crear y registrar nuevos proveedores",
@@ -2041,7 +2049,7 @@ def new_invoice_route(invoice_id=None):
         sandbox = session.get('is_sandbox_mode', True)
         source = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         if source and source.get('isProfessional'):
-            return redirect(url_for('web_invoices.professional_quotation_route', clone=invoice_id))
+            return redirect(url_for('web_invoices.professional_quotation_route', edit=invoice_id))
     return _new_document_helper(invoice_id=invoice_id, is_quotation=False)
 
 @web_invoices_bp.route('/quotations/new', methods=['GET', 'POST'])
@@ -2054,7 +2062,7 @@ def new_quotation_route(invoice_id=None):
         sandbox = session.get('is_sandbox_mode', True)
         source = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         if source and source.get('isProfessional'):
-            return redirect(url_for('web_invoices.professional_quotation_route', clone=invoice_id))
+            return redirect(url_for('web_invoices.professional_quotation_route', edit=invoice_id))
     return _new_document_helper(invoice_id=invoice_id, is_quotation=True)
 
 @web_invoices_bp.route('/invoices/<invoice_id>/update_status', methods=['POST'])
@@ -2084,7 +2092,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         sandbox = session.get('is_sandbox_mode', True)
         source = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         if source and source.get('isProfessional'):
-            return redirect(url_for('web_invoices.professional_quotation_route', clone=invoice_id))
+            return redirect(url_for('web_invoices.professional_quotation_route', edit=invoice_id))
     required_perm = 'canManageQuotations' if is_quotation else 'canInvoice'
     if not check_permission(required_perm):
         feature_name = "Cotizaciones" if is_quotation else "Emisión de Documentos"
@@ -7812,7 +7820,25 @@ def minor_new_route():
     suppliers = []
     try:
         from app.services.supplier_service import SupplierService
+        from app.services.contact_service import ContactService
         suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
+        seen_ids = {s['id'] for s in suppliers if s.get('id')}
+        seen_rncs = {s.get('rnc') for s in suppliers if s.get('rnc')}
+        all_contacts = ContactService.get_contacts(owner_uid, sandbox=sandbox, company_id=company_id)
+        for c in all_contacts:
+            cid = c.get('id')
+            crnc = c.get('rnc', '')
+            if cid and cid not in seen_ids and (not crnc or crnc not in seen_rncs):
+                suppliers.append({
+                    "id": cid,
+                    "rnc": crnc,
+                    "name": c.get("razonSocial") or c.get("name") or "",
+                    "supplierType": c.get("supplierType", "formal" if crnc else "informal"),
+                    "phone": c.get("telefono") or c.get("celular") or "",
+                    "email": c.get("email") or "",
+                    "isContact": True,
+                })
+                seen_ids.add(cid)
     except Exception as e:
         print(f"⚠️ Error loading suppliers for minor_new (GET): {e}")
         suppliers = []
@@ -8434,7 +8460,26 @@ def edit_expense_route(expense_id):
 
     try:
         from app.services.supplier_service import SupplierService
-        common_vars['suppliers'] = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
+        from app.services.contact_service import ContactService
+        sups = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
+        seen_ids = {s['id'] for s in sups if s.get('id')}
+        seen_rncs = {s.get('rnc') for s in sups if s.get('rnc')}
+        all_contacts = ContactService.get_contacts(owner_uid, sandbox=sandbox, company_id=company_id)
+        for c in all_contacts:
+            cid = c.get('id')
+            crnc = c.get('rnc', '')
+            if cid and cid not in seen_ids and (not crnc or crnc not in seen_rncs):
+                sups.append({
+                    "id": cid,
+                    "rnc": crnc,
+                    "name": c.get("razonSocial") or c.get("name") or "",
+                    "supplierType": c.get("supplierType", "formal" if crnc else "informal"),
+                    "phone": c.get("telefono") or c.get("celular") or "",
+                    "email": c.get("email") or "",
+                    "isContact": True,
+                })
+                seen_ids.add(cid)
+        common_vars['suppliers'] = sups
     except Exception as e:
         print(f"⚠️ Error loading suppliers for minor_new edit: {e}")
 
@@ -13268,6 +13313,28 @@ def api_toggle_comment_reaction(resource_type, resource_id, comment_id):
     
     return jsonify({"success": False, "error": "Error al actualizar reacción"}), 500
 
+def _parse_bank_accounts(raw_accounts, default_holder='', default_rnc=''):
+    if not isinstance(raw_accounts, list):
+        return []
+    cleaned = []
+    for acc in raw_accounts:
+        if not isinstance(acc, dict):
+            continue
+        bank = str(acc.get('bank') or acc.get('name') or '').strip()
+        account_number = str(acc.get('accountNumber') or '').strip()
+        if not bank and not account_number:
+            continue
+        cleaned.append({
+            "bank": bank,
+            "accountNumber": account_number,
+            "accountType": str(acc.get('accountType') or acc.get('type') or 'Corriente').strip(),
+            "holderName": str(acc.get('holderName') or default_holder or '').strip(),
+            "holderRnc": str(acc.get('holderRnc') or default_rnc or '').strip(),
+            "currency": str(acc.get('currency') or 'DOP').strip().upper(),
+            "notes": str(acc.get('notes') or '').strip(),
+        })
+    return cleaned
+
 @web_invoices_bp.route('/quotations/new/professional', methods=['GET', 'POST'])
 def professional_quotation_route():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
@@ -13279,14 +13346,54 @@ def professional_quotation_route():
         company_id = session.get('selected_company_id')
         sandbox = session.get('is_sandbox_mode', True)
         catalog = [it for it in DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get('isActive', True)]
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+        bank_accounts_raw = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox) or []
+        company_name = company.get('companyName') or company.get('tradeName') or ''
+        company_rnc = company.get('companyRNC') or company.get('rnc') or ''
+        bank_accounts_formatted = []
+        for ba in bank_accounts_raw:
+            b_type = str(ba.get('type') or 'banco').lower()
+            if b_type in ('caja', 'efectivo'):
+                continue
+            name_lower = str(ba.get('name', '')).lower()
+            bank_accounts_formatted.append({
+                "id": ba.get('id', ''),
+                "bank": ba.get('name', ''),
+                "accountNumber": ba.get('accountNumber', ''),
+                "accountType": 'Ahorros' if 'ahorro' in name_lower else 'Corriente',
+                "holderName": company_name,
+                "holderRnc": company_rnc,
+                "currency": 'USD' if 'usd' in name_lower or '$us' in name_lower else 'DOP',
+                "notes": ba.get('description', '')
+            })
         
         initial_data_json = 'null'
+        edit_id = request.args.get('edit')
         clone_id = request.args.get('clone')
-        if clone_id:
-            source = DatabaseService.get_invoice(owner_uid, clone_id, company_id=company_id, sandbox=sandbox)
+        source_id = edit_id or clone_id
+        if source_id:
+            source = DatabaseService.get_invoice(owner_uid, source_id, company_id=company_id, sandbox=sandbox)
             if source and source.get('isProfessional'):
                 pd = source.get('professionalData', {})
+                items_parsed = []
+                for i in source.get('items', []):
+                    raw_itbis = i.get('itbisRate')
+                    itbis_val = float(raw_itbis) if raw_itbis is not None and str(raw_itbis).strip() != '' else 0.18
+                    raw_disc = i.get('discountRate', 0)
+                    disc_val = float(raw_disc) if raw_disc is not None and str(raw_disc).strip() != '' else 0.0
+                    items_parsed.append({
+                        "code": i.get('code', ''),
+                        "name": i.get('name', ''),
+                        "quantity": i.get('quantity', 1),
+                        "price": i.get('price', 0),
+                        "itbisRate": itbis_val,
+                        "discountRate": disc_val,
+                        "catalogId": i.get('catalogId', '')
+                    })
                 initial_data = {
+                    "id": source.get('id') if edit_id else None,
+                    "isEdit": bool(edit_id),
+                    "invoiceNumber": source.get('invoiceNumber') if edit_id else None,
                     "clientId": source.get('clientId', ''),
                     "clientName": source.get('clientName', ''),
                     "clientRNC": source.get('clientRNC', ''),
@@ -13295,17 +13402,13 @@ def professional_quotation_route():
                     "clientPhone": source.get('clientPhone', ''),
                     "clientAddress": source.get('clientAddress', ''),
                     "subject": pd.get('subject', ''),
-                    "items": [{
-                        "code": i.get('code', ''), "name": i.get('name', ''),
-                        "quantity": i.get('quantity', 1), "price": i.get('price', 0),
-                        "itbisRate": i.get('itbisRate', 0.18), "discountRate": i.get('discountRate', 0),
-                        "catalogId": i.get('catalogId', '')
-                    } for i in source.get('items', [])],
+                    "items": items_parsed,
                     "scopeIncluded": pd.get('scopeIncluded', []),
                     "scopeExcluded": pd.get('scopeExcluded', []),
                     "deliverables": pd.get('deliverables', []),
                     "timeline": pd.get('timeline', []),
                     "paymentSchedule": pd.get('paymentSchedule', []),
+                    "bankAccounts": _parse_bank_accounts(pd.get('bankAccounts', []), default_holder=company_name, default_rnc=company_rnc),
                     "validityDays": pd.get('validityDays', 15),
                     "termsAndConditions": pd.get('termsAndConditions', ''),
                     "intellectualProperty": pd.get('intellectualProperty', ''),
@@ -13322,7 +13425,18 @@ def professional_quotation_route():
                 }
                 initial_data_json = json.dumps(initial_data)
         
-        return render_template('quotations/professional_new.html', catalog_json=json.dumps(catalog), initial_data_json=initial_data_json)
+        return render_template(
+            'quotations/professional_new.html',
+            catalog_json=json.dumps(catalog),
+            initial_data_json=initial_data_json,
+            bank_accounts_json=json.dumps(bank_accounts_formatted),
+            company_json=json.dumps({
+                "name": company_name,
+                "rnc": company_rnc,
+                "phone": company.get('companyPhone') or company.get('phone') or '',
+                "email": company.get('companyEmail') or company.get('email') or ''
+            })
+        )
     
     # POST - save
     if 'user' not in session:
@@ -13392,8 +13506,10 @@ def professional_quotation_route():
     for item in data.get('items', []):
         price = float(item.get('price', 0))
         qty = float(item.get('quantity', 1))
-        itbis_rate = float(item.get('itbisRate', 0.18))
-        discount_rate = float(item.get('discountRate', 0)) / 100.0
+        raw_itbis = item.get('itbisRate')
+        itbis_rate = float(raw_itbis) if raw_itbis is not None and str(raw_itbis).strip() != '' else 0.18
+        raw_discount = item.get('discountRate')
+        discount_rate = (float(raw_discount) / 100.0) if raw_discount is not None and str(raw_discount).strip() != '' else 0.0
         subtotal = price * qty
         discount_amt = subtotal * discount_rate
         itbis_amt = (subtotal - discount_amt) * itbis_rate
@@ -13421,6 +13537,10 @@ def professional_quotation_route():
     inv_number = f"COT-{random.randint(1, 999999):06d}"
     now = datetime.now(timezone.utc).isoformat()
 
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    company_name = company.get('companyName') or company.get('tradeName') or ''
+    company_rnc = company.get('companyRNC') or company.get('rnc') or ''
+
     professional_data = {
         "subject": data.get('subject', ''),
         "scopeIncluded": data.get('scopeIncluded', []),
@@ -13428,6 +13548,7 @@ def professional_quotation_route():
         "deliverables": data.get('deliverables', []),
         "timeline": data.get('timeline', []),
         "paymentSchedule": data.get('paymentSchedule', []),
+        "bankAccounts": _parse_bank_accounts(data.get('bankAccounts', []), default_holder=company_name, default_rnc=company_rnc),
         "validityDays": int(data.get('validityDays', 15)),
         "termsAndConditions": data.get('termsAndConditions', ''),
         "intellectualProperty": data.get('intellectualProperty', ''),
@@ -13474,18 +13595,28 @@ def professional_quotation_route():
         "isConvertedToInvoice": False,
     }
 
+    existing_id = str(data.get('id') or '').strip()
+    invoice_id_to_use = None
+    if existing_id:
+        existing_doc = DatabaseService.get_invoice(owner_uid, existing_id, company_id=company_id, sandbox=sandbox)
+        if existing_doc and existing_doc.get('status') in ('Borrador', 'Rechazada'):
+            invoice_id_to_use = existing_id
+            inv_number = existing_doc.get('invoiceNumber', inv_number)
+            invoice_dict['invoiceNumber'] = inv_number
+            invoice_dict['createdAt'] = existing_doc.get('createdAt', now)
+
     try:
-        new_invoice_id = str(uuid.uuid4())
+        new_invoice_id = invoice_id_to_use or str(uuid.uuid4())
         invoice_dict['id'] = new_invoice_id
         result = DatabaseService.save_invoice(owner_uid, new_invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
         if result and result.get('id'):
             from app.services.audit_service import AuditService
             AuditService.log_from_request(
                 owner_uid=owner_uid,
-                action="CREATE",
+                action="UPDATE" if invoice_id_to_use else "CREATE",
                 module="Cotizaciones",
                 entity_id=new_invoice_id,
-                entity_label=f"Cotización profesional {inv_number} creada",
+                entity_label=f"Cotización profesional {inv_number} {'actualizada' if invoice_id_to_use else 'creada'}",
                 user_session=session.get('user', {}),
                 sandbox=sandbox
             )
@@ -13567,8 +13698,10 @@ def quotation_preview():
     for item in data.get('items', []):
         price = float(item.get('price', 0))
         qty = float(item.get('quantity', 1))
-        itbis_rate = float(item.get('itbisRate', 0.18) or 0.18)
-        discount_rate = float(item.get('discountRate', 0) or 0) / 100.0
+        raw_itbis = item.get('itbisRate')
+        itbis_rate = float(raw_itbis) if raw_itbis is not None and str(raw_itbis).strip() != '' else 0.18
+        raw_discount = item.get('discountRate')
+        discount_rate = (float(raw_discount) / 100.0) if raw_discount is not None and str(raw_discount).strip() != '' else 0.0
         subtotal = price * qty
         discount_amt = subtotal * discount_rate
         itbis_amt = (subtotal - discount_amt) * itbis_rate
@@ -13598,6 +13731,9 @@ def quotation_preview():
     from datetime import datetime as dt_module
     now = dt_module.now()
 
+    company_name = company.get('companyName') or company.get('tradeName') or ''
+    company_rnc = company.get('companyRNC') or company.get('rnc') or ''
+
     professional_data = {
         "subject": data.get('subject', ''),
         "scopeIncluded": data.get('scopeIncluded', []),
@@ -13605,6 +13741,7 @@ def quotation_preview():
         "deliverables": data.get('deliverables', []),
         "timeline": data.get('timeline', []),
         "paymentSchedule": data.get('paymentSchedule', []),
+        "bankAccounts": _parse_bank_accounts(data.get('bankAccounts', []), default_holder=company_name, default_rnc=company_rnc),
         "validityDays": int(data.get('validityDays', 15)),
         "termsAndConditions": data.get('termsAndConditions', ''),
         "intellectualProperty": data.get('intellectualProperty', ''),
