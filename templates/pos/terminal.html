@@ -5,16 +5,27 @@
 {% block page_header %}POS - Terminal de Ventas{% endblock %}
 
 {% block content %}
-<!-- CONTENEDOR PRINCIPAL: Estilo Industrial de 15 Pulgadas -->
-<div style="display: grid; grid-template-columns: 450px 1fr; gap: 12px; height: calc(100vh - 24px); overflow: hidden; width: 100%; box-sizing: border-box; font-family: var(--font-body);">
+<!-- Selector de pestañas para vista móvil / tablet compacta -->
+<div class="pos-mobile-nav">
+    <button type="button" class="pos-mobile-tab active" id="tab-btn-catalog" onclick="switchPosMobileView('catalog')">
+        <i class="fa-solid fa-boxes-stacked"></i> Catálogo
+    </button>
+    <button type="button" class="pos-mobile-tab" id="tab-btn-cart" onclick="switchPosMobileView('cart')">
+        <i class="fa-solid fa-basket-shopping"></i> Carrito
+        <span class="pos-mobile-cart-badge" id="mobile-cart-count" style="display: none;">0</span>
+    </button>
+</div>
+
+<!-- CONTENEDOR PRINCIPAL RESPONSIVE -->
+<div class="pos-main-container">
 
     <!-- ================= COLUMNA IZQUIERDA: CARRITO, TOTALES Y ACCIONES ================= -->
-    <div class="card-table-wrapper" style="padding: 12px; margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between; height: 100%; box-sizing: border-box; background: var(--bg-card); border-right: 1px solid var(--border-color);">
+    <div class="card-table-wrapper pos-left-panel" id="pos-left-panel">
         
         <!-- Info de Cliente y Turno -->
         <div style="display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 8px;">
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: var(--text-muted);">
-                <span>Caja activa: <strong>Caja 01</strong></span>
+                <span>Caja: <strong>{{ register.name if register else 'Caja 01' }}</strong> • Almacén: <strong style="color: var(--text-primary);">{{ current_warehouse.name if current_warehouse else 'Almacén Principal' }}</strong></span>
                 <span id="pos-shift-indicator" style="color: var(--accent-emerald); font-weight: 700;"><i class="fa-solid fa-circle"></i> TURNO ABIERTO</span>
             </div>
 
@@ -42,7 +53,7 @@
         </div>
 
         <!-- Tabla del Carrito de Compras (Scroll independiente) -->
-        <div style="flex: 1 1 0%; min-height: 0; overflow-y: auto; margin-bottom: 8px; border-bottom: 1px solid var(--border-color);">
+        <div class="pos-cart-table-container" style="flex: 1 1 0%; min-height: 0; overflow-y: auto; margin-bottom: 8px; border-bottom: 1px solid var(--border-color);">
             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.8rem;">
                 <thead>
                     <tr style="border-bottom: 1.5px solid var(--border-color); color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase;">
@@ -57,7 +68,7 @@
                 </tbody>
             </table>
             
-            <div id="cart-empty-state" style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+            <div id="cart-empty-state" style="text-align: center; padding: 30px 0; color: var(--text-secondary);">
                 <i class="fa-solid fa-basket-shopping" style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.3; margin-bottom: 6px; display: block;"></i>
                 <span style="font-size: 0.82rem;">Carrito vacío</span>
             </div>
@@ -96,13 +107,13 @@
     </div>
 
     <!-- ================= COLUMNA DERECHA: CATÁLOGO (ARRIBA) + TECLADO NUMÉRICO Y COBRO (ABAJO) ================= -->
-    <div style="display: grid; grid-template-rows: 1fr 310px; gap: 12px; height: 100%; overflow: hidden;">
+    <div class="pos-right-panel" id="pos-right-panel">
 
         <!-- 1. PARTE SUPERIOR: Catálogo, Pestañas de Departamentos y Buscador -->
-        <div class="card-table-wrapper" style="padding: 12px; margin-bottom: 0; display: flex; flex-direction: column; overflow: hidden; height: 100%;">
+        <div class="card-table-wrapper pos-catalog-wrapper" style="padding: 12px; margin-bottom: 0; display: flex; flex-direction: column; overflow: hidden; height: 100%; min-height: 0;">
             
             <!-- Barra Superior: Buscador y Pestañas -->
-            <div style="display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px;">
+            <div style="display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 8px;">
                 <div style="display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center;">
                     <div style="position: relative; width: 100%;">
                         <i class="fa-solid fa-barcode" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 1rem;"></i>
@@ -134,25 +145,25 @@
             </div>
 
             <!-- Grilla de Productos (Scrollable) -->
-            <div id="products-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; overflow-y: auto; flex-grow: 1;">
+            <div id="products-grid" class="pos-products-grid">
                 <!-- Render dinámico -->
             </div>
 
         </div>
 
         <!-- 2. PARTE INFERIOR: Teclado Numérico CashCow y Métodos de Cobro -->
-        <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; height: 100%;">
+        <div class="pos-dock-wrapper">
             
             <!-- Panel Teclado Numérico (Numpad) -->
-            <div class="card-table-wrapper" style="padding: 12px; margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
-                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
-                    <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Monto Recibido:</span>
+            <div class="card-table-wrapper pos-numpad-card">
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Monto Recibido:</span>
                     <input type="text" id="received-amount" placeholder="0.00" readonly
-                        style="flex-grow: 1; height: 36px; border: 1px solid var(--border-color); background: var(--bg-input); border-radius: 6px; text-align: right; padding: 0 10px; font-size: 1.15rem; font-weight: 800; font-family: monospace; color: var(--accent-emerald);">
+                        style="flex-grow: 1; height: 34px; border: 1px solid var(--border-color); background: var(--bg-input); border-radius: 6px; text-align: right; padding: 0 10px; font-size: 1.1rem; font-weight: 800; font-family: monospace; color: var(--accent-emerald);">
                 </div>
 
                 <!-- Matriz de Botones 4x3 del Teclado -->
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; flex-grow: 1;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; flex-grow: 1;">
                     <button onclick="pressNum(7)" class="btn btn-secondary num-key">7</button>
                     <button onclick="pressNum(8)" class="btn btn-secondary num-key">8</button>
                     <button onclick="pressNum(9)" class="btn btn-secondary num-key">9</button>
@@ -172,12 +183,12 @@
             </div>
 
             <!-- Panel de Billetes Rápidos y Cobro -->
-            <div class="card-table-wrapper" style="padding: 12px; margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
+            <div class="card-table-wrapper pos-checkout-card">
                 
                 <!-- Billetes comunes dominicanos -->
                 <div>
-                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px;">Dinero Rápido:</span>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px;">
+                    <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">Dinero Rápido:</span>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 6px;">
                         <button onclick="quickCash(100)" class="btn btn-secondary cash-btn">RD$ 100</button>
                         <button onclick="quickCash(200)" class="btn btn-secondary cash-btn">RD$ 200</button>
                         <button onclick="quickCash(500)" class="btn btn-secondary cash-btn">RD$ 500</button>
@@ -187,26 +198,26 @@
                     </div>
                     
                     <!-- Devolución / Cambio -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px;">
-                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Devuelta:</span>
-                        <strong id="change-amount-display" style="font-size: 1.1rem; color: var(--text-primary); font-family: monospace;">RD$ 0.00</strong>
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 5px 8px; border-radius: 6px;">
+                        <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">Devuelta:</span>
+                        <strong id="change-amount-display" style="font-size: 1.05rem; color: var(--text-primary); font-family: monospace;">RD$ 0.00</strong>
                     </div>
                 </div>
 
                 <!-- Botones de Finalización Directa -->
-                <div style="display: flex; flex-direction: column; gap: 6px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                        <button onclick="processDirectCheckout('Efectivo')" class="btn btn-secondary" style="height: 40px; font-weight: 700; color: var(--accent-emerald); background: rgba(16,185,129,0.06); border-color: rgba(16,185,129,0.3);">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                        <button onclick="processDirectCheckout('Efectivo')" class="btn btn-secondary" style="height: 38px; font-weight: 700; color: var(--accent-emerald); background: rgba(16,185,129,0.06); border-color: rgba(16,185,129,0.3);">
                             <i class="fa-solid fa-money-bill-1-wave"></i> Efectivo
                         </button>
-                        <button onclick="processDirectCheckout('Tarjeta')" class="btn btn-secondary" style="height: 40px; font-weight: 700; color: var(--accent-blue); background: rgba(59,130,246,0.06); border-color: rgba(59,130,246,0.3);">
+                        <button onclick="processDirectCheckout('Tarjeta')" class="btn btn-secondary" style="height: 38px; font-weight: 700; color: var(--accent-blue); background: rgba(59,130,246,0.06); border-color: rgba(59,130,246,0.3);">
                             <i class="fa-solid fa-credit-card"></i> Tarjeta
                         </button>
                     </div>
-                    <button onclick="processDirectCheckout('Transferencia')" class="btn btn-secondary" style="height: 36px; font-weight: 600; width: 100%;">
+                    <button onclick="processDirectCheckout('Transferencia')" class="btn btn-secondary" style="height: 34px; font-weight: 600; width: 100%;">
                         <i class="fa-solid fa-building-columns"></i> Transferencia Bancaria
                     </button>
-                    <button onclick="processDirectCheckout('Efectivo USD')" class="btn btn-secondary" style="height: 36px; font-weight: 600; width: 100%; border-color: rgba(139, 92, 246, 0.4); color: #8b5cf6; background: rgba(139, 92, 246, 0.05); margin-top: 4px;">
+                    <button onclick="processDirectCheckout('Efectivo USD')" class="btn btn-secondary" style="height: 34px; font-weight: 600; width: 100%; border-color: rgba(139, 92, 246, 0.4); color: #8b5cf6; background: rgba(139, 92, 246, 0.05);">
                         <i class="fa-solid fa-dollar-sign"></i> Cobrar en USD (Dólares)
                     </button>
                 </div>
@@ -217,6 +228,17 @@
 
     </div>
 
+</div>
+
+<!-- Barra flotante inferior para dispositivos táctiles compactos / móvil -->
+<div class="pos-mobile-bottom-bar" id="pos-mobile-bottom-bar">
+    <div class="pos-mobile-total-info">
+        <span class="pos-mobile-total-label">Total a Pagar</span>
+        <span class="pos-mobile-total-val" id="mobile-total-val">RD$ 0.00</span>
+    </div>
+    <button type="button" class="btn btn-primary pos-mobile-checkout-btn" onclick="switchPosMobileView('cart')">
+        <i class="fa-solid fa-basket-shopping"></i> Ver Carrito / Cobrar
+    </button>
 </div>
 
 <!-- MODAL: BUSCAR CLIENTE (RNC / Cédula) CON TECLADO TÁCTIL -->
@@ -436,6 +458,7 @@
     let currentEcfType = 'Factura de Consumo (E32)';
     let successInvoiceId = null;
     let usdExchangeRate = 58.50;
+    const currentWarehouseId = {{ (pos_warehouse_id or '') | tojson }};
 
     function saveCart() {
         localStorage.setItem('pos_cart', JSON.stringify(cart));
@@ -552,6 +575,14 @@
         renderProductGrid(filtered);
     }
 
+    const categoryIconMap = {
+        'alimentos': 'fa-utensils',
+        'electronica': 'fa-laptop',
+        'servicios': 'fa-handshake',
+        'ferreteria': 'fa-screwdriver-wrench',
+        'general': 'fa-box'
+    };
+
     function renderProductGrid(products) {
         const grid = document.getElementById('products-grid');
         grid.innerHTML = '';
@@ -560,7 +591,7 @@
             grid.innerHTML = `
             <div style="grid-column: 1 / -1; text-align: center; padding: 40px 0; color: var(--text-secondary);">
                 <i class="fa-solid fa-boxes-packing" style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.4; margin-bottom: 6px; display: block;"></i>
-                <span>No hay productos</span>
+                <span style="font-size: 0.85rem;">No hay productos disponibles</span>
             </div>
         `;
             return;
@@ -568,46 +599,77 @@
 
         products.forEach(p => {
             const card = document.createElement('div');
-            card.className = 'product-pos-card';
-            card.style = `
-                background-color: var(--bg-card);
-                border: 1px solid var(--border-color);
-                border-radius: var(--radius-sm);
-                padding: 8px;
-                cursor: pointer;
-                transition: all 0.2s;
-                display: flex;
-                align-items: center;
-                min-height: 78px;
-            `;
+            card.className = 'pos-product-card';
             card.setAttribute('onclick', `addToCart('${p.id}')`);
-            card.onmouseover = function () { this.style.borderColor = 'var(--accent-emerald)'; this.style.transform = 'translateY(-1px)'; };
-            card.onmouseout = function () { this.style.borderColor = 'var(--border-color)'; this.style.transform = 'none'; };
 
-            const imageHtml = p.imageUrl 
-                ? `<img src="${p.imageUrl}" alt="${p.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); display: block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
-                : '';
-            const placeholderHtml = `<div style="width: 50px; height: 50px; border-radius: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); display: ${p.imageUrl ? 'none' : 'flex'}; align-items: center; justify-content: center; color: var(--text-muted); font-size: 1.1rem; flex-shrink:0;"><i class="fa-solid fa-box"></i></div>`;
+            const cartItem = cart.find(i => i.id === p.id);
+            const qty = cartItem ? cartItem.quantity : 0;
+            const iconClass = categoryIconMap[p.categoryId] || 'fa-box';
+
+            let mediaHtml = '';
+            if (p.imageUrl) {
+                mediaHtml = `
+                    <img class="pos-card-thumb" src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="pos-card-icon-box" style="display:none;"><i class="fa-solid ${iconClass}"></i></div>
+                `;
+            } else {
+                mediaHtml = `
+                    <div class="pos-card-icon-box"><i class="fa-solid ${iconClass}"></i></div>
+                `;
+            }
 
             card.innerHTML = `
-                <div style="display: flex; gap: 8px; align-items: center; width: 100%;">
-                    <!-- Miniatura de Imagen -->
-                    <div style="position: relative; flex-shrink: 0; width: 50px; height: 50px;">
-                        ${imageHtml}
-                        ${placeholderHtml}
-                    </div>
-                    <!-- Información del Producto -->
-                    <div style="flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; height: 60px;">
-                        <span style="display: block; font-size: 0.74rem; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: var(--text-primary); font-weight: 500;">${p.name}</span>
-                        <div style="display: flex; justify-content: space-between; align-items: flex-end; width: 100%;">
-                            <span style="font-size: 0.82rem; font-weight: 500; color: var(--accent-emerald); font-family: monospace; line-height: 1;">RD$ ${p.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                            <span style="font-size: 0.6rem; color: var(--text-muted); font-family: monospace; line-height: 1;">${p.code || 'S/C'}</span>
-                        </div>
-                    </div>
+                <div class="pos-card-header">
+                    <span class="pos-card-sku">${p.code || 'S/C'}</span>
+                    <span class="pos-card-qty-badge" data-product-id="${p.id}" style="${qty > 0 ? '' : 'display:none;'}">${qty}</span>
+                </div>
+                <div class="pos-card-body">
+                    ${mediaHtml}
+                    <div class="pos-card-name" title="${p.name}">${p.name}</div>
+                </div>
+                <div class="pos-card-footer">
+                    <span class="pos-card-price">RD$ ${p.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    <span class="pos-card-add-btn" title="Agregar"><i class="fa-solid fa-plus"></i></span>
                 </div>
             `;
             grid.appendChild(card);
         });
+    }
+
+    function updateProductCardBadges() {
+        const badges = document.querySelectorAll('.pos-card-qty-badge');
+        badges.forEach(b => {
+            const pid = b.getAttribute('data-product-id');
+            const cartItem = cart.find(i => i.id === pid);
+            if (cartItem && cartItem.quantity > 0) {
+                b.textContent = cartItem.quantity;
+                b.style.display = 'inline-flex';
+            } else {
+                b.style.display = 'none';
+            }
+        });
+    }
+
+    function switchPosMobileView(view) {
+        const leftPanel = document.getElementById('pos-left-panel');
+        const rightPanel = document.getElementById('pos-right-panel');
+        const bottomBar = document.getElementById('pos-mobile-bottom-bar');
+        const tabCatalog = document.getElementById('tab-btn-catalog');
+        const tabCart = document.getElementById('tab-btn-cart');
+
+        if (view === 'cart') {
+            if (leftPanel) leftPanel.classList.add('mobile-active');
+            if (rightPanel) rightPanel.classList.add('mobile-hidden');
+            if (bottomBar) bottomBar.style.display = 'none';
+            if (tabCart) tabCart.classList.add('active');
+            if (tabCatalog) tabCatalog.classList.remove('active');
+        } else {
+            if (leftPanel) leftPanel.classList.remove('mobile-active');
+            if (rightPanel) rightPanel.classList.remove('mobile-hidden');
+            if (bottomBar) bottomBar.style.display = 'flex';
+            if (tabCatalog) tabCatalog.classList.add('active');
+            if (tabCart) tabCart.classList.remove('active');
+        }
     }
 
     function addToCart(productId) {
@@ -827,6 +889,21 @@
         const totalUsd = total / usdExchangeRate;
         document.getElementById('total-val-usd').textContent = `$ ${totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
         
+        // Sincronizar barra móvil inferior y contador de pestaña móvil
+        const mobileTotal = document.getElementById('mobile-total-val');
+        if (mobileTotal) {
+            mobileTotal.textContent = `RD$ ${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        }
+        const mobileCount = document.getElementById('mobile-cart-count');
+        if (mobileCount) {
+            const totalItems = cart.reduce((acc, i) => acc + i.quantity, 0);
+            mobileCount.textContent = totalItems;
+            mobileCount.style.display = totalItems > 0 ? 'inline-flex' : 'none';
+        }
+
+        // Sincronizar insignias en vivo de los cards de catálogo
+        updateProductCardBadges();
+
         // Sincronizar teclado y cambio
         calculateChange();
     }
@@ -1142,6 +1219,7 @@
             clientRNC: currentClientRNC,
             paymentMethod: method,
             ecfType: currentEcfType,
+            warehouseId: currentWarehouseId,
             usdAmount: usdAmount,
             usdExchangeRate: usdRate,
             items: cart.map(item => ({
@@ -1204,13 +1282,261 @@
 </script>
 
 <style>
-    /* Estilos premium optimizados para POS industrial de 15 pulgadas */
+    /* ==========================================================================
+       SISTEMA DE DISEÑO RESPONSIVE Y MODERNO - POS TERMINAL
+       ========================================================================== */
+
+    /* Contenedor Principal Flexible y Adaptativo */
+    .pos-main-container {
+        display: grid;
+        grid-template-columns: clamp(340px, 28vw, 420px) 1fr;
+        gap: 12px;
+        height: calc(100vh - 20px);
+        height: calc(100dvh - 20px);
+        width: 100%;
+        box-sizing: border-box;
+        font-family: var(--font-body);
+        overflow: hidden;
+    }
+
+    /* Columna Izquierda: Carrito, Totales y Acciones */
+    .pos-left-panel {
+        padding: 12px;
+        margin-bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+        box-sizing: border-box;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    /* Columna Derecha: Catálogo Arriba + Teclado/Cobro Abajo */
+    .pos-right-panel {
+        display: grid;
+        grid-template-rows: 1fr auto;
+        gap: 12px;
+        height: 100%;
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    /* Panel Superior de Catálogo */
+    .pos-catalog-wrapper {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        box-sizing: border-box;
+    }
+
+    /* Muelle Inferior: Teclado Numérico y Cobro */
+    .pos-dock-wrapper {
+        display: grid;
+        grid-template-columns: 1.15fr 1fr;
+        gap: 12px;
+        height: 255px; /* Optimizado de 310px a 255px para dar más espacio a los productos */
+        min-height: 235px;
+        box-sizing: border-box;
+    }
+
+    .pos-numpad-card,
+    .pos-checkout-card {
+        padding: 10px 12px;
+        margin-bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+        box-sizing: border-box;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+    }
+
+    /* Grilla de Productos de Alta Densidad */
+    .pos-products-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 8px;
+        overflow-y: auto;
+        flex-grow: 1;
+        align-content: start;
+        padding-right: 4px;
+    }
+
+    .pos-products-grid::-webkit-scrollbar,
+    .pos-cart-table-container::-webkit-scrollbar {
+        width: 5px;
+        height: 5px;
+    }
+    .pos-products-grid::-webkit-scrollbar-thumb,
+    .pos-cart-table-container::-webkit-scrollbar-thumb {
+        background: rgba(150, 150, 150, 0.25);
+        border-radius: 4px;
+    }
+
+    /* ==========================================================================
+       TARJETA DE PRODUCTO: COMPACTA, MINIMALISTA Y PROFESIONAL
+       ========================================================================== */
+    .pos-product-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 8px 9px;
+        cursor: pointer;
+        transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), 
+                    border-color 0.15s ease, 
+                    box-shadow 0.15s ease;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        position: relative;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        min-height: 82px;
+        box-sizing: border-box;
+    }
+
+    .pos-product-card:hover {
+        border-color: var(--accent-emerald);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .pos-product-card:active {
+        transform: scale(0.97);
+        border-color: var(--accent-emerald);
+    }
+
+    .pos-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+        gap: 4px;
+    }
+
+    .pos-card-sku {
+        font-size: 0.62rem;
+        font-family: var(--font-mono);
+        color: var(--text-muted);
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(150, 150, 150, 0.15);
+        padding: 1px 5px;
+        border-radius: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 85px;
+    }
+
+    .pos-card-qty-badge {
+        background: var(--accent-emerald);
+        color: #ffffff;
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 10px;
+        min-width: 18px;
+        height: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35);
+    }
+
+    .pos-card-body {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex-grow: 1;
+        margin-bottom: 5px;
+    }
+
+    .pos-card-thumb {
+        width: 34px;
+        height: 34px;
+        border-radius: 5px;
+        object-fit: cover;
+        border: 1px solid var(--border-color);
+        flex-shrink: 0;
+    }
+
+    .pos-card-icon-box {
+        width: 30px;
+        height: 30px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-muted);
+        font-size: 0.82rem;
+        flex-shrink: 0;
+    }
+
+    .pos-card-name {
+        font-size: 0.77rem;
+        font-weight: 600;
+        line-height: 1.25;
+        color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        word-break: break-word;
+    }
+
+    .pos-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid rgba(150, 150, 150, 0.1);
+        padding-top: 4px;
+        margin-top: auto;
+    }
+
+    .pos-card-price {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--accent-emerald);
+        font-family: var(--font-mono);
+        line-height: 1;
+    }
+
+    .pos-card-add-btn {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--accent-emerald);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        transition: background 0.15s, color 0.15s;
+    }
+
+    .pos-product-card:hover .pos-card-add-btn {
+        background: var(--accent-emerald);
+        color: white;
+    }
+
+    /* ==========================================================================
+       CHIPS DE CATEGORÍAS Y TECLADO INDUSTRIAL
+       ========================================================================== */
     .cat-chip {
         background: rgba(255, 255, 255, 0.04);
         border: 1px solid var(--border-color);
         color: var(--text-secondary);
-        padding: 8px 14px;
-        font-size: 0.82rem;
+        padding: 6px 12px;
+        font-size: 0.8rem;
         font-weight: 600;
         border-radius: 6px;
         cursor: pointer;
@@ -1234,7 +1560,7 @@
     }
 
     .num-key {
-        font-size: 1.25rem;
+        font-size: 1.2rem;
         font-weight: 800;
         height: 100%;
         display: flex;
@@ -1256,8 +1582,8 @@
     .cash-btn {
         font-size: 0.72rem;
         font-weight: 700;
-        padding: 6px 4px;
-        height: 34px;
+        padding: 5px 3px;
+        height: 32px;
         border: 1px solid var(--border-color);
         background: rgba(255, 255, 255, 0.02);
         color: var(--text-secondary);
@@ -1267,6 +1593,185 @@
     .cash-btn:active {
         background: rgba(255, 255, 255, 0.08);
         transform: scale(0.96);
+    }
+
+    /* Barra Superior Móvil de Pestañas */
+    .pos-mobile-nav {
+        display: none;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .pos-mobile-tab {
+        height: 38px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-card);
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.85rem;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .pos-mobile-tab.active {
+        background: var(--accent-emerald);
+        color: #ffffff;
+        border-color: var(--accent-emerald);
+    }
+
+    .pos-mobile-cart-badge {
+        background: #ef4444;
+        color: #ffffff;
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 10px;
+        min-width: 18px;
+    }
+
+    /* Barra Inferior Móvil */
+    .pos-mobile-bottom-bar {
+        display: none;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--bg-card);
+        border-top: 1px solid var(--border-color);
+        padding: 8px 16px;
+        box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+        z-index: 100;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .pos-mobile-total-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .pos-mobile-total-label {
+        font-size: 0.68rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+
+    .pos-mobile-total-val {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--accent-emerald);
+        font-family: var(--font-mono);
+    }
+
+    .pos-mobile-checkout-btn {
+        height: 38px;
+        padding: 0 16px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* ==========================================================================
+       MEDIA QUERIES RESPONSIVE
+       ========================================================================== */
+
+    /* Pantallas con altura reducida (ej. Monitores de 15" 1024x768 / 1366x768) */
+    @media (max-height: 760px) {
+        .pos-dock-wrapper {
+            height: 220px !important;
+            min-height: 210px !important;
+        }
+        .pos-numpad-card,
+        .pos-checkout-card {
+            padding: 8px 10px !important;
+        }
+        .num-key {
+            font-size: 1.05rem !important;
+        }
+        .cash-btn {
+            height: 28px !important;
+            font-size: 0.68rem !important;
+            padding: 2px !important;
+        }
+        .pos-checkout-card button {
+            height: 32px !important;
+            font-size: 0.78rem !important;
+        }
+    }
+
+    /* Tablets en Horizontal y Laptops (992px a 1199px) */
+    @media (max-width: 1199px) {
+        .pos-main-container {
+            grid-template-columns: 320px 1fr;
+            gap: 8px;
+        }
+        .pos-products-grid {
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        }
+        .pos-dock-wrapper {
+            grid-template-columns: 1fr 1fr;
+            height: 240px;
+        }
+    }
+
+    /* Tablets en Vertical y Pantallas Táctiles Compactas (< 992px) */
+    @media (max-width: 991px) {
+        .pos-mobile-nav {
+            display: grid;
+        }
+        .pos-main-container {
+            display: block;
+            height: calc(100vh - 65px);
+            height: calc(100dvh - 65px);
+            position: relative;
+        }
+        .pos-left-panel {
+            display: none;
+            height: 100%;
+            overflow-y: auto;
+        }
+        .pos-left-panel.mobile-active {
+            display: flex;
+        }
+        .pos-right-panel {
+            display: grid;
+            grid-template-rows: 1fr auto;
+            height: 100%;
+        }
+        .pos-right-panel.mobile-hidden {
+            display: none;
+        }
+        .pos-mobile-bottom-bar {
+            display: flex;
+        }
+    }
+
+    /* Teléfonos y Pantallas Extra Compactas (< 600px) */
+    @media (max-width: 599px) {
+        .pos-dock-wrapper {
+            grid-template-columns: 1fr;
+            height: auto;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .pos-products-grid {
+            grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+            gap: 6px;
+        }
+        .pos-card-thumb,
+        .pos-card-icon-box {
+            width: 26px;
+            height: 26px;
+        }
     }
 
     /* Vista de Pantalla Completa sin Distracciones */
@@ -1290,7 +1795,7 @@
     }
     
     .content-wrapper {
-        padding: 8px 8px 16px 8px !important;
+        padding: 6px 8px 12px 8px !important;
         margin: 0 !important;
         width: 100% !important;
         max-width: 100% !important;

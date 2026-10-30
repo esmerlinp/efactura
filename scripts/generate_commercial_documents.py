@@ -21,6 +21,7 @@ DOCUMENTS = (
     "plan-implementacion-clientes",
     "como-solicitar-demo",
     "overview-modulos",
+    "guia-certificacion-facturacion-electronica",
 )
 
 

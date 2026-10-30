@@ -1660,3 +1660,80 @@ Payload:
 Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
 
 ------------------------------------------------------------
+[2026-10-28 09:51:05] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-28 09:51:05] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-28 09:51:05] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-28 09:51:05] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-28 09:51:08] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-28 09:51:08] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-28 09:51:08] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-28 09:51:08] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-28 09:51:08] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-28 09:51:08] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-10-28 09:51:09] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------

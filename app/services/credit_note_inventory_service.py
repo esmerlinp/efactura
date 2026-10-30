@@ -212,8 +212,12 @@ class CreditNoteInventoryService:
         if not wh_id and default_warehouse_id:
             wh_id = default_warehouse_id
         if not wh_id:
-            whs = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id) or []
-            wh_id = whs[0]["id"] if whs else "default-almacen-principal"
+            wh_id = DatabaseService.get_default_warehouse(
+                owner_uid,
+                company_id=company_id,
+                sandbox=sandbox,
+                branch_id=credit_note_dict.get("branchId")
+            )
             credit_note_dict["warehouseId"] = wh_id
 
         # Catálogo para validar existencia de artículos

@@ -43,6 +43,16 @@
                 <label for="address">Dirección Física o Ubicación Geográfica</label>
                 <input type="text" id="address" name="address" class="form-input" placeholder="Ej: Autopista Duarte Km 9, Santo Domingo Oeste" value="{{ warehouse.address if warehouse else '' }}">
             </div>
+
+            <!-- Almacén Predeterminado -->
+            <div class="form-group" style="display: flex; align-items: center; gap: 10px; padding: 12px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px;">
+                <input type="checkbox" id="isDefault" name="isDefault" value="true"
+                    {% if warehouse and (warehouse.isDefault or warehouse.id == 'default-almacen-principal') %}checked{% elif not warehouse and not warehouses %}checked{% endif %}
+                    style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-emerald);">
+                <label for="isDefault" style="cursor: pointer; margin-bottom: 0; font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">
+                    Establecer como Almacén Predeterminado (para ventas y facturación cuando no se especifique almacén)
+                </label>
+            </div>
         </div>
 
         <div style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">

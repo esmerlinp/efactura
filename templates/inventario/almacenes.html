@@ -32,7 +32,7 @@
                 </div>
                 <div>
                     <h4 style="font-size: 1.1rem; font-family: var(--font-heading); font-weight: 700; color: var(--text-primary);">{{ wh.name }}</h4>
-                    {% if wh.id == 'default-almacen-principal' %}
+                    {% if wh.isDefault or wh.id == 'default-almacen-principal' %}
                     <span style="font-size: 0.72rem; background-color: var(--bg-input); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.2); padding: 2px 6px; border-radius: 4px; font-weight: bold; text-transform: uppercase;">Predeterminado</span>
                     {% endif %}
                 </div>
@@ -54,7 +54,7 @@
                 <span>Editar</span>
             </a>
             
-            {% if wh.id != 'default-almacen-principal' %}
+            {% if not wh.isDefault and wh.id != 'default-almacen-principal' %}
             <form action="{{ url_for('web_invoices.delete_warehouse_route', warehouse_id=wh.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este almacén? Se borrará permanentemente de tu base de datos.');" style="display: inline;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-danger" style="padding: 8px 14px; font-size: 0.8rem;" title="Eliminar Almacén">
