@@ -670,12 +670,31 @@ def pos_terminal():
             })
             
     _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
+    
+    # Resolver caja y almacén activo del turno
+    user_uid = session['user']['uid']
+    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
+    registers = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox)
+    register = next((r for r in registers if r['id'] == open_shift.get('registerId')), None) if open_shift else None
+    
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
+    pos_branch_id = register.get('branchId') if register else (session.get('selected_branch_id') or 'default-sucursal-principal')
+    default_wh_id = (register.get('warehouseId') if register else '') or DatabaseService.get_default_warehouse(
+        owner_uid, company_id=company_id, sandbox=sandbox, branch_id=pos_branch_id
+    )
+    current_warehouse = next((w for w in warehouses if w['id'] == default_wh_id), None)
+
     return render_template(
         'pos/terminal.html',
         active_page='pos',
         items=active_items,
         supervisors=supervisors,
         ecf_types=_ecf_types,
+        open_shift=open_shift,
+        register=register,
+        warehouses=warehouses,
+        current_warehouse=current_warehouse,
+        pos_warehouse_id=default_wh_id
     )
 
 
@@ -821,6 +840,22 @@ def create_pos_sale():
     usd_amount = float(data.get('usdAmount', 0.0))
     usd_rate = float(data.get('usdExchangeRate', 1.0))
 
+    # Determinar almacén de despacho para control de inventario
+    warehouse_id = data.get('warehouseId')
+    if not warehouse_id:
+        reg_id = open_shift.get('registerId') if open_shift else None
+        reg = None
+        if reg_id:
+            regs = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox)
+            reg = next((r for r in regs if r['id'] == reg_id), None)
+            if reg and reg.get('warehouseId'):
+                warehouse_id = reg['warehouseId']
+        if not warehouse_id:
+            pos_branch_id = session.get('selected_branch_id') or (reg.get('branchId') if reg else None) or 'default-sucursal-principal'
+            warehouse_id = DatabaseService.get_default_warehouse(
+                owner_uid, company_id=company_id, sandbox=sandbox, branch_id=pos_branch_id
+            )
+
     invoice_dict = {
         "invoiceNumber": invoice_number,
         "date": datetime.now(timezone.utc).isoformat(),
@@ -842,6 +877,7 @@ def create_pos_sale():
         "isConvertedToInvoice": False,
         "items": calcs["items"],
         "stockReduced": False,  # DatabaseService lo reducirá al guardar
+        "warehouseId": warehouse_id,
         "posShiftId": open_shift['id'],  # Necesario para consultas de consolidación
         "isSyncedWithDGII": False,
         "includeInRui": include_in_rui,
@@ -853,8 +889,15 @@ def create_pos_sale():
         invoice_dict["usdAmount"] = usd_amount
         invoice_dict["usdExchangeRate"] = usd_rate
 
-    # 1. Guardar factura en base de datos
-    DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
+    # 1. Guardar factura en base de datos con manejo controlado de stock
+    from app.services.inventory_transaction_service import InsufficientStockError, InventoryTransactionError
+    try:
+        DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
+    except (InsufficientStockError, InventoryTransactionError) as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
 
     # 2. Registrar transacción financiera de caja
     tx_dict = {
@@ -1178,10 +1221,12 @@ def create_cash_register():
         flash('El nombre de la caja es obligatorio.', 'error')
         return redirect(url_for('web_pos.pos_admin_dashboard'))
         
+    warehouse_id = request.form.get('warehouseId', '').strip()
     register_id = f"caja-{uuid.uuid4().hex[:8]}"
     register_dict = {
         "name": name,
         "status": "CLOSED",
+        "warehouseId": warehouse_id,
         "createdAt": datetime.now(timezone.utc).isoformat()
     }
     
@@ -1202,7 +1247,12 @@ def pos_admin_dashboard():
     
     registers = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox)
     shifts = DatabaseService.get_cash_shifts(owner_uid, company_id=company_id, sandbox=sandbox)
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
+    wh_map = {w['id']: w['name'] for w in warehouses}
     
+    for r in registers:
+        r['warehouseName'] = wh_map.get(r.get('warehouseId'), 'Predeterminado')
+
     # Map registers name to shifts
     regs_map = {r['id']: r['name'] for r in registers}
     for s in shifts:
@@ -1212,7 +1262,8 @@ def pos_admin_dashboard():
         'pos/admin.html',
         active_page='pos_admin',
         registers=registers,
-        shifts=shifts
+        shifts=shifts,
+        warehouses=warehouses
     )
 
 

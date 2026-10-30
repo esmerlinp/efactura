@@ -1537,14 +1537,16 @@ def new_warehouse():
             "description": request.form.get('description', ''),
             "address": request.form.get('address', ''),
             "branchId": request.form.get('branchId', 'default-sucursal-principal'),
-            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None
+            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None,
+            "isDefault": request.form.get('isDefault') == 'true'
         }
         DatabaseService.save_warehouse(owner_uid, warehouse_id, wh_dict, company_id=company_id, sandbox=sandbox)
         flash('Almacén registrado exitosamente.', 'success')
         return redirect(url_for('web_invoices.inventory_warehouses'))
         
     branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
-    return render_template('inventario/warehouse_form.html', active_page='inventory', warehouse=None, branches=branches)
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
+    return render_template('inventario/warehouse_form.html', active_page='inventory', warehouse=None, branches=branches, warehouses=warehouses)
 
 @web_invoices_bp.route('/inventory/warehouses/<warehouse_id>/edit', methods=['GET', 'POST'])
 def edit_warehouse(warehouse_id):
@@ -1562,12 +1564,19 @@ def edit_warehouse(warehouse_id):
         return redirect(url_for('web_invoices.inventory_warehouses'))
         
     if request.method == 'POST':
+        is_default = request.form.get('isDefault') == 'true'
+        if warehouse_id == 'default-almacen-principal' and not is_default:
+            # Si sólo hay un almacén o es el default del sistema y se intenta desmarcar, verificar si hay otro
+            other_defaults = [w for w in warehouses if w['id'] != warehouse_id and w.get('isDefault')]
+            if not other_defaults:
+                is_default = True
         wh_dict = {
             "name": request.form['name'],
             "description": request.form.get('description', ''),
             "address": request.form.get('address', ''),
             "branchId": request.form.get('branchId', 'default-sucursal-principal'),
             "projectId": request.form.get('projectId') or warehouse.get('projectId') or session.get('selected_project_id') or None,
+            "isDefault": is_default,
             "createdAt": warehouse["createdAt"]
         }
         DatabaseService.save_warehouse(owner_uid, warehouse_id, wh_dict, company_id=company_id, sandbox=sandbox)
@@ -1575,7 +1584,7 @@ def edit_warehouse(warehouse_id):
         return redirect(url_for('web_invoices.inventory_warehouses'))
         
     branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
-    return render_template('inventario/warehouse_form.html', active_page='inventory', warehouse=warehouse, branches=branches)
+    return render_template('inventario/warehouse_form.html', active_page='inventory', warehouse=warehouse, branches=branches, warehouses=warehouses)
 
 @web_invoices_bp.route('/inventory/warehouses/<warehouse_id>/delete', methods=['POST'])
 def delete_warehouse_route(warehouse_id):

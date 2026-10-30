@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Guía de Certificación e-CF - VykOne ERP</title>
+<link rel="stylesheet" href="guia-certificacion-facturacion-electronica.css">
+</head>
+<body>
+<div class="document">
+
+<!-- PORTADA -->
+<header class="cover">
+  <div>
+    <img src="../../static/images/logo.png" alt="VykOne ERP" class="logo">
+    <p class="eyebrow">VykOne ERP · Guía de Habilitación Fiscal</p>
+    <h1>Certificación DGII e-CF<br><span>Paso a Paso</span></h1>
+    <p class="subtitle">Guía integral para clientes: desde la obtención de la firma digital hasta los 15 pasos normativos para emitir comprobantes fiscales electrónicos en producción.</p>
+    <div class="meta-card">
+      <div><span>Código</span><b>COM-ECF-001</b></div>
+      <div><span>Versión</span><b>1.0</b></div>
+      <div><span>Marco Legal</span><b>Ley 32-23 (DGII)</b></div>
+    </div>
+    <p class="small-note">Diseñado para clientes, administradores de empresa y contadores que operan con VykOne ERP.</p>
+  </div>
+  <div class="cover-footer">
+    <span>VykCore Automation S.R.L.</span>
+    <span>29 de octubre de 2026</span>
+  </div>
+</header>
+
+<!-- CONTENIDO PRINCIPAL -->
+<section class="content">
+  <div class="running-title">
+    <span>VykOne ERP · Facturación Electrónica</span>
+    <span>COM-ECF-001 · v1.0</span>
+  </div>
+
+  <div class="hero-callout">
+    <b>Objetivo del Documento</b>
+    <span>Acompañarte de forma clara y sin tecnicismos en el proceso de registro y certificación ante la Dirección General de Impuestos Internos (DGII), mostrando cómo VykOne ERP asume la complejidad técnica para que comiences a facturar electrónicamente en el menor tiempo posible.</span>
+  </div>
+
+  <!-- PRERREQUISITOS ESENCIALES AL INICIO -->
+  <div class="prereq-alert">
+    <b class="title">⚠️ Prerrequisitos Esenciales (Tener a mano antes de iniciar)</b>
+    <span>Para comenzar el proceso de postulación y pruebas ante la DGII, tu empresa debe contar con los siguientes cuatro elementos indispensables:</span>
+    <div class="prereq-grid">
+      <div class="prereq-card">
+        <b>1. RNC Activo y al Día</b>
+        Estar al día en todas tus obligaciones tributarias (sin omisiones en declaraciones IT-1, IR-1 o IR-2 ni bloqueos de NCF).
+      </div>
+      <div class="prereq-card">
+        <b>2. Clave de Oficina Virtual (OFV)</b>
+        Acceso activo con usuario y clave al portal web de la Oficina Virtual de la DGII (<a href="https://oficinavirtual.dgii.gov.do/" target="_blank" style="color:#0284c7; text-decoration:underline;">oficinavirtual.dgii.gov.do</a>).
+      </div>
+      <div class="prereq-card">
+        <b>3. Representante Legal Registrado</b>
+        Los datos del titular o apoderado legal deben coincidir con la información oficial asentada en el Registro Nacional de Contribuyentes.
+      </div>
+      <div class="prereq-card">
+        <b>4. Certificado de Firma Digital (.p12)</b>
+        Certificado digital de Persona Física para Procedimientos Tributarios emitido por entidad autorizada por INDOTEL, con su contraseña.
+      </div>
+    </div>
+  </div>
+
+  <h2>1. ¿Qué es la Facturación Electrónica y cómo te ayuda VykOne?</h2>
+  <p>En cumplimiento con la <strong>Ley No. 32-23</strong>, la República Dominicana estableció el uso obligatorio y generalizado de los <strong>Comprobantes Fiscales Electrónicos (e-CF)</strong>. A diferencia del modelo tradicional en papel (NCF tipo B), cada factura se convierte en un archivo digital <strong>XML</strong> firmado electrónicamente que viaja a los servidores de la DGII en milisegundos y recibe un timbre de validación con código QR.</p>
+  <p>El proceso de certificación técnica ante la DGII evalúa que el software emisor cumpla con estrictas reglas contables y esquemas XSD. <strong>VykOne ya cuenta con todo el motor técnico validado y certificado</strong>, permitiéndote:</p>
+  <ul>
+    <li><strong>Firma Criptográfica Transparente:</strong> El sistema firma cada comprobante con tu certificado digital sin intervención manual.</li>
+    <li><strong>Cero Errores de Cuadratura:</strong> VykOne procesa los archivos de prueba de la DGII y calcula automáticamente bases gravadas, ITBIS por tasa y montos exentos.</li>
+    <li><strong>Infraestructura Cloud Lista:</strong> VykOne hospeda los servicios web de recepción y aprobación comercial en la nube, sin necesidad de servidores locales ni configuraciones de red complejas.</li>
+  </ul>
+
+  <h2>2. Obtención y Carga de la Firma Digital</h2>
+  <p>La DGII exige que el contribuyente cuente con un <strong>Certificado Digital de Persona Física para Procedimientos Tributarios</strong> (no sirve el de persona jurídica), a nombre del titular o representante legal. Este certificado se entrega en un archivo protegido con formato <strong><code>.p12</code></strong> o <strong><code>.pfx</code></strong> con su respectiva clave privada.</p>
+  
+  <h3>Proveedores Oficiales Acreditados por INDOTEL:</h3>
+  <div class="provider-grid">
+    <div class="provider-card">
+      <b class="name">DigiFirma — Cámara de Comercio de Santo Domingo</b>
+      <span class="desc">Entidad de certificación más extendida para contribuyentes dominicanos. Solicitud 100% en línea o en ventanilla.</span>
+      <a class="link" href="https://digifirma.camarasantodomingo.do/" target="_blank">🌐 digifirma.camarasantodomingo.do</a>
+    </div>
+    <div class="provider-card">
+      <b class="name">Avansi — Certificados Digitales</b>
+      <span class="desc">Autoridad de certificación acreditada por INDOTEL. Trámite digital con validación biométrica remota.</span>
+      <a class="link" href="https://www.avansi.com.do/" target="_blank">🌐 www.avansi.com.do</a>
+    </div>
+  </div>
+
+  <div class="accept-box">
+    <b>¿Cómo subir tu firma a VykOne?</b><br>
+    Inicia sesión en VykOne &rarr; Menú lateral <strong>Configuración (⚙️)</strong> &rarr; pestaña <strong>Firma Digital</strong> (o en el Paso 1 del Asistente). Arrastra el archivo <code>.p12</code>, escribe la contraseña y presiona <strong>Cargar y Validar</strong>. El sistema verificará su vigencia y emisor de inmediato.
+  </div>
+
+  <h2>3. Resumen de las 4 Fases de Certificación</h2>
+  <p>Los 15 pasos exigidos por la DGII se agrupan en cuatro fases operativas consecutivas:</p>
+  <div class="phase-strip">
+    <div class="phase-item">
+      <b class="num">Fase 1</b>
+      <strong class="name">Postulación</strong>
+      <span class="steps">Paso 1</span>
+    </div>
+    <div class="phase-item">
+      <b class="num">Fase 2</b>
+      <strong class="name">Set de Pruebas</strong>
+      <span class="steps">Pasos 2 al 6</span>
+    </div>
+    <div class="phase-item">
+      <b class="num">Fase 3</b>
+      <strong class="name">Servicios Web</strong>
+      <span class="steps">Pasos 7 al 12</span>
+    </div>
+    <div class="phase-item">
+      <b class="num">Fase 4</b>
+      <strong class="name">Pase a Producción</strong>
+      <span class="steps">Pasos 13 al 15</span>
+    </div>
+  </div>
+
+  <h2>4. Los 15 Pasos Oficiales de la DGII explicados con VykOne</h2>
+
+  <!-- FASE 1 -->
+  <h3>Fase 1 · Postulación y Registro</h3>
+  <div class="step-row">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <b class="title">Registrado (Solicitud de Postulación)</b>
+      <p>Entras a tu Oficina Virtual (OFV) en el apartado de Facturación Electrónica y solicitas postularte. La DGII te entrega el archivo <code>postulacion.xml</code>. En el Paso 1 de VykOne lo arrastras: el sistema lo firma con tu certificado y te descarga <code>postulacion_firmada.xml</code> para subirlo a la DGII.</p>
+      <span class="vykone-badge">✓ VykOne firma automáticamente el XML de postulación</span>
+    </div>
+  </div>
+
+  <!-- FASE 2 -->
+  <h3>Fase 2 · Pruebas de Datos e-CF y Simulación</h3>
+  <div class="step-row">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <b class="title">Pruebas de Datos e-CF (Conjunto de Datos)</b>
+      <p>La DGII entrega un archivo Excel con casos de prueba de todos los comprobantes (E31, E32, E33, E34, E41, E43, E45, RFCE, etc.). Solo arrastras el Excel a VykOne: nuestro motor genera los XML exactos, los firma y envía los grupos 1 al 3 vía API y te descarga el grupo 4 para adjuntar en el portal.</p>
+      <span class="vykone-badge">✓ VykOne procesa el Excel, construye y firma los XML sin intervención</span>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <b class="title">Pruebas de Aprobación Comercial (ACECF)</b>
+      <p>La DGII evalúa la respuesta comercial ante facturas recibidas de proveedores. VykOne genera y despacha electrónicamente las respuestas XML firmadas (Aprobación, Aprobación Parcial o Rechazo Comercial).</p>
+      <span class="vykone-badge">✓ Generación y transmisión automática de respuestas ACECF</span>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <b class="title">Pruebas de Simulación e-CF</b>
+      <p>Emisión continua de un lote de comprobantes en el ambiente de simulación de la DGII para verificar la estabilidad de la comunicación y el comportamiento fiscal bajo carga continua.</p>
+      <span class="vykone-badge">✓ Envío desatendido de bloques transaccionales</span>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="step-num">5</div>
+    <div class="step-content">
+      <b class="title">Representación Impresa (PDF)</b>
+      <p>Generación de las facturas en formato PDF con los elementos requeridos por la norma técnica: código de seguridad de 6 dígitos, desglose tributario y código QR oficial con timbre de consulta DGII.</p>
+      <span class="vykone-badge">✓ Generación de PDFs homologados con código QR fiscal</span>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="step-num">6</div>
+    <div class="step-content">
+      <b class="title">Validación de Representación Impresa</b>
+      <p>Se cargan los PDFs en el portal de la DGII para que sus inspectores validen que el diseño, los campos y el código QR cumplan a cabalidad con la especificación del Formato e-CF.</p>
+    </div>
+  </div>
+
+  <!-- FASE 3 -->
+  <h3>Fase 3 · Servicios Web y Recepción de Facturas</h3>
+  <div class="step-row">
+    <div class="step-num">7</div>
+    <div class="step-content">
+      <b class="title">URL Servicios de Prueba</b>
+      <p>Registro en la DGII de los endpoints (URLs seguras) donde tu sistema recibirá e-CFs de prueba. VykOne provee estas direcciones listas para copiar y pegar.</p>
+      <span class="vykone-badge">✓ Endpoints cloud provistos y gestionados por VykOne</span>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="step-num">8</div>
+    <div class="step-content">
+      <b class="title">Inicio Prueba Recepción e-CF</b>
+      <p>Notificación formal a la DGII de que tu sistema se encuentra operativo y listo para recibir comprobantes electrónicos de prueba.</p>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="step-num">9</div>
+    <div class="step-content">
+      <b class="title">Recepción e-CF</b>
+      <p>La DGII envía comprobantes de prueba hacia tu servidor VykOne. El sistema valida la firma del emisor y emite el Acuse de Recibo en tiempo real sin requerir tu atención.</p>
+      <span class="vykone-badge">✓ Recepción y acuse de recibo automatizado</span>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="step-num">10</div>
+    <div class="step-content">
+      <b class="title">Inicio Prueba Recepción Aprobación Comercial</b>
+      <p>Notificación de disponibilidad para recibir acuses de aprobación comercial de tus clientes.</p>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="step-num">11</div>
+    <div class="step-content">
+      <b class="title">Recepción Aprobación Comercial</b>
+      <p>VykOne procesa los mensajes de respuesta comercial remitidos por la DGII y actualiza el estatus del comprobante en la base de datos.</p>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="step-num">12</div>
+    <div class="step-content">
+      <b class="title">URL Servicios de Producción</b>
+      <p>Registro de las direcciones web definitivas de producción de VykOne que recibirán las facturas reales una vez certificada la empresa.</p>
+      <span class="vykone-badge">✓ Infraestructura redundante de producción garantizada</span>
+    </div>
+  </div>
+
+  <!-- FASE 4 -->
+  <h3>Fase 4 · Pase a Producción</h3>
+  <div class="step-row">
+    <div class="step-num">13</div>
+    <div class="step-content">
+      <b class="title">Declaración Jurada de Certificación</b>
+      <p>El representante legal declara bajo fe de juramento la veracidad del proceso. VykOne genera el XML de Declaración Jurada firmado digitalmente para subir al portal DGII.</p>
+      <span class="vykone-badge">✓ Generación y firma del XML de Declaración Jurada</span>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="step-num">14</div>
+    <div class="step-content">
+      <b class="title">Verificación de Estatus</b>
+      <p>Auditoría final de la DGII confirmando RNC activo, cumplimiento en declaraciones juradas y personería jurídica del representante legal.</p>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="step-num">15</div>
+    <div class="step-content">
+      <b class="title">Finalizado — Emisor Electrónico Habilitado</b>
+      <p>La DGII emite la Resolución Oficial que acredita a tu empresa como Emisor y Receptor Electrónico de e-CF. Se habilitan en tu OFV los menús de contingencia y solicitud de secuencias e-NCF.</p>
+      <span class="vykone-badge">✓ ¡Tu empresa ya puede emitir comprobantes con validez fiscal plena!</span>
+    </div>
+  </div>
+
+  <h2>5. El Día Después: Puesta en Marcha en VykOne</h2>
+  <p>Una vez acreditado por la DGII, solo restan dos sencillos pasos operativos para comenzar a emitir facturas en tu negocio:</p>
+  <table>
+    <tr><th style="width:30%">Paso</th><th>Detalle operativo</th></tr>
+    <tr>
+      <td><strong>1. Solicitar Secuencias e-NCF</strong></td>
+      <td>Ingresas a tu Oficina Virtual DGII y solicitas los rangos requeridos: <code>E31</code> (Crédito Fiscal), <code>E32</code> (Consumidor Final), <code>E34</code> (Notas de Crédito), <code>E44</code> / <code>E45</code> (Especiales / Gobierno), etc.</td>
+    </tr>
+    <tr>
+      <td><strong>2. Registrar Rangos en VykOne</strong></td>
+      <td>En VykOne ve a <strong>Configuración &rarr; Secuencias e-NCF &rarr; Agregar Rango</strong>. Ingresa el prefijo, número inicial, final y fecha de vencimiento.</td>
+    </tr>
+    <tr>
+      <td><strong>3. Emisión en Tiempo Real</strong></td>
+      <td>Cada venta creada desde el módulo de Ventas o Punto de Venta (POS) se enviará y timbrará en la DGII al instante, entregando al cliente su factura digital con código QR.</td>
+    </tr>
+  </table>
+
+  <h2>6. Preguntas Frecuentes (FAQ)</h2>
+  <div class="faq-item">
+    <b class="q">¿Cuánto tiempo toma completar los 15 pasos con VykOne?</b>
+    <span class="a">Con VykOne, dado que todos los algoritmos de firma y validación están automatizados, la fase de pruebas técnicas toma entre 2 y 4 días hábiles, supeditado a los tiempos de revisión y aprobación de la DGII.</span>
+  </div>
+  <div class="faq-item">
+    <b class="q">¿Qué sucede si un comprobante es rechazado durante el Paso 2?</b>
+    <span class="a">La DGII exige coincidencia al 100%. Si un comprobante fuera rechazado, el paso se reinicia. El motor de VykOne cuenta con validadores previos para asegurar que los XML cumplan estrictamente con las reglas de redondeo y tasas de ITBIS antes de transmitirlos.</span>
+  </div>
+  <div class="faq-item">
+    <b class="q">¿Puedo usar VykOne en modo de prueba antes de comprar mi certificado digital?</b>
+    <span class="a">Sí. VykOne dispone de un <strong>Modo Sandbox / Simulación</strong> que te permite registrar productos, clientes y emitir facturas de demostración para capacitar a tu equipo sin afectar la contabilidad fiscal.</span>
+  </div>
+
+  <h2>7. Directorio de Enlaces Útiles</h2>
+  <table>
+    <tr><th>Institución / Servicio</th><th>Enlace oficial</th></tr>
+    <tr><td>Portal de Facturación Electrónica DGII</td><td><a href="https://dgii.gov.do/cicloContribuyente/facturacion/facturacionElectronica/" target="_blank" style="color:#0284c7; text-decoration:underline;">dgii.gov.do/facturacionElectronica</a></td></tr>
+    <tr><td>Oficina Virtual de la DGII (OFV)</td><td><a href="https://oficinavirtual.dgii.gov.do/" target="_blank" style="color:#0284c7; text-decoration:underline;">oficinavirtual.dgii.gov.do</a></td></tr>
+    <tr><td>DigiFirma — Cámara de Comercio de Santo Domingo</td><td><a href="https://digifirma.camarasantodomingo.do/" target="_blank" style="color:#0284c7; text-decoration:underline;">digifirma.camarasantodomingo.do</a></td></tr>
+    <tr><td>Avansi — Proveedor Certificado INDOTEL</td><td><a href="https://www.avansi.com.do/" target="_blank" style="color:#0284c7; text-decoration:underline;">www.avansi.com.do</a></td></tr>
+    <tr><td>Asistente de Certificación en VykOne</td><td>Menú lateral &rarr; <strong>Certificación DGII</strong> (<code>/certificacion</code>)</td></tr>
+  </table>
+
+  <div class="version">
+    <div><b>VykOne ERP</b> · COM-ECF-001 · Guía de Habilitación Fiscal e-CF</div>
+    <div>Versión 1.0 · Aprobado para emisión a clientes · VykCore Automation S.R.L.</div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

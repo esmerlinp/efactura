@@ -57,6 +57,7 @@
                 <thead>
                     <tr>
                         <th>Nombre de la Caja</th>
+                        <th>Almacén</th>
                         <th>Estado de Operación</th>
                         <th>Modo Consolidado</th>
                         <th>Fecha de Registro</th>
@@ -67,6 +68,12 @@
                     {% for reg in registers %}
                     <tr>
                         <td style="font-weight: 700;">{{ reg.name }}</td>
+                        <td>
+                            <span style="font-size: 0.8rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 5px;">
+                                <i class="fa-solid fa-warehouse" style="color: var(--accent-emerald);"></i>
+                                {{ reg.warehouseName or 'Predeterminado' }}
+                            </span>
+                        </td>
                         <td>
                             {% if reg.status == 'OPEN' %}
                             <span class="badge badge-success" style="font-size: 0.72rem; padding: 4px 8px;">Abierta (En
@@ -249,6 +256,15 @@
                         <label for="reg_name">Nombre de la Caja (Ej: Caja 02 - Pasillo A)</label>
                         <input type="text" id="reg_name" name="name" class="form-input" placeholder="Nombre de la caja"
                             required style="width: 100%;">
+                    </div>
+                    <div class="form-group">
+                        <label for="reg_warehouse">Almacén de Despacho (Inventario)</label>
+                        <select id="reg_warehouse" name="warehouseId" class="form-input" style="width: 100%;">
+                            <option value="">Predeterminado de la empresa</option>
+                            {% for wh in warehouses %}
+                            <option value="{{ wh.id }}">{{ wh.name }}{% if wh.isDefault or wh.id == 'default-almacen-principal' %} (Principal){% endif %}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <button type="submit" class="btn btn-primary"
                         style="width: 100%; height: 44px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">

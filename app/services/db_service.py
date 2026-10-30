@@ -4031,8 +4031,12 @@ class DatabaseService:
         if not is_quotation and not is_note and (is_synced or status in valid_sale_statuses) and status not in ("Borrador", "Anulada", "Rechazada", "Rechazado DGII") and not inv_dict.get("stockReduced") and not existing_stock_reduced:
             wh_id = inv_dict.get("warehouseId")
             if not wh_id:
-                whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
-                wh_id = whs[0]["id"] if whs else "default-almacen-principal"
+                wh_id = cls.get_default_warehouse(
+                    owner_uid,
+                    company_id=company_id,
+                    sandbox=sandbox,
+                    branch_id=inv_dict.get("branchId")
+                )
                 inv_dict["warehouseId"] = wh_id
             
             items_catalog = cls.get_items(owner_uid, sandbox=sandbox, company_id=company_id) or []
@@ -4123,8 +4127,12 @@ class DatabaseService:
             elif not is_note and inv_dict.get("stockReduced") and not inv_dict.get("stockReverted"):
                 wh_id = inv_dict.get("warehouseId")
                 if not wh_id:
-                    whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
-                    wh_id = whs[0]["id"] if whs else "default-almacen-principal"
+                    wh_id = cls.get_default_warehouse(
+                        owner_uid,
+                        company_id=company_id,
+                        sandbox=sandbox,
+                        branch_id=inv_dict.get("branchId")
+                    )
                     inv_dict["warehouseId"] = wh_id
                     
                 for it in fs_items:
@@ -4404,8 +4412,12 @@ class DatabaseService:
                     if not inv_data.get("stockReduced") and new_status in ["Cobrada", "Parcialmente Cobrada", "Emitida", "Vencida"]:
                         wh_id = inv_data.get("warehouseId")
                         if not wh_id:
-                            whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
-                            wh_id = whs[0]["id"] if whs else "default-almacen-principal"
+                            wh_id = cls.get_default_warehouse(
+                                owner_uid,
+                                company_id=company_id,
+                                sandbox=sandbox,
+                                branch_id=inv_data.get("branchId")
+                            )
                             inv_ref.update({"warehouseId": wh_id})
 
                         for it in inv_data.get("items", []):
@@ -5005,6 +5017,41 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
+    def get_default_warehouse(cls, owner_uid, company_id="", sandbox=True, branch_id=None):
+        """Retorna el ID del almacén predeterminado para una empresa y sucursal."""
+        whs = cls.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
+        if not whs:
+            return "default-almacen-principal"
+
+        # 1. Si se especifica branch_id, buscar almacén en esa sucursal
+        if branch_id:
+            branch_whs = [w for w in whs if w.get("branchId") == branch_id]
+            for w in branch_whs:
+                if w.get("isDefault") or w.get("id") == "default-almacen-principal":
+                    return w["id"]
+            if branch_whs:
+                return branch_whs[0]["id"]
+
+        # 2. Buscar cualquier almacén con isDefault=True
+        for w in whs:
+            if w.get("isDefault"):
+                return w["id"]
+
+        # 3. Buscar almacén con ID canónico 'default-almacen-principal'
+        for w in whs:
+            if w.get("id") == "default-almacen-principal":
+                return w["id"]
+
+        # 4. Buscar almacén cuyo nombre contenga 'principal' o 'central'
+        for w in whs:
+            name_lower = (w.get("name") or "").lower()
+            if "principal" in name_lower or "central" in name_lower:
+                return w["id"]
+
+        # 5. Fallback al primer almacén de la lista
+        return whs[0]["id"]
+
+    @classmethod
     def get_warehouses(cls, owner_uid, company_id="", sandbox=True):
         """Retorna la lista de almacenes del owner."""
         owner_uid = _resolve_owner_uid(company_id) or owner_uid
@@ -5015,6 +5062,7 @@ class DatabaseService:
                 docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
+                    is_def = bool(data.get("isDefault", doc.id == "default-almacen-principal"))
                     warehouses.append({
                         "id": doc.id,
                         "name": data.get("name", ""),
@@ -5022,6 +5070,7 @@ class DatabaseService:
                         "address": data.get("address", ""),
                         "branchId": data.get("branchId", "default-sucursal-principal"),
                         "projectId": data.get("projectId"),
+                        "isDefault": is_def,
                         "createdAt": serialize_field(data.get("createdAt"))
                     })
                 
@@ -5034,24 +5083,30 @@ class DatabaseService:
                         "description": "Depósito central de existencias predeterminado",
                         "address": "Sede Principal",
                         "branchId": "default-sucursal-principal",
+                        "isDefault": True,
                         "createdAt": datetime.now(timezone.utc).isoformat()
                     }
                     cls.save_warehouse(owner_uid, default_id, default_wh, sandbox=sandbox, company_id=company_id)
                     warehouses.append(default_wh)
                 else:
-                    warehouses.sort(key=lambda x: x["name"].lower())
+                    # El almacén predeterminado siempre va primero, luego alfabético
+                    warehouses.sort(key=lambda x: (not x.get("isDefault", False), x["name"].lower()))
             except Exception as e:
                 print(f"⚠️ Error al obtener almacenes desde Firestore: {e}")
         return warehouses
 
     @classmethod
-    def save_warehouse(cls, owner_uid, warehouse_id, wh_dict, company_id="", sandbox=True):
+    def save_warehouse(cls, owner_uid, warehouse_id, wh_dict, company_id="", sandbox=True, update_defaults=True):
         """Guarda o actualiza un almacén físico en Firestore."""
         owner_uid = _resolve_owner_uid(company_id) or owner_uid
         wh_dict["id"] = warehouse_id
         wh_dict["ownerUID"] = owner_uid
         wh_dict["branchId"] = wh_dict.get("branchId", "default-sucursal-principal")
         wh_dict["projectId"] = wh_dict.get("projectId", None)
+        if "isDefault" not in wh_dict:
+            wh_dict["isDefault"] = (warehouse_id == "default-almacen-principal")
+        else:
+            wh_dict["isDefault"] = bool(wh_dict["isDefault"])
         if "createdAt" not in wh_dict or not wh_dict["createdAt"]:
             wh_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         wh_dict["createdAt"] = serialize_field(wh_dict["createdAt"])
@@ -5059,7 +5114,16 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_warehouses" if sandbox else "warehouses"
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(warehouse_id).set(wh_dict)
+                coll_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
+                
+                # Si este almacén se marca como predeterminado, desmarcar los demás
+                if wh_dict.get("isDefault") and update_defaults:
+                    existing_docs = coll_ref.get()
+                    for doc in existing_docs:
+                        if doc.id != warehouse_id and doc.to_dict().get("isDefault"):
+                            coll_ref.document(doc.id).update({"isDefault": False})
+                            
+                coll_ref.document(warehouse_id).set(wh_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar almacén en Firestore: {e}")
         return wh_dict
@@ -5684,6 +5748,7 @@ class DatabaseService:
                         "id": doc.id,
                         "branchId": data.get("branchId", "default-sucursal-principal"),
                         "projectId": data.get("projectId"),
+                        "warehouseId": data.get("warehouseId", ""),
                         "name": data.get("name", "Caja"),
                         "status": data.get("status", "CLOSED"),  # OPEN o CLOSED
                         "consolidationMode": data.get("consolidationMode", False),
@@ -5699,6 +5764,7 @@ class DatabaseService:
                         "status": "CLOSED",
                         "branchId": "default-sucursal-principal",
                         "projectId": None,
+                        "warehouseId": "",
                         "createdAt": datetime.now(timezone.utc).isoformat()
                     }
                     cls.save_cash_register(owner_uid, default_id, default_reg, sandbox=sandbox, company_id=company_id)
@@ -5722,6 +5788,7 @@ class DatabaseService:
         reg_dict["ownerUID"] = owner_uid
         reg_dict["branchId"] = reg_dict.get("branchId", "default-sucursal-principal")
         reg_dict["projectId"] = reg_dict.get("projectId", None)
+        reg_dict["warehouseId"] = reg_dict.get("warehouseId", "")
         if "createdAt" not in reg_dict or not reg_dict["createdAt"]:
             reg_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         reg_dict["createdAt"] = serialize_field(reg_dict["createdAt"])
@@ -6341,8 +6408,7 @@ class DatabaseService:
         try:
             items_catalog = cls.get_items(owner_uid, sandbox=sandbox, company_id=company_id)
             catalog_ids = {cit["id"] for cit in items_catalog}
-            whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
-            default_wh_id = whs[0]["id"] if whs else "default-almacen-principal"
+            default_wh_id = cls.get_default_warehouse(owner_uid, company_id=company_id, sandbox=sandbox)
             coll_name = "sandbox_invoices" if sandbox else "invoices"
             for inv in pending_invoices:
                 inv_id = inv.get("id")
