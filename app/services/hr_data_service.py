@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from google.cloud.firestore import FieldFilter
 from app.services.db_service import db_firestore, firebase_initialized
+from app.services.cache_service import CacheService
 
 
 def _hr_company_path(company_id: str, collection: str, sandbox: bool = True) -> str | None:
@@ -27,9 +28,20 @@ def _get_all(company_id: str, collection: str, sandbox: bool = True) -> list:
     coll_path = _hr_company_path(company_id, collection, sandbox)
     if not coll_path:
         return []
+    request_key = CacheService.make_key("hr:request", company_id, sandbox, collection)
+    cached_request = CacheService.request_get(request_key)
+    if cached_request is not None:
+        return cached_request
+    cache_key = CacheService.domain_key("hr", company_id, sandbox, collection)
+    cached = CacheService.get_cache().get(cache_key)
+    if cached is not None:
+        return CacheService.request_set(request_key, cached)
     try:
         docs = db_firestore.collection(coll_path).get()
-        return [{"id": d.id, **d.to_dict()} for d in docs]
+        result = [{"id": d.id, **d.to_dict()} for d in docs]
+        timeout = 30 if collection in ("employees", "vacations", "leaves") else 300
+        CacheService.get_cache().set(cache_key, result, timeout=timeout)
+        return CacheService.request_set(request_key, result)
     except Exception as e:
         print(f"⚠️ HRDataService._get_all({collection}): {e}")
         return []
@@ -86,10 +98,15 @@ def _get_one(company_id: str, collection: str, doc_id: str, sandbox: bool = True
     coll_path = _hr_company_path(company_id, collection, sandbox)
     if not coll_path:
         return None
+    request_key = CacheService.make_key("hr:request:one", company_id, sandbox, collection, doc_id)
+    cached_request = CacheService.request_get(request_key)
+    if cached_request is not None:
+        return cached_request
     try:
         doc = db_firestore.collection(coll_path).document(doc_id).get()
         if doc.exists:
-            return {"id": doc.id, **doc.to_dict()}
+            result = {"id": doc.id, **doc.to_dict()}
+            return CacheService.request_set(request_key, result)
         return None
     except Exception as e:
         print(f"⚠️ HRDataService._get_one({collection}): {e}")
@@ -146,6 +163,14 @@ def _save(company_id: str, collection: str, doc_id: str, data: dict, sandbox: bo
         if trs is not None:
             safe["taxRatesSnapshot"] = json.dumps(trs)
         ref.set(safe)
+        CacheService.invalidate_hr(
+            company_id,
+            sandbox=sandbox,
+            payroll=collection in {
+                "employees", "employment_contracts", "payroll", "payroll_rules",
+                "payroll_policies", "variable_movements", "recurring_movements",
+            },
+        )
         return True
     except Exception as e:
         print(f"⚠️ HRDataService._save({collection}): {e}")
@@ -161,6 +186,14 @@ def _delete(company_id: str, collection: str, doc_id: str, sandbox: bool = True)
         return
     try:
         db_firestore.collection(coll_path).document(doc_id).delete()
+        CacheService.invalidate_hr(
+            company_id,
+            sandbox=sandbox,
+            payroll=collection in {
+                "employees", "employment_contracts", "payroll", "payroll_rules",
+                "payroll_policies", "variable_movements", "recurring_movements",
+            },
+        )
     except Exception as e:
         print(f"⚠️ HRDataService._delete({collection}): {e}")
 

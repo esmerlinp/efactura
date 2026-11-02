@@ -13,7 +13,11 @@ Campos registrados por evento:
 """
 import uuid
 import traceback
+import base64
+import json
 from datetime import datetime, timezone
+
+from app.services.cache_service import CacheService
 
 try:
     from app.services.db_service import db_firestore, firebase_initialized, _company_coll
@@ -120,6 +124,9 @@ class AuditService:
                         .document(log_id) \
                         .set(log_data)
 
+            if company_id:
+                CacheService.invalidate_audit(company_id, sandbox=sandbox)
+
             return log_id
 
         except Exception as e:
@@ -162,6 +169,11 @@ class AuditService:
         """
         if not firebase_initialized or not db_firestore:
             return []
+        cache = CacheService.get_cache()
+        key = CacheService.domain_key("audit", company_id or owner_uid, False, "entity", entity_id)
+        cached = cache.get(key)
+        if cached is not None:
+            return cached
         try:
             docs = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="audit_logs") \
                                 .where("entityId", "==", str(entity_id)) \
@@ -186,6 +198,7 @@ class AuditService:
                 })
             # Ordenar por timestamp descendente
             logs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            cache.set(key, logs, timeout=30)
             return logs
         except Exception as e:
             import logging
@@ -205,7 +218,8 @@ class AuditService:
                  date_to: str = None,
                  entity_filter: str = None,
                  sandbox_filter: str = None,
-                 company_id=None) -> dict:
+                 company_id=None,
+                 cursor=None) -> dict:
         """
         Retorna logs de auditoría paginados con filtros avanzados.
 
@@ -216,26 +230,49 @@ class AuditService:
             return {"logs": [], "total": 0, "pages": 0, "current_page": page}
 
         try:
+            sandbox_key = sandbox_filter or "all"
+            sandbox_version = None if sandbox_filter in (None, "all") else sandbox_filter == "sandbox"
+            cache = CacheService.get_cache()
+            cache_key = CacheService.domain_key(
+                "audit", company_id or owner_uid, sandbox_version,
+                "list", page, per_page, module_filter or "", action_filter or "",
+                tuple(user_filter or []), date_from or "", date_to or "",
+                entity_filter or "", sandbox_key, cursor or "",
+            )
+            cached = CacheService.get_with_stats(cache_key)
+            if cached is not None:
+                return cached
+
             query = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="audit_logs") \
                                 .order_by("timestamp", direction="DESCENDING")
 
-            # Si no hay filtros activos, limitar a los últimos 100 registros para evitar sobrecarga en la primera carga
-            has_filters = bool(
-                (module_filter and module_filter != "Todos") or
-                (action_filter and action_filter != "Todos") or
-                user_filter or
-                (entity_filter and entity_filter.strip()) or
-                (date_from and date_from.strip()) or
-                (date_to and date_to.strip()) or
-                (sandbox_filter and sandbox_filter not in ("all", None))
-            )
+            # Aplicar filtros exactos en Firestore para limitar lecturas.
+            if module_filter and module_filter != "Todos":
+                query = query.where("module", "==", module_filter)
+            if action_filter and action_filter != "Todos":
+                query = query.where("action", "==", action_filter)
+            if sandbox_filter == "production":
+                query = query.where("isSandbox", "==", False)
+            elif sandbox_filter == "sandbox":
+                query = query.where("isSandbox", "==", True)
+            if date_from:
+                query = query.where("timestamp", ">=", f"{date_from}T00:00:00")
+            if date_to:
+                query = query.where("timestamp", "<=", f"{date_to}T23:59:59")
 
-            is_limited = False
-            if not has_filters:
-                query = query.limit(100)
-                is_limited = True
+            if cursor:
+                try:
+                    cursor_data = json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
+                    query = query.start_after({
+                        "timestamp": cursor_data["timestamp"],
+                        "__name__": cursor_data["id"],
+                    })
+                except (ValueError, KeyError, TypeError, json.JSONDecodeError):
+                    pass
 
-            # Ejecutar query y obtener todos (paginación manual para filtros combinados)
+            # Las búsquedas textuales parciales se mantienen en Python. El
+            # límite impide que una consulta web escanee toda la auditoría.
+            query = query.limit(per_page + 1)
             docs = query.get()
             all_logs = []
 
@@ -261,29 +298,6 @@ class AuditService:
                        entity_lower not in data.get("entityId", "").lower():
                         continue
 
-                if date_from:
-                    try:
-                        ts = data.get("timestamp", "")[:10]
-                        if ts < date_from:
-                            continue
-                    except Exception:
-                        pass
-
-                if date_to:
-                    try:
-                        ts = data.get("timestamp", "")[:10]
-                        if ts > date_to:
-                            continue
-                    except Exception:
-                        pass
-
-                if sandbox_filter == "production":
-                    if data.get("isSandbox", True):
-                        continue
-                elif sandbox_filter == "sandbox":
-                    if not data.get("isSandbox", True):
-                        continue
-
                 all_logs.append({
                     "id": data.get("id", doc.id),
                     "action": data.get("action", ""),
@@ -297,19 +311,25 @@ class AuditService:
                     "ipAddress": data.get("ipAddress", ""),
                 })
 
-            total = len(all_logs)
-            total_pages = max(1, (total + per_page - 1) // per_page)
-            page = max(1, min(page, total_pages))
-            offset = (page - 1) * per_page
-            paginated = all_logs[offset:offset + per_page]
+            paginated = all_logs[:per_page]
+            next_cursor = None
+            if len(all_logs) > per_page and paginated:
+                next_cursor = base64.urlsafe_b64encode(json.dumps({
+                    "timestamp": paginated[-1].get("timestamp", ""),
+                    "id": paginated[-1]["id"],
+                }).encode()).decode()
 
-            return {
+            result = {
                 "logs": paginated,
-                "total": total,
-                "pages": total_pages,
+                "total": None,
+                "pages": None,
                 "current_page": page,
-                "is_limited": is_limited,
+                "next_cursor": next_cursor,
+                "has_more": next_cursor is not None,
+                "is_limited": next_cursor is not None,
             }
+            CacheService.set_with_stats(cache_key, result, timeout=15)
+            return result
 
         except Exception as e:
             import logging
@@ -322,24 +342,100 @@ class AuditService:
         """Retorna un log específico con snapshots before/after completos."""
         if not firebase_initialized or not db_firestore:
             return {}
+        cache = CacheService.get_cache()
+        key = CacheService.domain_key("audit", company_id or owner_uid, False, "detail", log_id)
+        cached = cache.get(key)
+        if cached is not None:
+            return cached
         try:
             doc = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="audit_logs") \
                               .document(log_id) \
                               .get()
             if doc.exists:
-                return doc.to_dict()
+                result = doc.to_dict()
+                cache.set(key, result, timeout=60)
+                return result
         except Exception as e:
             print(f"⚠️ [AuditService] Error al obtener detalle del log: {e}")
         return {}
 
     @classmethod
-    def export_to_csv_rows(cls, owner_uid: str, company_id=None, **filter_kwargs) -> list:
+    def export_to_csv_rows(cls, owner_uid: str, company_id=None, use_cache=False, **filter_kwargs) -> list:
         """
         Retorna todos los logs (sin paginación) como lista de dicts para CSV.
         Se pasan los mismos kwargs que get_logs (sin page/per_page).
         """
-        result = cls.get_logs(owner_uid, page=1, per_page=99999, company_id=company_id, **filter_kwargs)
-        return result.get("logs", [])
+        rows = []
+        cursor = None
+        for _ in range(200):
+            if use_cache:
+                result = cls.get_logs(
+                    owner_uid, page=1, per_page=500, company_id=company_id,
+                    cursor=cursor, **filter_kwargs,
+                )
+            else:
+                result = cls._query_logs_page(
+                    owner_uid, company_id=company_id, per_page=500,
+                    cursor=cursor, **filter_kwargs,
+                )
+            rows.extend(result.get("logs", []))
+            if not result.get("has_more") or not result.get("next_cursor"):
+                break
+            cursor = result["next_cursor"]
+        return rows
+
+    @classmethod
+    def _query_logs_page(cls, owner_uid, company_id=None, per_page=500, cursor=None,
+                         module_filter=None, action_filter=None, user_filter=None,
+                         date_from=None, date_to=None, entity_filter=None,
+                         sandbox_filter=None):
+        """Read one bounded page without using the web-list cache."""
+        query = _company_coll(
+            owner_uid=owner_uid, company_id=company_id, coll_name="audit_logs"
+        ).order_by("timestamp", direction="DESCENDING")
+        if module_filter and module_filter != "Todos":
+            query = query.where("module", "==", module_filter)
+        if action_filter and action_filter != "Todos":
+            query = query.where("action", "==", action_filter)
+        if sandbox_filter == "production":
+            query = query.where("isSandbox", "==", False)
+        elif sandbox_filter == "sandbox":
+            query = query.where("isSandbox", "==", True)
+        if date_from:
+            query = query.where("timestamp", ">=", f"{date_from}T00:00:00")
+        if date_to:
+            query = query.where("timestamp", "<=", f"{date_to}T23:59:59")
+        if cursor:
+            try:
+                cursor_data = json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
+                query = query.start_after({
+                    "timestamp": cursor_data["timestamp"],
+                    "__name__": cursor_data["id"],
+                })
+            except (ValueError, KeyError, TypeError, json.JSONDecodeError):
+                pass
+        docs = query.limit(per_page + 1).get()
+        rows = []
+        for doc in docs:
+            data = doc.to_dict()
+            if user_filter:
+                text = f"{data.get('performedByEmail', '')} {data.get('performedBy', '')}".lower()
+                if not any(str(user).lower() in text for user in user_filter):
+                    continue
+            if entity_filter:
+                text = f"{data.get('entityLabel', '')} {data.get('entityId', '')}".lower()
+                if entity_filter.lower() not in text:
+                    continue
+            rows.append(data)
+        has_extra = len(rows) > per_page
+        rows = rows[:per_page]
+        next_cursor = None
+        if has_extra and rows:
+            next_cursor = base64.urlsafe_b64encode(json.dumps({
+                "timestamp": rows[-1].get("timestamp", ""),
+                "id": rows[-1].get("id", ""),
+            }).encode()).decode()
+        return {"logs": rows, "next_cursor": next_cursor, "has_more": bool(next_cursor)}
 
     @classmethod
     def log_from_request(cls, owner_uid: str, action: str, module: str,
@@ -386,19 +482,28 @@ class AuditService:
         """Retorna la actividad reciente de un usuario específico."""
         if not firebase_initialized or not db_firestore:
             return []
+        cache = CacheService.get_cache()
+        key = CacheService.domain_key(
+            "audit", company_id or owner_uid, False, "user", user_uid, limit
+        )
+        cached = cache.get(key)
+        if cached is not None:
+            return cached
         try:
             docs = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="audit_logs") \
                 .where("performedByUID", "==", user_uid) \
                 .order_by("timestamp", direction="DESCENDING") \
                 .limit(limit) \
                 .get()
-            return [{
+            result = [{
                 "id": d.id,
                 "action": d.get("action"),
                 "module": d.get("module"),
                 "entityLabel": d.get("entityLabel", ""),
                 "timestamp": d.get("timestamp", ""),
             } for d in docs if d.exists]
+            cache.set(key, result, timeout=30)
+            return result
         except Exception as e:
             print(f"⚠️ [AuditService] Error al obtener actividad de usuario: {e}")
             return []

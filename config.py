@@ -225,6 +225,9 @@ class Config:
     CACHE_TYPE = os.getenv('CACHE_TYPE', 'SimpleCache')
     CACHE_DEFAULT_TIMEOUT = int(os.getenv('CACHE_DEFAULT_TIMEOUT', '300'))
     CACHE_THRESHOLD = int(os.getenv('CACHE_THRESHOLD', '200'))
+    CACHE_KEY_PREFIX = os.getenv('CACHE_KEY_PREFIX', 'vykone:')
+    CACHE_VERSION_TIMEOUT = int(os.getenv('CACHE_VERSION_TIMEOUT', '86400'))
+    CACHE_REDIS_URL = os.getenv('CACHE_REDIS_URL', '')
 
     # Límites de consultas Firestore (previene cargas masivas en memoria)
     FIRESTORE_MAX_INVOICES = int(os.getenv('FIRESTORE_MAX_INVOICES', '500'))
@@ -272,5 +275,4 @@ class Config:
     PDF_OPTIMIZE_IMAGES = os.getenv('PDF_OPTIMIZE_IMAGES', 'true').lower() in ('true', '1', 'yes')
     PDF_DPI = int(os.getenv('PDF_DPI', '150'))
     PDF_JPEG_QUALITY = int(os.getenv('PDF_JPEG_QUALITY', '80'))
-
 

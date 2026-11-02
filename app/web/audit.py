@@ -7,11 +7,9 @@ vista de detalle before/after, y exportación CSV.
 
 Acceso restringido: solo owner o usuario con canViewAuditLog=True.
 """
-import csv
-import io
 from datetime import datetime
 from flask import (Blueprint, render_template, request, session,
-                   redirect, url_for, jsonify, flash, Response)
+                   redirect, url_for, jsonify, flash)
 from app.services.audit_service import AuditService
 from app.services.db_service import DatabaseService, _resolve_company_id
 from app.utils.module_gate import gate_blueprint_module
@@ -81,6 +79,7 @@ def audit_log():
         date_to=date_to or None,
         entity_filter=entity_f or None,
         sandbox_filter=sandbox_f if sandbox_f != 'all' else None,
+        cursor=request.args.get('cursor') or None,
     )
 
     # Lista de módulos canónicos para el dropdown
@@ -99,6 +98,8 @@ def audit_log():
         logs=result['logs'],
         total=result['total'],
         pages=result['pages'],
+        next_cursor=result.get('next_cursor'),
+        has_more=result.get('has_more', False),
         current_page=result['current_page'],
         is_limited=result.get('is_limited', False),
         modules=modules,
@@ -160,44 +161,44 @@ def audit_export():
     date_to   = request.form.get('date_to', '').strip()
     sandbox_f = request.form.get('env', 'all')
 
-    logs = AuditService.export_to_csv_rows(
-        owner_uid=owner_uid,
-        company_id=company_id,
-        module_filter=module_f if module_f != 'Todos' else None,
-        action_filter=action_f if action_f != 'Todos' else None,
-        user_filter=user_f or None,
-        date_from=date_from or None,
-        date_to=date_to or None,
-        entity_filter=entity_f or None,
-        sandbox_filter=sandbox_f if sandbox_f != 'all' else None,
-    )
+    filters = {
+        'module_filter': module_f if module_f != 'Todos' else None,
+        'action_filter': action_f if action_f != 'Todos' else None,
+        'user_filter': user_f or None,
+        'date_from': date_from or None,
+        'date_to': date_to or None,
+        'entity_filter': entity_f or None,
+        'sandbox_filter': sandbox_f if sandbox_f != 'all' else None,
+    }
+    from app.services.audit_export_service import AuditExportService
+    job_id = AuditExportService.create_job(company_id, owner_uid, filters, sandbox=True)
+    AuditExportService.start_worker(company_id, owner_uid, job_id, filters, sandbox=True)
+    return jsonify({'success': True, 'job_id': job_id, 'status': 'pending'})
 
-    # Generar CSV en memoria
-    output = io.StringIO()
-    fieldnames = ['Fecha/Hora', 'Módulo', 'Acción', 'Descripción',
-                  'Entidad ID', 'Realizado por', 'Email', 'IP', 'Entorno']
-    writer = csv.DictWriter(output, fieldnames=fieldnames, quoting=csv.QUOTE_ALL)
-    writer.writeheader()
 
-    for log in logs:
-        writer.writerow({
-            'Fecha/Hora': log.get('timestamp', '')[:19].replace('T', ' '),
-            'Módulo': log.get('module', ''),
-            'Acción': log.get('action', ''),
-            'Descripción': log.get('entityLabel', ''),
-            'Entidad ID': log.get('entityId', ''),
-            'Realizado por': log.get('performedBy', ''),
-            'Email': log.get('performedByEmail', ''),
-            'IP': log.get('ipAddress', ''),
-            'Entorno': 'Sandbox' if log.get('isSandbox') else 'Producción',
-        })
+@web_audit_bp.route('/audit/export/<job_id>', methods=['GET'])
+def audit_export_status(job_id):
+    denied = _require_audit_access()
+    if denied:
+        return denied
+    owner_uid = session['user']['ownerUID']
+    company_id = _resolve_company_id(owner_uid)
+    from app.services.audit_export_service import AuditExportService
+    job = AuditExportService.get_job(company_id, job_id, sandbox=True)
+    if not job or job.get('ownerUID') != owner_uid:
+        return jsonify({'error': 'Job no encontrado'}), 404
+    return jsonify(job)
 
-    output.seek(0)
-    timestamp_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'audit_log_{timestamp_str}.csv'
 
-    return Response(
-        output.getvalue().encode('utf-8-sig'),  # BOM para Excel en español
-        mimetype='text/csv',
-        headers={'Content-Disposition': f'attachment; filename={filename}'}
-    )
+@web_audit_bp.route('/audit/export/<job_id>/download', methods=['GET'])
+def audit_export_download(job_id):
+    denied = _require_audit_access()
+    if denied:
+        return denied
+    owner_uid = session['user']['ownerUID']
+    company_id = _resolve_company_id(owner_uid)
+    from app.services.audit_export_service import AuditExportService
+    url = AuditExportService.get_download_url(company_id, owner_uid, job_id, sandbox=True)
+    if not url:
+        return jsonify({'error': 'Exportación no disponible'}), 404
+    return redirect(url)
