@@ -341,8 +341,6 @@ def get_user_landing_url():
     if module_enabled('pos'):
         if check_permission('canManagePOS'):
             return url_for('web_pos.pos_dashboard')
-        if check_permission('canManageRUI'):
-            return url_for('web_rui.rui_list')
 
     # 4. Cotizaciones
     if module_enabled('cotizaciones') and check_permission('canManageQuotations'):
