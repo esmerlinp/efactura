@@ -247,6 +247,11 @@ def create_app():
                         'documentLimit': company.get('documentLimit', company.get('document_limit')),
                         'storageLimitMB': company.get('storageLimitMB', company.get('storage_limit_mb')),
                         'branchLimit': company.get('branchLimit', company.get('branch_limit')),
+                        'additionalBranchCost': company.get('additionalBranchCost', company.get('additional_branch_cost')),
+                        'warehouseLimit': company.get('warehouseLimit', company.get('warehouse_limit')),
+                        'additionalWarehouseCost': company.get('additionalWarehouseCost', company.get('additional_warehouse_cost')),
+                        'employeeLimit': company.get('employeeLimit', company.get('employee_limit')),
+                        'additionalEmployeeCost': company.get('additionalEmployeeCost', company.get('additional_employee_cost')),
                         'boxLimit': company.get('boxLimit', company.get('box_limit')),
                         'monthlyPayment': company.get('monthlyPayment', company.get('monthly_payment')),
                         'additionalDocumentCost': company.get('additionalDocumentCost', company.get('additional_document_cost')),
@@ -298,19 +303,31 @@ def create_app():
                             session['company_modules'] = plan_data.get('modules', {})
                             session['company_plan_version'] = actual_plan_version
                             plan_limits = {}
-                            for f in ['documentLimit','userLimit','storageLimitMB','monthlyPayment',
+                            for f in ['documentLimit','userLimit','storageLimitMB',
                                       'additionalDocumentCost','additionalUserCost','branchLimit',
+                                      'additionalBranchCost','warehouseLimit','additionalWarehouseCost',
+                                      'employeeLimit','additionalEmployeeCost',
                                       'boxLimit','additionalBoxCost','posEnabled']:
                                 if f in plan_data:
                                     plan_limits[f] = plan_data[f]
+                            plan_price = plan_data.get('monthlyPrice', plan_data.get('monthlyPayment'))
+                            if plan_price is not None:
+                                plan_limits['monthlyPayment'] = float(plan_price)
+                                plan_limits['monthly_payment'] = float(plan_price)
                             if plan_limits and company_id:
                                 DatabaseService.update_company(company_id, plan_limits)
                                 company_profile.update(plan_limits)
-                        for f in ['documentLimit','userLimit','storageLimitMB','monthlyPayment',
+                        for f in ['documentLimit','userLimit','storageLimitMB',
                                   'additionalDocumentCost','additionalUserCost','branchLimit',
+                                  'additionalBranchCost','warehouseLimit','additionalWarehouseCost',
+                                  'employeeLimit','additionalEmployeeCost',
                                   'boxLimit','additionalBoxCost','posEnabled']:
-                            if company_profile.get(f) is None and f in plan_data:
+                            if (company_profile.get(f) is None or company_profile.get(f) == '' or (not plan_data.get('is_custom') and f.startswith('additional'))) and f in plan_data:
                                 company_profile[f] = plan_data[f]
+                        plan_price = plan_data.get('monthlyPrice', plan_data.get('monthlyPayment'))
+                        if plan_price is not None and (company_profile.get('monthlyPayment') in (None, '', 0, 0.0) or not plan_data.get('is_custom')):
+                            company_profile['monthlyPayment'] = float(plan_price)
+                            company_profile['monthly_payment'] = float(plan_price)
                     else:
                         session.pop('company_modules', None)
                         session.pop('company_plan_version', None)

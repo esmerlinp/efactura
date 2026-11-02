@@ -1210,10 +1210,13 @@ def create_cash_register():
     # Validar límite de cajas en el plan de la empresa
     profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     box_limit = int(profile.get('boxLimit', 0)) if profile else 0
+    additional_box_cost = float(profile.get('additionalBoxCost', 0.0) or 0.0) if profile else 0.0
     registers = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox)
-    
-    if len(registers) >= box_limit:
-        flash(f'Límite de cajas registradoras alcanzado ({box_limit} cajas en tu plan). Por favor, contacta a soporte o actualiza tu plan.', 'error')
+    is_exceeding_box_limit = (box_limit > 0 and len(registers) >= box_limit)
+
+    from app.utils.plan_limits import is_resource_excess_blocked
+    if is_resource_excess_blocked(profile, 'boxes') and is_exceeding_box_limit:
+        flash(f'No se puede crear la caja registradora. Has alcanzado el límite de {box_limit} cajas contratadas en tu plan y tienes bloqueada la creación de cajas adicionales en tu suscripción. Puedes habilitar adicionales en Suscripción.', 'error')
         return redirect(url_for('web_pos.pos_admin_dashboard'))
         
     name = request.form.get('name', '').strip()
@@ -1231,7 +1234,12 @@ def create_cash_register():
     }
     
     DatabaseService.save_cash_register(owner_uid, register_id, register_dict, company_id=company_id, sandbox=sandbox)
-    flash(f'Caja registradora "{name}" creada correctamente.', 'success')
+    if is_exceeding_box_limit and additional_box_cost > 0:
+        flash(f'Caja registradora "{name}" creada correctamente. Has superado el límite de {box_limit} cajas contratadas; se aplicará un cargo adicional de USD ${additional_box_cost:,.2f}/mes por caja adicional en tu próxima facturación.', 'warning')
+    elif is_exceeding_box_limit:
+        flash(f'Caja registradora "{name}" creada correctamente. Has superado el límite de {box_limit} cajas contratadas en tu plan.', 'info')
+    else:
+        flash(f'Caja registradora "{name}" creada correctamente.', 'success')
     return redirect(url_for('web_pos.pos_admin_dashboard'))
 
 
