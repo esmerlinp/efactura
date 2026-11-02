@@ -2078,35 +2078,52 @@ class DatabaseService:
         plan_version = company.get("plan_version", company.get("planVersion", 0))
         plan_data = cls.get_plan(plan_id, plan_version=plan_version) if plan_id else None
 
-        user_limit = company.get("userLimit", company.get("user_limit"))
-        if user_limit is None and plan_data:
-            user_limit = plan_data.get("userLimit")
-        if user_limit is None:
-            user_limit = 2
+        def _resolve_cost(camel_k, snake_k, plan_k=None):
+            pk = plan_k or camel_k
+            plan_val = float(plan_data.get(pk, 0.0) or 0.0) if plan_data else 0.0
+            val = company.get(camel_k)
+            if val is None or val == "":
+                val = company.get(snake_k)
+            try:
+                stored = float(val) if val is not None and val != "" else None
+            except (ValueError, TypeError):
+                stored = None
+            if stored is not None and stored > 0:
+                return stored
+            return plan_val if plan_val > 0 else (stored if stored is not None else 0.0)
 
-        doc_limit = company.get("documentLimit", company.get("document_limit"))
-        if doc_limit is None and plan_data:
-            doc_limit = plan_data.get("documentLimit")
-        if doc_limit is None:
-            doc_limit = 100
+        def _resolve_limit(camel_k, snake_k, default_val):
+            val = company.get(camel_k)
+            if val is None or val == "":
+                val = company.get(snake_k)
+            if val is not None and val != "":
+                try:
+                    return int(val)
+                except (ValueError, TypeError):
+                    pass
+            plan_lim = plan_data.get(camel_k) if plan_data else None
+            if plan_lim is not None and plan_lim != "":
+                try:
+                    return int(plan_lim)
+                except (ValueError, TypeError):
+                    pass
+            return default_val
 
-        storage_limit = company.get("storageLimitMB", company.get("storage_limit_mb"))
-        if storage_limit is None and plan_data:
-            storage_limit = plan_data.get("storageLimitMB")
-        if storage_limit is None:
-            storage_limit = 512
+        user_limit = _resolve_limit("userLimit", "user_limit", 2)
+        doc_limit = _resolve_limit("documentLimit", "document_limit", 100)
+        storage_limit = _resolve_limit("storageLimitMB", "storage_limit_mb", 512)
+        branch_limit = _resolve_limit("branchLimit", "branch_limit", 1)
+        box_limit = _resolve_limit("boxLimit", "box_limit", 1)
+        warehouse_limit = _resolve_limit("warehouseLimit", "warehouse_limit", 1)
+        employee_limit = _resolve_limit("employeeLimit", "employee_limit", 0)
 
-        branch_limit = company.get("branchLimit", company.get("branch_limit"))
-        if branch_limit is None and plan_data:
-            branch_limit = plan_data.get("branchLimit")
-        if branch_limit is None:
-            branch_limit = 1
-
-        box_limit = company.get("boxLimit", company.get("box_limit"))
-        if box_limit is None and plan_data:
-            box_limit = plan_data.get("boxLimit")
-        if box_limit is None:
-            box_limit = 1
+        resolved_monthly_payment = _resolve_cost("monthlyPayment", "monthly_payment", "monthlyPrice")
+        resolved_doc_cost = _resolve_cost("additionalDocumentCost", "additional_document_cost")
+        resolved_user_cost = _resolve_cost("additionalUserCost", "additional_user_cost")
+        resolved_branch_cost = _resolve_cost("additionalBranchCost", "additional_branch_cost")
+        resolved_warehouse_cost = _resolve_cost("additionalWarehouseCost", "additional_warehouse_cost")
+        resolved_employee_cost = _resolve_cost("additionalEmployeeCost", "additional_employee_cost")
+        resolved_box_cost = _resolve_cost("additionalBoxCost", "additional_box_cost")
 
         return {
             "ownerUID": company.get("owner_uid", company.get("ownerUID", owner_uid)),
@@ -2144,15 +2161,22 @@ class DatabaseService:
             "planId": plan_id,
             "plan_version": plan_version,
             "status": status_str,
-            "userLimit": int(user_limit) if user_limit is not None else 2,
-            "documentLimit": int(doc_limit) if doc_limit is not None else 100,
-            "storageLimitMB": int(storage_limit) if storage_limit is not None else 512,
-            "branchLimit": int(branch_limit) if branch_limit is not None else 1,
-            "boxLimit": int(box_limit) if box_limit is not None else 1,
-            "monthlyPayment": company.get("monthlyPayment", company.get("monthly_payment", plan_data.get("monthlyPrice", plan_data.get("monthlyPayment", 0)) if plan_data else 0)),
-            "additionalDocumentCost": company.get("additionalDocumentCost", company.get("additional_document_cost", plan_data.get("additionalDocumentCost", 0) if plan_data else 0)),
-            "additionalUserCost": company.get("additionalUserCost", company.get("additional_user_cost", plan_data.get("additionalUserCost", 0) if plan_data else 0)),
-            "additionalBoxCost": company.get("additionalBoxCost", company.get("additional_box_cost", plan_data.get("additionalBoxCost", 0) if plan_data else 0)),
+            "userLimit": user_limit,
+            "documentLimit": doc_limit,
+            "storageLimitMB": storage_limit,
+            "branchLimit": branch_limit,
+            "additionalBranchCost": resolved_branch_cost,
+            "warehouseLimit": warehouse_limit,
+            "additionalWarehouseCost": resolved_warehouse_cost,
+            "employeeLimit": employee_limit,
+            "additionalEmployeeCost": resolved_employee_cost,
+            "boxLimit": box_limit,
+            "monthlyPayment": resolved_monthly_payment,
+            "additionalDocumentCost": resolved_doc_cost,
+            "additionalUserCost": resolved_user_cost,
+            "additionalBoxCost": resolved_box_cost,
+            "excess_controls": company.get("excess_controls", company.get("excessControls", {})),
+            "excessControls": company.get("excess_controls", company.get("excessControls", {})),
             "posEnabled": company.get("pos_enabled", company.get("posEnabled", True)),
             "productionEnabled": company.get("production_enabled", company.get("productionEnabled", True)),
             "sandboxEnabled": company.get("sandbox_enabled", company.get("sandboxEnabled", True)),
@@ -2306,9 +2330,34 @@ class DatabaseService:
         # Persistir la API Key solo si viene en el dict (evita sobrescribir con vacío)
         if "apiKey" in profile_dict:
             update_data["api_key"] = profile_dict.get("apiKey", "")
-        for k in ["userLimit", "documentLimit", "storageLimitMB", "branchLimit", "boxLimit", "monthlyPayment", "additionalDocumentCost", "additionalUserCost", "additionalBoxCost"]:
+        camel_to_snake = {
+            "monthlyPayment": "monthly_payment",
+            "documentLimit": "document_limit",
+            "userLimit": "user_limit",
+            "storageLimitMB": "storage_limit_mb",
+            "branchLimit": "branch_limit",
+            "additionalBranchCost": "additional_branch_cost",
+            "warehouseLimit": "warehouse_limit",
+            "additionalWarehouseCost": "additional_warehouse_cost",
+            "employeeLimit": "employee_limit",
+            "additionalEmployeeCost": "additional_employee_cost",
+            "boxLimit": "box_limit",
+            "additionalBoxCost": "additional_box_cost",
+            "additionalDocumentCost": "additional_document_cost",
+            "additionalUserCost": "additional_user_cost",
+            "planId": "plan_id",
+            "plan_version": "plan_version",
+        }
+        for k in ["userLimit", "documentLimit", "storageLimitMB", "branchLimit", "additionalBranchCost", "warehouseLimit", "additionalWarehouseCost", "employeeLimit", "additionalEmployeeCost", "boxLimit", "monthlyPayment", "additionalDocumentCost", "additionalUserCost", "additionalBoxCost"]:
             if k in profile_dict:
                 update_data[k] = profile_dict[k]
+                snake_k = camel_to_snake.get(k)
+                if snake_k:
+                    update_data[snake_k] = profile_dict[k]
+        if "excess_controls" in profile_dict:
+            update_data["excess_controls"] = profile_dict["excess_controls"]
+        elif "excessControls" in profile_dict:
+            update_data["excess_controls"] = profile_dict["excessControls"]
         result = cls.update_company(company_id, update_data)
         if result and owner_uid:
             try:

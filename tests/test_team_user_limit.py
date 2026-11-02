@@ -160,22 +160,25 @@ class TestAddTeamMemberLimits:
             assert resp.status_code == 200
             mock_register.assert_called_once()
 
-    def test_add_member_blocked_when_limit_reached(self, client):
-        """Un plan con 2 usuarios y 2 miembros actuales (propietario + 1 colaborador) debe bloquear la creación."""
+    def test_add_member_allowed_with_cost_warning_when_limit_reached(self, client):
+        """Un plan con 2 usuarios y 2 miembros actuales debe permitir la creación sin bloquear, advirtiendo costo adicional."""
         with patch.object(DatabaseService, 'get_company_profile') as mock_profile, \
              patch.object(DatabaseService, 'get_team_members') as mock_team, \
-             patch.object(DatabaseService, 'register_user') as mock_register:
+             patch.object(DatabaseService, 'register_user') as mock_register, \
+             patch.object(DatabaseService, 'update_employee_permissions') as mock_update_perms:
 
             mock_profile.return_value = {
                 "companyName": "Empresa 2",
                 "planId": "plan_test",
                 "userLimit": 2,
+                "additionalUserCost": 5.0,
                 "configured": True,
             }
             mock_team.return_value = [
                 {"uid": "owner_123", "role": "owner", "name": "Owner"},
                 {"uid": "emp_1", "role": "employee", "name": "Empleado 1"},
             ]
+            mock_register.return_value = {"uid": "new_emp_3"}
 
             with client.session_transaction() as sess:
                 sess['user'] = self.MOCK_USER_PROFILE
@@ -190,8 +193,9 @@ class TestAddTeamMemberLimits:
             }, follow_redirects=True)
 
             assert resp.status_code == 200
-            mock_register.assert_not_called()
-            assert b"L\xc3\xadmite de usuarios alcanzado (2 usuarios en tu plan)" in resp.data
+            mock_register.assert_called_once()
+            mock_update_perms.assert_called_once()
+            assert "Has superado el l\xc3\xadmite de 2 usuarios contratados".encode('utf-8') in resp.data or b"superado el" in resp.data
 
     def test_add_member_allowed_when_plan_is_unlimited(self, client):
         """Un plan ilimitado (userLimit=0) no debe bloquear la adición de colaboradores."""

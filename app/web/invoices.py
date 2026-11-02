@@ -710,11 +710,14 @@ def check_document_limit_exceeded(owner_uid, company_id=None, sandbox=True):
     docs_used = stats['prod_current_cycle']
     
     if docs_used >= document_limit:
+        from app.utils.plan_limits import is_resource_excess_blocked
+        if is_resource_excess_blocked(profile, 'documents'):
+            return True, f"Has alcanzado el límite de {document_limit} documentos contratados en tu plan y tienes bloqueada la emisión de comprobantes adicionales en tu suscripción. Puedes habilitar adicionales en Suscripción."
         additional_cost = float(profile.get('additionalDocumentCost', 0.0))
         if additional_cost > 0:
-            return False, f"Advertencia: Has alcanzado el límite de {document_limit} documentos. Este y los siguientes documentos tendrán un costo adicional de RD$ {additional_cost:.2f}."
+            return False, f"Aviso: Has alcanzado el límite de {document_limit} documentos contratados. Este comprobante tendrá un costo adicional de USD $ {additional_cost:.2f}."
         else:
-            return True, f"Límite de documentos excedido ({document_limit} documentos en tu plan). Por favor, contacta al administrador del portal para actualizar tu plan."
+            return False, f"Aviso: Has alcanzado el límite de {document_limit} documentos contratados en tu plan mensual."
             
     return False, ""
 
@@ -1540,8 +1543,21 @@ def new_warehouse():
             "projectId": request.form.get('projectId') or session.get('selected_project_id') or None,
             "isDefault": request.form.get('isDefault') == 'true'
         }
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+        wh_limit = int(profile.get('warehouseLimit', 0)) if profile else 0
+        existing_whs = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
+
+        from app.utils.plan_limits import is_resource_excess_blocked
+        if is_resource_excess_blocked(profile, 'warehouses') and wh_limit > 0 and len(existing_whs) >= wh_limit:
+            flash(f"No se puede registrar el almacén. Has alcanzado el límite de {wh_limit} almacenes contratados en tu plan y tienes bloqueada la creación de almacenes adicionales en tu suscripción. Puedes habilitar adicionales en Suscripción.", 'error')
+            return redirect(url_for('web_invoices.inventory_warehouses'))
+
         DatabaseService.save_warehouse(owner_uid, warehouse_id, wh_dict, company_id=company_id, sandbox=sandbox)
-        flash('Almacén registrado exitosamente.', 'success')
+        if wh_limit > 0 and len(existing_whs) >= wh_limit:
+            wh_extra_cost = float(profile.get('additionalWarehouseCost', 0.0)) if profile else 0.0
+            flash(f"Almacén '{wh_dict['name']}' registrado exitosamente. Has superado el límite base de {wh_limit} almacenes de tu plan (costo adicional: USD ${wh_extra_cost:.2f}/mes).", 'info')
+        else:
+            flash('Almacén registrado exitosamente.', 'success')
         return redirect(url_for('web_invoices.inventory_warehouses'))
         
     branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
@@ -9660,8 +9676,12 @@ def add_team_member():
 
     team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
     # len(team) ya incluye al propietario y a los colaboradores registrados
-    if user_limit > 0 and len(team) >= user_limit:
-        flash(f'Límite de usuarios alcanzado ({user_limit} usuarios en tu plan). Por favor, actualiza tu plan para registrar nuevos colaboradores.', 'error')
+    additional_user_cost = float(profile.get('additionalUserCost', 0.0) or 0.0) if profile else 0.0
+    is_exceeding_user_limit = (user_limit > 0 and len(team) >= user_limit)
+
+    from app.utils.plan_limits import is_resource_excess_blocked
+    if is_resource_excess_blocked(profile, 'users') and is_exceeding_user_limit:
+        flash(f'No se puede crear el usuario. Has alcanzado el límite de {user_limit} colaboradores contratados en tu plan y tienes bloqueada la creación de usuarios adicionales en tu suscripción. Puedes habilitar adicionales en Suscripción.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
     
     name = request.form['name']
@@ -9713,7 +9733,12 @@ def add_team_member():
                 )
         except Exception:
             pass
-        flash(f'Colaborador {name} registrado y vinculado exitosamente.', 'success')
+        if is_exceeding_user_limit and additional_user_cost > 0:
+            flash(f'Colaborador {name} registrado exitosamente. Has superado el límite de {user_limit} usuarios contratados; se aplicará un cargo adicional de USD ${additional_user_cost:,.2f}/mes en tu próxima facturación.', 'warning')
+        elif is_exceeding_user_limit:
+            flash(f'Colaborador {name} registrado exitosamente. Has superado el límite de {user_limit} usuarios contratados en tu plan.', 'info')
+        else:
+            flash(f'Colaborador {name} registrado y vinculado exitosamente.', 'success')
     except Exception as e:
         flash(f'Error al registrar colaborador: {str(e)}', 'error')
         
@@ -9732,12 +9757,19 @@ def save_branch_route():
     
     profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     branch_limit = int(profile.get('branchLimit', 0)) if profile else 0
-    if branch_limit > 0 and not request.form.get('id'):
+    additional_branch_cost = float(profile.get('additionalBranchCost', 0.0) or 0.0) if profile else 0.0
+    is_new = not request.form.get('id')
+    is_exceeding_branch_limit = False
+    if branch_limit > 0 and is_new:
         branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
         if len(branches) >= branch_limit:
-            flash(f'Límite de sucursales alcanzado ({branch_limit} sucursales en tu plan). Actualiza tu plan para crear más.', 'error')
-            return redirect(url_for('web_invoices.company_settings'))
-    
+            is_exceeding_branch_limit = True
+
+    from app.utils.plan_limits import is_resource_excess_blocked
+    if is_resource_excess_blocked(profile, 'branches') and is_exceeding_branch_limit:
+        flash(f"No se puede crear la sucursal. Has alcanzado el límite de {branch_limit} sucursales contratadas en tu plan y tienes bloqueada la creación de sucursales adicionales en tu suscripción. Puedes habilitar adicionales en Suscripción.", 'error')
+        return redirect(url_for('web_invoices.company_settings'))
+
     branch_id = request.form.get('id') or str(uuid.uuid4())
     branch_dict = {
         "name": request.form.get('name', ''),
@@ -9747,7 +9779,12 @@ def save_branch_route():
     }
     
     DatabaseService.save_branch(owner_uid, branch_id, branch_dict, company_id=company_id, sandbox=sandbox)
-    flash(f"Sucursal '{branch_dict['name']}' guardada correctamente.", 'success')
+    if is_exceeding_branch_limit and additional_branch_cost > 0:
+        flash(f"Sucursal '{branch_dict['name']}' guardada correctamente. Has superado el límite de {branch_limit} sucursales contratadas; se aplicará un cargo adicional de USD ${additional_branch_cost:,.2f}/mes en tu próxima facturación.", 'warning')
+    elif is_exceeding_branch_limit:
+        flash(f"Sucursal '{branch_dict['name']}' guardada correctamente. Has superado el límite de {branch_limit} sucursales contratadas en tu plan.", 'info')
+    else:
+        flash(f"Sucursal '{branch_dict['name']}' guardada correctamente.", 'success')
     return redirect(url_for('web_invoices.company_settings'))
 
 @web_invoices_bp.route('/settings/branches/<branch_id>/delete', methods=['POST'])
@@ -11300,10 +11337,12 @@ def client_subscription_page():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
     
     profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     plan_name = "Plan Personalizado"
+    plan_data = None
     from app.services.db_service import db_firestore
     try:
         plan_id = profile.get('planId')
@@ -11320,10 +11359,164 @@ def client_subscription_page():
     payments = DatabaseService.get_payments(company_id)
     user_profile = DatabaseService.get_user_profile(session['user']['uid'])
     created_at = user_profile.get('createdAt') if user_profile else None
-    monthly_payment = float(profile.get('monthlyPayment', 0))
+    monthly_payment = float(profile.get('monthlyPayment', 0) or 0)
+    if plan_data:
+        plan_monthly_price = float(plan_data.get('monthlyPrice', plan_data.get('monthlyPayment', 0.0)) or 0.0)
+        if plan_monthly_price > 0 and (monthly_payment == 0.0 or not plan_data.get('is_custom', False)):
+            monthly_payment = plan_monthly_price
+            profile['monthlyPayment'] = plan_monthly_price
     additional_cost = float(profile.get('additionalDocumentCost', 0))
     document_limit = int(profile.get('documentLimit', 0)) if profile.get('documentLimit') else 0
     
+    # ── Módulo y límites de recursos contratados vs registrados ──
+    active_modules = profile.get('activeModules') or profile.get('active_modules') or []
+    has_nomina = 'nomina' in active_modules
+
+    # 1. Empleados
+    employee_limit = int(profile.get('employeeLimit', 0) or 0)
+    additional_employee_cost = float(profile.get('additionalEmployeeCost', 0.0) or 0.0)
+    active_employees_count = 0
+    try:
+        from app.services import hr_data_service as hr
+        active_employees_count = len([e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get('status') != 'inactivo'])
+    except Exception as e:
+        print(f"⚠️ Error al contar empleados en suscripción: {e}")
+
+    # 2. Usuarios / Colaboradores
+    user_limit = int(profile.get('userLimit', 2) or 2)
+    additional_user_cost = float(profile.get('additionalUserCost', 0.0) or 0.0)
+    team_members_count = 0
+    try:
+        team_members_count = len(DatabaseService.get_team_members(owner_uid, company_id=company_id))
+    except Exception as e:
+        print(f"⚠️ Error al contar colaboradores en suscripción: {e}")
+
+    # 3. Sucursales
+    branch_limit = int(profile.get('branchLimit', 0) or 0)
+    additional_branch_cost = float(profile.get('additionalBranchCost', 0.0) or 0.0)
+    branches_count = 0
+    try:
+        branches_count = len(DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox))
+    except Exception as e:
+        print(f"⚠️ Error al contar sucursales en suscripción: {e}")
+
+    # 4. Almacenes
+    warehouse_limit = int(profile.get('warehouseLimit', 0) or 0)
+    additional_warehouse_cost = float(profile.get('additionalWarehouseCost', 0.0) or 0.0)
+    warehouses_count = 0
+    try:
+        warehouses_count = len(DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox))
+    except Exception as e:
+        print(f"⚠️ Error al contar almacenes en suscripción: {e}")
+
+    # 5. Cajas POS
+    box_limit = int(profile.get('boxLimit', 0) or 0)
+    additional_box_cost = float(profile.get('additionalBoxCost', 0.0) or 0.0)
+    boxes_count = 0
+    try:
+        boxes_count = len(DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox))
+    except Exception as e:
+        print(f"⚠️ Error al contar cajas en suscripción: {e}")
+
+    current_docs = stats.get('prod_current_cycle', stats.get('total_invoices', 0))
+    doc_excess = max(0, current_docs - document_limit) if document_limit > 0 else 0
+    doc_excess_cost = doc_excess * additional_cost
+
+    emp_excess = max(0, active_employees_count - employee_limit) if employee_limit > 0 else 0
+    emp_excess_cost = emp_excess * additional_employee_cost
+
+    user_excess = max(0, team_members_count - user_limit) if user_limit > 0 else 0
+    user_excess_cost = user_excess * additional_user_cost
+
+    branch_excess = max(0, branches_count - branch_limit) if branch_limit > 0 else 0
+    branch_excess_cost = branch_excess * additional_branch_cost
+
+    warehouse_excess = max(0, warehouses_count - warehouse_limit) if warehouse_limit > 0 else 0
+    warehouse_excess_cost = warehouse_excess * additional_warehouse_cost
+
+    box_excess = max(0, boxes_count - box_limit) if box_limit > 0 else 0
+    box_excess_cost = box_excess * additional_box_cost
+
+    total_excess_cost = (doc_excess_cost + emp_excess_cost + user_excess_cost +
+                         branch_excess_cost + warehouse_excess_cost + box_excess_cost)
+
+    from app.utils.plan_limits import is_resource_excess_blocked
+
+    resource_metrics = {
+        'documents': {
+            'label': 'Documentos Fiscales (e-CF)',
+            'icon': 'fa-solid fa-file-invoice',
+            'limit': document_limit,
+            'current': current_docs,
+            'excess': doc_excess,
+            'unit_cost': additional_cost,
+            'excess_cost': doc_excess_cost,
+            'unit': 'docs',
+            'visible': True,
+            'blocked': is_resource_excess_blocked(profile, 'documents'),
+        },
+        'employees': {
+            'label': 'Empleados en Nómina',
+            'icon': 'fa-solid fa-users-gear',
+            'limit': employee_limit,
+            'current': active_employees_count,
+            'excess': emp_excess,
+            'unit_cost': additional_employee_cost,
+            'excess_cost': emp_excess_cost,
+            'unit': 'empleados',
+            'visible': has_nomina or employee_limit > 0 or active_employees_count > 0,
+            'blocked': is_resource_excess_blocked(profile, 'employees'),
+        },
+        'users': {
+            'label': 'Usuarios / Colaboradores',
+            'icon': 'fa-solid fa-users',
+            'limit': user_limit,
+            'current': team_members_count,
+            'excess': user_excess,
+            'unit_cost': additional_user_cost,
+            'excess_cost': user_excess_cost,
+            'unit': 'usuarios',
+            'visible': True,
+            'blocked': is_resource_excess_blocked(profile, 'users'),
+        },
+        'branches': {
+            'label': 'Sucursales',
+            'icon': 'fa-solid fa-building',
+            'limit': branch_limit,
+            'current': branches_count,
+            'excess': branch_excess,
+            'unit_cost': additional_branch_cost,
+            'excess_cost': branch_excess_cost,
+            'unit': 'sucursales',
+            'visible': True,
+            'blocked': is_resource_excess_blocked(profile, 'branches'),
+        },
+        'warehouses': {
+            'label': 'Almacenes',
+            'icon': 'fa-solid fa-warehouse',
+            'limit': warehouse_limit,
+            'current': warehouses_count,
+            'excess': warehouse_excess,
+            'unit_cost': additional_warehouse_cost,
+            'excess_cost': warehouse_excess_cost,
+            'unit': 'almacenes',
+            'visible': True,
+            'blocked': is_resource_excess_blocked(profile, 'warehouses'),
+        },
+        'boxes': {
+            'label': 'Cajas POS',
+            'icon': 'fa-solid fa-cash-register',
+            'limit': box_limit,
+            'current': boxes_count,
+            'excess': box_excess,
+            'unit_cost': additional_box_cost,
+            'excess_cost': box_excess_cost,
+            'unit': 'cajas',
+            'visible': box_limit > 0 or boxes_count > 0 or 'pos' in active_modules,
+            'blocked': is_resource_excess_blocked(profile, 'boxes'),
+        },
+    }
+
     previous_monthly_payment = profile.get('previous_monthlyPayment')
     previous_additional_document_cost = profile.get('previous_additionalDocumentCost')
     previous_document_limit = profile.get('previous_documentLimit')
@@ -11374,11 +11567,17 @@ def client_subscription_page():
         except (ValueError, TypeError):
             pass
 
+    base_fee = proration_current['prorated_fee'] if proration_current else monthly_payment
+    total_projected_bill = base_fee + total_excess_cost
+
     return render_template('subscription.html', active_page='subscription',
         profile=profile, plan_name=plan_name, stats=stats, payments=payments,
         billing_history=billing_history, storage_used=storage_used, storage_limit=storage_limit,
         cancel_scheduled=cancel_scheduled, cancel_date=cancel_date,
-        proration_current=proration_current)
+        proration_current=proration_current,
+        resource_metrics=resource_metrics,
+        total_excess_cost=total_excess_cost,
+        total_projected_bill=total_projected_bill)
 
 def _update_profile_fields(owner_uid, updates, company_id=None):
     """Actualiza campos específicos del perfil de empresa en Firestore sin sobrescribir todo."""
@@ -11394,9 +11593,29 @@ def _update_profile_fields(owner_uid, updates, company_id=None):
                 'plan_version': 'plan_version',
                 'cancel_at_period_end': 'cancel_at_period_end',
                 'cancel_scheduled_date': 'cancel_scheduled_date',
+                'monthlyPayment': 'monthly_payment',
+                'documentLimit': 'document_limit',
+                'userLimit': 'user_limit',
+                'storageLimitMB': 'storage_limit_mb',
+                'branchLimit': 'branch_limit',
+                'additionalBranchCost': 'additional_branch_cost',
+                'warehouseLimit': 'warehouse_limit',
+                'additionalWarehouseCost': 'additional_warehouse_cost',
+                'employeeLimit': 'employee_limit',
+                'additionalEmployeeCost': 'additional_employee_cost',
+                'boxLimit': 'box_limit',
+                'additionalBoxCost': 'additional_box_cost',
+                'additionalDocumentCost': 'additional_document_cost',
+                'additionalUserCost': 'additional_user_cost',
+                'posEnabled': 'pos_enabled',
+                'previous_monthlyPayment': 'previous_monthly_payment',
+                'previous_additionalDocumentCost': 'previous_additional_document_cost',
+                'previous_documentLimit': 'previous_document_limit',
+                'plan_change_date': 'plan_change_date',
             }
             for k, v in updates.items():
                 company_updates[key_map.get(k, k)] = v
+                company_updates[k] = v
             db_firestore.collection('companies').document(company_id).set(company_updates, merge=True)
         cache.delete_memoized(_cached_company_profile, owner_uid)
     except Exception as e:
@@ -11475,11 +11694,16 @@ def change_plan_page():
         
         new_version = (profile.get('plan_version', 0) or 0) + 1
         updates = {'planId': new_plan_id, 'plan_version': new_version}
-        for f in ['documentLimit','userLimit','storageLimitMB','monthlyPayment',
+        for f in ['documentLimit','userLimit','storageLimitMB',
                   'additionalDocumentCost','additionalUserCost','branchLimit',
+                  'additionalBranchCost','warehouseLimit','additionalWarehouseCost',
+                  'employeeLimit','additionalEmployeeCost',
                   'boxLimit','additionalBoxCost','posEnabled']:
             if f in plan_data:
                 updates[f] = plan_data[f]
+        plan_price = plan_data.get('monthlyPrice', plan_data.get('monthlyPayment', 0.0))
+        updates['monthlyPayment'] = float(plan_price or 0.0)
+        updates['monthly_payment'] = float(plan_price or 0.0)
         if profile.get('cancel_at_period_end'):
             updates['cancel_at_period_end'] = False
             updates['cancel_scheduled_date'] = ''
@@ -11577,6 +11801,59 @@ def reactivate_subscription():
     }, company_id=company_id)
     flash('Suscripción reactivada exitosamente.', 'success')
     return redirect(url_for('web_invoices.client_subscription_page'))
+
+@web_invoices_bp.route('/suscripcion/toggle-recurso-adicional', methods=['POST'])
+@require_permission('canViewSubscription', 'Suscripción y Consumo')
+def toggle_resource_excess():
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
+    if not company_id:
+        return jsonify({'success': False, 'error': 'Empresa no encontrada'}), 404
+
+    from app.utils.plan_limits import RESOURCE_KEYS, RESOURCE_LABELS
+    data = request.get_json(silent=True) or request.form.to_dict()
+    resource = data.get('resource')
+    blocked = data.get('blocked')
+    if isinstance(blocked, str):
+        blocked = blocked.lower() in ('true', '1', 'yes', 'on')
+    else:
+        blocked = bool(blocked)
+
+    if resource not in RESOURCE_KEYS:
+        return jsonify({'success': False, 'error': f'Recurso inválido: {resource}'}), 400
+
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    controls = dict(profile.get('excess_controls') or {})
+    controls[resource] = blocked
+
+    from app.services.db_service import db_firestore, _cached_company_profile
+    from app.cache import cache
+
+    try:
+        db_firestore.collection('companies').document(company_id).set({
+            'excess_controls': controls,
+            f'block_excess_{resource}': blocked
+        }, merge=True)
+        db_firestore.collection('users').document(owner_uid).collection('config').document('profile').set({
+            'excess_controls': controls,
+            f'block_excess_{resource}': blocked
+        }, merge=True)
+        cache.delete_memoized(_cached_company_profile, owner_uid)
+    except Exception as e:
+        print(f"⚠️ Error guardando excess_controls en {company_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    label = RESOURCE_LABELS.get(resource, resource)
+    status_text = "bloqueada" if blocked else "desbloqueada (permitida con costo adicional)"
+    return jsonify({
+        'success': True,
+        'resource': resource,
+        'blocked': blocked,
+        'message': f'Creación adicional de {label} {status_text}.'
+    })
 
 
 # -------------------------------------------------------------

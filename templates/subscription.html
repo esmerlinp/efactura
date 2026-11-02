@@ -136,6 +136,50 @@
         background: rgba(139, 92, 246, 0.07);
         border-color: rgba(139, 92, 246, 0.4);
     }
+
+    /* Switch Toggle Moderno para Conceptos Adicionales */
+    .switch-toggle {
+        position: relative;
+        display: inline-block;
+        width: 36px;
+        height: 20px;
+        flex-shrink: 0;
+        vertical-align: middle;
+    }
+    .switch-toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .switch-toggle .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: var(--border-color, #cbd5e1);
+        transition: .22s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 20px;
+    }
+    .switch-toggle .slider:before {
+        position: absolute;
+        content: "";
+        height: 14px;
+        width: 14px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .22s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    }
+    .switch-toggle input:checked + .slider {
+        background-color: var(--accent-emerald, #10b981);
+    }
+    .switch-toggle input:checked + .slider:before {
+        transform: translateX(16px);
+    }
+    .switch-toggle input:focus + .slider {
+        box-shadow: 0 0 1px var(--accent-emerald, #10b981);
+    }
 </style>
 {% endblock %}
 
@@ -208,18 +252,126 @@
                 <div class="premium-detail-list">
                     <div class="detail-row">
                         <span class="detail-label">Costo Mensual Fijo:</span>
-                        <span class="detail-value">USD $ {{ profile.monthlyPayment | default(0) | float | round(2)
-                            }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Costo por Doc. Adicional:</span>
-                        <span class="detail-value">USD $ {{ profile.additionalDocumentCost | default(0) | float | round(2)
-                            }}</span>
+                        <span class="detail-value">USD $ {{ profile.monthlyPayment | default(0) | float | round(2) }}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Límite de Documentos:</span>
                         <span class="detail-value">{{ profile.documentLimit | default('Ilimitado') }} e-CF / mes</span>
                     </div>
+                    <div class="detail-row" style="align-items: center;">
+                        <span class="detail-label" style="display:flex; flex-direction:column; gap:2px;">
+                            <span>Costo por Doc. Adicional:</span>
+                            <span style="font-size:0.72rem; font-weight:400; color:var(--text-muted);">
+                                Adicionales: <strong id="lbl-status-plan-documents" style="color:{% if resource_metrics.documents.blocked %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">{% if resource_metrics.documents.blocked %}Bloqueados{% else %}Permitidos{% endif %}</strong>
+                            </span>
+                        </span>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="detail-value">USD $ {{ profile.additionalDocumentCost | default(0) | float | round(2) }}</span>
+                            <label class="switch-toggle" title="Permitir o bloquear emisión de comprobantes adicionales al superar el límite">
+                                <input type="checkbox" id="toggle-plan-documents" onchange="toggleResourceExcess('documents', this.checked)" {% if not resource_metrics.documents.blocked %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    {% if resource_metrics.employees.visible %}
+                    <div class="detail-row">
+                        <span class="detail-label">Límite de Empleados:</span>
+                        <span class="detail-value">{{ resource_metrics.employees.limit if resource_metrics.employees.limit > 0 else 'Ilimitado' }}</span>
+                    </div>
+                    <div class="detail-row" style="align-items: center;">
+                        <span class="detail-label" style="display:flex; flex-direction:column; gap:2px;">
+                            <span>Costo por Emp. Adicional:</span>
+                            <span style="font-size:0.72rem; font-weight:400; color:var(--text-muted);">
+                                Adicionales: <strong id="lbl-status-plan-employees" style="color:{% if resource_metrics.employees.blocked %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">{% if resource_metrics.employees.blocked %}Bloqueados{% else %}Permitidos{% endif %}</strong>
+                            </span>
+                        </span>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="detail-value">USD $ {{ resource_metrics.employees.unit_cost | round(2) }}</span>
+                            <label class="switch-toggle" title="Permitir o bloquear creación de empleados adicionales al superar el límite">
+                                <input type="checkbox" id="toggle-plan-employees" onchange="toggleResourceExcess('employees', this.checked)" {% if not resource_metrics.employees.blocked %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="detail-row">
+                        <span class="detail-label">Límite de Usuarios:</span>
+                        <span class="detail-value">{{ resource_metrics.users.limit if resource_metrics.users.limit > 0 else 'Ilimitado' }}</span>
+                    </div>
+                    <div class="detail-row" style="align-items: center;">
+                        <span class="detail-label" style="display:flex; flex-direction:column; gap:2px;">
+                            <span>Costo por Usuario Adicional:</span>
+                            <span style="font-size:0.72rem; font-weight:400; color:var(--text-muted);">
+                                Adicionales: <strong id="lbl-status-plan-users" style="color:{% if resource_metrics.users.blocked %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">{% if resource_metrics.users.blocked %}Bloqueados{% else %}Permitidos{% endif %}</strong>
+                            </span>
+                        </span>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="detail-value">USD $ {{ resource_metrics.users.unit_cost | round(2) }}</span>
+                            <label class="switch-toggle" title="Permitir o bloquear usuarios adicionales al superar el límite">
+                                <input type="checkbox" id="toggle-plan-users" onchange="toggleResourceExcess('users', this.checked)" {% if not resource_metrics.users.blocked %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Límite de Sucursales:</span>
+                        <span class="detail-value">{{ resource_metrics.branches.limit if resource_metrics.branches.limit > 0 else 'Ilimitado' }}</span>
+                    </div>
+                    <div class="detail-row" style="align-items: center;">
+                        <span class="detail-label" style="display:flex; flex-direction:column; gap:2px;">
+                            <span>Costo Sucursal Adicional:</span>
+                            <span style="font-size:0.72rem; font-weight:400; color:var(--text-muted);">
+                                Adicionales: <strong id="lbl-status-plan-branches" style="color:{% if resource_metrics.branches.blocked %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">{% if resource_metrics.branches.blocked %}Bloqueados{% else %}Permitidos{% endif %}</strong>
+                            </span>
+                        </span>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="detail-value">USD $ {{ resource_metrics.branches.unit_cost | round(2) }}</span>
+                            <label class="switch-toggle" title="Permitir o bloquear sucursales adicionales al superar el límite">
+                                <input type="checkbox" id="toggle-plan-branches" onchange="toggleResourceExcess('branches', this.checked)" {% if not resource_metrics.branches.blocked %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Límite de Almacenes:</span>
+                        <span class="detail-value">{{ resource_metrics.warehouses.limit if resource_metrics.warehouses.limit > 0 else 'Ilimitado' }}</span>
+                    </div>
+                    <div class="detail-row" style="align-items: center;">
+                        <span class="detail-label" style="display:flex; flex-direction:column; gap:2px;">
+                            <span>Costo Almacén Adicional:</span>
+                            <span style="font-size:0.72rem; font-weight:400; color:var(--text-muted);">
+                                Adicionales: <strong id="lbl-status-plan-warehouses" style="color:{% if resource_metrics.warehouses.blocked %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">{% if resource_metrics.warehouses.blocked %}Bloqueados{% else %}Permitidos{% endif %}</strong>
+                            </span>
+                        </span>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="detail-value">USD $ {{ resource_metrics.warehouses.unit_cost | round(2) }}</span>
+                            <label class="switch-toggle" title="Permitir o bloquear almacenes adicionales al superar el límite">
+                                <input type="checkbox" id="toggle-plan-warehouses" onchange="toggleResourceExcess('warehouses', this.checked)" {% if not resource_metrics.warehouses.blocked %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    {% if resource_metrics.boxes.visible %}
+                    <div class="detail-row">
+                        <span class="detail-label">Límite Cajas POS:</span>
+                        <span class="detail-value">{{ resource_metrics.boxes.limit if resource_metrics.boxes.limit > 0 else 'Ilimitado' }}</span>
+                    </div>
+                    <div class="detail-row" style="align-items: center;">
+                        <span class="detail-label" style="display:flex; flex-direction:column; gap:2px;">
+                            <span>Costo Caja Adicional:</span>
+                            <span style="font-size:0.72rem; font-weight:400; color:var(--text-muted);">
+                                Adicionales: <strong id="lbl-status-plan-boxes" style="color:{% if resource_metrics.boxes.blocked %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">{% if resource_metrics.boxes.blocked %}Bloqueados{% else %}Permitidos{% endif %}</strong>
+                            </span>
+                        </span>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="detail-value">USD $ {{ resource_metrics.boxes.unit_cost | round(2) }}</span>
+                            <label class="switch-toggle" title="Permitir o bloquear cajas POS adicionales al superar el límite">
+                                <input type="checkbox" id="toggle-plan-boxes" onchange="toggleResourceExcess('boxes', this.checked)" {% if not resource_metrics.boxes.blocked %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
                     <div class="detail-row">
                         <span class="detail-label">Límite Almacenamiento:</span>
                         <span class="detail-value">{{ profile.storageLimitMB | default('Ilimitado') }} MB</span>
@@ -243,21 +395,11 @@
                     </h3>
                 </div>
 
-                {% set limit = profile.documentLimit | default(0) | int %}
-                {% set current = stats.prod_current_cycle | default(0) | int %}
-                {% set excess = [0, current - limit]|max if limit > 0 else 0 %}
                 {% set monthly = profile.monthlyPayment | default(0) | float %}
-                {% set extra_cost = profile.additionalDocumentCost | default(0) | float %}
-                {% set excess_total = excess * extra_cost %}
-                {% if proration_current %}
-                {% set total_bill = proration_current.prorated_fee + excess_total %}
-                {% else %}
-                {% set total_bill = monthly + excess_total %}
-                {% endif %}
 
                 <div class="premium-detail-list">
                     <div class="detail-row">
-                        <span class="detail-label">Cuota del Servicio:</span>
+                        <span class="detail-label">Cuota Base del Plan:</span>
                         <span class="detail-value">{% if proration_current %}USD $ {{ proration_current.prorated_fee | round(2) }}{% else %}USD $ {{ monthly | round(2) }}{% endif %}</span>
                     </div>
                     {% if proration_current %}
@@ -274,13 +416,60 @@
                         </div>
                     </div>
                     {% endif %}
+                    {% if resource_metrics.documents.excess > 0 %}
                     <div class="detail-row">
-                        <span class="detail-label">Excedentes ({{ excess }} docs):</span>
-                        <span class="detail-value"
-                            style="color: {% if excess > 0 %}var(--accent-red){% else %}var(--text-primary){% endif %};">
-                            USD $ {{ excess_total | round(2) }}
+                        <span class="detail-label">Docs adicionales ({{ resource_metrics.documents.excess }} e-CF):</span>
+                        <span class="detail-value" style="color: var(--accent-red);">
+                            USD $ {{ resource_metrics.documents.excess_cost | round(2) }}
                         </span>
                     </div>
+                    {% endif %}
+                    {% if resource_metrics.employees.visible and resource_metrics.employees.excess > 0 %}
+                    <div class="detail-row">
+                        <span class="detail-label">Empleados adicionales ({{ resource_metrics.employees.excess }}):</span>
+                        <span class="detail-value" style="color: var(--accent-red);">
+                            USD $ {{ resource_metrics.employees.excess_cost | round(2) }}
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% if resource_metrics.users.excess > 0 %}
+                    <div class="detail-row">
+                        <span class="detail-label">Usuarios adicionales ({{ resource_metrics.users.excess }}):</span>
+                        <span class="detail-value" style="color: var(--accent-red);">
+                            USD $ {{ resource_metrics.users.excess_cost | round(2) }}
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% if resource_metrics.branches.excess > 0 %}
+                    <div class="detail-row">
+                        <span class="detail-label">Sucursales adicionales ({{ resource_metrics.branches.excess }}):</span>
+                        <span class="detail-value" style="color: var(--accent-red);">
+                            USD $ {{ resource_metrics.branches.excess_cost | round(2) }}
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% if resource_metrics.warehouses.excess > 0 %}
+                    <div class="detail-row">
+                        <span class="detail-label">Almacenes adicionales ({{ resource_metrics.warehouses.excess }}):</span>
+                        <span class="detail-value" style="color: var(--accent-red);">
+                            USD $ {{ resource_metrics.warehouses.excess_cost | round(2) }}
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% if resource_metrics.boxes.visible and resource_metrics.boxes.excess > 0 %}
+                    <div class="detail-row">
+                        <span class="detail-label">Cajas adicionales ({{ resource_metrics.boxes.excess }}):</span>
+                        <span class="detail-value" style="color: var(--accent-red);">
+                            USD $ {{ resource_metrics.boxes.excess_cost | round(2) }}
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% if total_excess_cost == 0 %}
+                    <div class="detail-row">
+                        <span class="detail-label">Cargos por Excedentes:</span>
+                        <span class="detail-value" style="color: var(--accent-emerald);">USD $ 0.00</span>
+                    </div>
+                    {% endif %}
                     <div
                         style="padding: 4px 14px; font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
                         <i class="fa-solid fa-calendar-days"></i>
@@ -292,7 +481,7 @@
                     <span style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">Total
                         Proyectado:</span>
                     <strong style="font-size: 1.4rem; color: #2563EB; font-family: var(--font-heading);">USD $ {{
-                        total_bill | round(2) }}</strong>
+                        total_projected_bill | default(monthly) | round(2) }}</strong>
                 </div>
             </div>
 
@@ -307,7 +496,7 @@
                     style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center;">
                     <h3
                         style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-chart-line" style="color: #60a5fa;"></i> Consumo del Periodo Actual
+                        <i class="fa-solid fa-chart-line" style="color: #60a5fa;"></i> Consumo de Documentos Fiscales
                     </h3>
                     <span class="badge badge-secondary" style="font-size: 0.7rem; padding: 4px 8px;">
                         Ciclo: {{ stats.current_cycle_start }} al {{ stats.current_cycle_end }}
@@ -320,16 +509,17 @@
                             style="margin: 0 0 10px 0; font-size: 0.92rem; font-weight: 700; color: var(--text-secondary);">
                             Comprobantes Emitidos (Producción)</h4>
 
+                        {% set doc_metric = resource_metrics.documents %}
                         <div
                             style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-bottom: 12px; font-family: var(--font-heading);">
-                            {{ current }} <span style="font-size: 1rem; font-weight: 500; color: var(--text-muted);">/
-                                {% if limit > 0 %}{{ limit }} e-CF{% else %}ilimitados{% endif %}</span>
+                            {{ doc_metric.current }} <span style="font-size: 1rem; font-weight: 500; color: var(--text-muted);">/
+                                {% if doc_metric.limit > 0 %}{{ doc_metric.limit }} e-CF{% else %}ilimitados{% endif %}</span>
                         </div>
 
-                        {% if limit > 0 %}
-                        {% set pct = (current / limit * 100) | round | int %}
+                        {% if doc_metric.limit > 0 %}
+                        {% set pct = (doc_metric.current / doc_metric.limit * 100) | round | int %}
                         {% set fill_class = '' %}
-                        {% if current > limit %}{% set fill_class = 'danger' %}{% elif pct >= 80 %}{% set fill_class =
+                        {% if doc_metric.current > doc_metric.limit %}{% set fill_class = 'danger' %}{% elif pct >= 80 %}{% set fill_class =
                         'warning' %}{% endif %}
 
                         <div class="progress-bar-container">
@@ -339,10 +529,30 @@
                         <div
                             style="font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; font-weight: 500;">
                             <span>{{ pct }}% del plan mensual consumido</span>
-                            {% if current > limit %}
-                            <span style="color: var(--accent-red); font-weight: 700;">+{{ current - limit }}
-                                excedentes</span>
+                            {% if doc_metric.excess > 0 %}
+                            <span style="color: var(--accent-red); font-weight: 700;">+{{ doc_metric.excess }}
+                                excedentes (+USD ${{ doc_metric.excess_cost | round(2) }})</span>
                             {% endif %}
+                        </div>
+
+                        <div style="margin-top: 14px; padding: 10px 12px; background: var(--bg-table-hover); border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-shield-halved" style="color: #60a5fa;"></i> Control de Emisión Adicional
+                                </span>
+                                <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                                    <span id="badge-doc-control" class="badge {% if doc_metric.blocked %}badge-danger{% else %}badge-success{% endif %}" style="font-size:0.68rem;padding:2px 6px;">
+                                        {% if doc_metric.blocked %}Bloqueado al límite{% else %}Permitido con cargo extra{% endif %}
+                                    </span>
+                                    <span id="desc-doc-control" style="font-size:0.72rem;color:var(--text-muted);">
+                                        {% if doc_metric.blocked %}No se permitirá emitir más de {{ doc_metric.limit }} e-CF.{% else %}Emisiones extras se cobran a USD ${{ profile.additionalDocumentCost | default(0) | float | round(2) }}/doc.{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            <label class="switch-toggle" title="Permitir o bloquear emisión de e-CF adicionales al llegar al límite">
+                                <input type="checkbox" id="toggle-doc-card" onchange="toggleResourceExcess('documents', this.checked)" {% if not doc_metric.blocked %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
                         </div>
                         {% else %}
                         <div class="progress-bar-container">
@@ -365,6 +575,82 @@
                         <span style="font-size: 0.76rem; color: var(--text-muted); font-weight: 500;">Pruebas emitidas
                             en el ciclo actual (total histórico: {{ stats.sandbox_total }})</span>
                     </div>
+                </div>
+            </div>
+
+            <!-- Tarjeta de Capacidad y Recursos del Plan -->
+            <div class="card-table-wrapper">
+                <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-cubes" style="color: var(--accent-emerald);"></i> Capacidad y Recursos del Plan
+                    </h3>
+                    <span class="badge badge-secondary" style="font-size: 0.72rem; padding: 4px 8px;">
+                        <i class="fa-solid fa-sliders" style="margin-right: 4px;"></i> Controles configurables
+                    </span>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    {% for key, metric in resource_metrics.items() %}
+                    {% if key != 'documents' and metric.visible %}
+                    <div style="padding: 12px 14px; background: var(--bg-table-hover); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i class="{{ metric.icon }}" style="color: var(--text-secondary); width: 16px;"></i>
+                                <span style="font-size: 0.88rem; font-weight: 700; color: var(--text-primary);">{{ metric.label }}</span>
+                            </div>
+                            <div style="font-family: var(--font-heading); font-size: 0.95rem; font-weight: 800; color: var(--text-primary);">
+                                {{ metric.current }} <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-muted);">/ {% if metric.limit > 0 %}{{ metric.limit }}{% else %}Ilimitados{% endif %}</span>
+                            </div>
+                        </div>
+
+                        {% if metric.limit > 0 %}
+                            {% set pct = (metric.current / metric.limit * 100) | round | int %}
+                            {% set fill_class = '' %}
+                            {% if metric.current > metric.limit %}
+                                {% set fill_class = 'danger' %}
+                            {% elif pct >= 80 %}
+                                {% set fill_class = 'warning' %}
+                            {% endif %}
+                            <div class="progress-bar-container" style="margin-bottom: 6px; height: 8px;">
+                                <div class="progress-bar-fill {{ fill_class }}" style="width: {{ [pct, 100]|min }}%;"></div>
+                            </div>
+                            <div style="font-size: 0.78rem; display: flex; justify-content: space-between; color: var(--text-muted); margin-bottom: 8px;">
+                                <span>{{ pct }}% contratado</span>
+                                {% if metric.excess > 0 %}
+                                <span style="color: var(--accent-red); font-weight: 700;">
+                                    +{{ metric.excess }} adicional(es) (+USD ${{ metric.excess_cost | round(2) }}/mes)
+                                </span>
+                                {% else %}
+                                <span>{{ metric.limit - metric.current }} disponible(s) sin recargo</span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Control de Adicionales para el Recurso -->
+                            <div style="border-top: 1px dashed var(--border-color); padding-top: 8px; margin-top: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <span id="badge-res-{{ key }}" class="badge {% if metric.blocked %}badge-danger{% else %}badge-success{% endif %}" style="font-size: 0.68rem; padding: 2px 8px;">
+                                        {% if metric.blocked %}Bloqueado al límite{% else %}Permitido con recargo{% endif %}
+                                    </span>
+                                    <span id="desc-res-{{ key }}" style="font-size: 0.74rem; color: var(--text-muted);">
+                                        {% if metric.blocked %}Creación bloqueada al superar {{ metric.limit }} {{ metric.unit }}.{% else %}Adicionales a USD ${{ metric.unit_cost | round(2) }}/mes c/u.{% endif %}
+                                    </span>
+                                </div>
+                                <label class="switch-toggle" title="Permitir o bloquear creación de adicionales al superar el límite">
+                                    <input type="checkbox" id="toggle-res-{{ key }}" onchange="toggleResourceExcess('{{ key }}', this.checked)" {% if not metric.blocked %}checked{% endif %}>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        {% else %}
+                            <div class="progress-bar-container" style="margin-bottom: 6px; height: 8px;">
+                                <div class="progress-bar-fill" style="width: 100%;"></div>
+                            </div>
+                            <div style="font-size: 0.78rem; color: var(--text-muted);">
+                                Ilimitados en este plan
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
                 </div>
             </div>
 
@@ -620,6 +906,83 @@ function openCancelModal() {
 }
 function closeCancelModal() {
     document.getElementById('cancel-subscription-modal').style.display = 'none';
+}
+
+function updateResourceUIState(resource, isBlocked) {
+    // 1. Status label in "Plan Habilitado"
+    const lblPlan = document.getElementById(`lbl-status-plan-${resource}`);
+    if (lblPlan) {
+        lblPlan.textContent = isBlocked ? 'Bloqueados' : 'Permitidos';
+        lblPlan.style.color = isBlocked ? 'var(--accent-red)' : 'var(--accent-emerald)';
+    }
+
+    // 2. Badge & description in "Capacidad y Recursos del Plan"
+    const badgeRes = document.getElementById(`badge-res-${resource}`);
+    if (badgeRes) {
+        badgeRes.textContent = isBlocked ? 'Bloqueado al límite' : 'Permitido con recargo';
+        badgeRes.className = isBlocked ? 'badge badge-danger' : 'badge badge-success';
+    }
+    const descRes = document.getElementById(`desc-res-${resource}`);
+    if (descRes) {
+        if (isBlocked) {
+            descRes.textContent = 'Creación bloqueada al superar el límite contratado.';
+        } else {
+            descRes.textContent = 'Adicionales permitidos facturando costo extra mensual.';
+        }
+    }
+
+    // 3. Document card specific elements
+    if (resource === 'documents') {
+        const badgeDoc = document.getElementById('badge-doc-control');
+        if (badgeDoc) {
+            badgeDoc.textContent = isBlocked ? 'Bloqueado al límite' : 'Permitido con cargo extra';
+            badgeDoc.className = isBlocked ? 'badge badge-danger' : 'badge badge-success';
+        }
+        const descDoc = document.getElementById('desc-doc-control');
+        if (descDoc) {
+            descDoc.textContent = isBlocked ? 'No se permitirá emitir más allá del límite contratado.' : 'Emisiones extras se cobran según el costo por doc. adicional.';
+        }
+    }
+}
+
+async function toggleResourceExcess(resource, isAllowed) {
+    // isAllowed = true -> UNBLOCKED (permitted with extra fee)
+    // isAllowed = false -> BLOCKED (creation halted once limit is reached)
+    const isBlocked = !isAllowed;
+    const csrfToken = '{{ csrf_token() }}';
+
+    // Synchronize all checkboxes corresponding to this resource
+    const toggles = document.querySelectorAll(`input[type="checkbox"][id*="${resource}"]`);
+    toggles.forEach(t => t.checked = isAllowed);
+
+    // Optimistic UI update
+    updateResourceUIState(resource, isBlocked);
+
+    try {
+        const response = await fetch("{{ url_for('web_invoices.toggle_resource_excess') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                resource: resource,
+                blocked: isBlocked,
+                csrf_token: csrfToken
+            })
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.error || 'Error al actualizar control de adicionales');
+        }
+    } catch (err) {
+        console.error('Error toggling resource excess:', err);
+        alert('No se pudo guardar el cambio: ' + (err.message || 'Error desconocido'));
+        // Rollback checkboxes and UI
+        toggles.forEach(t => t.checked = !isAllowed);
+        updateResourceUIState(resource, !isBlocked);
+    }
 }
 </script>
 {% endblock %}

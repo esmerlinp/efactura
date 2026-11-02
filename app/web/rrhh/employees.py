@@ -590,6 +590,15 @@ def employee_new():
     )
 
     if request.method == "POST":
+        from app.services.db_service import DatabaseService
+        from app.utils.plan_limits import is_resource_excess_blocked
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+        emp_limit = int(profile.get('employeeLimit', 0) or 0) if profile else 0
+        active_count = len([e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") != "inactivo"])
+        if is_resource_excess_blocked(profile, 'employees') and emp_limit > 0 and active_count >= emp_limit:
+            flash(f"No se puede registrar el empleado. Has alcanzado el límite de {emp_limit} empleados contratados en tu plan y tienes bloqueada la creación de empleados adicionales en tu suscripción. Puedes habilitar adicionales en Suscripción.", "error")
+            return redirect(url_for("web_rrhh.employee_list"))
+
         emp_id = str(uuid.uuid4())
         first_name = request.form.get("firstName", "").strip()
         first_last_name = request.form.get("firstLastName", "").strip()
@@ -701,7 +710,22 @@ def employee_new():
         except Exception as e_dgt:
             print(f"⚠️ Error generando alerta automática DGT-4 en alta de empleado: {e_dgt}")
 
-        flash("Empleado creado exitosamente.", "success")
+        # Verificar límite de empleados contratados (no bloqueante)
+        try:
+            from app.services.db_service import DatabaseService
+            profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+            emp_limit = int(profile.get('employeeLimit', 0) or 0) if profile else 0
+            add_emp_cost = float(profile.get('additionalEmployeeCost', 0.0) or 0.0) if profile else 0.0
+            active_count = len([e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") != "inactivo"])
+            if emp_limit > 0 and active_count > emp_limit:
+                if add_emp_cost > 0:
+                    flash(f"Empleado creado exitosamente. Has superado el límite de {emp_limit} empleados contratados ({active_count} activos); se aplicará un cargo adicional de USD ${add_emp_cost:,.2f}/mes por empleado adicional en tu próxima facturación.", "warning")
+                else:
+                    flash(f"Empleado creado exitosamente. Has superado el límite de {emp_limit} empleados contratados en tu plan ({active_count} activos).", "info")
+            else:
+                flash("Empleado creado exitosamente.", "success")
+        except Exception:
+            flash("Empleado creado exitosamente.", "success")
         return redirect(url_for("web_rrhh.employee_list"))
 
     # Obtener reference data del usuario (con respaldo estático)
