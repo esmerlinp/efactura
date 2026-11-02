@@ -218,7 +218,7 @@
     // Default date to today if empty
     var dateInput = document.getElementById('paymentDateInput');
     if (dateInput && !dateInput.value) {
-        dateInput.value = new Date().toISOString().slice(0, 10);
+        dateInput.value = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Santo_Domingo'});
     }
 
     function esc(s) {

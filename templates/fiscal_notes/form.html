@@ -688,7 +688,7 @@ function createRefundRow(index) {
     var div = document.createElement('div');
     div.className = 'refund-row';
     div.style.cssText = 'background:var(--bg-nav-hover); border-radius:var(--radius-sm); border:1px solid var(--border-color); padding:14px; margin-bottom:10px;';
-    var today = new Date().toISOString().split('T')[0];
+    var today = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Santo_Domingo'});
     div.innerHTML =
         '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">' +
             '<div class="form-group" style="margin-bottom:0;">' +

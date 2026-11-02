@@ -338,9 +338,10 @@ def create_app():
                 # Auto-cancelación: si cancel_at_period_end y la fecha pasó, aplicar cancelación
                 if company_profile.get('cancel_at_period_end') and company_profile.get('cancel_scheduled_date'):
                     from datetime import datetime, timezone, timedelta
+                    from app.utils.timezone import today_santo_domingo
                     try:
                         cancel_date = datetime.strptime(company_profile['cancel_scheduled_date'], '%d/%m/%Y').date()
-                        if datetime.now(timezone.utc).date() >= cancel_date:
+                        if today_santo_domingo() >= cancel_date:
                             company_profile['status'] = 'Cancelado'
                             company_profile['cancel_at_period_end'] = False
                             company_profile.pop('cancel_scheduled_date', None)
@@ -372,10 +373,8 @@ def create_app():
                 # Validar si sandbox está expirado
                 sandbox_expired = False
                 if not session.get('company_sandbox_indefinite', True):
-                    from datetime import datetime, timedelta, timezone
-                    now_utc = datetime.now(timezone.utc)
-                    now_sd = now_utc - timedelta(hours=4)
-                    today_str = now_sd.strftime("%Y-%m-%d")
+                    from app.utils.timezone import today_iso
+                    today_str = today_iso()
                     start_date = session.get('company_sandbox_start_date', '')
                     end_date = session.get('company_sandbox_end_date', '')
                     if (start_date and today_str < start_date) or (end_date and today_str > end_date):

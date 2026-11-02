@@ -909,7 +909,7 @@
         document.getElementById('modal-monto-prometido').value = remainingBalance;
 
         // Colocar fecha de hoy por defecto
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Santo_Domingo'});
         document.getElementById('modal-fecha-promesa').value = today;
 
         document.getElementById('promiseModal').style.display = 'flex';
