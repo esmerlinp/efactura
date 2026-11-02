@@ -697,7 +697,7 @@
             // Por defecto colocar vencimiento a 30 días
             const date = new Date();
             date.setDate(date.getDate() + 30);
-            document.getElementById('dueDate').value = date.toISOString().split('T')[0];
+            document.getElementById('dueDate').value = date.toLocaleDateString('en-CA', {timeZone: 'America/Santo_Domingo'});
         }
         setTimeout(adjustActiveAccordionHeight, 150);
     }
@@ -709,11 +709,11 @@
             if (dateStr) {
                 const dateObj = new Date(dateStr + 'T12:00:00');
                 dateObj.setDate(dateObj.getDate() + 30);
-                document.getElementById('nextOccurrenceDate').value = dateObj.toISOString().split('T')[0];
+                document.getElementById('nextOccurrenceDate').value = dateObj.toLocaleDateString('en-CA', {timeZone: 'America/Santo_Domingo'});
             } else {
                 const dateObj = new Date();
                 dateObj.setDate(dateObj.getDate() + 30);
-                document.getElementById('nextOccurrenceDate').value = dateObj.toISOString().split('T')[0];
+                document.getElementById('nextOccurrenceDate').value = dateObj.toLocaleDateString('en-CA', {timeZone: 'America/Santo_Domingo'});
             }
         }
         setTimeout(adjustActiveAccordionHeight, 150);

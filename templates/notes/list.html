@@ -377,7 +377,7 @@
     function renderList() {
         var list = document.getElementById('taskList');
         var empty = document.getElementById('emptyState');
-        var todayStr = new Date().toISOString().split('T')[0];
+        var todayStr = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Santo_Domingo'});
         var today = new Date(todayStr);
 
         var filtered = allNotes.filter(function(n) {
@@ -453,7 +453,7 @@
     }
 
     function updateCounts() {
-        var today = new Date(new Date().toISOString().split('T')[0]);
+        var today = new Date(new Date().toLocaleDateString('en-CA', {timeZone: 'America/Santo_Domingo'}));
         document.getElementById('count-all').textContent = allNotes.length;
         document.getElementById('count-pending').textContent = allNotes.filter(function(n){return n.status !== 'done';}).length;
         document.getElementById('count-mine').textContent = allNotes.filter(function(n){return n.assignedTo === USER_UID && n.status !== 'done';}).length;

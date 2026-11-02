@@ -139,7 +139,7 @@
 
 <script>
 (function() {
-    var today = new Date().toISOString().split('T')[0];
+    var today = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Santo_Domingo'});
     document.querySelectorAll('input[type="date"]').forEach(function(el) {
         if (!el.value) el.value = today;
     });

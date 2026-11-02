@@ -360,7 +360,7 @@
     function openDisposeModal(assetId, assetName) {
         document.getElementById('dispose-asset-name').value = assetName;
         document.getElementById('disposeForm').action = '/accounting/fixed-assets/' + assetId + '/dispose';
-        document.getElementById('dispose-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('dispose-date').value = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Santo_Domingo'});
         document.getElementById('disposeModal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
     }

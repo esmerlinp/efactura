@@ -6,6 +6,7 @@ import logging
 import atexit
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from app.utils.timezone import SANTO_DOMINGO, today_santo_domingo
 
 logger = logging.getLogger(__name__)
 _scheduler = None
@@ -171,7 +172,7 @@ def run_daily_rui_generation(company_id=None):
 
     logger.info("⏰ APScheduler — Iniciando generación automática de RUI...")
 
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    yesterday = (today_santo_domingo() - timedelta(days=1)).isoformat()
     owner_uids = _get_all_owner_uids(company_id=company_id)
     if not owner_uids:
         logger.info("ℹ️ No se encontraron usuarios para generación de RUI.")
@@ -434,7 +435,7 @@ def init_scheduler(app):
     _flask_app = app  # Guardar referencia para uso en el job (email background)
 
     _scheduler = BackgroundScheduler(
-        timezone="America/Santo_Domingo",
+        timezone=SANTO_DOMINGO,
         job_defaults={"coalesce": True, "max_instances": 1},
     )
 

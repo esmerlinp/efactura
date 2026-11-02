@@ -652,7 +652,7 @@ function maSaveDraft(step) {
 function maRenderDynamicForm(type) {
     var container = document.getElementById('ma-dynamic-fields');
     var html = '';
-    var today = new Date().toISOString().slice(0, 10);
+    var today = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Santo_Domingo'});
 
     if (type === 'salary_change' || type === 'promotion') {
         html += `

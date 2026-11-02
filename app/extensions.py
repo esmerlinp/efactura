@@ -59,6 +59,14 @@ def init_extensions(app):
     app.template_filter('money')(formatted_filter)
     app.template_filter('format_date')(format_date_filter)
 
+    from datetime import datetime
+    from app.utils.timezone import format_local_datetime, now_santo_domingo, today_santo_domingo
+
+    def local_datetime_filter(value):
+        return format_local_datetime(value)
+
+    app.template_filter('local_datetime')(local_datetime_filter)
+
     # Filtro para etiqueta DGII del tipo de comprobante (seguro ante valores crudos)
     from app.models.fiscal_document_type import label_for
     app.template_filter('ecf_label')(label_for)
@@ -84,15 +92,21 @@ def init_extensions(app):
         if not target_date:
             return 999
         try:
-            from datetime import datetime, date, timezone
+            from datetime import date
+            from app.utils.timezone import today_santo_domingo
             d = str(target_date)[:10]
             dt = date.fromisoformat(d)
-            today = datetime.now(timezone.utc).date()
+            today = today_santo_domingo()
             return (dt - today).days
         except Exception:
             return 999
     app.template_filter('to_date_diff')(to_date_diff_filter)
 
     # Registrar funciones matemáticas y utilidades en Jinja2
-    from datetime import datetime
-    app.jinja_env.globals.update(min=min, max=max, datetime=datetime, now=datetime.now)
+    app.jinja_env.globals.update(
+        min=min,
+        max=max,
+        datetime=datetime,
+        now=now_santo_domingo,
+        today=today_santo_domingo,
+    )

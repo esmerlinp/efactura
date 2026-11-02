@@ -42,6 +42,7 @@ class Config:
     ).lower() in ('true', '1', 'yes')
 
     SECRET_KEY = os.getenv('SECRET_KEY')
+    TIMEZONE = os.getenv('TIMEZONE', 'America/Santo_Domingo')
     
     # Configuración de Firebase
     _firebase_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON', 'firebase-adminsdk.json')
@@ -275,4 +276,3 @@ class Config:
     PDF_OPTIMIZE_IMAGES = os.getenv('PDF_OPTIMIZE_IMAGES', 'true').lower() in ('true', '1', 'yes')
     PDF_DPI = int(os.getenv('PDF_DPI', '150'))
     PDF_JPEG_QUALITY = int(os.getenv('PDF_JPEG_QUALITY', '80'))
-
