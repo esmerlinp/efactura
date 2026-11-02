@@ -4,6 +4,40 @@
 
 {% block page_header %}Kardex Valorizado de Inventario{% endblock %}
 
+{% block head_extra %}
+<style>
+    .kardex-skeleton {
+        display: none !important;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        padding: 24px;
+        background: rgba(248, 250, 252, .96);
+    }
+    .kardex-loading .kardex-skeleton {
+        display: block !important;
+    }
+    .kardex-skeleton-inner {
+        max-width: 1180px;
+        margin: 0 auto;
+    }
+    .kardex-skeleton-line,
+    .kardex-skeleton-box {
+        background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 37%, #f1f5f9 63%);
+        background-size: 400% 100%;
+        animation: kardexSkeleton 1.4s ease infinite;
+        border-radius: 8px;
+    }
+    .kardex-skeleton-line { height: 14px; margin-bottom: 12px; }
+    .kardex-skeleton-line.short { width: 42%; }
+    .kardex-skeleton-box { height: 78px; }
+    @keyframes kardexSkeleton {
+        0% { background-position: 100% 0; }
+        100% { background-position: -100% 0; }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card-table-wrapper" style="padding: 24px; background: var(--bg-card, #ffffff); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
 
@@ -433,4 +467,44 @@
     {% endif %}
 
 </div>
+
+<script>
+    (function () {
+        const form = document.querySelector('form[action*="/inventory/kardex"]');
+        if (!form) return;
+
+        const skeleton = document.createElement('div');
+        skeleton.className = 'kardex-skeleton';
+        skeleton.setAttribute('aria-live', 'polite');
+        skeleton.setAttribute('aria-label', 'Cargando Kardex');
+        skeleton.innerHTML = `
+            <div class="kardex-skeleton-inner">
+                <div class="kardex-skeleton-line short"></div>
+                <div class="kardex-skeleton-line" style="width:68%;"></div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:24px 0;">
+                    <div class="kardex-skeleton-box"></div><div class="kardex-skeleton-box"></div>
+                    <div class="kardex-skeleton-box"></div><div class="kardex-skeleton-box"></div>
+                </div>
+                <div class="kardex-skeleton-line" style="width:100%;height:42px;"></div>
+                <div class="kardex-skeleton-line" style="width:100%;height:220px;"></div>
+            </div>`;
+        document.body.appendChild(skeleton);
+
+        function showSkeleton() {
+            skeleton.style.display = 'block';
+            form.querySelectorAll('select, input, button').forEach((control) => {
+                control.disabled = true;
+            });
+        }
+
+        form.addEventListener('submit', showSkeleton);
+        document.querySelectorAll('a[href*="/inventory/kardex"]').forEach((link) => {
+            link.addEventListener('click', function (event) {
+                if (link.href !== window.location.href) {
+                    showSkeleton();
+                }
+            });
+        });
+    })();
+</script>
 {% endblock %}

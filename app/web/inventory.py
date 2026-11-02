@@ -658,8 +658,16 @@ def kardex_view():
     date_to = request.args.get("date_to", "").strip() or None
 
     warehouses = DatabaseService.get_warehouses(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
-    all_items = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get("branch_id"), project_id=g.get("project_id"))
-    physical_items = [i for i in all_items if i.get("type", "Bien") == "Bien"]
+    physical_items = [
+        i for i in DatabaseService.get_items(
+            owner_uid=owner_uid,
+            company_id=company_id,
+            sandbox=sandbox,
+            branch_id=g.get("branch_id"),
+            project_id=g.get("project_id")
+        )
+        if i.get("type", "Bien") == "Bien"
+    ]
 
     kardex_data = None
     summary_data = None
@@ -776,4 +784,3 @@ def kardex_export_pdf():
     except Exception as e:
         flash(f"Error al generar el PDF del Kardex: {e}", "error")
         return redirect(url_for("web_inventory.kardex_view", item_id=item_id, warehouse_id=warehouse_id, date_from=date_from, date_to=date_to))
-

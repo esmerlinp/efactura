@@ -209,10 +209,21 @@ class KardexService:
             kardex_data["reconciliation"] = reconciliation
             return kardex_data
 
-        # Resumen consolidado para todos los artículos de tipo "Bien" de la empresa
+        # Resumen consolidado para todos los artículos de tipo "Bien" de la empresa.
+        # Se procesa cada colección una sola vez para evitar un patrón N+1.
         items = cls._get_all_company_items(company_id, sandbox=sandbox, owner_uid=owner_uid)
         warehouses = DatabaseService.get_warehouses(owner_uid or "", sandbox=sandbox, company_id=company_id)
         wh_map = {w["id"]: w.get("name", w["id"]) for w in warehouses}
+
+        transactions_by_item = cls._get_all_company_transactions(
+            company_id, sandbox=sandbox, owner_uid=owner_uid
+        )
+        stock_by_item = cls._get_company_stock(
+            company_id, warehouse_id=warehouse_id, sandbox=sandbox, owner_uid=owner_uid
+        )
+        ledger_by_item = cls._get_company_ledger(
+            company_id, warehouse_id=warehouse_id, sandbox=sandbox, owner_uid=owner_uid
+        )
 
         summary_items = []
         total_initial_value = 0.0
@@ -225,22 +236,20 @@ class KardexService:
             if it.get("type", "Bien") != "Bien":
                 continue
             i_id = it["id"]
-            k_res = cls.get_kardex(
+            k_res = cls._build_kardex_from_transactions(
                 company_id=company_id,
-                item_id=i_id,
+                item=it,
+                transactions=transactions_by_item.get(i_id, []),
                 warehouse_id=warehouse_id,
                 date_from=date_from,
                 date_to=date_to,
-                sandbox=sandbox,
-                owner_uid=owner_uid
+                wh_map=wh_map,
             )
-            reconcil = cls._reconcile_item(
-                company_id=company_id,
-                item_id=i_id,
+            reconcil = cls._reconcile_item_from_aggregates(
                 kardex_data=k_res,
+                stock_qty=stock_by_item.get(i_id, 0.0),
+                ledger_value=ledger_by_item.get(i_id, 0.0),
                 warehouse_id=warehouse_id,
-                sandbox=sandbox,
-                owner_uid=owner_uid
             )
 
             if reconcil.get("status") != "OK":
@@ -621,7 +630,8 @@ class KardexService:
         coll_name = "sandbox_inventory_transactions" if sandbox else "inventory_transactions"
         try:
             coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
-            docs = coll.stream() if hasattr(coll, "stream") else coll.get()
+            query = coll.where("itemId", "==", item_id)
+            docs = query.stream() if hasattr(query, "stream") else query.get()
             for doc in docs:
                 data = doc.to_dict() or {}
                 if data.get("itemId") == item_id:
@@ -630,6 +640,145 @@ class KardexService:
         except Exception as e:
             print(f"⚠️ Error al leer transacciones de inventario para Kardex: {e}")
         return txs
+
+    @classmethod
+    def _get_all_company_transactions(cls, company_id: str, sandbox: bool = True, owner_uid: Optional[str] = None) -> Dict[str, List[Dict[str, Any]]]:
+        """Lee las transacciones de la empresa una vez y las agrupa por artículo."""
+        grouped = {}
+        if not firebase_initialized:
+            return grouped
+        coll_name = "sandbox_inventory_transactions" if sandbox else "inventory_transactions"
+        try:
+            coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
+            docs = coll.stream()
+            for doc in docs:
+                data = doc.to_dict() or {}
+                item_id = data.get("itemId")
+                if not item_id:
+                    continue
+                data["id"] = doc.id
+                grouped.setdefault(item_id, []).append(data)
+        except Exception as e:
+            print(f"⚠️ Error al leer transacciones consolidadas de inventario: {e}")
+        return grouped
+
+    @classmethod
+    def _get_company_stock(cls, company_id: str, warehouse_id: Optional[str] = None, sandbox: bool = True, owner_uid: Optional[str] = None) -> Dict[str, float]:
+        """Lee stock físico una vez y lo agrupa por artículo."""
+        grouped = {}
+        coll_name = "sandbox_inventory_stock" if sandbox else "inventory_stock"
+        try:
+            coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
+            docs = coll.stream()
+            for doc in docs:
+                data = doc.to_dict() or {}
+                if warehouse_id and data.get("warehouseId") != warehouse_id:
+                    continue
+                item_id = data.get("itemId")
+                if item_id:
+                    grouped[item_id] = grouped.get(item_id, 0.0) + float(data.get("quantity", 0.0) or 0.0)
+        except Exception as e:
+            print(f"⚠️ Error al leer stock consolidado de inventario: {e}")
+        return grouped
+
+    @classmethod
+    def _get_company_ledger(cls, company_id: str, warehouse_id: Optional[str] = None, sandbox: bool = True, owner_uid: Optional[str] = None) -> Dict[str, float]:
+        """Lee las capas FIFO activas una vez y las agrupa por artículo."""
+        grouped = {}
+        coll_name = "sandbox_inventory_cost_ledger" if sandbox else "inventory_cost_ledger"
+        try:
+            coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
+            docs = coll.stream()
+            for doc in docs:
+                data = doc.to_dict() or {}
+                if warehouse_id and data.get("warehouseId") != warehouse_id:
+                    continue
+                item_id = data.get("itemId")
+                balance_qty = float(data.get("balanceQty", 0.0) or 0.0)
+                if item_id and balance_qty > 0:
+                    grouped[item_id] = grouped.get(item_id, 0.0) + balance_qty * float(data.get("unitCost", 0.0) or 0.0)
+        except Exception as e:
+            print(f"⚠️ Error al leer ledger consolidado de inventario: {e}")
+        return grouped
+
+    @classmethod
+    def _build_kardex_from_transactions(cls, company_id: str, item: Dict[str, Any], transactions: List[Dict[str, Any]], warehouse_id: Optional[str], date_from: Optional[str], date_to: Optional[str], wh_map: Dict[str, str]) -> Dict[str, Any]:
+        """Calcula el Kardex de un artículo usando transacciones ya cargadas."""
+        item_id = item.get("id", "")
+        projected_rows = []
+        for tx in transactions:
+            projected_rows.extend(cls._project_transaction_rows(tx, warehouse_id=warehouse_id, wh_map=wh_map))
+        projected_rows.sort(key=cls._sort_key)
+
+        init_qty = init_value = 0.0
+        running_qty = running_value = 0.0
+        period_movements = []
+        period_in_qty = period_in_val = period_out_qty = period_out_val = 0.0
+        df_clean = (date_from or "").strip()
+        dt_clean = (date_to or "").strip()
+        if dt_clean and len(dt_clean) == 10:
+            dt_clean = f"{dt_clean}T23:59:59.999999Z"
+
+        for row in projected_rows:
+            row_date = row.get("date") or row.get("createdAt") or ""
+            in_q, in_v = float(row.get("inQty", 0.0)), float(row.get("inTotalValue", 0.0))
+            out_q, out_v = float(row.get("outQty", 0.0)), float(row.get("outTotalValue", 0.0))
+            if df_clean and row_date < df_clean:
+                init_qty += in_q - out_q
+                init_value += in_v - out_v
+                continue
+            if dt_clean and row_date > dt_clean:
+                continue
+            if not period_movements:
+                running_qty, running_value = init_qty, init_value
+            running_qty = round(running_qty + in_q - out_q, 4)
+            running_value = round(running_value + in_v - out_v, 2)
+            if running_qty <= 0.0:
+                running_qty = running_value = 0.0
+            period_in_qty += in_q
+            period_in_val += in_v
+            period_out_qty += out_q
+            period_out_val += out_v
+            period_row = dict(row)
+            period_row["balanceQty"] = running_qty
+            period_row["balanceTotalValue"] = running_value
+            period_row["balanceUnitCost"] = round(running_value / running_qty, 4) if running_qty > 0 else 0.0
+            period_movements.append(period_row)
+
+        if not period_movements:
+            running_qty, running_value = init_qty, init_value
+        return {
+            "companyId": company_id, "itemId": item_id, "item": item,
+            "warehouseId": warehouse_id,
+            "warehouseName": wh_map.get(warehouse_id, "Todos los Almacenes") if warehouse_id else "Todos los Almacenes",
+            "dateFrom": date_from, "dateTo": date_to,
+            "initialBalance": {"quantity": round(init_qty, 4), "totalValue": round(init_value, 2), "unitCost": round(init_value / init_qty, 4) if init_qty > 0 else 0.0, "date": date_from or ""},
+            "movements": period_movements,
+            "finalBalance": {"quantity": round(running_qty, 4), "totalValue": round(running_value, 2), "unitCost": round(running_value / running_qty, 4) if running_qty > 0 else 0.0},
+            "periodTotals": {"inQuantity": round(period_in_qty, 4), "inTotalValue": round(period_in_val, 2), "outQuantity": round(period_out_qty, 4), "outTotalValue": round(period_out_val, 2)},
+        }
+
+    @classmethod
+    def _reconcile_item_from_aggregates(cls, kardex_data: Dict[str, Any], stock_qty: float, ledger_value: float, warehouse_id: Optional[str]) -> Dict[str, Any]:
+        """Concilia un artículo usando stock y ledger previamente agrupados."""
+        kardex_qty = float(kardex_data["finalBalance"]["quantity"])
+        kardex_value = float(kardex_data["finalBalance"]["totalValue"])
+        catalog_stock = float(kardex_data.get("item", {}).get("totalStock", 0.0) or 0.0)
+        qty_diff = round(kardex_qty - stock_qty, 4)
+        val_diff = round(kardex_value - ledger_value, 2)
+        catalog_diff = round(catalog_stock - stock_qty, 4) if not warehouse_id else 0.0
+        status = "OK"
+        notes = []
+        if abs(qty_diff) > 0.0001:
+            status = "DISCREPANCY"
+            notes.append(f"Diferencia de cantidad: Kardex ({kardex_qty}) vs Stock Físico ({stock_qty})")
+        if abs(val_diff) > 0.05:
+            status = "DISCREPANCY"
+            notes.append(f"Diferencia de valor: Kardex (RD${kardex_value:,.2f}) vs Capas FIFO (RD${ledger_value:,.2f})")
+        if abs(catalog_diff) > 0.0001 and not warehouse_id:
+            status = "WARNING" if status == "OK" else "DISCREPANCY"
+            notes.append(f"Catálogo totalStock ({catalog_stock}) difiere de suma de almacenes ({stock_qty})")
+        return {"stockQty": round(stock_qty, 4), "kardexQty": round(kardex_qty, 4), "qtyDifference": qty_diff, "ledgerValue": round(ledger_value, 2), "kardexValue": round(kardex_value, 2), "valueDifference": val_diff, "catalogTotalStock": catalog_stock, "catalogDifference": catalog_diff, "status": status, "notes": "; ".join(notes) if notes else "Saldos conciliados correctamente."}
 
     @classmethod
     def _project_transaction_rows(cls, tx: Dict[str, Any], warehouse_id: Optional[str] = None, wh_map: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
@@ -856,11 +1005,11 @@ class KardexService:
                 if doc.exists:
                     physical_stock_qty = float(doc.to_dict().get("quantity", 0.0))
             else:
-                docs = stock_coll.stream() if hasattr(stock_coll, "stream") else stock_coll.get()
+                stock_query = stock_coll.where("itemId", "==", item_id)
+                docs = stock_query.stream() if hasattr(stock_query, "stream") else stock_query.get()
                 for d in docs:
                     d_data = d.to_dict() or {}
-                    if d_data.get("itemId") == item_id:
-                        physical_stock_qty += float(d_data.get("quantity", 0.0))
+                    physical_stock_qty += float(d_data.get("quantity", 0.0))
         except Exception as e:
             print(f"⚠️ Error al leer inventory_stock para conciliación: {e}")
 
@@ -871,13 +1020,12 @@ class KardexService:
         ledger_val = 0.0
         ledger_qty = 0.0
         try:
-            docs = ledger_coll.stream() if hasattr(ledger_coll, "stream") else ledger_coll.get()
+            ledger_query = ledger_coll.where("itemId", "==", item_id)
+            if warehouse_id:
+                ledger_query = ledger_query.where("warehouseId", "==", warehouse_id)
+            docs = ledger_query.stream() if hasattr(ledger_query, "stream") else ledger_query.get()
             for d in docs:
                 d_data = d.to_dict() or {}
-                if d_data.get("itemId") != item_id:
-                    continue
-                if warehouse_id and d_data.get("warehouseId") != warehouse_id:
-                    continue
                 bal_q = float(d_data.get("balanceQty", 0.0))
                 u_cost = float(d_data.get("unitCost", 0.0))
                 if bal_q > 0:

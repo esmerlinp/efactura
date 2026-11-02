@@ -78,6 +78,7 @@ BLUEPRINT_MODULE_MAP = {
     'web_reports_607': 'e_cf',
     'web_reports_608': 'e_cf',
     'web_reports_623': 'e_cf',
+    'web_reports_ir17': 'e_cf',
     'web_reports_sales': 'e_cf',
     'web_rrhh': 'nomina',
     'web_rui': 'pos',

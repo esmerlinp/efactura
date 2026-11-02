@@ -1,7 +1,7 @@
 import csv
 import io
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, jsonify, session, send_file, redirect, url_for, g
+from flask import Blueprint, render_template, request, jsonify, session, send_file, redirect, url_for, g, flash
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
 from app.utils.module_gate import gate_blueprint_module
@@ -3840,7 +3840,10 @@ def it1_new_report():
         if firebase_initialized and db_firestore is not None:
             coll = _it1_coll(owner_uid, sandbox)
             # Check duplicate
-            existing_docs = coll.where('year', '==', year_val).where('month', '==', month_val).get()
+            from google.cloud.firestore_v1.base_query import FieldFilter
+            existing_docs = coll.where(filter=FieldFilter('year', '==', year_val)).where(
+                filter=FieldFilter('month', '==', month_val)
+            ).get()
             if len(existing_docs) > 0:
                 flash(f"❌ Ya existe un reporte IT-1 registrado para el período {month_val:02d}/{year_val}.", "error")
                 years_range = list(range(now.year - 5, now.year + 1))
@@ -5181,4 +5184,3 @@ def financial_ratios():
     labels = FinancialRatiosService.get_ratio_labels()
     return render_template('reports/financial_ratios.html', active_page='reports',
                           ratios=ratios, labels=labels)
-
