@@ -110,14 +110,6 @@
             </a>
         </li>
         {% endif %}
-        {% if module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManageRUI')) and session.get('company_profile_pos_enabled', True) %}
-        <li class="nav-item {% if active_page == 'rui' %}active{% endif %}"
-            data-tooltip="Registro Único de Ingresos">
-            <a href="{{ url_for('web_rui.rui_list') }}">
-                <span>RUI (Tipo 12)</span>
-            </a>
-        </li>
-        {% endif %}
         {% if module_enabled('price_lists') and (session.get('user', {}).get('role') == 'owner' or check_permission('canManagePriceLists')) %}
         <li class="nav-item {% if active_page == 'price_lists' %}active{% endif %}"
             data-tooltip="Listas de Precios">
