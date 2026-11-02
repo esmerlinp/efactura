@@ -67,6 +67,11 @@ class PhysicalCountService:
             lines.append({
                 "itemId": item["id"],
                 "itemName": item["name"],
+                "itemCode": item.get("code", ""),
+                "barcode": item.get("barcode", ""),
+                "categoryId": item.get("categoryId", "general"),
+                "unit": item.get("unit", "Unidad"),
+                "rackLocation": item.get("rackLocation", ""),
                 "lotId": "",
                 "lotNumber": "",
                 "expectedQty": expected,

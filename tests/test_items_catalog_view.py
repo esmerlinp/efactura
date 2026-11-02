@@ -152,12 +152,16 @@ def test_items_route_renders_redesigned_grid(client):
         assert "chip-servicio" in html
         assert "chip-low-stock" in html
 
-        # 3. Verifica la estructura limpia de 6 columnas
+        # 3. Verifica la estructura compacta de la tabla
         assert "catalog-table" in html
         assert "Cód. / SKU" in html
         assert "Artículo / Producto" in html
         assert "Existencia / Stock" in html
-        assert "Precio &amp; Costo" in html or "Precio & Costo" in html
+        assert "Precio" in html
+        assert "Precio &amp; Costo" not in html
+        assert "Categoría" in html
+        assert "tax-badge-pill" not in html
+        assert "stock-pill-normal" not in html
         assert "ITBIS" in html
         assert "Acciones" in html
 

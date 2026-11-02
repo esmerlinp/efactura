@@ -147,6 +147,7 @@
         </div>
 
         <form method="POST" action="{{ url_for('web_reports_sales.it1_new_report') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="year" value="{{ year }}">
             <input type="hidden" name="month" value="{{ month }}">
             <div class="btn-actions">

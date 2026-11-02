@@ -37,6 +37,14 @@ def check_permission(permission_name):
 
     user_perms = user.get('permissions', {})
 
+    if permission_name in {
+        'canCreateInternalServiceDocument',
+        'canViewInternalServiceDocuments',
+        'canVoidInternalServiceDocument',
+        'canDownloadInternalServiceDocument',
+    }:
+        return bool(user_perms.get(permission_name, False))
+
     # Permisos granulares de CRM (CRM-07)
     if permission_name in ('canCRM', 'canCRMContacts', 'canCRMOpportunities', 'canCRMActivities', 'canCRMReports'):
         if permission_name in user_perms:

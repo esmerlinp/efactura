@@ -17,28 +17,37 @@
     </a>
 </div>
 
-<div class="card-table-wrapper">
-    <div class="table-responsive">
-        <table class="data-grid" style="width: 100%;">
+<div class="card-table-wrapper" style="padding:24px; background:var(--bg-card, #ffffff); border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+    <div class="table-responsive" style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px;">
+        <table class="data-grid physical-counts-table" style="width:100%; border-collapse:collapse; font-size:0.84rem;">
             <thead>
-                <tr><th>Almacén</th><th>Iniciado</th><th>Estado</th><th>Líneas</th><th>Diferencias</th><th>Sobrante</th><th>Faltante</th><th>Acciones</th></tr>
+                <tr style="background:#f1f5f9; color:#334155; border-bottom:2px solid #cbd5e1;">
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Almacén</th>
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Iniciado</th>
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Estado</th>
+                    <th style="padding:10px 12px; text-align:right; font-size:0.78rem;">Líneas</th>
+                    <th style="padding:10px 12px; text-align:right; font-size:0.78rem;">Diferencias</th>
+                    <th style="padding:10px 12px; text-align:right; font-size:0.78rem;">Sobrante</th>
+                    <th style="padding:10px 12px; text-align:right; font-size:0.78rem;">Faltante</th>
+                    <th style="padding:10px 12px; text-align:right; font-size:0.78rem;">Acciones</th>
+                </tr>
             </thead>
             <tbody>
                 {% for c in counts %}
-                <tr>
-                    <td>{{ c.warehouseName }}</td>
-                    <td>{{ c.startedDate[:10] }}</td>
-                    <td>
+                <tr style="border-bottom:1px solid #e2e8f0; transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
+                    <td style="padding:10px 12px;">{{ c.warehouseName }}</td>
+                    <td style="padding:10px 12px; font-family:monospace; font-size:0.78rem;">{{ c.startedDate[:10] }}</td>
+                    <td style="padding:10px 12px;">
                         {% if c.status == 'en_progreso' %}<span class="badge badge-warning">En Progreso</span>
                         {% elif c.status == 'finalizado' %}<span class="badge badge-success">Finalizado</span>
                         {% else %}<span class="badge badge-secondary">Ajustado</span>
                         {% endif %}
                     </td>
-                    <td>{{ c.totalLines }}</td>
-                    <td>{{ c.linesWithDifference }}</td>
-                    <td>{{ "%.2f"|format(c.totalSurplus|float) }}</td>
-                    <td>{{ "%.2f"|format(c.totalShortage|float) }}</td>
-                    <td>
+                    <td style="padding:10px 12px; text-align:right;">{{ c.totalLines }}</td>
+                    <td style="padding:10px 12px; text-align:right;">{{ c.linesWithDifference }}</td>
+                    <td style="padding:10px 12px; text-align:right;">{{ "%.2f"|format(c.totalSurplus|float) }}</td>
+                    <td style="padding:10px 12px; text-align:right;">{{ "%.2f"|format(c.totalShortage|float) }}</td>
+                    <td style="padding:10px 12px; text-align:right;">
                         {% if c.status == 'en_progreso' %}
                         <a href="{{ url_for('web_inventory.physical_count_detail', count_id=c.id) }}" class="btn btn-sm btn-accent">Continuar</a>
                         {% else %}
@@ -48,7 +57,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align:center; padding:40px; color:var(--text-muted);">
+                    <td colspan="8" style="text-align:center; padding:48px 24px; color:var(--text-muted);">
                         <i class="fa-solid fa-clipboard-check" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
                         No hay conteos físicos registrados.
                         <div style="margin-top:10px; font-size:0.85rem;">Inicia un conteo para auditar las existencias de un almacén.</div>
@@ -59,4 +68,14 @@
         </table>
     </div>
 </div>
+<style>
+.physical-counts-table th,
+.physical-counts-table td {
+    border-bottom:1px solid #e2e8f0;
+    vertical-align:middle;
+}
+.physical-counts-table tbody tr:last-child td {
+    border-bottom:0;
+}
+</style>
 {% endblock %}

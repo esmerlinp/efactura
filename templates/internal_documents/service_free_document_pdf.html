@@ -1,0 +1,102 @@
+{% set apply_brand = company.applyColorMarcaReports|default(false) %}
+{% set brand_color = company.colorMarca if (apply_brand and company.colorMarca) else '#1E3A8A' %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documento interno {{ document.documentNumber }} - {{ company.companyName }}</title>
+    <style>
+        @page { margin: 8mm 10mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a2e; background: white; }
+        .header { padding: 4px 20px 8px; border-bottom: 3px solid {{ brand_color }}; margin-bottom: 8px; overflow: hidden; }
+        .company-block { float: left; width: 58%; overflow-wrap: break-word; }
+        .document-block { float: right; width: 38%; text-align: right; }
+        .company-logo { max-width: 150px; max-height: 48px; object-fit: contain; margin-bottom: 5px; }
+        .company-block h1 { font-size: 22px; font-weight: 800; color: {{ brand_color }}; margin-bottom: 4px; }
+        .company-block p { font-size: 11px; color: #475569; line-height: 1.55; margin-bottom: 2px; }
+        .document-block .doc-kind { display: inline-block; padding: 4px 9px; border-radius: 20px; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 7px; }
+        .document-block .doc-number { font-size: 20px; font-weight: 800; color: {{ brand_color }}; margin-bottom: 4px; }
+        .document-block .doc-meta { font-size: 11px; color: #64748b; line-height: 1.55; }
+        .parties-grid { display: flex; gap: 24px; margin: 0 20px 20px; padding: 16px 20px; background: #f8fafc; border-left: 4px solid {{ brand_color }}; border-radius: 4px; }
+        .party-block { flex: 1; }
+        .party-label, .section-title { font-size: 9px; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: .1em; margin-bottom: 4px; }
+        .party-name { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 2px; }
+        .party-rnc { font-family: monospace; font-size: 11px; color: #475569; }
+        .promotion-box { margin: 0 20px 20px; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; }
+        .promotion-grid { display: flex; gap: 24px; }
+        .promotion-field { flex: 1; }
+        .promotion-field .label { font-size: 9px; color: #94a3b8; text-transform: uppercase; font-weight: 700; letter-spacing: .08em; margin-bottom: 3px; }
+        .promotion-field .value { font-size: 11px; color: #334155; font-weight: 600; }
+        .items-section { margin: 0 20px 22px; }
+        .items-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .items-table thead tr { background: #f8fafc !important; }
+        .items-table th { padding: 6px 8px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; text-align: left; color: #1e293b !important; border-top: 1px solid #e2e8f0; border-bottom: 2px solid {{ brand_color }}; }
+        .items-table th.right, .items-table td.right { text-align: right; }
+        .items-table th.center, .items-table td.center { text-align: center; }
+        .items-table tbody tr { border-bottom: 1px solid #e2e8f0; }
+        .items-table tbody tr:nth-child(even) { background: #f8fafc; }
+        .items-table td { padding: 7px 8px; font-size: 10px; color: #374151; vertical-align: top; }
+        .items-table td.bold { font-weight: 700; color: #111827; }
+        .items-table td.mono { font-family: monospace; color: #64748b; font-size: 9px; }
+        .totals-section { display: flex; justify-content: flex-end; margin: 0 20px 22px; }
+        .totals-table { min-width: 300px; }
+        .totals-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px; border-bottom: 1px solid #f1f5f9; gap: 30px; }
+        .totals-row .label { color: #475569; }
+        .totals-row .value { font-weight: 500; white-space: nowrap; }
+        .totals-row.total-bold { border-top: 2px solid #111827; border-bottom: 2px solid #111827; padding: 8px 0; margin-top: 4px; }
+        .totals-row.total-bold .label, .totals-row.total-bold .value { font-size: 14px; font-weight: 800; color: #111827; }
+        .notes-section { margin: 0 20px 20px; padding: 12px 14px; border-left: 3px solid {{ brand_color }}; background: #f8fafc; }
+        .notes-section p { font-size: 10px; color: #475569; line-height: 1.5; white-space: pre-line; }
+        .fiscal-warning { margin: 0 20px 18px; padding: 13px 15px; background: #fff7ed; border: 1px solid #fed7aa; border-left: 4px solid #f97316; border-radius: 4px; color: #7c2d12; font-size: 10px; line-height: 1.55; }
+        .fiscal-warning strong { display: block; font-size: 11px; margin-bottom: 4px; text-transform: uppercase; }
+        .footer { margin: 0 20px; padding-top: 10px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 9px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="company-block">
+            {% if logo_src %}<img class="company-logo" src="{{ logo_src }}" alt="Logo de {{ company.companyName or company.tradeName }}">{% endif %}
+            <h1>{{ company.companyName or company.tradeName or 'Empresa' }}</h1>
+            <p><strong>RNC:</strong> {{ company.companyRNC or 'N/D' }}</p>
+            <p>{{ company.companyAddress or '' }}{% if company.province %} · {{ company.province }}{% endif %}</p>
+            <p>{{ company.companyPhone or '' }}{% if company.companyEmail %} · {{ company.companyEmail }}{% endif %}</p>
+        </div>
+        <div class="document-block">
+            <div class="doc-kind">Documento interno · sin validez fiscal</div>
+            <div class="doc-number">{{ document.documentNumber }}</div>
+            <div class="doc-meta"><strong>Fecha de emisión:</strong> {{ document.issueDate }}</div>
+            <div class="doc-meta"><strong>Estado:</strong> {{ document.calculatedState|capitalize }}</div>
+        </div>
+    </header>
+
+    <section class="parties-grid">
+        <div class="party-block"><div class="party-label">Emisor</div><div class="party-name">{{ company.companyName or company.tradeName }}</div><div class="party-rnc">RNC: {{ company.companyRNC or 'N/D' }}</div></div>
+        <div class="party-block"><div class="party-label">Cliente</div><div class="party-name">{{ document.clientSnapshot.razonSocial or 'Cliente' }}</div><div class="party-rnc">RNC / Cédula: {{ document.clientSnapshot.rnc or 'N/D' }}</div></div>
+    </section>
+
+    <section class="promotion-box">
+        <div class="section-title">Condiciones de la promoción</div>
+        <div class="promotion-grid">
+            <div class="promotion-field"><div class="label">Tipo</div><div class="value">{{ document.promotionTypeLabel }}</div></div>
+            <div class="promotion-field"><div class="label">Vigencia</div><div class="value">{{ document.promotionStartDate }} a {{ document.promotionEndDate }}</div></div>
+            <div class="promotion-field"><div class="label">Facturación regular desde</div><div class="value">{{ document.billingStartDate }}</div></div>
+        </div>
+    </section>
+
+    <section class="items-section">
+        <div class="section-title">Servicios y productos incluidos</div>
+        <table class="items-table">
+            <thead><tr><th style="width:31%">Concepto</th><th style="width:10%">Código</th><th class="center" style="width:10%">Cant.</th><th class="right" style="width:16%">Precio comercial</th><th class="right" style="width:16%">Descuento</th><th class="right" style="width:17%">Importe</th></tr></thead>
+            <tbody>{% for line in document.lines %}<tr><td class="bold">{{ line.description }}</td><td class="mono">{{ line.code or 'S/C' }}</td><td class="center">{{ line.quantity }}</td><td class="right">RD$ {{ '%.2f'|format(line.unitPriceCents / 100) }}</td><td class="right">RD$ {{ '%.2f'|format(line.discountCents / 100) }}<br><span style="font-size:9px;color:#64748b">{{ line.discountRate }}%</span></td><td class="right bold">RD$ {{ '%.2f'|format(line.payableCents / 100) }}</td></tr>{% endfor %}</tbody>
+        </table>
+    </section>
+
+    <section class="totals-section"><div class="totals-table"><div class="totals-row"><span class="label">Valor comercial</span><span class="value">RD$ {{ '%.2f'|format(document.subtotalCents / 100) }}</span></div><div class="totals-row"><span class="label">Descuento concedido</span><span class="value">− RD$ {{ '%.2f'|format(document.discountCents / 100) }}</span></div><div class="totals-row total-bold"><span class="label">Total a pagar</span><span class="value">RD$ {{ '%.2f'|format(document.payableCents / 100) }}</span></div></div></section>
+
+    {% if document.reason or document.notes %}<section class="notes-section"><div class="section-title">Motivo y observaciones</div>{% if document.reason %}<p><strong>Motivo:</strong> {{ document.reason }}</p>{% endif %}{% if document.notes %}<p><strong>Observaciones:</strong> {{ document.notes }}</p>{% endif %}</section>{% endif %}
+    <section class="fiscal-warning"><strong>Documento interno – sin validez fiscal</strong>Este documento tiene fines exclusivamente administrativos y comerciales. No constituye una factura fiscal, comprobante fiscal electrónico (e-CF), recibo de pago ni documento válido para sustentar créditos fiscales. Los servicios aquí descritos se ofrecen como parte de una promoción comercial durante el período indicado.</section>
+    <footer class="footer"><strong>Generado por:</strong> {{ document.createdBy or document.createdByEmail or 'Sistema' }}<br>Este documento no genera NCF, e-CF, cuentas por cobrar, pagos, movimientos de inventario ni asientos contables.</footer>
+</body>
+</html>

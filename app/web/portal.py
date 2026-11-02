@@ -71,6 +71,55 @@ def _portal_context():
 
 class PortalDbService:
     @classmethod
+    def get_client_internal_service_documents(cls, owner_uid, client_id, sandbox=True, company_id=None):
+        """Obtiene solo promociones del cliente autenticado en la empresa del portal."""
+        documents = []
+        if not company_id:
+            return documents
+        try:
+            from app.services.internal_service_document_service import calculated_status
+            coll_name = "sandbox_internal_service_documents" if sandbox else "internal_service_documents"
+            base = db_firestore.collection("companies").document(company_id).collection(coll_name)
+            docs = base.where(filter=firestore.FieldFilter("clientId", "==", client_id)).get()
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            for doc in docs:
+                data = doc.to_dict() or {}
+                if data.get("companyId") and data.get("companyId") != company_id:
+                    continue
+                if data.get("clientId") != client_id:
+                    continue
+                data["id"] = doc.id
+                data["calculatedState"] = calculated_status(data, today)
+                documents.append(data)
+            documents.sort(key=lambda item: item.get("issueDate", ""), reverse=True)
+        except Exception as e:
+            print(f"Error en PortalDbService.get_client_internal_service_documents: {e}")
+        return documents
+
+    @classmethod
+    def get_client_internal_service_document(cls, owner_uid, client_id, document_id, sandbox=True, company_id=None):
+        """Obtiene un documento interno solo si pertenece al cliente y empresa del portal."""
+        if not company_id:
+            return None
+        try:
+            from app.services.internal_service_document_service import calculated_status
+            coll_name = "sandbox_internal_service_documents" if sandbox else "internal_service_documents"
+            doc = db_firestore.collection("companies").document(company_id).collection(coll_name).document(document_id).get()
+            if not doc.exists:
+                return None
+            data = doc.to_dict() or {}
+            if data.get("companyId") and data.get("companyId") != company_id:
+                return None
+            if data.get("clientId") != client_id:
+                return None
+            data["id"] = doc.id
+            data["calculatedState"] = calculated_status(data, datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+            return data
+        except Exception as e:
+            print(f"Error en PortalDbService.get_client_internal_service_document: {e}")
+        return None
+
+    @classmethod
     def get_client_by_id(cls, owner_uid, client_id, sandbox=True, company_id=None):
         try:
             if not company_id:
@@ -294,6 +343,9 @@ def client_portal_main():
         return redirect(next_url)
         
     invoices = PortalDbService.get_client_invoices(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
+    internal_service_documents = PortalDbService.get_client_internal_service_documents(
+        owner_uid, client_id, sandbox=sandbox, company_id=company_id
+    )
     contracts = PortalDbService.get_client_contracts(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     
     # Calcular saldos consolidados
@@ -311,6 +363,7 @@ def client_portal_main():
         company=company,
         client=client,
         invoices=invoices,
+        internal_service_documents=internal_service_documents,
         contracts=contracts,
         total_invoiced=total_invoiced,
         total_cxc=total_cxc,
@@ -966,16 +1019,19 @@ def pay_invoice(invoice_id):
     owner_uid = session.get('portal_owner_uid')
     client_id = session.get('portal_client_id')
     sandbox = session.get('portal_sandbox', True)
+    company_id = session.get('portal_company_id')
     if not owner_uid or not client_id:
         return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
+    if session.get(f'verified_client_{client_id}') is not True:
+        return jsonify({"success": False, "error": "Acceso no autorizado."}), 403
 
     amount = float(request.json.get('amount', 0.0))
     
     if amount <= 0.0:
         return jsonify({"success": False, "error": "Monto de pago no válido."}), 400
         
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
-    if not invoice or invoice.get('isQuotation'):
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
+    if not invoice or invoice.get('isQuotation') or invoice.get('clientId') != client_id:
         return jsonify({"success": False, "error": "Factura no encontrada."}), 404
         
     # Calcular nuevos balances
@@ -1005,7 +1061,7 @@ def pay_invoice(invoice_id):
     }
     
     coll_inv = "sandbox_invoices" if sandbox else "invoices"
-    db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).collection("payments").document(payment_id).set(payment_dict)
+    db_firestore.collection("companies").document(company_id).collection(coll_inv).document(invoice_id).collection("payments").document(payment_id).set(payment_dict)
     
     # Actualizar la factura principal
     invoice['status'] = new_status
@@ -1014,7 +1070,7 @@ def pay_invoice(invoice_id):
     invoice['paymentMethod'] = "Tarjeta en Línea (Portal)"
     invoice['paymentDate'] = payment_dict['paymentDate']
     
-    PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox, company_id=company_id)
     return jsonify({"success": True, "message": "Pago simulado y procesado correctamente."})
 
 @portal_bp.route('/portal/pago/<invoice_id>/reportar', methods=['POST'])
@@ -1023,6 +1079,7 @@ def report_invoice_payment(invoice_id):
     owner_uid = session.get('portal_owner_uid')
     client_id = session.get('portal_client_id')
     sandbox = session.get('portal_sandbox', True)
+    company_id = session.get('portal_company_id')
     if not owner_uid or not client_id:
         return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
     
@@ -1054,12 +1111,12 @@ def report_invoice_payment(invoice_id):
     if not proof_file or not proof_file.filename:
         return jsonify({"success": False, "error": "Debe adjuntar el archivo del comprobante de pago."}), 400
         
-    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     if not client:
         return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
         
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
-    if not invoice or invoice.get('isQuotation'):
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
+    if not invoice or invoice.get('isQuotation') or invoice.get('clientId') != client_id:
         return jsonify({"success": False, "error": "Factura no encontrada."}), 404
         
     # Validar que el monto no exceda el balance pendiente
@@ -1073,7 +1130,7 @@ def report_invoice_payment(invoice_id):
         mime_type = proof_file.mimetype or "application/octet-stream"
         ext = os.path.splitext(proof_file.filename)[1] or ".pdf"
         filename = f"proof_{invoice_id}_{uuid.uuid4().hex[:8]}{ext}"
-        destination_path = f"users/{owner_uid}/payment_proofs/{filename}"
+        destination_path = f"companies/{company_id}/payment_proofs/{filename}"
         
         file_url = DatabaseService.upload_file_to_storage(
             file_data=file_data,
@@ -1096,7 +1153,7 @@ def report_invoice_payment(invoice_id):
             "uploadedAt": datetime.now(timezone.utc).isoformat()
         }
         
-        PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+        PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox, company_id=company_id)
 
         # Registrar evento de auditoría
         try:
@@ -1190,6 +1247,7 @@ def paypal_create_order(invoice_id):
     owner_uid = session.get('portal_owner_uid')
     client_id = session.get('portal_client_id')
     sandbox = session.get('portal_sandbox', True)
+    company_id = session.get('portal_company_id')
     if not owner_uid or not client_id:
         return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
 
@@ -1197,8 +1255,8 @@ def paypal_create_order(invoice_id):
     if session.get(session_key) != True:
         return jsonify({"success": False, "error": "Acceso no autorizado."}), 403
 
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
-    if not invoice or invoice.get('isQuotation'):
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
+    if not invoice or invoice.get('isQuotation') or invoice.get('clientId') != client_id:
         return jsonify({"success": False, "error": "Factura no encontrada."}), 404
 
     remaining = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0)))
@@ -1306,8 +1364,8 @@ def paypal_create_order(invoice_id):
         return jsonify({"success": False, "error": result.get('error', 'Error al crear orden PayPal.')}), 500
 
 
-def _paypal_capture_and_process(invoice_id, order_id, owner_uid, client_id, sandbox, exchange_rate=None):
-    company_id = _resolve_company_id(owner_uid)
+def _paypal_capture_and_process(invoice_id, order_id, owner_uid, client_id, sandbox, exchange_rate=None, company_id=None):
+    company_id = company_id or session.get('portal_company_id') or _resolve_company_id(owner_uid)
     """Captura una orden PayPal y procesa el pago. Reutilizado por capture, return y captura diferida."""
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     paypal_client_id = company.get('paypalClientId', '').strip()
@@ -1326,8 +1384,8 @@ def _paypal_capture_and_process(invoice_id, order_id, owner_uid, client_id, sand
     if not capture_result.get('success'):
         return {"success": False, "error": capture_result.get('error', 'Error al capturar pago PayPal.')}
 
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
-    if not invoice:
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
+    if not invoice or invoice.get('clientId') != client_id:
         return {"success": False, "error": "Factura no encontrada."}
 
     paypal_currency = company.get('paypalCurrency', 'USD').strip()
@@ -1383,6 +1441,7 @@ def _paypal_capture_and_process(invoice_id, order_id, owner_uid, client_id, sand
         bank_account_id=paypal_bank_account_id,
         accounting_account_id=paypal_accounting_account_id,
         cost_center_id=paypal_cost_center_id,
+        company_id=company_id,
     )
 
     if not ok:
@@ -1405,6 +1464,7 @@ def paypal_capture_order(invoice_id):
     owner_uid = session.get('portal_owner_uid')
     client_id = session.get('portal_client_id')
     sandbox = session.get('portal_sandbox', True)
+    company_id = session.get('portal_company_id')
     if not owner_uid or not client_id:
         return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
 
@@ -1417,8 +1477,8 @@ def paypal_capture_order(invoice_id):
     if not order_id:
         return jsonify({"success": False, "error": "orderID requerido."}), 400
 
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
-    if not invoice or invoice.get('isQuotation'):
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
+    if not invoice or invoice.get('isQuotation') or invoice.get('clientId') != client_id:
         return jsonify({"success": False, "error": "Factura no encontrada."}), 404
 
     remaining = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0)))
@@ -1430,6 +1490,7 @@ def paypal_capture_order(invoice_id):
         invoice_id=invoice_id, order_id=order_id,
         owner_uid=owner_uid, client_id=client_id, sandbox=sandbox,
         exchange_rate=exchange_rate if exchange_rate > 0 else None,
+        company_id=company_id,
     )
 
     if result.get('success'):
@@ -1687,17 +1748,18 @@ def paypal_webhook():
     return jsonify({"success": True})
 
 
-def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, method_label, bank, sandbox, gateway_data=None, bank_account_id=None, accounting_account_id=None, cost_center_id=None):
+def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, method_label, bank, sandbox, gateway_data=None, bank_account_id=None, accounting_account_id=None, cost_center_id=None, company_id=None):
     coll_inv = "sandbox_invoices" if sandbox else "invoices"
+    company_id = company_id or session.get('portal_company_id')
 
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice:
         print(f"ERROR _process_payment_record: factura {invoice_id} no encontrada (owner={owner_uid})")
         return False
 
     payment_id = reference
 
-    payment_doc = db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).collection("payments").document(payment_id).get()
+    payment_doc = db_firestore.collection("companies").document(company_id).collection(coll_inv).document(invoice_id).collection("payments").document(payment_id).get()
     if payment_doc.exists:
         print(f"_process_payment_record: pago {payment_id} ya existe para factura {invoice_id}, omitiendo")
         return True
@@ -1740,7 +1802,7 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
         "costCenterId": cost_center_id or "",
     }
 
-    db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).collection("payments").document(payment_id).set(payment_dict)
+    db_firestore.collection("companies").document(company_id).collection(coll_inv).document(invoice_id).collection("payments").document(payment_id).set(payment_dict)
 
     invoice['status'] = new_status
     invoice['totalPaid'] = new_total_paid
@@ -1748,7 +1810,7 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
     invoice['paymentMethod'] = method_label
     invoice['paymentDate'] = payment_dict['paymentDate']
 
-    save_ok = PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    save_ok = PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox, company_id=company_id)
     if not save_ok:
         print(f"ERROR _process_payment_record: fallo al guardar factura {invoice_id} (owner={owner_uid})")
         return False
@@ -1789,6 +1851,7 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
 
 def _process_azul_payment_record(result):
     owner_uid = result['owner_uid']
+    company_id = result.get('company_id') or session.get('portal_company_id')
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     bank_account_id = company.get('azulBankAccountId') or None
     accounting_account_id = company.get('azulAccountingAccountId') or None
@@ -1811,6 +1874,7 @@ def _process_azul_payment_record(result):
         bank_account_id=bank_account_id,
         accounting_account_id=accounting_account_id,
         cost_center_id=cost_center_id,
+        company_id=company_id,
     )
 
 
@@ -1898,6 +1962,63 @@ def portal_document_detail(invoice_id):
         paypal_client_id=paypal_client_id,
         paypal_currency=paypal_currency,
         paypal_sandbox=company.get('paypalSandbox', True),
+    )
+
+
+@portal_bp.route('/portal/documento-interno/<document_id>')
+def portal_internal_service_document_detail(document_id):
+    owner_uid, client_id, sandbox, company_id = _portal_context()
+    if not owner_uid or not client_id or not company_id:
+        return "Sesión de autogestión no válida o expirada.", 403
+    if session.get(f'verified_client_{client_id}') is not True:
+        session['portal_next_url'] = url_for(
+            'portal.portal_internal_service_document_detail', document_id=document_id
+        )
+        return redirect(url_for('portal.client_portal_main'))
+
+    document = PortalDbService.get_client_internal_service_document(
+        owner_uid, client_id, document_id, sandbox=sandbox, company_id=company_id
+    )
+    if not document:
+        return "Documento no encontrado o acceso denegado.", 404
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    client = PortalDbService.get_client_by_id(
+        owner_uid, client_id, sandbox=sandbox, company_id=company_id
+    )
+    return render_template(
+        'portal/internal_service_document_detail.html',
+        company=company,
+        client=client,
+        document=document,
+        sandbox=sandbox,
+    )
+
+
+@portal_bp.route('/portal/documento-interno/<document_id>/pdf')
+def portal_internal_service_document_pdf(document_id):
+    owner_uid, client_id, sandbox, company_id = _portal_context()
+    if not owner_uid or not client_id or not company_id:
+        return "Sesión de autogestión no válida o expirada.", 403
+    if session.get(f'verified_client_{client_id}') is not True:
+        return "Acceso no autorizado.", 403
+
+    document = PortalDbService.get_client_internal_service_document(
+        owner_uid, client_id, document_id, sandbox=sandbox, company_id=company_id
+    )
+    if not document:
+        return "Documento no encontrado o acceso denegado.", 404
+
+    import io
+    from flask import send_file
+    from app.services.internal_service_document_pdf_service import generate_internal_service_document_pdf
+
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    pdf = generate_internal_service_document_pdf(document, company, request.host_url)
+    return send_file(
+        io.BytesIO(pdf),
+        mimetype='application/pdf',
+        as_attachment=False,
+        download_name=f"{document.get('documentNumber', document_id)}.pdf",
     )
 
 

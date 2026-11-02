@@ -319,10 +319,10 @@
        ========================================================================== */
     .catalog-table-card {
         background: var(--bg-card, #ffffff);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md, 10px);
-        overflow: hidden;
-        box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05));
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
     .catalog-table {
@@ -333,14 +333,14 @@
     }
 
     .catalog-table thead th {
-        background: var(--bg-input, #f8fafc);
-        padding: 10px 14px;
+        background: #f1f5f9;
+        padding: 10px 12px;
         font-size: 0.7rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         font-weight: 600;
-        color: var(--text-secondary);
-        border-bottom: 1px solid var(--border-color);
+        color: #334155;
+        border-bottom: 2px solid #cbd5e1;
         white-space: nowrap;
         user-select: none;
     }
@@ -361,8 +361,8 @@
     }
 
     .catalog-table tbody td {
-        padding: 10px 14px;
-        border-bottom: 1px solid var(--border-color);
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
         vertical-align: middle;
         color: var(--text-primary);
     }
@@ -372,14 +372,14 @@
     }
 
     .catalog-table tbody tr.item-row:hover {
-        background-color: var(--bg-nav-hover, rgba(0, 0, 0, 0.02));
+        background-color: #f1f5f9;
     }
 
     .catalog-table tbody tr.item-row.is-inactive {
         opacity: 0.65;
     }
 
-    /* Col 1: SKU & Barcode */
+    /* Col 1: SKU */
     .col-sku-container {
         display: flex;
         flex-direction: column;
@@ -394,15 +394,7 @@
         letter-spacing: 0.02em;
     }
 
-    .barcode-subtext {
-        font-size: 0.72rem;
-        color: var(--text-muted);
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-    }
-
-    /* Col 2: Product Name & Meta */
+    /* Col 2: Product Name */
     .col-product-container {
         display: flex;
         align-items: center;
@@ -459,21 +451,6 @@
         color: var(--text-muted);
     }
 
-    .category-tag {
-        color: var(--accent-purple, #7c3aed);
-        font-weight: 500;
-        background: rgba(124, 58, 237, 0.08);
-        padding: 1px 7px;
-        border-radius: 10px;
-    }
-
-    .location-tag {
-        display: inline-flex;
-        align-items: center;
-        gap: 3px;
-        color: var(--text-secondary);
-    }
-
     .inactive-tag {
         background: rgba(239, 68, 68, 0.12);
         color: var(--danger, #ef4444);
@@ -509,35 +486,9 @@
         color: var(--text-primary);
     }
 
-    .stock-pill-low {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        background: rgba(239, 68, 68, 0.1);
-        color: var(--danger, #ef4444);
-        font-weight: 600;
-        font-size: 0.82rem;
-        padding: 2px 8px;
-        border-radius: 12px;
-        width: fit-content;
-    }
-
     .stock-subtext {
         font-size: 0.72rem;
         color: var(--text-muted);
-    }
-
-    .service-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        background: rgba(59, 130, 246, 0.1);
-        color: #2563eb;
-        font-size: 0.75rem;
-        font-weight: 500;
-        padding: 2px 8px;
-        border-radius: 12px;
-        width: fit-content;
     }
 
     /* Col 4: Precios & Margen */
@@ -555,38 +506,10 @@
         color: var(--text-primary);
     }
 
-    .price-cost-sub {
-        font-size: 0.72rem;
-        color: var(--text-muted);
-        display: inline-flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 4px;
-    }
-
-    .margin-pill {
-        background: rgba(16, 185, 129, 0.1);
-        color: #059669;
-        font-size: 0.68rem;
-        padding: 1px 4px;
-        border-radius: 4px;
-        font-weight: 600;
-    }
-
     /* Col 5: Tax Badge */
-    .tax-badge-pill {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
+    .stock-low-text { color: var(--danger, #ef4444); font-weight: 600; }
 
-    .tax-itbis-18 { background: rgba(124, 58, 237, 0.1); color: #7c3aed; }
-    .tax-itbis-16 { background: rgba(59, 130, 246, 0.1); color: #2563eb; }
-    .tax-itbis-0  { background: rgba(100, 116, 139, 0.1); color: #64748b; }
+    .plain-tax-text { font-variant-numeric: tabular-nums; }
 
     /* Col 6: Quick Actions */
     .col-actions-container {
@@ -1056,7 +979,7 @@
 
     <!-- Tabla Principal Consolidada (6 Columnas) -->
     <div class="catalog-table-card">
-        <div class="table-responsive" style="margin-bottom: 0;">
+        <div class="table-responsive" style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:0;">
             <table class="catalog-table" id="items-table">
                 <thead>
                     <tr>
@@ -1066,11 +989,12 @@
                         <th class="sortable" onclick="sortTable('name')">
                             Artículo / Producto <i class="fa-solid fa-sort" id="sort-icon-name"></i>
                         </th>
+                        <th style="width: 130px;">Categoría</th>
                         <th class="sortable" onclick="sortTable('stock')" style="width: 160px;">
                             Existencia / Stock <i class="fa-solid fa-sort" id="sort-icon-stock"></i>
                         </th>
                         <th class="sortable" onclick="sortTable('price')" style="width: 180px; text-align: right;">
-                            Precio & Costo <i class="fa-solid fa-sort" id="sort-icon-price"></i>
+                            Precio <i class="fa-solid fa-sort" id="sort-icon-price"></i>
                         </th>
                         <th style="width: 120px; text-align: center;">
                             ITBIS
@@ -1126,9 +1050,6 @@
                             <div class="col-sku-container">
                                 <span class="sku-code-badge">{{ item.code or 'S/C' }}</span>
                                 {% if item.barcode %}
-                                <span class="barcode-subtext" title="Código de barra">
-                                    <i class="fa-solid fa-barcode"></i> {{ item.barcode }}
-                                </span>
                                 {% endif %}
                             </div>
                         </td>
@@ -1155,11 +1076,8 @@
                                         {% endif %}
                                     </div>
                                     <div class="product-meta-row">
-                                        <span class="category-tag">{{ item.categoryId | capitalize if item.categoryId else 'General' }}</span>
+                                         <span style="font-size: 0.73rem; color: var(--text-muted);">{% if is_service %}Servicio{% else %}Producto{% endif %}</span>
                                         {% if item.rackLocation %}
-                                        <span class="location-tag" title="Ubicación física / Pasillo">
-                                            <i class="fa-solid fa-location-dot" style="font-size:0.65rem;"></i> {{ item.rackLocation }}
-                                        </span>
                                         {% endif %}
                                         {% if item.codigoImpuesto %}
                                         <span class="adicional-tax-tag" title="Impuesto adicional configurado">
@@ -1178,28 +1096,29 @@
                             </div>
                         </td>
 
-                        <!-- Col 3: Existencia & Stock -->
+                        <!-- Col 3: Categoría -->
+                        <td>
+                            {{ item.categoryId | capitalize if item.categoryId else 'General' }}
+                        </td>
+
+                        <!-- Col 4: Existencia & Stock -->
                         <td>
                             <div class="col-stock-container">
                                 {% if is_service %}
-                                <span class="service-pill">
-                                    <i class="fa-solid fa-bolt" style="font-size: 0.7rem;"></i> Servicio
-                                </span>
-                                <span class="stock-subtext">No inventariable</span>
+                                 <span class="stock-subtext">No inventariable</span>
                                 {% else %}
                                     {% if is_low %}
-                                    <span class="stock-pill-low" title="¡Stock bajo de seguridad! Mínimo: {{ min_stock_val }}">
+                                     <span class="stock-low-text" title="¡Stock bajo de seguridad! Mínimo: {{ min_stock_val }}">
                                         <i class="fa-solid fa-triangle-exclamation"></i>
                                         {{ "{:,.2f}".format(stock_val) }} {{ item.unit or 'ud' }}
                                     </span>
                                     {% else %}
-                                    <span class="stock-pill-normal">
+                                     <span>
                                         {{ "{:,.2f}".format(stock_val) }} {{ item.unit or 'ud' }}
                                     </span>
                                     {% endif %}
                                     <span class="stock-subtext">
-                                        Mín: {{ "{:,.0f}".format(min_stock_val) }}
-                                        {% if item.maxStock and item.maxStock > 0 %} • Máx: {{ "{:,.0f}".format(item.maxStock) }}{% endif %}
+                                        {% if is_low %}Mínimo: {{ "{:,.0f}".format(min_stock_val) }}{% endif %}
                                     </span>
                                 {% endif %}
                             </div>
@@ -1211,26 +1130,19 @@
                                 <span class="price-main">
                                     RD$ {{ "{:,.2f}".format(price_val) }}
                                 </span>
-                                <span class="price-cost-sub">
-                                    Costo: RD$ {{ "{:,.2f}".format(cost_val) }}
-                                    {% if price_val > 0 and cost_val > 0 and price_val >= cost_val %}
-                                        {% set margin_pct = ((price_val - cost_val) / price_val * 100) %}
-                                        <span class="margin-pill" title="Margen Bruto estimado">+{{ "{:.0f}".format(margin_pct) }}%</span>
-                                    {% endif %}
-                                </span>
                             </div>
                         </td>
 
                         <!-- Col 5: Tasa ITBIS -->
                         <td style="text-align: center;">
                             {% if itbis_rate >= 0.17 %}
-                            <span class="tax-badge-pill tax-itbis-18">18%</span>
+                            <span>18%</span>
                             {% elif itbis_rate >= 0.15 %}
-                            <span class="tax-badge-pill tax-itbis-16">16%</span>
+                            <span>16%</span>
                             {% elif itbis_rate == 0 %}
-                            <span class="tax-badge-pill tax-itbis-0">0% Exento</span>
+                            <span>0% Exento</span>
                             {% else %}
-                            <span class="tax-badge-pill tax-itbis-18">{{ "{:.0%}".format(itbis_rate) }}</span>
+                            <span>{{ "{:.0%}".format(itbis_rate) }}</span>
                             {% endif %}
                         </td>
 
@@ -1275,7 +1187,7 @@
                     {% else %}
                     <!-- Estado vacío cuando no hay artículos registrados -->
                     <tr id="no-items-placeholder">
-                        <td colspan="6" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                        <td colspan="7" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
                             <i class="fa-solid fa-boxes-stacked" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.45; display: block;"></i>
                             <h4 style="margin: 0 0 6px 0; color: var(--text-primary); font-family: var(--font-heading);">No hay artículos en tu catálogo</h4>
                             <p style="margin: 0 0 16px 0; font-size: 0.88rem; color: var(--text-secondary);">Comienza registrando tus productos o servicios facturables.</p>
@@ -1288,7 +1200,7 @@
 
                     <!-- Fila oculta de búsqueda sin resultados -->
                     <tr id="no-results-row" style="display: none;">
-                        <td colspan="6" style="text-align: center; padding: 50px 20px; color: var(--text-secondary);">
+                        <td colspan="7" style="text-align: center; padding: 50px 20px; color: var(--text-secondary);">
                             <i class="fa-solid fa-magnifying-glass" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; opacity: 0.45; display: block;"></i>
                             <h5 style="margin: 0 0 6px 0; color: var(--text-primary);">No se encontraron artículos</h5>
                             <p style="margin: 0 0 14px 0; font-size: 0.85rem; color: var(--text-muted);">No hay coincidencias con los términos de búsqueda o filtros aplicados.</p>

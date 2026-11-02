@@ -1,0 +1,86 @@
+{% extends "layout.html" %}
+{% set idempotency_key = request.form.get('idempotencyKey') or (session.get('user', {}).get('uid', '') ~ '-' ~ today ~ '-' ~ range(100000, 999999) | random) %}
+{% block title %}Nuevo documento interno{% endblock %}
+{% block page_header %}Creación de documento interno{% endblock %}
+{% block content %}
+<style>
+    .doc-main-col { max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+    .section-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:22px 24px; }
+    .section-card h3 { font-size:.95rem; font-weight:700; color:var(--text-primary); margin:0 0 16px; display:flex; align-items:center; gap:10px; }
+    .section-card h3 i { color:var(--accent-emerald); font-size:.95rem; }
+    .inp-row { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+    .inp-row > .inp-group { flex:1; min-width:150px; }
+    .inp-group.wide { flex:2; min-width:220px; }
+    .inp-group label { font-size:.78rem; color:var(--text-secondary); display:block; margin-bottom:4px; font-weight:500; }
+    .internal-notice { display:flex; gap:12px; align-items:flex-start; padding:12px 14px; border-left:3px solid #f59e0b; border-radius:6px; background:rgba(245,158,11,.08); color:var(--text-secondary); font-size:.8rem; line-height:1.45; }
+    .internal-notice i { color:#d97706; margin-top:2px; }
+    .product-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+    .product-table th { padding:8px 12px; text-align:left; font-size:.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; border-bottom:2px solid var(--border-color); white-space:nowrap; }
+    .product-table td { padding:8px 12px; border-bottom:1px solid var(--border-color); vertical-align:middle; }
+    .product-table td:last-child { text-align:center; width:40px; padding:6px 8px; }
+    .product-table .form-input { min-width:0; }
+    .row-menu-btn { background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px 8px; border-radius:6px; }
+    .row-menu-btn:hover { background:rgba(0,0,0,.05); color:var(--text-primary); }
+    .totals-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px; }
+    .totals-grid .t-col h4 { font-size:.78rem; font-weight:700; text-transform:uppercase; color:var(--text-secondary); margin:0 0 8px; letter-spacing:.4px; }
+    .totals-grid .t-row { display:flex; justify-content:space-between; padding:4px 0; font-size:.82rem; color:var(--text-secondary); }
+    .totals-grid .t-big { text-align:right; display:flex; flex-direction:column; justify-content:center; }
+    .totals-grid .t-big .t-label { font-size:.75rem; color:var(--text-muted); }
+    .totals-grid .t-big .t-value { font-size:1.5rem; font-weight:800; color:var(--text-primary); }
+    .totals-grid .t-big .t-net { font-size:1rem; font-weight:700; color:var(--accent-emerald); }
+    .actions-bar { display:flex; justify-content:flex-end; align-items:center; gap:12px; padding-bottom:26px; }
+    .btn-link { font-size:.82rem; color:var(--text-muted); text-decoration:none; }
+    .btn-link:hover { color:var(--text-primary); }
+    @media(max-width:700px){.totals-grid{grid-template-columns:1fr}.actions-bar{flex-wrap:wrap;justify-content:flex-start}.actions-bar .btn-primary{margin-left:auto}.section-card{padding:18px 16px}}
+</style>
+
+<form method="POST" id="internal-document-form" onsubmit="return prepareLines()">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="idempotencyKey" value="{{ idempotency_key }}">
+    <div class="doc-main-col">
+        <div class="section-card" style="display:flex;align-items:center;gap:16px;padding-top:18px;padding-bottom:18px;">
+            <i class="fa-solid fa-gift" style="color:var(--accent-emerald);font-size:1.2rem;"></i>
+            <h2 style="font-size:1.2rem;font-weight:800;color:var(--text-primary);margin:0;">Nuevo documento interno</h2>
+            <span style="font-family:monospace;font-size:.78rem;color:var(--accent-purple);font-weight:700;">SIN VALIDEZ FISCAL</span>
+        </div>
+
+        <div class="section-card">
+            <div class="internal-notice"><i class="fa-solid fa-shield-halved"></i><div><strong>Promoción comercial no fiscal.</strong><br>El valor comercial y el descuento quedarán congelados en este documento. El vencimiento no genera facturación automática.</div></div>
+        </div>
+
+        <div class="section-card">
+            <h3><i class="fa-solid fa-address-card"></i> Información de la promoción</h3>
+            <div class="inp-row">
+                <div class="inp-group wide"><label for="clientId">Cliente <span style="color:var(--accent-red)">*</span></label><select id="clientId" name="clientId" class="form-select" required><option value="">Seleccionar cliente</option>{% for client in clients %}<option value="{{ client.id }}">{{ client.razonSocial }}{% if client.rnc %} · {{ client.rnc }}{% endif %}</option>{% endfor %}</select></div>
+                <div class="inp-group" style="max-width:160px"><label for="issueDate">Fecha de emisión</label><input id="issueDate" type="date" name="issueDate" value="{{ today }}" class="form-input" required></div>
+                <div class="inp-group" style="max-width:210px"><label for="promotionType">Tipo de promoción</label><select id="promotionType" name="promotionType" class="form-select" required><option value="servicio_gratuito">Servicio gratuito</option><option value="descuento_100">Descuento promocional del 100 %</option><option value="periodo_prueba">Período de prueba</option><option value="bonificacion">Bonificación comercial</option><option value="cortesia">Cortesía</option></select></div>
+            </div>
+            <div class="inp-row" style="margin-top:12px">
+                <div class="inp-group wide"><label for="reason">Motivo</label><input id="reason" name="reason" class="form-input" required placeholder="Ej. Promoción de lanzamiento"></div>
+                <div class="inp-group"><label for="promotionStartDate">Fecha de inicio</label><input id="promotionStartDate" type="date" name="promotionStartDate" class="form-input" required></div>
+                <div class="inp-group"><label for="promotionEndDate">Fecha de finalización</label><input id="promotionEndDate" type="date" name="promotionEndDate" class="form-input" required></div>
+                <div class="inp-group"><label for="billingStartDate">Facturación regular desde</label><input id="billingStartDate" type="date" name="billingStartDate" class="form-input" required></div>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h3 style="display:flex;justify-content:space-between"><span><i class="fa-solid fa-list-check"></i> Productos y servicios</span><button type="button" id="btn-add-item" class="btn btn-sm btn-secondary" onclick="addLine()"><i class="fa-solid fa-plus"></i> Agregar línea</button></h3>
+            <div style="overflow-x:auto"><table class="data-grid data-grid--editable data-grid--wide product-table" id="items-table"><thead><tr><th style="width:36%">Producto o servicio</th><th style="width:11%;text-align:center">Cant.</th><th style="width:16%;text-align:right">Precio</th><th style="width:13%;text-align:right">Desc.%</th><th style="width:17%;text-align:right">Importe</th><th style="width:7%"></th></tr></thead><tbody id="invoice-items-body"><tr class="item-row"><td><select name="lineItemId" class="form-select line-item-select" required onchange="recalculateTotals()"><option value="">Seleccionar producto o servicio</option>{% for item in items %}<option value="{{ item.id }}" data-price="{{ item.price|float }}">{{ item.code }} · {{ item.name }}</option>{% endfor %}</select></td><td style="text-align:center"><input type="number" name="lineQty" class="form-input line-qty-input" min="0.01" step="0.01" value="1" style="width:82px;text-align:center" required oninput="recalculateTotals()"></td><td style="text-align:right"><input type="number" name="linePrice" class="form-input line-price-input" min="0" step="0.01" value="0" style="width:105px;text-align:right" required oninput="recalculateTotals()"></td><td style="text-align:right"><input type="number" name="lineDiscount" class="form-input line-discount-input" min="0" max="100" step="0.01" value="100" style="width:78px;text-align:right" required oninput="recalculateTotals()"></td><td style="text-align:right;font-weight:600"><span class="line-total-label">RD$ 0.00</span></td><td><button type="button" class="row-menu-btn" title="Eliminar línea" onclick="removeLine(this)"><i class="fa-solid fa-trash-can" style="font-size:.8rem"></i></button></td></tr></tbody></table></div>
+        </div>
+
+        <div class="section-card"><h3><i class="fa-regular fa-note-sticky"></i> Notas y observaciones</h3><textarea name="notes" class="form-textarea" rows="3" placeholder="Agrega información adicional de la promoción..."></textarea></div>
+
+        <div class="section-card"><div class="totals-grid"><div class="t-col"><h4><i class="fa-solid fa-calculator"></i> Resumen comercial</h4><div class="t-row"><span>Subtotal comercial</span><span id="lbl-subtotal">RD$ 0.00</span></div><div class="t-row" style="color:var(--accent-red)"><span>Descuento concedido</span><span id="lbl-discount">− RD$ 0.00</span></div></div><div class="t-col"><h4><i class="fa-solid fa-gift"></i> Promoción</h4><div class="t-row"><span>Descuento aplicado</span><span id="lbl-discount-rate">100 %</span></div><div class="t-row"><span>Documento</span><span>Administrativo</span></div></div><div class="t-big"><div class="t-label">TOTAL A PAGAR</div><span id="lbl-total" class="t-value">RD$ 0.00</span><span class="t-net">Promoción gratuita</span></div></div></div>
+
+        <div class="actions-bar"><a href="{{ url_for('web_internal_service_documents.list_documents') }}" class="btn-link">Cancelar</a><button type="submit" class="btn btn-primary" style="padding:10px 28px;font-size:.9rem"><i class="fa-solid fa-floppy-disk"></i> Crear documento interno</button></div>
+    </div>
+</form>
+<script>
+function formatMoney(value){return 'RD$ '+Number(value||0).toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function updateLine(row){const select=row.querySelector('.line-item-select');const price=row.querySelector('.line-price-input');if(select&&select.selectedOptions[0]&&Number(price.value)===0)price.value=select.selectedOptions[0].dataset.price||0;const qty=Number(row.querySelector('.line-qty-input').value||0);const unit=Number(price.value||0);const discount=Number(row.querySelector('.line-discount-input').value||0);const subtotal=qty*unit;const amount=subtotal*(1-discount/100);row.querySelector('.line-total-label').textContent=formatMoney(amount);return {subtotal,discount:subtotal*discount/100,amount};}
+function recalculateTotals(){let subtotal=0,discount=0,total=0;document.querySelectorAll('.item-row').forEach(row=>{const values=updateLine(row);subtotal+=values.subtotal;discount+=values.discount;total+=values.amount;});document.getElementById('lbl-subtotal').textContent=formatMoney(subtotal);document.getElementById('lbl-discount').textContent='− '+formatMoney(discount);document.getElementById('lbl-total').textContent=formatMoney(total);const rates=[...document.querySelectorAll('.line-discount-input')].map(input=>Number(input.value||0));document.getElementById('lbl-discount-rate').textContent=rates.length&&rates.every(rate=>rate===rates[0])?rates[0].toFixed(2).replace('.00','')+' %':'Variable';}
+function addLine(){const row=document.querySelector('.item-row').cloneNode(true);row.querySelector('.line-item-select').selectedIndex=0;row.querySelector('.line-price-input').value='0';row.querySelector('.line-qty-input').value='1';row.querySelector('.line-discount-input').value='100';row.querySelector('.line-total-label').textContent='RD$ 0.00';document.getElementById('invoice-items-body').appendChild(row);}
+function removeLine(button){const rows=document.querySelectorAll('.item-row');if(rows.length>1){button.closest('.item-row').remove();recalculateTotals();}}
+function prepareLines(){return document.querySelectorAll('.item-row').length>0;}
+</script>
+{% endblock %}

@@ -11356,7 +11356,7 @@ def client_subscription_page():
 
     billing_day = profile.get('billingDay', 1)
     stats = DatabaseService.get_invoice_stats(owner_uid, billing_day, company_id=company_id)
-    payments = DatabaseService.get_payments(company_id)
+    payments = DatabaseService.get_payments(company_id, owner_uid=owner_uid)
     user_profile = DatabaseService.get_user_profile(session['user']['uid'])
     created_at = user_profile.get('createdAt') if user_profile else None
     monthly_payment = float(profile.get('monthlyPayment', 0) or 0)

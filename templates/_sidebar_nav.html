@@ -62,6 +62,14 @@
         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
     </div>
     <ul class="sidebar-section-content">
+        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canViewInternalServiceDocuments') or check_permission('canCreateInternalServiceDocument') %}
+        <li class="nav-item {% if active_page == 'internal_documents' %}active{% endif %}"
+            data-tooltip="Documentos internos">
+            <a href="{{ url_for('web_internal_service_documents.list_documents') }}">
+                <span>Documentos internos</span>
+            </a>
+        </li>
+        {% endif %}
         {% if module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or check_permission('canInvoice')) %}
         <li class="nav-item {% if active_page == 'invoices' %}active{% endif %}"
             data-tooltip="Facturación Electrónica">

@@ -21,32 +21,32 @@
     </div>
 </div>
 
-<div class="card-table-wrapper">
-    <div class="table-responsive">
-        <table class="data-grid" style="width: 100%;">
+<div class="card-table-wrapper" style="padding:24px; background:var(--bg-card, #ffffff); border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+    <div class="table-responsive" style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px;">
+        <table class="data-grid lots-table" style="width:100%; border-collapse:collapse; font-size:0.84rem;">
             <thead>
-                <tr>
-                    <th>Producto</th>
-                    <th>Lote #</th>
-                    <th>Almacén</th>
-                    <th style="text-align: right;">Cantidad</th>
-                    <th style="text-align: right;">Costo Unit.</th>
-                    <th>Fabricación</th>
-                    <th>Vencimiento</th>
-                    <th style="text-align: center;">Estado</th>
+                <tr style="background:#f1f5f9; color:#334155; border-bottom:2px solid #cbd5e1;">
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Producto</th>
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Lote #</th>
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Almacén</th>
+                    <th style="padding:10px 12px; text-align:right; font-size:0.78rem;">Cantidad</th>
+                    <th style="padding:10px 12px; text-align:right; font-size:0.78rem;">Costo Unit.</th>
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Fabricación</th>
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Vencimiento</th>
+                    <th style="padding:10px 12px; text-align:center; font-size:0.78rem;">Estado</th>
                 </tr>
             </thead>
             <tbody>
                 {% for l in lots %}
                 {% set days_left = ((l.expirationDate | string)[:10] | to_date_diff) if l.expirationDate else 999 %}
-                <tr>
-                    <td><strong>{{ l.itemName or '—' }}</strong></td>
-                    <td><span style="font-family: monospace; font-weight: 700; color: var(--accent-purple);">{{ l.lotNumber or 'S/N' }}</span></td>
-                    <td>{{ l.warehouseName or l.warehouseId or '—' }}</td>
-                    <td style="text-align: right; font-weight: 600;">{{ "%.2f"|format(l.quantity|float) }}</td>
-                    <td style="text-align: right;">{{ "RD$ {:,.2f}".format(l.unitCost|float) }}</td>
-                    <td>{{ l.productionDate[:10] if l.productionDate else '—' }}</td>
-                    <td>
+                <tr style="border-bottom:1px solid #e2e8f0; transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
+                    <td style="padding:10px 12px;"><strong>{{ l.itemName or '—' }}</strong></td>
+                    <td style="padding:10px 12px;"><span style="font-family:monospace; font-weight:700; color:var(--accent-purple);">{{ l.lotNumber or 'S/N' }}</span></td>
+                    <td style="padding:10px 12px;">{{ l.warehouseName or l.warehouseId or '—' }}</td>
+                    <td style="padding:10px 12px; text-align:right; font-weight:600;">{{ "%.2f"|format(l.quantity|float) }}</td>
+                    <td style="padding:10px 12px; text-align:right;">{{ "RD$ {:,.2f}".format(l.unitCost|float) }}</td>
+                    <td style="padding:10px 12px;">{{ l.productionDate[:10] if l.productionDate else '—' }}</td>
+                    <td style="padding:10px 12px;">
                         {{ l.expirationDate[:10] if l.expirationDate else '—' }}
                         {% if l.expirationDate and days_left < 0 %}
                         <span style="display: block; font-size: 0.7rem; color: var(--accent-red); font-weight: 600;">(Vencido)</span>
@@ -54,7 +54,7 @@
                         <span style="display: block; font-size: 0.7rem; color: #f59e0b; font-weight: 600;">(Vence en {{ days_left }} d)</span>
                         {% endif %}
                     </td>
-                    <td style="text-align: center;">
+                    <td style="padding:10px 12px; text-align:center;">
                         {% if l.quantity|float <= 0 %}
                         <span class="badge" style="background: rgba(107, 114, 128, 0.15); color: var(--text-secondary); padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">Agotado</span>
                         {% elif l.expirationDate and days_left < 0 %}
@@ -68,7 +68,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" class="text-center text-muted" style="text-align: center; padding: 36px 16px; color: var(--text-secondary);">
+                    <td colspan="8" class="text-center text-muted" style="text-align:center; padding:48px 24px; color:var(--text-secondary);">
                         <i class="fa-solid fa-layer-group" style="font-size: 2rem; color: var(--text-muted); display: block; margin-bottom: 10px; opacity: 0.5;"></i>
                         No hay lotes registrados todavía. Puede crear o ingresar lotes desde <a href="{{ url_for('web_invoices.new_inventory_transaction') }}" style="color: var(--accent-purple); font-weight: 600;">Nueva Entrada de Inventario</a> o al recibir órdenes de compra.
                     </td>
@@ -78,4 +78,14 @@
         </table>
     </div>
 </div>
+<style>
+.lots-table th,
+.lots-table td {
+    border-bottom:1px solid #e2e8f0;
+    vertical-align:middle;
+}
+.lots-table tbody tr:last-child td {
+    border-bottom:0;
+}
+</style>
 {% endblock %}

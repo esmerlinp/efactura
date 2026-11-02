@@ -193,7 +193,11 @@ def _cached_user_profile(uid):
                     "canAccountingReports": bool(perms.get("canAccountingReports", perms.get("canAccounting", perms.get("canReportsAccounting", perms.get("canReports", False))))),
                     "canAccountingFixedAssets": bool(perms.get("canAccountingFixedAssets", perms.get("canAccounting", False))),
                     "canAccountingFiscalPeriods": bool(perms.get("canAccountingFiscalPeriods", perms.get("canAccounting", False))),
-                    "canAccountingSettings": bool(perms.get("canAccountingSettings", perms.get("canAccounting", False))),
+                     "canAccountingSettings": bool(perms.get("canAccountingSettings", perms.get("canAccounting", False))),
+                     "canCreateInternalServiceDocument": bool(perms.get("canCreateInternalServiceDocument", False)),
+                     "canViewInternalServiceDocuments": bool(perms.get("canViewInternalServiceDocuments", False)),
+                     "canVoidInternalServiceDocument": bool(perms.get("canVoidInternalServiceDocument", False)),
+                     "canDownloadInternalServiceDocument": bool(perms.get("canDownloadInternalServiceDocument", False)),
                     **{k: bool(v) for k, v in perms.items() if k not in (
                         "canInvoice", "canManageQuotations", "canManageFiscalNotes", "canManageRUI", "canExpenses", "canClients", "canCreateClient", "canDeleteClient", "canModifySettings",
                         "canManageInventory", "canManagePOS", "canViewDashboard", "canManageCXC", "canManageCXP",
@@ -211,7 +215,9 @@ def _cached_user_profile(uid):
                         "canManageCXCAdvances", "canManageBanks", "canBankReconciliation",
                         "canAccountingDashboard", "canAccountingChart", "canAccountingJournal",
                         "canAccountingReports", "canAccountingFixedAssets", "canAccountingFiscalPeriods",
-                        "canAccountingSettings"
+                         "canAccountingSettings", "canCreateInternalServiceDocument",
+                         "canViewInternalServiceDocuments", "canVoidInternalServiceDocument",
+                         "canDownloadInternalServiceDocument"
                     )}
                 },
                 "createdAt": serialize_field(data.get("createdAt")),
@@ -5471,20 +5477,70 @@ class DatabaseService:
         return stats
 
     @classmethod
-    def get_payments(cls, company_id):
-        """Retorna el historial de pagos de una empresa."""
+    def get_payments(cls, company_id, owner_uid=None):
+        """Return company and legacy subscription payments without hiding partial failures."""
+        if not firebase_initialized:
+            return []
+        payments = []
+        seen = set()
+
+        def read_collection(collection_ref, label):
+            try:
+                for doc in collection_ref.stream():
+                    data = doc.to_dict() or {}
+                    data.setdefault('id', doc.id)
+                    if data.get('type') == 'Manual' or 'allocations' in data:
+                        data.setdefault('currency', 'USD')
+                    key = data.get('id') or doc.id
+                    if key not in seen:
+                        seen.add(key)
+                        payments.append(data)
+            except Exception as e:
+                print(f"❌ Error leyendo pagos {label}: {e}")
+
+        if company_id:
+            read_collection(
+                db_firestore.collection('companies').document(company_id).collection('payments'),
+                f'companies/{company_id}/payments',
+            )
+        legacy_uid = owner_uid or company_id
+        if legacy_uid:
+            read_collection(
+                db_firestore.collection('users').document(legacy_uid).collection('payments'),
+                f'users/{legacy_uid}/payments',
+            )
+
+        def payment_sort_key(payment):
+            value = payment.get('date') or payment.get('paid_at') or payment.get('created_at')
+            if hasattr(value, 'timestamp'):
+                try:
+                    return value.timestamp()
+                except (TypeError, ValueError, OSError):
+                    pass
+            return str(value or '')
+
+        payments.sort(key=payment_sort_key, reverse=True)
+        return payments
+
+    @classmethod
+    def get_billing_invoices(cls, company_id, statuses=None):
+        """Retorna facturas persistentes de suscripción de una empresa."""
         if not firebase_initialized:
             return []
         try:
-            docs = db_firestore.collection('users').document(company_id)\
-                .collection('payments').order_by('date', direction=firestore.Query.DESCENDING).stream()
-            payments = []
+            docs = db_firestore.collection('companies').document(company_id)\
+                .collection('billing_invoices').stream()
+            invoices = []
             for doc in docs:
-                data = doc.to_dict()
-                payments.append(data)
-            return payments
+                invoice = doc.to_dict() or {}
+                invoice.setdefault('id', doc.id)
+                if statuses and invoice.get('status') not in statuses:
+                    continue
+                invoices.append(invoice)
+            invoices.sort(key=lambda invoice: str(invoice.get('due_date') or invoice.get('period_start') or ''))
+            return invoices
         except Exception as e:
-            print(f"❌ Error en get_payments({company_id}): {e}")
+            print(f"❌ Error en get_billing_invoices({company_id}): {e}")
             return []
 
     @classmethod
@@ -5499,7 +5555,43 @@ class DatabaseService:
             return []
             
         history = []
-        payments_list = cls.get_payments(company_id)
+        payments_list = cls.get_payments(company_id, owner_uid=owner_uid)
+        persisted_invoices = cls.get_billing_invoices(company_id)
+        if persisted_invoices:
+            payment_allocations = {}
+            for payment in payments_list:
+                for allocation in payment.get('allocations', []) or []:
+                    invoice_id = allocation.get('invoice_id')
+                    if invoice_id:
+                        payment_allocations[invoice_id] = payment_allocations.get(invoice_id, 0.0) + float(allocation.get('amount', 0) or 0)
+
+            history = []
+            for invoice in persisted_invoices:
+                start = str(invoice.get('period_start') or '')
+                end = str(invoice.get('period_end') or '')
+                allocated = payment_allocations.get(invoice.get('id'), 0.0)
+                amount_paid = max(float(invoice.get('amount_paid', 0) or 0), allocated)
+                total = float(invoice.get('total', 0) or 0)
+                balance_due = max(0.0, round(total - amount_paid, 2))
+                status = 'paid' if balance_due <= 0.01 and total > 0 else invoice.get('status', 'open')
+                history.append({
+                    **invoice,
+                    'currency': invoice.get('currency', 'USD'),
+                    'period_label': invoice.get('description') or f'{start} - {end}',
+                    'start_date': start,
+                    'end_date': end,
+                    'consumed_docs': invoice.get('usage_snapshot', {}).get('documents', 0),
+                    'excess_docs': invoice.get('excess_documents', 0),
+                    'amount_paid': round(amount_paid, 2),
+                    'balance_due': balance_due,
+                    'monthly_fee': invoice.get('monthly_fee', invoice.get('total', 0)),
+                    'excess_charge': invoice.get('excess_charges', 0),
+                    'total_charge': invoice.get('total', 0),
+                    'status': 'Saldado' if status == 'paid' else 'Pendiente',
+                    'payment_ref': invoice.get('payment_ref', ''),
+                    'payment_date': invoice.get('paid_at'),
+                })
+            return history
         
         # Obtener todas las facturas de producción (excluyendo cotizaciones y borradores)
         invoices = []

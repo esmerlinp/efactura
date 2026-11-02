@@ -2,7 +2,18 @@
 {% block title %}Conteo {{ count.warehouseName }} — {{ product_name }}{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
-<style>#diferencias-grid tr.diff-zero td{opacity:.55;}</style>
+<style>
+    #diferencias-grid tr.diff-zero td{opacity:.55;}
+    .count-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+    .count-search-wrap { position:relative; flex:1; min-width:240px; }
+    .count-search-wrap i { position:absolute; left:12px; top:11px; color:var(--text-muted); }
+    .count-search { width:100%; height:38px; padding:0 12px 0 36px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; color:var(--text-primary); }
+    .count-filter { height:38px; padding:0 10px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; color:var(--text-primary); }
+    .count-progress { display:flex; gap:14px; flex-wrap:wrap; font-size:.8rem; color:var(--text-secondary); margin-bottom:14px; }
+    .count-progress strong { color:var(--text-primary); }
+    .count-code { font-family:monospace; font-size:.78rem; color:var(--text-secondary); }
+    .count-meta { display:block; font-size:.72rem; color:var(--text-muted); margin-top:3px; }
+</style>
 {% endblock %}
 {% block content %}
 <div class="page-title-container" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; padding-left:4px; flex-wrap:wrap; gap:12px;">
@@ -27,13 +38,38 @@
         <i class="fa-solid fa-list-check" style="color:var(--accent-purple);"></i>
         <span>Registro de Cantidades</span>
     </h3>
+    <div class="count-progress" id="count-progress">
+        <span>Total: <strong>{{ count.lines|length }}</strong></span>
+        <span>Contados: <strong id="counted-total">0</strong></span>
+        <span>Pendientes: <strong id="pending-total">0</strong></span>
+        <span>Con diferencia: <strong id="difference-total">0</strong></span>
+    </div>
+    <div class="count-toolbar">
+        <div class="count-search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="search" id="count-search" class="count-search" placeholder="Buscar por producto, código, barcode o ubicación..." autocomplete="off">
+        </div>
+        <select id="count-category-filter" class="count-filter">
+            <option value="all">Todas las categorías</option>
+        </select>
+        <select id="count-status-filter" class="count-filter">
+            <option value="all">Todos los estados</option>
+            <option value="pending">Pendientes</option>
+            <option value="counted">Contados</option>
+            <option value="difference">Con diferencia</option>
+            <option value="balanced">Sin diferencia</option>
+        </select>
+    </div>
     <form method="POST">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="table-responsive">
             <table class="data-grid data-grid--editable" style="width:100%;">
                 <thead>
                     <tr>
-                        <th style="min-width:220px;">Producto</th>
+                        <th style="min-width:240px;">Producto</th>
+                        <th style="width:130px;">Código / SKU</th>
+                        <th style="width:130px;">Categoría</th>
+                        <th style="width:150px;">Ubicación</th>
                         <th style="text-align:right; width:150px;">Stock Esperado</th>
                         <th style="text-align:right; width:170px;">Cantidad Contada</th>
                         <th style="text-align:right; width:130px;">Diferencia</th>
@@ -41,9 +77,16 @@
                 </thead>
                 <tbody>
                     {% for line in count.lines %}
-                    <tr>
-                        <td style="font-weight:600;">{{ line.itemName }}</td>
-                        <td style="text-align:right;">{{ "%.2f"|format(line.expectedQty|float) }}</td>
+                    <tr class="count-line"
+                        data-search="{{ (line.itemName or '')|lower }} {{ (line.itemCode or '')|lower }} {{ (line.barcode or '')|lower }} {{ (line.categoryId or '')|lower }} {{ (line.rackLocation or '')|lower }}"
+                        data-category="{{ (line.categoryId or 'general')|lower }}"
+                        data-counted="{{ 'true' if line.countedQty|float != 0 else 'false' }}"
+                        data-difference="{{ 'true' if line.difference|float != 0 else 'false' }}">
+                        <td style="font-weight:600;">{{ line.itemName }}<span class="count-meta">{{ line.unit or 'Unidad' }}{% if line.barcode %} · {{ line.barcode }}{% endif %}</span></td>
+                        <td><span class="count-code">{{ line.itemCode or 'S/C' }}</span></td>
+                        <td>{{ line.categoryId|capitalize if line.categoryId else 'General' }}</td>
+                        <td>{{ line.rackLocation or '—' }}</td>
+                        <td style="text-align:right;">{{ "%.2f"|format(line.expectedQty|float) }} {{ line.unit or 'Unidad' }}</td>
                         <td style="text-align:right;">
                             <input type="number" step="0.01" name="qty_{{ line.itemId }}" class="form-input" value="{{ '%.2f'|format(line.countedQty|float) }}" style="width:140px; text-align:right; margin-left:auto;">
                         </td>
@@ -68,6 +111,55 @@
         </div>
     </form>
 </div>
+<script>
+(function () {
+    const search = document.getElementById('count-search');
+    const category = document.getElementById('count-category-filter');
+    const status = document.getElementById('count-status-filter');
+    const rows = Array.from(document.querySelectorAll('.count-line'));
+    if (!search || !category || !status || !rows.length) return;
+    const counted = document.getElementById('counted-total');
+    const pending = document.getElementById('pending-total');
+    const differences = document.getElementById('difference-total');
+
+    [...new Set(rows.map(row => row.dataset.category).filter(Boolean))].sort().forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value.charAt(0).toUpperCase() + value.slice(1);
+        category.appendChild(option);
+    });
+
+    function applyFilters() {
+        const query = search.value.toLowerCase().trim();
+        let countedTotal = 0;
+        let pendingTotal = 0;
+        let differenceTotal = 0;
+        rows.forEach(row => {
+            const isCounted = row.dataset.counted === 'true';
+            const hasDifference = row.dataset.difference === 'true';
+            const selectedStatus = status.value;
+            const matchesStatus = selectedStatus === 'all'
+                || (selectedStatus === 'pending' && !isCounted)
+                || (selectedStatus === 'counted' && isCounted)
+                || (selectedStatus === 'difference' && hasDifference)
+                || (selectedStatus === 'balanced' && isCounted && !hasDifference);
+            row.hidden = Boolean(query && !row.dataset.search.includes(query))
+                || (category.value !== 'all' && row.dataset.category !== category.value)
+                || !matchesStatus;
+            if (isCounted) countedTotal += 1;
+            else pendingTotal += 1;
+            if (hasDifference) differenceTotal += 1;
+        });
+        counted.textContent = countedTotal;
+        pending.textContent = pendingTotal;
+        differences.textContent = differenceTotal;
+    }
+    search.addEventListener('input', applyFilters);
+    category.addEventListener('change', applyFilters);
+    status.addEventListener('change', applyFilters);
+    applyFilters();
+})();
+</script>
 {% else %}
 <div class="small-metrics-grid" style="margin-bottom:24px;">
     <div class="small-metric">

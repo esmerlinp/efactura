@@ -319,10 +319,10 @@
        ========================================================================== */
     .inventory-table-card {
         background: var(--bg-card, #ffffff);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md, 10px);
-        overflow: hidden;
-        box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05));
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
     .inventory-table {
@@ -333,14 +333,14 @@
     }
 
     .inventory-table thead th {
-        background: var(--bg-input, #f8fafc);
-        padding: 10px 14px;
+        background: #f1f5f9;
+        padding: 10px 12px;
         font-size: 0.7rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         font-weight: 600;
-        color: var(--text-secondary);
-        border-bottom: 1px solid var(--border-color);
+        color: #334155;
+        border-bottom: 2px solid #cbd5e1;
         white-space: nowrap;
         user-select: none;
     }
@@ -361,13 +361,13 @@
     }
 
     .inventory-table thead th.warehouse-header {
-        background: rgba(16, 185, 129, 0.03);
-        border-left: 1px solid var(--border-color);
+        background: #f1f5f9;
+        border-left: 1px solid #cbd5e1;
     }
 
     .inventory-table tbody td {
-        padding: 10px 14px;
-        border-bottom: 1px solid var(--border-color);
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
         vertical-align: middle;
         color: var(--text-primary);
     }
@@ -377,7 +377,7 @@
     }
 
     .inventory-table tbody tr.inventory-row:hover {
-        background-color: var(--bg-nav-hover, rgba(0, 0, 0, 0.02));
+        background-color: #f1f5f9;
     }
 
     /* Col 1: SKU & Barcode */
@@ -460,14 +460,6 @@
         color: var(--text-muted);
     }
 
-    .category-tag {
-        color: var(--accent-purple, #7c3aed);
-        font-weight: 500;
-        background: rgba(124, 58, 237, 0.08);
-        padding: 1px 7px;
-        border-radius: 10px;
-    }
-
     .location-tag {
         display: inline-flex;
         align-items: center;
@@ -510,20 +502,6 @@
         color: var(--text-primary);
     }
 
-    .stock-pill-low {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        background: rgba(239, 68, 68, 0.1);
-        color: var(--danger, #ef4444);
-        font-weight: 600;
-        font-size: 0.82rem;
-        padding: 2px 8px;
-        border-radius: 12px;
-        width: fit-content;
-        margin-left: auto;
-    }
-
     .stock-subtext {
         font-size: 0.72rem;
         color: var(--text-muted);
@@ -541,12 +519,6 @@
         font-size: 0.84rem;
         font-weight: 600;
         color: var(--text-primary);
-    }
-
-    .val-pvp-sub {
-        font-size: 0.72rem;
-        color: var(--text-muted);
-        display: block;
     }
 
     /* Col: Quick Actions */
@@ -1038,7 +1010,7 @@
 
     <!-- Tabla General Cruzada de Inventario (Consolidada & Limpia) -->
     <div class="inventory-table-card">
-        <div class="table-responsive" style="margin-bottom: 0;">
+        <div class="table-responsive" style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:0;">
             <table class="inventory-table" id="inventory-table">
                 <thead>
                     <tr>
@@ -1048,6 +1020,7 @@
                         <th class="sortable" onclick="sortTable('name')">
                             Descripción del Producto <i class="fa-solid fa-sort" id="sort-icon-name"></i>
                         </th>
+                        <th style="width: 130px;">Categoría</th>
                         <!-- Cabeceras Dinámicas por Almacén -->
                         {% for wh in warehouses %}
                         <th class="warehouse-header wh-col-{{ wh.id }}" style="text-align: right; min-width: 110px;">
@@ -1110,41 +1083,26 @@
                         <td>
                             <div class="col-sku-container">
                                 <span class="sku-code-badge">{{ item.code or 'S/C' }}</span>
-                                {% if item.barcode %}
-                                <span class="barcode-subtext" title="Código de barra">
-                                    <i class="fa-solid fa-barcode"></i> {{ item.barcode }}
-                                </span>
-                                {% endif %}
                             </div>
                         </td>
 
-                        <!-- Col 2: Producto & Metadatos (Avatar + Nombre + Categoría + Ubicación) -->
+                        <!-- Col 2: Producto (Avatar + Nombre) -->
                         <td>
                             <div class="col-product-container">
-                                <div class="product-avatar">
-                                    {% if item.imageUrl %}
-                                    <img src="{{ item.imageUrl }}" alt="{{ item.name }}" loading="lazy">
-                                    {% else %}
-                                    <i class="fa-solid fa-box" style="color: #64748b;"></i>
-                                    {% endif %}
-                                </div>
                                 <div class="product-info-text">
                                     <a href="javascript:void(0)" class="product-title-link" onclick="openInventoryDrawer('{{ item.id }}')">
                                         {{ item.name }}
                                     </a>
-                                    <div class="product-meta-row">
-                                        <span class="category-tag">{{ item.categoryId | capitalize if item.categoryId else 'General' }}</span>
-                                        {% if item.rackLocation %}
-                                        <span class="location-tag" title="Ubicación física / Pasillo">
-                                            <i class="fa-solid fa-location-dot" style="font-size:0.65rem;"></i> {{ item.rackLocation }}
-                                        </span>
-                                        {% endif %}
-                                    </div>
                                 </div>
                             </div>
-                        </td>
+                         </td>
 
-                        <!-- Columnas Dinámicas de Almacenes -->
+                         <!-- Col 3: Categoría -->
+                         <td>
+                             {{ item.categoryId | capitalize if item.categoryId else 'General' }}
+                         </td>
+
+                         <!-- Columnas Dinámicas de Almacenes -->
                         {% for wh in warehouses %}
                         {% set qty = (item.warehouse_stocks.get(wh.id, 0.0) | float) %}
                         <td class="warehouse-stock-cell wh-col-{{ wh.id }}">
@@ -1161,29 +1119,25 @@
                         <!-- Existencia Total -->
                         <td class="col-total-stock">
                             {% if is_low %}
-                            <span class="stock-pill-low" title="¡Stock crítico por debajo del mínimo! (Mín: {{ min_stock_val }})">
+                            <span class="stock-low-text" title="¡Stock crítico por debajo del mínimo! (Mín: {{ min_stock_val }})">
                                 <i class="fa-solid fa-triangle-exclamation"></i>
                                 {{ "{:,.2f}".format(stock_val) }} {{ item.unit or 'ud' }}
                             </span>
                             {% else %}
-                            <span class="stock-pill-normal">
+                            <span>
                                 {{ "{:,.2f}".format(stock_val) }} {{ item.unit or 'ud' }}
                             </span>
                             {% endif %}
                             <span class="stock-subtext">
-                                Mín: {{ "{:,.0f}".format(min_stock_val) }}
-                                {% if max_stock_val > 0 %} • Máx: {{ "{:,.0f}".format(max_stock_val) }}{% endif %}
+                                {% if is_low %}Mínimo: {{ "{:,.0f}".format(min_stock_val) }}{% endif %}
                             </span>
                         </td>
 
                         <!-- Valorización (Capital Invertido a Costo / PVP) -->
                         <td class="col-valuation">
-                            <span class="val-capital" title="Valorización de stock a costo de adquisición">
-                                RD$ {{ "{:,.2f}".format(total_cost) }}
-                            </span>
-                            <span class="val-pvp-sub" title="Valor comercial estimado a precio de venta">
-                                PVP: RD$ {{ "{:,.2f}".format(total_pvp) }}
-                            </span>
+                             <span class="val-capital" title="Valorización de stock a costo de adquisición">
+                                 RD$ {{ "{:,.2f}".format(total_cost) }}
+                             </span>
                         </td>
 
                         <!-- Acciones -->
@@ -1221,7 +1175,7 @@
                     {% else %}
                     <!-- Estado vacío cuando no hay artículos -->
                     <tr id="no-items-placeholder">
-                        <td colspan="{{ 5 + (warehouses | length) }}" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                        <td colspan="{{ 6 + (warehouses | length) }}" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
                             <i class="fa-solid fa-warehouse" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.45; display: block;"></i>
                             <h4 style="margin: 0 0 6px 0; color: var(--text-primary); font-family: var(--font-heading);">No hay bienes físicos en inventario</h4>
                             <p style="margin: 0 0 16px 0; font-size: 0.88rem; color: var(--text-secondary);">Solo los artículos configurados como "Bien / Producto Físico" gestionan stock.</p>
@@ -1234,7 +1188,7 @@
 
                     <!-- Fila oculta de búsqueda sin resultados -->
                     <tr id="no-results-row" style="display: none;">
-                        <td colspan="{{ 5 + (warehouses | length) }}" style="text-align: center; padding: 50px 20px; color: var(--text-secondary);">
+                        <td colspan="{{ 6 + (warehouses | length) }}" style="text-align: center; padding: 50px 20px; color: var(--text-secondary);">
                             <i class="fa-solid fa-magnifying-glass" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; opacity: 0.45; display: block;"></i>
                             <h5 style="margin: 0 0 6px 0; color: var(--text-primary);">No se encontraron artículos en inventario</h5>
                             <p style="margin: 0 0 14px 0; font-size: 0.85rem; color: var(--text-muted);">No hay coincidencias con los términos de búsqueda o filtros aplicados.</p>

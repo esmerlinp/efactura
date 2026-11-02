@@ -1042,6 +1042,7 @@ def create_app():
     from app.web.recepcion import web_recepcion_bp
     from app.web.certificacion import web_certificacion_bp
     from app.web.api_portal import web_api_portal_bp
+    from app.web.internal_service_documents import web_internal_service_documents_bp
 
     # Registra las rutas del asistente de importación de artículos sobre web_invoices_bp
     # antes de registrar el blueprint (las rutas se adjuntan al importar el módulo).
@@ -1085,6 +1086,7 @@ def create_app():
     app.register_blueprint(web_recepcion_bp)
     app.register_blueprint(web_certificacion_bp)
     app.register_blueprint(web_api_portal_bp)
+    app.register_blueprint(web_internal_service_documents_bp)
 
     # Eximir rutas /api/ de validación CSRF (los blueprints de API se registraron arriba)
     for rule in app.url_map.iter_rules():

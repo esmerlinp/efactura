@@ -610,7 +610,7 @@
         <!-- Pills de filtro — siempre visibles (fuera de las secciones) -->
         <div class="filter-bar" id="filter-bar">
             <button class="pill active" data-type="all" onclick="setFilter('all')">
-                <i class="fa-solid fa-layer-group"></i> Todos <span class="count" id="count-all">{{ invoices|length + contracts|length }}</span>
+                <i class="fa-solid fa-layer-group"></i> Todos <span class="count" id="count-all">{{ invoices|length + contracts|length + internal_service_documents|length }}</span>
             </button>
             <button class="pill" data-type="invoice" onclick="setFilter('invoice')">
                 <i class="fa-solid fa-file-invoice"></i> Facturas <span class="count" id="count-invoice">{{ invoices | selectattr('isQuotation', 'equalto', False) | list | length }}</span>
@@ -620,6 +620,9 @@
             </button>
             <button class="pill" data-type="contract" onclick="setFilter('contract')">
                 <i class="fa-solid fa-file-contract"></i> Contratos <span class="count" id="count-contract">{{ contracts|length }}</span>
+            </button>
+            <button class="pill" data-type="internal" onclick="setFilter('internal')">
+                <i class="fa-solid fa-gift"></i> Promociones <span class="count" id="count-internal">{{ internal_service_documents|length }}</span>
             </button>
             <span id="filter-info"></span>
         </div>
@@ -650,6 +653,12 @@
             <button class="pill sub" data-sub="Pendiente" onclick="setSubFilter('contract','Pendiente')">Pendientes</button>
             <button class="pill sub" data-sub="Cancelado" onclick="setSubFilter('contract','Cancelado')">Cancelados</button>
             <button class="pill sub" data-sub="Expirado" onclick="setSubFilter('contract','Expirado')">Expirados</button>
+        </div>
+        <div class="sub-bar" id="sub-internal" style="display:none;">
+            <button class="pill sub active" data-sub="all" onclick="setSubFilter('internal','all')">Todas</button>
+            <button class="pill sub" data-sub="vigente" onclick="setSubFilter('internal','vigente')">Vigentes</button>
+            <button class="pill sub" data-sub="proximo" onclick="setSubFilter('internal','proximo')">Próximas a vencer</button>
+            <button class="pill sub" data-sub="vencido" onclick="setSubFilter('internal','vencido')">Vencidas</button>
         </div>
 
         <!-- Historial de Facturas y Cotizaciones -->
@@ -718,10 +727,23 @@
                             </td>
                         </tr>
                         {% else %}
+                        {% if not internal_service_documents %}
                         <tr data-doctype="none">
                             <td colspan="7" style="text-align: center; padding: 40px 0; color: var(--text-muted);">
-                                No hay facturas ni cotizaciones disponibles.
+                                No hay documentos ni promociones disponibles.
                             </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                        {% for internal in internal_service_documents %}
+                        <tr data-doctype="internal" data-status="{{ internal.calculatedState }}" data-date="{{ internal.issueDate }}">
+                            <td data-label="Número Documento"><strong>{{ internal.documentNumber }}</strong></td>
+                            <td data-label="Fecha Emisión"><span style="font-family:monospace;">{{ internal.issueDate | format_date }}</span></td>
+                            <td data-label="Tipo / e-CF"><span class="badge badge-info">Promoción comercial</span></td>
+                            <td data-label="Total"><strong>RD$ {{ "{:,.2f}".format(internal.subtotalCents / 100) }}</strong></td>
+                            <td data-label="Saldo Pendiente"><strong style="color:var(--accent-emerald);">RD$ 0.00</strong></td>
+                            <td data-label="Estado"><span class="badge {% if internal.calculatedState == 'vigente' %}badge-success{% elif internal.calculatedState == 'vencido' %}badge-danger{% else %}badge-warning{% endif %}">{{ internal.calculatedState|capitalize }}</span></td>
+                            <td style="text-align:right;"><a href="{{ url_for('portal.portal_internal_service_document_detail', document_id=internal.id) }}" class="btn btn-secondary" title="Ver promoción" style="padding:5px 8px;font-size:.75rem;"><i class="fa-solid fa-eye"></i></a></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -1020,8 +1042,9 @@
         function applyFilters() {
             const showInvoice = currentType === 'all' || currentType === 'invoice';
             const showQuotation = currentType === 'all' || currentType === 'quotation';
+            const showInternal = currentType === 'all' || currentType === 'internal';
             const showContract = currentType === 'all' || currentType === 'contract';
-            const showDocSection = showInvoice || showQuotation;
+            const showDocSection = showInvoice || showQuotation || showInternal;
             const showContractSection = showContract;
 
             // Mostrar/ocultar secciones
@@ -1061,7 +1084,7 @@
             });
 
             // Actualizar contadores de las pills principales
-            ['invoice','quotation','contract'].forEach(t => {
+            ['invoice','quotation','contract','internal'].forEach(t => {
                 const count = document.querySelectorAll('tr[data-doctype="'+t+'"]').length;
                 const el = document.getElementById('count-'+t);
                 if (el) el.textContent = count;

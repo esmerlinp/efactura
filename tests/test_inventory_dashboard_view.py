@@ -155,6 +155,7 @@ def test_inventory_route_renders_redesigned_grid(client):
         assert "inventory-table" in html
         assert "Cód. / SKU" in html
         assert "Descripción del Producto" in html
+        assert "Categoría" in html
         assert "Almacén Principal" in html
         assert "Depósito Norte" in html
         assert "Existencia Total" in html
@@ -164,7 +165,9 @@ def test_inventory_route_renders_redesigned_grid(client):
         # 4. Verifica producto con alerta de stock crítico
         assert "MON-24" in html
         assert "Monitor Dell 24 pulgadas" in html
-        assert "stock-pill-low" in html
+        assert "stock-low-text" in html
+        assert "stock-pill-low" not in html
+        assert "stock-pill-normal" not in html
 
         # 5. Verifica Drawer lateral de consulta rápida de inventario
         assert "inventory-drawer" in html

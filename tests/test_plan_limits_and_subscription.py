@@ -327,6 +327,11 @@ class TestSubscriptionPageRendering:
             # Total base 100 + docs(4) + emp(12) + user(24) + branch(30) + wh(25) = 195.00
             assert "195" in html
 
+            # Verificar presencia de botón y modal de control de adicionales
+            assert "Control de Adicionales" in html
+            assert "excess-controls-modal" in html
+            assert "openExcessControlsModal" in html
+
     def test_costo_mensual_fijo_resolves_from_plan_when_company_has_zero(self):
         """Verifica que el Costo Mensual Fijo no sea 0 si la empresa tiene monthly_payment: 0 pero el plan tiene monthlyPrice: 80."""
         with patch.object(DatabaseService, 'get_company') as mock_get_company, \
