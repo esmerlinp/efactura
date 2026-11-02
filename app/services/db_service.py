@@ -2609,7 +2609,16 @@ class DatabaseService:
     def get_clients(cls, owner_uid, sandbox=True, branch_id=None, project_id=None, company_id=None):
         """Retorna la lista de clientes del owner, filtrados por sucursal y/o proyecto."""
         import copy
-        clients = copy.deepcopy(_cached_clients(owner_uid, sandbox, company_id=company_id))
+        from app.services.cache_service import CacheService
+        request_key = CacheService.make_key(
+            "db:request:clients", owner_uid, sandbox, company_id, branch_id, project_id
+        )
+        clients = CacheService.request_get(request_key)
+        if clients is None:
+            clients = copy.deepcopy(_cached_clients(owner_uid, sandbox, company_id=company_id))
+            CacheService.request_set(request_key, clients)
+        else:
+            clients = copy.deepcopy(clients)
         if branch_id:
             clients = [c for c in clients if c.get("branchId") == branch_id]
         if project_id == '__no_project__':
@@ -2926,7 +2935,16 @@ class DatabaseService:
         """Retorna la lista de productos del catálogo, filtrados por sucursal y/o proyecto."""
         owner_uid = _resolve_owner_uid(company_id) or owner_uid
         import copy
-        items = copy.deepcopy(_cached_items(owner_uid, sandbox, company_id=company_id))
+        from app.services.cache_service import CacheService
+        request_key = CacheService.make_key(
+            "db:request:items", owner_uid, sandbox, company_id, branch_id, project_id
+        )
+        items = CacheService.request_get(request_key)
+        if items is None:
+            items = copy.deepcopy(_cached_items(owner_uid, sandbox, company_id=company_id))
+            CacheService.request_set(request_key, items)
+        else:
+            items = copy.deepcopy(items)
         if branch_id:
             items = [i for i in items if i.get("branchId") == branch_id]
         if project_id == '__no_project__':
@@ -3687,7 +3705,19 @@ class DatabaseService:
     def get_invoices(cls, owner_uid, sandbox=True, quotations_only=False, include_all=False, branch_id=None, project_id=None, company_id=None):
         """Retorna las facturas o cotizaciones de un owner, filtradas por sucursal y/o proyecto."""
         import copy
-        invoices = copy.deepcopy(_cached_invoices(owner_uid, sandbox, quotations_only, include_all, company_id=company_id))
+        from app.services.cache_service import CacheService
+        request_key = CacheService.make_key(
+            "db:request:invoices", owner_uid, sandbox, quotations_only,
+            include_all, company_id, branch_id, project_id,
+        )
+        invoices = CacheService.request_get(request_key)
+        if invoices is None:
+            invoices = copy.deepcopy(_cached_invoices(
+                owner_uid, sandbox, quotations_only, include_all, company_id=company_id
+            ))
+            CacheService.request_set(request_key, invoices)
+        else:
+            invoices = copy.deepcopy(invoices)
         if branch_id:
             invoices = [inv for inv in invoices if inv.get("branchId") == branch_id]
         if project_id == '__no_project__':
@@ -4756,7 +4786,16 @@ class DatabaseService:
     def get_expenses(cls, owner_uid, sandbox=True, branch_id=None, project_id=None, company_id=None):
         """Retorna la lista de gastos desde Firestore (con caché), filtrados por sucursal y/o proyecto."""
         import copy
-        expenses = copy.deepcopy(_cached_expenses(owner_uid, sandbox, company_id=company_id))
+        from app.services.cache_service import CacheService
+        request_key = CacheService.make_key(
+            "db:request:expenses", owner_uid, sandbox, company_id, branch_id, project_id
+        )
+        expenses = CacheService.request_get(request_key)
+        if expenses is None:
+            expenses = copy.deepcopy(_cached_expenses(owner_uid, sandbox, company_id=company_id))
+            CacheService.request_set(request_key, expenses)
+        else:
+            expenses = copy.deepcopy(expenses)
         if branch_id:
             expenses = [e for e in expenses if e.get("branchId") == branch_id]
         if project_id == '__no_project__':

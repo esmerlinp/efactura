@@ -31,7 +31,15 @@ def format_date_filter(value):
 def init_extensions(app):
     """Inicializa base de datos local, caché, CSRF, rate limiter y registra filtros globales de Jinja2."""
     # Inicializar Flask-Caching
-    cache.init_app(app)
+    cache_config = {
+        'CACHE_TYPE': app.config.get('CACHE_TYPE', 'SimpleCache'),
+        'CACHE_DEFAULT_TIMEOUT': app.config.get('CACHE_DEFAULT_TIMEOUT', 300),
+        'CACHE_THRESHOLD': app.config.get('CACHE_THRESHOLD', 200),
+        'CACHE_KEY_PREFIX': app.config.get('CACHE_KEY_PREFIX', 'vykone:'),
+    }
+    if app.config.get('CACHE_REDIS_URL'):
+        cache_config['CACHE_REDIS_URL'] = app.config['CACHE_REDIS_URL']
+    cache.init_app(app, config=cache_config)
 
     # Inicializar Base de Datos SQLite local y tablas de Firebase Auth
     DatabaseService.init_local_db()

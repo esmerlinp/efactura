@@ -442,13 +442,13 @@
     </div>
 
     <!-- Paginación -->
-    {% if pages and pages > 1 %}
+    {% if has_more or current_page > 1 %}
     <div class="pagination-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 16px;">
         <div style="color: var(--text-secondary); font-size: 0.85rem;">
             {% if is_limited %}
-            Mostrando los últimos 100 registros recientes. <strong style="color: var(--accent-emerald);">Use los filtros para ver historial específico.</strong>
+            Mostrando una página de resultados. Use los filtros para acotar la búsqueda.
             {% else %}
-            Mostrando registros de auditoría filtrados (Total: <strong>{{ total }}</strong>)
+            Mostrando la página actual de registros de auditoría.
             {% endif %}
         </div>
         <div class="pagination-buttons" style="display: flex; gap: 6px;">
@@ -457,19 +457,8 @@
                 <i class="fa-solid fa-chevron-left"></i> Anterior
             </a>
             {% endif %}
-
-            {% for p in range(1, pages + 1) %}
-                {% if p == current_page %}
-                <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; border-radius: var(--radius-sm);">{{ p }}</button>
-                {% elif p <= 3 or p >= pages - 2 or (p >= current_page - 1 and p <= current_page + 1) %}
-                <a href="?page={{ p }}&module={{ f_module }}&action={{ f_action }}{% for u in f_users %}&user={{ u }}{% endfor %}&entity={{ f_entity }}&date_from={{ f_date_from }}&date_to={{ f_date_to }}&env={{ f_env }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; border-radius: var(--radius-sm);">{{ p }}</a>
-                {% elif p == 4 or p == pages - 3 %}
-                <span style="color: var(--text-muted); align-self: center; padding: 0 4px;">...</span>
-                {% endif %}
-            {% endfor %}
-
-            {% if current_page < pages %}
-            <a href="?page={{ current_page + 1 }}&module={{ f_module }}&action={{ f_action }}{% for u in f_users %}&user={{ u }}{% endfor %}&entity={{ f_entity }}&date_from={{ f_date_from }}&date_to={{ f_date_to }}&env={{ f_env }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; border-radius: var(--radius-sm);">
+            {% if has_more %}
+            <a href="?page={{ current_page + 1 }}&cursor={{ next_cursor }}&module={{ f_module }}&action={{ f_action }}{% for u in f_users %}&user={{ u }}{% endfor %}&entity={{ f_entity }}&date_from={{ f_date_from }}&date_to={{ f_date_to }}&env={{ f_env }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; border-radius: var(--radius-sm);">
                 Siguiente <i class="fa-solid fa-chevron-right"></i>
             </a>
             {% endif %}
@@ -477,11 +466,7 @@
     </div>
     {% else %}
     <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 16px; text-align: right;">
-        {% if is_limited %}
-        Mostrando los últimos 100 registros recientes. <strong style="color: var(--accent-emerald);">Use los filtros para buscar transacciones históricas específicas.</strong>
-        {% else %}
-        Mostrando <strong style="color: var(--text-primary);">{{ total }}</strong> registros en total.
-        {% endif %}
+        Mostrando la página actual de registros de auditoría.
     </div>
     {% endif %}
 </div>

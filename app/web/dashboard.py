@@ -108,62 +108,23 @@ def dashboard():
     expenses = _merge_supplier_invoices_into_expenses(owner_uid, expenses, sandbox=sandbox)
     sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox, company_id=company_id)
     profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+
+    from app.services.dashboard_metrics_service import get_dashboard_metrics
+    cached_metrics = get_dashboard_metrics(
+        company_id, sandbox, g.get('branch_id'), g.get('project_id'), scale,
+        selected_date, kpi_period, invoices, expenses,
+    )
     
     # Filtrar cotizaciones y borradores
-    real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
+    real_invoices = cached_metrics["real_invoices"]
     
-    # Helper para parsear fechas
-    def parse_doc_date(doc_date_str):
-        try:
-            if 'T' in doc_date_str:
-                return datetime.strptime(doc_date_str[:19], "%Y-%m-%dT%H:%M:%S")
-            return datetime.strptime(doc_date_str[:10], "%Y-%m-%d")
-        except Exception:
-            return None
-            
-    # Filtrar facturas y gastos para los KPIs según kpi_period
-    kpi_invoices = []
-    kpi_expenses = []
-    
-    for inv in real_invoices:
-        dt = parse_doc_date(inv.get('date'))
-        if not dt:
-            continue
-        if kpi_period == 'month':
-            if dt.month == selected_month and dt.year == selected_year:
-                kpi_invoices.append(inv)
-        elif kpi_period == 'prev_month':
-            if dt.month == prev_month and dt.year == prev_month_year:
-                kpi_invoices.append(inv)
-        elif kpi_period == 'year':
-            if dt.year == selected_year:
-                kpi_invoices.append(inv)
-        else: # 'all'
-            kpi_invoices.append(inv)
-            
-    for exp in expenses:
-        dt = parse_doc_date(exp.get('date'))
-        if not dt:
-            continue
-        if kpi_period == 'month':
-            if dt.month == selected_month and dt.year == selected_year:
-                kpi_expenses.append(exp)
-        elif kpi_period == 'prev_month':
-            if dt.month == prev_month and dt.year == prev_month_year:
-                kpi_expenses.append(exp)
-        elif kpi_period == 'year':
-            if dt.year == selected_year:
-                kpi_expenses.append(exp)
-        else: # 'all'
-            kpi_expenses.append(exp)
-            
     # Calcular KPIs basados en datos filtrados
-    total_invoiced = sum(inv['total'] for inv in kpi_invoices)
-    total_expenses = sum(exp['amount'] for exp in kpi_expenses)
-    total_itbis = sum(inv.get('totalITBIS', 0.0) for inv in kpi_invoices)
+    total_invoiced = cached_metrics["total_invoiced"]
+    total_expenses = cached_metrics["total_expenses"]
+    total_itbis = cached_metrics["total_itbis"]
     
     # Cuentas por Cobrar (CxC): Siempre acumulado de toda la vida para evitar deslices en cobranzas
-    total_cxc = sum(inv['netPayable'] for inv in real_invoices if inv['status'] in ['Emitida', 'Vencida'])
+    total_cxc = cached_metrics["total_cxc"]
     
     # CxC breakdown
     cxc_vigentes = sum(inv['netPayable'] for inv in real_invoices if inv['status'] == 'Emitida')
