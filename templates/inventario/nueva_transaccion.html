@@ -5,6 +5,19 @@
 {% block page_header %}Nueva Transacción de Inventario{% endblock %}
 
 {% block content %}
+<style>
+.item-picker { position:relative; overflow:visible; }
+.item-picker-hint { color:var(--text-muted); font-size:.74rem; margin-top:5px; }
+.item-options { display:none; position:absolute; z-index:9999; top:42px; left:0; right:0; max-height:280px; overflow-y:auto; background:#fff !important; border:1px solid #cbd5e1; border-radius:7px; box-shadow:0 8px 20px rgba(15,23,42,.12); }
+.item-picker.open .item-options { display:block !important; }
+.item-option { display:flex; flex-direction:column; gap:3px; width:100%; padding:10px 12px; text-align:left; border:0; border-bottom:1px solid #e2e8f0; background:#fff; color:var(--text-primary); cursor:pointer; }
+.item-option:last-child { border-bottom:0; }
+.item-option:hover, .item-option.selected { background:#f1f5f9; }
+.item-option-main { font-weight:600; font-size:.86rem; }
+.item-option-meta { color:var(--text-muted); font-size:.74rem; font-family:monospace; }
+.item-empty { display:none; padding:14px; color:var(--text-muted); font-size:.82rem; background:#fff; border:1px solid #cbd5e1; border-radius:7px; margin-top:5px; }
+.item-picker.open .item-empty:not([hidden]) { display:block; position:absolute; z-index:10000; top:42px; left:0; right:0; }
+</style>
 <div class="card-table-wrapper" style="max-width: 700px; margin: 0 auto; box-sizing: border-box;">
     <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
         <i class="fa-solid fa-shuffle" style="color: var(--accent-emerald);"></i>
@@ -17,15 +30,21 @@
             
             <!-- Selector de Producto -->
             <div class="form-group" style="grid-column: 1 / -1;">
-                <label for="itemId">Selecciona el Producto Físico</label>
-                <select id="itemId" name="itemId" class="form-select" required>
-                    <option value="" disabled selected>-- Elige un artículo del catálogo --</option>
+                <label for="itemSearch">Selecciona el Producto Físico</label>
+                <div class="item-picker" id="item-picker">
+                    <input type="search" id="itemSearch" class="form-input" placeholder="Buscar por nombre, código o código de barras..." autocomplete="off" aria-controls="item-options">
+                    <input type="hidden" id="itemId" name="itemId" value="{{ selected_item_id or '' }}" required>
+                    <div class="item-picker-hint">Escribe al menos 2 caracteres para filtrar el catálogo.</div>
+                    <div class="item-options" id="item-options" role="listbox" aria-label="Productos físicos">
                     {% for item in items %}
-                    <option value="{{ item.id }}" data-track-lots="{{ 'true' if item.trackLots else 'false' }}">
-                        {{ item.name }} {% if item.code %}(SKU: {{ item.code }}){% endif %}{% if item.trackLots %} [Control de Lote]{% endif %} - Precio: RD$ {{ "{:,.2f}".format(item.price) }}
-                    </option>
+                    <button type="button" class="item-option" role="option" data-id="{{ item.id }}" data-name="{{ item.name or '' }}" data-code="{{ item.code or '' }}" data-barcode="{{ item.barcode or '' }}" data-track-lots="{{ 'true' if item.trackLots else 'false' }}">
+                        <span class="item-option-main">{{ item.name }}</span>
+                        <span class="item-option-meta">{{ item.code or 'S/C' }}{% if item.barcode %} · {{ item.barcode }}{% endif %} · RD$ {{ "{:,.2f}".format(item.price|float) }}</span>
+                    </button>
                     {% endfor %}
-                </select>
+                    </div>
+                    <div class="item-empty" id="item-empty" hidden>No se encontraron productos.</div>
+                </div>
             </div>
             
             <!-- Tipo de Transacción -->
@@ -169,6 +188,59 @@
 
 {% block extra_scripts %}
 <script>
+    const itemPicker = document.getElementById('item-picker');
+    const itemSearch = document.getElementById('itemSearch');
+    const itemId = document.getElementById('itemId');
+    const itemOptions = Array.from(document.querySelectorAll('.item-option'));
+    const itemEmpty = document.getElementById('item-empty');
+
+    function normalize(value) {
+        return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    }
+
+    function chooseItem(option) {
+        itemId.value = option.dataset.id;
+        itemSearch.value = option.dataset.name;
+        itemOptions.forEach(current => current.classList.toggle('selected', current === option));
+        itemPicker.classList.remove('open');
+        checkItemLotRequirement();
+    }
+
+    function filterItems() {
+        const query = normalize(itemSearch.value.trim());
+        let visible = 0;
+        itemOptions.forEach(option => {
+            const haystack = normalize(`${option.dataset.name} ${option.dataset.code} ${option.dataset.barcode}`);
+            const matches = !query || haystack.includes(query);
+            option.hidden = false;
+            option.style.display = matches ? 'flex' : 'none';
+            if (matches) visible += 1;
+        });
+        itemEmpty.hidden = visible !== 0;
+        itemPicker.classList.add('open');
+    }
+
+    itemOptions.forEach(option => option.addEventListener('click', () => chooseItem(option)));
+    itemSearch.addEventListener('focus', () => { itemPicker.classList.add('open'); filterItems(); });
+    itemSearch.addEventListener('input', () => {
+        itemId.value = '';
+        itemOptions.forEach(option => option.classList.remove('selected'));
+        filterItems();
+    });
+    itemSearch.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            const firstVisible = itemOptions.find(option => !option.hidden);
+            if (firstVisible) { event.preventDefault(); chooseItem(firstVisible); }
+        }
+        if (event.key === 'Escape') itemPicker.classList.remove('open');
+    });
+    document.addEventListener('click', event => {
+        if (!itemPicker.contains(event.target)) itemPicker.classList.remove('open');
+    });
+
+    const initialItem = itemOptions.find(option => option.dataset.id === itemId.value);
+    if (initialItem) chooseItem(initialItem);
+
     // Configuración dinámica de motivos por tipo de operación
     const reasons = {
         ENTRADA: [
@@ -246,9 +318,9 @@
     }
 
     function isCurrentItemLotTracked() {
-        const itemSelect = document.getElementById('itemId');
-        const opt = itemSelect.options[itemSelect.selectedIndex];
-        return opt ? (opt.getAttribute('data-track-lots') === 'true') : false;
+        const itemId = document.getElementById('itemId').value;
+        const opt = itemOptions.find(option => option.dataset.id === itemId);
+        return opt ? (opt.dataset.trackLots === 'true') : false;
     }
 
     function isLotActive() {

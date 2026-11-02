@@ -1477,7 +1477,8 @@ def inventory_dashboard():
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    # Obtener almacenes, productos y existencias
+    # Obtener almacenes, productos y existencias. El catálogo está cacheado;
+    # el stock se carga una sola vez y se indexa para evitar consultas N+1.
     warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
     items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     stocks = DatabaseService.get_inventory_stock(owner_uid, company_id=company_id, sandbox=sandbox)
@@ -1731,14 +1732,18 @@ def new_inventory_transaction():
         return redirect(url_for('web_invoices.inventory_dashboard'))
         
     items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    goods = [it for it in items if it.get('type', 'Bien') == 'Bien']
+    goods = sorted(
+        [it for it in items if it.get('type', 'Bien') == 'Bien'],
+        key=lambda it: (str(it.get('name', '')).casefold(), str(it.get('code', '')).casefold())
+    )
     warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
     
     return render_template(
         'inventario/nueva_transaccion.html',
         active_page='inventory',
         items=goods,
-        warehouses=warehouses
+        warehouses=warehouses,
+        selected_item_id=request.args.get('item_id', '')
     )
 
 # =========================================================================
@@ -10360,7 +10365,7 @@ def get_report_categories():
             "key": "administrativos",
             "icon": "fa-solid fa-clipboard-list",
             "title": "Administrativos",
-            "count": 7,
+            "count": 8,
             "description": "Haz seguimiento a tus transacciones y obtén información para controlar la salud financiera de tu empresa.",
             "category_url": url_for('web_invoices.reports_category', category_key='administrativos'),
             "reports": [
@@ -10449,8 +10454,11 @@ def get_report_categories():
                  "enabled": True,
                  "desc": "Reporte de NCF anulados del período para tu declaración DGII."},
                 {"title": "Reporte 623", "url": "web_reports_623.reporte_623",
-                 "enabled": True,
-                 "desc": "Reporte de compras de servicios transfronterizos para tu declaración DGII."},
+                  "enabled": True,
+                  "desc": "Reporte de compras de servicios transfronterizos para tu declaración DGII."},
+                {"title": "Formulario IR-17", "url": "web_reports_ir17.ir17_list",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Prepara, valida y descarga la declaración mensual de otras retenciones y retribuciones complementarias."},
                 {"title": "Reporte IT1", "url": "web_reports_sales.it1_reports_list",
                  "enabled": module_enabled('e_cf'),
                  "desc": "Crea un reporte con los datos de tu IT-1 y Anexo A para presentarlo en la oficina virtual de la DGII."},
