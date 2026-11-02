@@ -3,6 +3,15 @@
     <div class="sidebar-divider"></div>
     <span class="sidebar-discover-title">Módulos</span>
 
+    {% if session.get('user', {}).get('role') == 'owner' or check_permission('canViewInternalServiceDocuments') or check_permission('canCreateInternalServiceDocument') %}
+    <a href="{{ url_for('web_internal_service_documents.list_documents') }}"
+        class="sidebar-discover-item {% if active_page == 'internal_documents' %}active{% endif %}"
+        data-tooltip="Documentos internos">
+        <i class="fa-solid fa-gift"></i>
+        <span>Documentos internos</span>
+    </a>
+    {% endif %}
+
     {% if module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True)) %}
     <a href="{{ url_for('web_invoices.list_invoices') }}"
         class="sidebar-discover-item {% if active_page == 'invoices' %}active{% endif %}"

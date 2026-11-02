@@ -1,0 +1,61 @@
+{% extends "layout.html" %}
+{% block title %}Documentos internos{% endblock %}
+{% block page_header %}Documentos internos{% endblock %}
+{% block content %}
+<style>
+    .internal-page { max-width: 1440px; margin: 0 auto; }
+    .internal-intro { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:24px; padding-left:4px; }
+    .internal-intro h1 { margin:0 0 6px; font-size:1.75rem; font-weight:800; color:var(--text-primary); font-family:var(--font-heading); }
+    .internal-intro p { margin:0; color:var(--text-secondary); font-size:.9rem; }
+    .internal-banner { display:flex; gap:14px; align-items:flex-start; margin-bottom:22px; padding:16px 18px; border:1px solid rgba(245,158,11,.25); border-radius:var(--radius-md); background:rgba(245,158,11,.08); color:var(--text-primary); }
+    .internal-banner i { color:#d97706; font-size:1.15rem; margin-top:2px; }
+    .internal-banner strong { display:block; margin-bottom:3px; font-size:.88rem; }
+    .internal-banner span { color:var(--text-secondary); font-size:.82rem; line-height:1.45; }
+    .internal-filters { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:18px; padding:0 0 14px; border-bottom:1px solid rgba(0,0,0,.06); }
+    .internal-search { position:relative; flex:1 1 250px; max-width:360px; }
+    .internal-search i { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:.85rem; }
+    .internal-search input { width:100%; height:36px; padding:0 14px 0 38px; border:1px solid transparent; border-radius:20px; background:var(--bg-input); color:var(--text-primary); }
+    .internal-select { height:36px; min-width:170px; padding:0 10px; border:1px solid transparent; border-bottom-color:var(--border-color); background:transparent; color:var(--text-secondary); }
+    .internal-clear { color:var(--text-muted); text-decoration:none; font-size:.84rem; padding:7px 10px; }
+    .internal-clear:hover { color:var(--text-primary); background:rgba(0,0,0,.04); border-radius:var(--radius-sm); }
+    .internal-table-wrap { overflow:hidden; }
+    .internal-table-scroll { overflow-x:auto; }
+    .internal-table { min-width:850px; }
+    .internal-table td { vertical-align:middle; }
+    .internal-number { color:var(--accent-purple); font-weight:700; text-decoration:none; }
+    .internal-number:hover { text-decoration:underline; }
+    .internal-client { color:var(--text-primary); font-weight:600; }
+    .internal-muted { color:var(--text-muted); font-size:.78rem; }
+    .internal-status { display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border-radius:999px; font-size:.72rem; font-weight:700; white-space:nowrap; }
+    .internal-status.vigente { color:#047857; background:rgba(16,185,129,.12); }
+    .internal-status.proximo { color:#b45309; background:rgba(245,158,11,.14); }
+    .internal-status.vencido { color:#b91c1c; background:rgba(239,68,68,.12); }
+    .internal-status.anulado { color:var(--text-muted); background:rgba(100,116,139,.13); }
+    .internal-action { color:var(--accent-purple); text-decoration:none; font-size:.82rem; font-weight:600; white-space:nowrap; }
+    @media (max-width:700px) { .internal-intro { flex-direction:column; } .internal-intro .btn { width:100%; } .internal-select { flex:1 1 150px; } }
+</style>
+
+<div class="internal-page">
+    <div class="internal-intro">
+        <div><h1>Documentos internos</h1><p>Registro comercial de servicios gratuitos y promociones, sin efectos fiscales.</p></div>
+        {% if session.get('user', {}).get('role') == 'owner' or check_permission('canCreateInternalServiceDocument') %}
+        <a href="{{ url_for('web_internal_service_documents.new_document') }}" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:7px;"><i class="fa-solid fa-plus"></i> Nuevo documento</a>
+        {% endif %}
+    </div>
+
+    <div class="internal-banner"><i class="fa-solid fa-circle-info"></i><div><strong>Documento interno · sin validez fiscal</strong><span>Este registro documenta el valor comercial concedido. No es una factura, no genera NCF ni e-CF y no inicia facturación automáticamente.</span></div></div>
+
+    <div class="card-table-wrapper internal-table-wrap">
+        <div class="table-header-row"><div><h3 style="font-size:1.25rem;font-family:var(--font-heading);margin-bottom:6px;">Promociones registradas</h3><p style="color:var(--text-secondary);font-size:.88rem;margin:0;">Consulta la vigencia y el inicio estimado de facturación formal.</p></div></div>
+        <form method="get" class="internal-filters">
+            <div class="internal-search"><i class="fa-solid fa-magnifying-glass"></i><input name="q" value="{{ q }}" placeholder="Buscar cliente o RNC"></div>
+            <select name="state" class="internal-select"><option value="">Todos los estados</option>{% for value,label in [('vigente','Vigente'),('proximo','Próximo a vencer'),('vencido','Vencido'),('anulado','Anulado')] %}<option value="{{ value }}" {% if state == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+            <select name="promotionType" class="internal-select"><option value="">Todas las promociones</option><option value="servicio_gratuito" {% if promotion_type == 'servicio_gratuito' %}selected{% endif %}>Servicio gratuito</option><option value="descuento_100" {% if promotion_type == 'descuento_100' %}selected{% endif %}>Descuento del 100 %</option><option value="periodo_prueba" {% if promotion_type == 'periodo_prueba' %}selected{% endif %}>Período de prueba</option><option value="bonificacion" {% if promotion_type == 'bonificacion' %}selected{% endif %}>Bonificación</option><option value="cortesia" {% if promotion_type == 'cortesia' %}selected{% endif %}>Cortesía</option></select>
+            <button class="btn btn-secondary" type="submit"><i class="fa-solid fa-filter"></i> Filtrar</button><a class="internal-clear" href="{{ url_for('web_internal_service_documents.list_documents') }}"><i class="fa-solid fa-eraser"></i> Limpiar</a>
+        </form>
+        <div class="internal-table-scroll"><table class="data-grid internal-table"><thead><tr><th>Documento</th><th>Cliente</th><th>Promoción</th><th>Vigencia</th><th>Facturación desde</th><th>Estado</th><th></th></tr></thead><tbody>
+        {% for document in documents %}<tr><td><a class="internal-number" href="{{ url_for('web_internal_service_documents.detail_document', document_id=document.id) }}">{{ document.documentNumber }}</a><div class="internal-muted">{{ document.issueDate }}</div></td><td><div class="internal-client">{{ document.clientSnapshot.razonSocial }}</div><div class="internal-muted">{{ document.clientSnapshot.rnc or 'Sin RNC/cédula' }}</div></td><td>{{ document.promotionTypeLabel }}</td><td>{{ document.promotionStartDate }}<div class="internal-muted">hasta {{ document.promotionEndDate }}</div></td><td>{{ document.billingStartDate }}</td><td><span class="internal-status {{ document.calculatedState }}"><i class="fa-solid {% if document.calculatedState == 'vigente' %}fa-circle-check{% elif document.calculatedState == 'proximo' %}fa-clock{% elif document.calculatedState == 'vencido' %}fa-triangle-exclamation{% else %}fa-ban{% endif %}"></i>{{ document.calculatedState|capitalize }}</span></td><td><a class="internal-action" href="{{ url_for('web_internal_service_documents.detail_document', document_id=document.id) }}">Ver detalle <i class="fa-solid fa-chevron-right"></i></a></td></tr>{% else %}<tr><td colspan="7" style="text-align:center;padding:42px;color:var(--text-muted);"><i class="fa-solid fa-gift" style="font-size:1.6rem;display:block;margin-bottom:10px;"></i>No hay documentos internos que coincidan con los filtros.</td></tr>{% endfor %}
+        </tbody></table></div>
+    </div>
+</div>
+{% endblock %}

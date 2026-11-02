@@ -148,6 +148,7 @@
         </a>
         
         <form method="POST" style="display: inline-flex; align-items: center; gap: 10px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <label style="font-size:0.86rem; font-weight:700; color:var(--text-secondary);">Marcar estado:</label>
             <select name="status" class="form-select" onchange="this.form.submit()" style="height:40px; font-size:0.86rem; border-radius: 8px; padding: 0 12px; width:140px; background:#fff; border:1px solid #e2e8f0; outline:none; font-weight: 600; cursor: pointer; transition: border-color 0.15s;">
                 <option value="Borrador" {% if report.status == 'Borrador' %}selected{% endif %}>Borrador</option>

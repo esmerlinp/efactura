@@ -363,6 +363,36 @@ def monitored_hr_status_transitions(company_id=None):
     )
 
 
+def run_internal_service_document_alerts(company_id=None):
+    from app.services.internal_service_document_alert_service import InternalServiceDocumentAlertService
+    owner_uids = _get_all_owner_uids(company_id=company_id)
+    total = 0
+    for owner_uid in owner_uids:
+        for sandbox in (True, False):
+            try:
+                current_company_id = company_id
+                if not current_company_id:
+                    from app.services.db_service import _resolve_company_id
+                    current_company_id = _resolve_company_id(owner_uid)
+                if not current_company_id:
+                    continue
+                total += InternalServiceDocumentAlertService.process(
+                    current_company_id, owner_uid, sandbox=sandbox
+                )
+            except Exception as exc:
+                logger.error("Error en alertas de documentos internos para %s: %s", owner_uid, exc)
+    return total
+
+
+def monitored_internal_service_document_alerts(company_id=None):
+    return _run_monitored(
+        "internal_service_document_alerts",
+        "Alertas de Vencimiento de Promociones Internas",
+        run_internal_service_document_alerts,
+        company_id=company_id,
+    )
+
+
 def monitored_authorization_timeout(company_id=None):
     return _run_monitored(
         "authorization_timeout",
@@ -474,6 +504,14 @@ def init_scheduler(app):
         trigger=CronTrigger(hour=0, minute=15),  # 00:15 AM RD cada día
         id="hr_status_transitions",
         name="Transiciones de Estado de Empleados (Vacaciones/Licencias)",
+        replace_existing=True,
+    )
+
+    _scheduler.add_job(
+        func=monitored_internal_service_document_alerts,
+        trigger=CronTrigger(hour=7, minute=30),
+        id="internal_service_document_alerts",
+        name="Alertas de Vencimiento de Promociones Internas",
         replace_existing=True,
     )
 

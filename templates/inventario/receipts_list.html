@@ -31,7 +31,7 @@
     </div>
 </div>
 
-<div class="card-table-wrapper" style="margin-bottom:30px;">
+<div class="card-table-wrapper" style="margin-bottom:30px; padding:24px; background:var(--bg-card, #ffffff); border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
     <div class="table-header-row">
         <div>
             <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:6px;">Historial de Recepciones</h3>
@@ -39,31 +39,31 @@
         </div>
     </div>
 
-    <div class="table-responsive">
-        <table class="data-grid" style="width: 100%;">
+    <div class="table-responsive" style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px;">
+        <table class="data-grid receipts-table" style="width:100%; border-collapse:collapse; font-size:0.84rem;">
             <thead>
-                <tr>
-                    <th>Recepción #</th>
-                    <th>OC #</th>
-                    <th>Proveedor</th>
-                    <th>Almacén</th>
-                    <th>Fecha</th>
-                    <th>Partidas</th>
-                    <th>Items Catálogo</th>
-                    <th>Estado</th>
-                    <th style="text-align:right; width: 50px;"></th>
+                <tr style="background:#f1f5f9; color:#334155; border-bottom:2px solid #cbd5e1;">
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Recepción #</th>
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">OC #</th>
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Proveedor</th>
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Almacén</th>
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Fecha</th>
+                    <th style="padding:10px 12px; text-align:right; font-size:0.78rem;">Partidas</th>
+                    <th style="padding:10px 12px; text-align:right; font-size:0.78rem;">Items Catálogo</th>
+                    <th style="padding:10px 12px; text-align:left; font-size:0.78rem;">Estado</th>
+                    <th style="padding:10px 12px; text-align:right; width:50px; font-size:0.78rem;"></th>
                 </tr>
             </thead>
             <tbody>
                 {% if receipts %}
                 {% for r in receipts %}
-                <tr>
-                    <td>
+                <tr style="border-bottom:1px solid #e2e8f0; transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
+                    <td style="padding:10px 12px;">
                         <a href="{{ url_for('web_inventory.receipt_detail', receipt_id=r.id) }}" style="text-decoration:none;">
                             <span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ r.receiptNumber or '—' }}</span>
                         </a>
                     </td>
-                    <td>
+                    <td style="padding:10px 12px;">
                         {% if r.poId %}
                         <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=r.poId) }}" style="text-decoration:none;" title="Ver Orden de Compra">
                             <span class="mono" style="color:var(--accent-blue); font-weight:600; text-decoration:underline; text-decoration-color:transparent; transition:text-decoration-color 0.15s ease;">{{ r.poNumber or 'Ver OC' }}</span>
@@ -72,11 +72,11 @@
                         <span class="mono">{{ r.poNumber or '—' }}</span>
                         {% endif %}
                     </td>
-                    <td>{{ r.supplierName or '—' }}</td>
-                    <td>{{ r.warehouseName or '—' }}</td>
-                    <td style="font-size:0.82rem;">{{ r.receiptDate or r.createdAt[:10] if r.createdAt else '—' }}</td>
-                    <td style="text-align:center;">{{ r['items']|length if r['items'] else 0 }}</td>
-                    <td style="text-align:center;">
+                    <td style="padding:10px 12px;">{{ r.supplierName or '—' }}</td>
+                    <td style="padding:10px 12px;">{{ r.warehouseName or '—' }}</td>
+                    <td style="font-size:0.82rem; padding:10px 12px;">{{ r.receiptDate or r.createdAt[:10] if r.createdAt else '—' }}</td>
+                    <td style="text-align:right; padding:10px 12px;">{{ r['items']|length if r['items'] else 0 }}</td>
+                    <td style="text-align:right; padding:10px 12px;">
                         {% set catalog_count = r['items']|selectattr('itemId')|list|length if r['items'] else 0 %}
                         {% if catalog_count > 0 %}
                         <span style="color:var(--accent-emerald); font-weight:600;">{{ catalog_count }}</span>
@@ -84,14 +84,14 @@
                         <span style="color:var(--text-muted);">—</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td style="padding:10px 12px;">
                         {% if r.status == 'completada' %}
                         <span class="badge-pill badge-green">Completada</span>
                         {% else %}
                         <span class="badge-pill badge-amber">{{ r.status }}</span>
                         {% endif %}
                     </td>
-                    <td style="text-align:right;">
+                    <td style="text-align:right; padding:10px 12px;">
                         <div class="action-menu">
                             <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
                                 <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -107,7 +107,7 @@
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="9" style="text-align:center; padding:40px; color:var(--text-muted);">
+                    <td colspan="9" style="text-align:center; padding:48px 24px; color:var(--text-muted);">
                         <i class="fa-solid fa-truck-loading" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
                         No hay recepciones registradas.
                         <div style="margin-top:10px; font-size:0.85rem;">Las recepciones se crean al recibir una orden de compra aprobada.</div>
@@ -120,6 +120,18 @@
 </div>
 
 <style>
+.receipts-table th,
+.receipts-table td {
+    border-bottom:1px solid #e2e8f0;
+    vertical-align:middle;
+}
+.receipts-table tbody td {
+    padding:10px 12px;
+    color:var(--text-primary);
+}
+.receipts-table tbody tr:last-child td {
+    border-bottom:0;
+}
 .badge-pill {
     display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:99px;
     font-size:0.7rem; font-weight:600;
