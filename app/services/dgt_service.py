@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from app.services.hr_data_service import (
     get_employees, get_employee, get_payroll_periods, get_payroll_period,
-    get_payroll_period_by_key, get_all_salary_history, get_vacation_requests,
+    get_payroll_period_by_key, get_all_salary_history,
     get_overtime_records, get_all_employment_history,
 )
 from app.data.occupations_catalog import get_occupation_name
@@ -348,44 +348,10 @@ class DGTService:
                             "emp": emp,
                             "esSueldo": True,
                             "montoSueldo": new,
-                            "vac_start": "",
-                            "vac_end": "",
                         }
                     mod_by_emp[emp_id]["detalles"].append(f"Salario: {old:.2f} → {new:.2f}")
                     mod_by_emp[emp_id]["esSueldo"] = True
                     mod_by_emp[emp_id]["montoSueldo"] = new
-
-        # Modificaciones: revisar vacaciones del mes
-        try:
-            vacations = get_vacation_requests(company_id, sandbox=sandbox)
-            for vac in vacations:
-                if vac.get("status") != "aprobada":
-                    continue
-                emp_id = vac.get("employeeId")
-                if emp_id in altas_emp_ids or emp_id in bajas_emp_ids:
-                    continue
-                v_start = vac.get("startDate", "")
-                if v_start[:7] == period_key:
-                    emp = next((e for e in employees if e.get("id") == emp_id), None)
-                    if emp and emp.get("contractType") == "tiempo_indefinido":
-                        v_end = vac.get("endDate", "")
-                        if emp_id not in mod_by_emp:
-                            mod_by_emp[emp_id] = {
-                                "documento": emp.get("cedula", ""),
-                                "nombre": emp.get("fullName", ""),
-                                "detalles": [],
-                                "fechaCambio": v_start,
-                                "emp": emp,
-                                "esSueldo": False,
-                                "montoSueldo": 0.0,
-                                "vac_start": v_start,
-                                "vac_end": v_end,
-                            }
-                        mod_by_emp[emp_id]["detalles"].append(f"Vacaciones: {_to_dgt_date(v_start)} a {_to_dgt_date(v_end)}")
-                        mod_by_emp[emp_id]["vac_start"] = v_start
-                        mod_by_emp[emp_id]["vac_end"] = v_end
-        except Exception as e_vac:
-            print(f"⚠️ get_dgt4_data: error procesando vacaciones: {e_vac}")
 
         # Modificaciones: revisar cambios estructurales (turno, ocupación, traslado)
         try:
@@ -408,8 +374,6 @@ class DGTService:
                                 "emp": emp,
                                 "esSueldo": False,
                                 "montoSueldo": 0.0,
-                                "vac_start": "",
-                                "vac_end": "",
                             }
                         mod_by_emp[emp_id]["detalles"].append(ch_desc)
         except Exception as e_hist:
@@ -419,9 +383,6 @@ class DGTService:
         for emp_id, m in mod_by_emp.items():
             modificaciones += 1
             emp_dict = dict(m["emp"])
-            if m.get("vac_start"):
-                emp_dict["vacationStartDate"] = m["vac_start"]
-                emp_dict["vacationEndDate"] = m["vac_end"]
 
             changes.append({
                 "tipo": "modificacion",
@@ -537,11 +498,12 @@ class DGTService:
 
     @staticmethod
     def get_dgt2_data(company_id: str, year: int, month: int = None, sandbox: bool = True) -> dict:
-        """DGT-2: Cartel de Horas y Vacaciones con datos SIRLA (mensual).
+        """DGT-2: Cartel de Horas Extraordinarias de Trabajo con datos SIRLA (mensual).
 
-        El archivo SIRLA DGT-2 se declara por mes (Periodo = MMYYYY) y el bloque
-        de "Día {n}" (1..31) exige el detalle diario de horas extras y su
-        porcentaje, por lo que el reporte debe ser mensual.
+        Reporta las horas trabajadas por encima de la jornada normal durante el
+        mes anterior. El archivo SIRLA DGT-2 se declara por mes (Periodo = MMYYYY)
+        y el bloque de "Día {n}" (1..31) exige el detalle diario de horas extras
+        y su porcentaje, por lo que el reporte debe ser mensual.
         """
         from datetime import datetime as _dt
         from app.services.db_service import DatabaseService
@@ -550,7 +512,6 @@ class DGTService:
             month = _dt.now().month
 
         employees = get_employees(company_id, sandbox=sandbox)
-        vacations = get_vacation_requests(company_id, sandbox=sandbox)
 
         # Horas extras del mes por empleado y día, desde overtime_records
         overtime_records = get_overtime_records(company_id, sandbox=sandbox)
@@ -587,17 +548,6 @@ class DGTService:
                 bucket[day] = {"hours": combined_hours, "percentage": combined_pct}
             else:
                 bucket[day] = {"hours": hours, "percentage": percentage}
-
-        employees_on_vacation = []
-        for v in vacations:
-            if v.get("status") == "aprobada" and str(v.get("startDate", ""))[:7] == period_prefix:
-                emp = next((e for e in employees if e.get("id") == v.get("employeeId")), None)
-                employees_on_vacation.append({
-                    "name": emp.get("fullName", v.get("employeeName", "")) if emp else v.get("employeeName", ""),
-                    "desde": _to_dgt_date(v.get("startDate", "")),
-                    "hasta": _to_dgt_date(v.get("endDate", "")),
-                    "days": v.get("days", 0),
-                })
 
         # Datos de empresa para SIRLA
         company_raw = DatabaseService.get_company(company_id) or {}
@@ -663,7 +613,6 @@ class DGTService:
                 "propertyValue": float(company_raw.get("property_value", 0) or 0),
             },
             "totalOvertimeHours": round(total_overtime, 2),
-            "workersOnVacation": employees_on_vacation,
             "workdayStart": "08:00",
             "workdayEnd": "17:00",
             "lunchStart": "12:00",

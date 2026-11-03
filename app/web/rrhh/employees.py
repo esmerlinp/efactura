@@ -863,8 +863,6 @@ def employee_edit(employee_id):
         new_occupation = request.form.get("occupationCode", "").strip()
         new_branch = request.form.get("branchId", "").strip()
         new_shift = int(request.form.get("workShift", 1) or 1)
-        new_vac_start = request.form.get("vacationStartDate", "").strip()
-        new_vac_end = request.form.get("vacationEndDate", "").strip()
 
         old_position = before.get("position", "")
         old_department = before.get("department", "") or before.get("area", "")
@@ -874,13 +872,10 @@ def employee_edit(employee_id):
         old_shift = int(before.get("workShift", 1) or 1)
         old_schedule = before.get("workSchedule", [])
         old_schedule_custom = before.get("workScheduleCustom", False)
-        old_vac_start = before.get("vacationStartDate", "")
-        old_vac_end = before.get("vacationEndDate", "")
 
         shift_changed = (old_shift != new_shift) or (old_schedule != work_schedule) or (old_schedule_custom != work_schedule_custom)
         position_changed = (new_position != old_position) or (new_occupation != old_occupation)
         branch_changed = bool(old_branch and new_branch and old_branch != new_branch)
-        vacation_changed = (new_vac_start and new_vac_start != old_vac_start) or (new_vac_end and new_vac_end != old_vac_end)
 
         changes = []
         if new_position != old_position: changes.append(f"Cargo: {old_position} → {new_position}")
@@ -893,7 +888,6 @@ def employee_edit(employee_id):
         elif old_schedule != work_schedule:
             changes.append("Horario modificado")
         if branch_changed: changes.append(f"Sucursal: {old_branch} → {new_branch}")
-        if vacation_changed: changes.append(f"Vacaciones: {new_vac_start} a {new_vac_end}")
 
         if changes:
             hr.save_employment_history(company_id, {
@@ -906,13 +900,12 @@ def employee_edit(employee_id):
             }, sandbox=sandbox)
 
         # ── Alerta automática DGT-4 por novedades de cambio (Ley 16-92 / SIRLA) ──
-        if shift_changed or position_changed or branch_changed or vacation_changed:
+        if shift_changed or position_changed or branch_changed:
             try:
                 from app.services.tax_obligation_service import TaxObligationService
-                dgt_tx_date = new_vac_start if vacation_changed and new_vac_start else date.today().isoformat()
                 TaxObligationService.ensure_dgt4_alert(
                     company_id=company_id,
-                    transaction_date=dgt_tx_date,
+                    transaction_date=date.today().isoformat(),
                     owner_uid=owner_uid,
                 )
             except Exception as e_dgt:

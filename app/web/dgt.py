@@ -150,7 +150,7 @@ def dgt4_export():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# DGT-2: Cartel de Horas y Vacaciones
+# DGT-2: Cartel de Horas Extraordinarias de Trabajo
 # ═══════════════════════════════════════════════════════════════════════════
 
 @web_dgt_bp.route("/rrhh/dgt/dgt2")

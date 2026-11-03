@@ -367,7 +367,7 @@ class TestEnsureDGT4Alert:
     def test_ensure_dgt4_alert_all_change_events_deduplicated_in_month(self, mock_ref):
         """
         Verifica que cuando ocurren múltiples novedades de cambio en el mismo mes
-        (1. Cambio de turno, 2. Cambio de cargo, 3. Aumento salarial, 4. Vacaciones, 5. Traslado)
+        (1. Cambio de turno, 2. Cambio de cargo, 3. Aumento salarial, 4. Otra novedad de cambio, 5. Traslado)
         solo la primera crea la alerta y las siguientes 4 son detectadas como ya existentes (idempotencia).
         """
         existing_docs = {}
@@ -415,7 +415,7 @@ class TestEnsureDGT4Alert:
         assert res3["created"] is False
         assert res3["reason"] == "already_exists"
 
-        # Evento 4: Inicio y finalización de vacaciones (18 de octubre)
+        # Evento 4: Otra novedad de cambio (18 de octubre)
         res4 = TaxObligationService.ensure_dgt4_alert(
             company_id="comp_1",
             transaction_date="2026-10-18",

@@ -8,7 +8,7 @@ Genera los formularios del Ministerio de Trabajo (DGT) para el sistema SIRLA.
 2. En la categoría **"Nómina"**, elige el formulario que necesitas:
    - **DGT-3: Personal Fijo** — planilla de empleados fijos.
    - **DGT-4: Cambios en Personal Fijo** — altas y bajas.
-   - **DGT-2: Horas y Vacaciones**.
+   - **DGT-2: Horas Extraordinarias** — horas trabajadas por encima de la jornada normal del mes anterior.
    - **DGT-5: Personal Ocasional**.
    - **DGT-11: Comunicación de Ingreso**.
    - **DGT-12: Comunicación de Cese**.

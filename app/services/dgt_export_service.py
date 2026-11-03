@@ -170,7 +170,7 @@ class DGTExportService:
     def to_sirla_txt_dgt2(lines: list[dict], company_info: dict = None,
                           establishment_id: str = "000000", year: int = None,
                           month: int = None) -> str:
-        """Genera archivo fixed-width SIRLA DGT-2 (Cartel de Horas y Vacaciones).
+        """Genera archivo fixed-width SIRLA DGT-2 (Cartel de Horas Extraordinarias de Trabajo).
 
         Especificación oficial DGT-2 (SIRLA — carga de trabajadores):
           E: ET2<RNC_11><MMYYYY>                                               → 20 chars

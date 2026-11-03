@@ -67,7 +67,7 @@ class DGT4Report(BaseModel):
 
 
 class DGT2Schedule(BaseModel):
-    """DGT-2: Cartel de Horas y Vacaciones."""
+    """DGT-2: Cartel de Horas Extraordinarias de Trabajo."""
     year: int = 0
     workdayStart: str = ""           # Inicio jornada (HH:MM)
     workdayEnd: str = ""             # Fin jornada (HH:MM)
@@ -76,8 +76,7 @@ class DGT2Schedule(BaseModel):
     workDays: List[str] = []         # Días laborables (L,M,Mi,J,V,S,D)
     restDays: List[str] = []         # Días de descanso
     saturdayHours: str = ""          # Horario sábado si aplica
-    totalOvertimeHours: float = 0.0  # HE acumuladas en el año
-    workersOnVacation: List[dict] = []  # [{name, desde, hasta, days}]
+    totalOvertimeHours: float = 0.0  # HE acumuladas en el mes
 
 
 class DGT5Worker(BaseModel):
