@@ -691,11 +691,11 @@ def check_document_limit_exceeded(owner_uid, company_id=None, sandbox=True):
     """
     if sandbox:
         return False, ""
-        
+
     profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     if not profile:
         return False, ""
-        
+
     document_limit = profile.get('documentLimit')
     if not document_limit:
         return False, ""
@@ -11664,6 +11664,11 @@ def change_plan_page():
         current_docs = stats.get('prod_current_cycle', 0)
         
         blocked_reasons = []
+
+        _plan_modules = plan_data.get('modules') or {}
+        def _plan_module_enabled(_key):
+            _m = _plan_modules.get(_key)
+            return bool(_m.get('enabled', False)) if isinstance(_m, dict) else bool(_m)
         
         target_doc_limit = plan_data.get('documentLimit', 0)
         if target_doc_limit > 0 and current_docs > target_doc_limit:
@@ -11690,12 +11695,29 @@ def change_plan_page():
                 blocked_reasons.append(f'tienes {current_branches} sucursales (límite: {target_branch_limit})')
         
         target_box_limit = plan_data.get('boxLimit', 0)
-        if target_box_limit > 0:
+        if target_box_limit > 0 and _plan_module_enabled('pos'):
             boxes = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=False)
             current_boxes = len(boxes)
             if current_boxes > target_box_limit:
                 blocked_reasons.append(f'tienes {current_boxes} cajas registradoras (límite: {target_box_limit})')
         
+        target_warehouse_limit = plan_data.get('warehouseLimit', 0)
+        if target_warehouse_limit > 0 and _plan_module_enabled('inventario'):
+            warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=False)
+            current_warehouses = len(warehouses)
+            if current_warehouses > target_warehouse_limit:
+                blocked_reasons.append(f'tienes {current_warehouses} almacenes (límite: {target_warehouse_limit})')
+
+        target_employee_limit = plan_data.get('employeeLimit', 0)
+        if target_employee_limit > 0 and _plan_module_enabled('nomina'):
+            try:
+                from app.services import hr_data_service as hr
+                current_employees = len([e for e in hr.get_employees(company_id, sandbox=False) if e.get('status') != 'inactivo'])
+            except Exception:
+                current_employees = 0
+            if current_employees > target_employee_limit:
+                blocked_reasons.append(f'tienes {current_employees} empleados activos (límite: {target_employee_limit})')
+
         if blocked_reasons:
             flash('No puedes cambiar a este plan porque ' + ', '.join(blocked_reasons) + '. Reduce tu consumo antes de cambiar.', 'error')
             return redirect(url_for('web_invoices.change_plan_page'))
@@ -11738,12 +11760,23 @@ def change_plan_page():
     current_plan = next((p for p in plans if p['id'] == current_plan_id), None)
     
     stats = DatabaseService.get_invoice_stats(owner_uid, billing_day, company_id=company_id)
+    try:
+        from app.services import hr_data_service as hr
+        employees_count = len([e for e in hr.get_employees(company_id, sandbox=False) if e.get('status') != 'inactivo'])
+    except Exception:
+        employees_count = 0
+    try:
+        warehouses_count = len(DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=False))
+    except Exception:
+        warehouses_count = 0
     current_usage = {
         'docs': stats.get('prod_current_cycle', 0),
         'storage': DatabaseService.get_storage_usage_mb(owner_uid, company_id=company_id),
         'team': len(DatabaseService.get_team_members(owner_uid, company_id=company_id)),
         'branches': len(DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=False)),
         'boxes': len(DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=False)),
+        'warehouses': warehouses_count,
+        'employees': employees_count,
     }
     
     return render_template('change_plan.html', active_page='subscription',
@@ -11952,6 +11985,21 @@ def cxc_dashboard():
         )
 
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+
+    # Enlace tokenizado del portal por factura (para recordatorios por WhatsApp)
+    from app.utils.security import generate_portal_token
+    for inv in cxc_invoices:
+        try:
+            inv['portalUrl'] = url_for(
+                'portal.portal_entry',
+                token=generate_portal_token(
+                    owner_uid, inv.get('clientId'), sandbox=sandbox,
+                    company_id=company_id, doc_id=inv.get('id')
+                ),
+                _external=True
+            )
+        except Exception:
+            inv['portalUrl'] = ''
 
     return render_template(
         'cxc/dashboard.html',
@@ -12214,7 +12262,7 @@ def send_invoice_cxc_reminder(invoice_id, method):
     )
     
     if success:
-        return jsonify({"success": True, "message": message})
+        return jsonify({"success": True, "message": message, "portal_url": portal_url})
     else:
         return jsonify({"success": False, "message": message}), 500
 

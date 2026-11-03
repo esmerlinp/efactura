@@ -140,3 +140,4 @@ de usuario. Los tutoriales están organizados por módulo.
 4. [Certificación DGII](gestion/04-certificacion-dgii.md)
 5. [CRM — Pipeline y agenda](gestion/05-crm-pipeline-agenda.md)
 6. [Comisiones y metas](gestion/06-comisiones-y-metas.md)
+7. [Planes y suscripción](gestion/07-planes-y-suscripcion.md)
