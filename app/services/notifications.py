@@ -151,6 +151,9 @@ class NotificationService:
                 f"tiene un balance pendiente de *RD$ {remaining_balance:,.2f}* con vencimiento el {due_date}. "
                 f"Puede ver el detalle y realizar su pago en línea a través del portal de autogestión: {portal_url}"
             )
+            # Anexar el enlace del portal al mensaje personalizado (sin PIN) para que el cliente pueda acceder
+            if custom_message and portal_url and portal_url not in whatsapp_msg:
+                whatsapp_msg = f"{whatsapp_msg}\n\nPortal de pago: {portal_url}"
             
             print(f"📱 [WhatsApp API Simulación] Enviando a {recipient_contact}: {whatsapp_msg}")
             

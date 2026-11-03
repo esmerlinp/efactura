@@ -402,11 +402,11 @@
                                         <i class="fa-solid fa-calendar-plus"></i> Promesa de Pago
                                     </button>
                                     <button type="button" class="action-menu-item"
-                                        onclick="openAiReminderModal('{{ inv.id }}', 'email', '{{ inv.clientEmail }}', '{{ inv.clientName }}', {{ inv.remainingBalance }}, '{{ inv.dueDate }}', '{{ inv.status }}')">
+                                        onclick="openAiReminderModal('{{ inv.id }}', 'email', '{{ inv.clientEmail }}', '{{ inv.clientName }}', {{ inv.remainingBalance }}, '{{ inv.dueDate }}', '{{ inv.status }}', '{{ inv.portalUrl|default("") }}')">
                                         <i class="fa-solid fa-envelope"></i> Recordatorio Email
                                     </button>
                                     <button type="button" class="action-menu-item"
-                                        onclick="openAiReminderModal('{{ inv.id }}', 'whatsapp', '{{ inv.clientPhone }}', '{{ inv.clientName }}', {{ inv.remainingBalance }}, '{{ inv.dueDate }}', '{{ inv.status }}')">
+                                        onclick="openAiReminderModal('{{ inv.id }}', 'whatsapp', '{{ inv.clientPhone }}', '{{ inv.clientName }}', {{ inv.remainingBalance }}, '{{ inv.dueDate }}', '{{ inv.status }}', '{{ inv.portalUrl|default("") }}')">
                                         <i class="fa-solid fa-phone"></i> Recordatorio WhatsApp
                                     </button>
                                     <a href="{{ url_for('portal.client_portal', owner_uid=session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z'), client_id=inv.clientId, sandbox='true' if session.get('is_sandbox_mode', True) else 'false', company_id=session.get('selected_company_id')) }}"
@@ -770,11 +770,12 @@
         clientName: '',
         amount: 0,
         dueDate: '',
-        status: ''
+        status: '',
+        portalUrl: ''
     };
 
-    function openAiReminderModal(invoiceId, method, recipient, clientName, amount, dueDate, status) {
-        currentReminderData = { invoiceId, method, recipient, clientName, amount, dueDate, status };
+    function openAiReminderModal(invoiceId, method, recipient, clientName, amount, dueDate, status, portalUrl) {
+        currentReminderData = { invoiceId, method, recipient, clientName, amount, dueDate, status, portalUrl: portalUrl || '' };
 
         // Reset tone to formal
         const toneRadios = document.getElementsByName('aiTone');
@@ -856,8 +857,9 @@
         }
 
         if (method === 'whatsapp') {
-            const encodedText = encodeURIComponent(message);
             const cleanPhone = recipient.replace(/[^\d+]/g, '');
+            const link = currentReminderData.portalUrl ? `\n\nPortal de pago: ${currentReminderData.portalUrl}` : '';
+            const encodedText = encodeURIComponent(message + link);
             window.open(`https://wa.me/${cleanPhone}?text=${encodedText}`, '_blank');
 
             // Registrar interacción de fondo

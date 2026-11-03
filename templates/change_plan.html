@@ -77,6 +77,12 @@
     font-weight: 700;
     text-align: right;
 }
+.plan-feature .feature-sub {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
 .plan-card-footer {
     padding: 16px 24px 24px;
     text-align: center;
@@ -138,6 +144,13 @@
         {% for plan in plans %}
         {% set is_current = plan.id == current_plan_id %}
         {% set btn_disabled = is_current %}
+        {% set _mods = plan.modules if plan.modules else {} %}
+        {% set _nm = _mods.get('nomina') %}
+        {% set has_nomina = (_nm.get('enabled', False) if _nm is mapping else _nm) %}
+        {% set _pos = _mods.get('pos') %}
+        {% set has_pos = (_pos.get('enabled', False) if _pos is mapping else _pos) %}
+        {% set _inv = _mods.get('inventario') %}
+        {% set has_inventario = (_inv.get('enabled', False) if _inv is mapping else _inv) %}
         <div class="plan-card {% if is_current %}plan-card-current{% endif %}" id="plan-card-{{ loop.index }}">
             {% if is_current %}
             <div style="position:absolute;top:12px;right:12px;">
@@ -157,12 +170,20 @@
             <div class="plan-card-body">
                 <div class="plan-feature">
                     <i class="fa-solid fa-file-invoice"></i>
-                    <span class="feature-label">Documentos e-CF</span>
+                    <span class="feature-label">Documentos e-CF
+                        {% if plan.additionalDocumentCost is defined and plan.additionalDocumentCost > 0 %}
+                        <span class="feature-sub">+${{ "%.2f"|format(plan.additionalDocumentCost|float) }} por excedente</span>
+                        {% endif %}
+                    </span>
                     <span class="feature-value">{% if plan.documentLimit > 0 %}{{ plan.documentLimit }} / mes{% else %}Ilimitados{% endif %}</span>
                 </div>
                 <div class="plan-feature">
                     <i class="fa-solid fa-users"></i>
-                    <span class="feature-label">Usuarios</span>
+                    <span class="feature-label">Usuarios
+                        {% if plan.additionalUserCost is defined and plan.additionalUserCost > 0 %}
+                        <span class="feature-sub">+${{ "%.2f"|format(plan.additionalUserCost|float) }} por excedente</span>
+                        {% endif %}
+                    </span>
                     <span class="feature-value">{% if plan.userLimit > 0 %}{{ plan.userLimit }}{% else %}Ilimitados{% endif %}</span>
                 </div>
                 <div class="plan-feature">
@@ -173,8 +194,45 @@
                 {% if plan.branchLimit is defined %}
                 <div class="plan-feature">
                     <i class="fa-solid fa-code-branch"></i>
-                    <span class="feature-label">Sucursales</span>
+                    <span class="feature-label">Sucursales
+                        {% if plan.additionalBranchCost is defined and plan.additionalBranchCost > 0 %}
+                        <span class="feature-sub">+${{ "%.2f"|format(plan.additionalBranchCost|float) }} por excedente</span>
+                        {% endif %}
+                    </span>
                     <span class="feature-value">{% if plan.branchLimit > 0 %}{{ plan.branchLimit }}{% else %}Ilimitadas{% endif %}</span>
+                </div>
+                {% endif %}
+                {% if plan.warehouseLimit is defined and has_inventario %}
+                <div class="plan-feature">
+                    <i class="fa-solid fa-warehouse"></i>
+                    <span class="feature-label">Almacenes
+                        {% if plan.additionalWarehouseCost is defined and plan.additionalWarehouseCost > 0 %}
+                        <span class="feature-sub">+${{ "%.2f"|format(plan.additionalWarehouseCost|float) }} por excedente</span>
+                        {% endif %}
+                    </span>
+                    <span class="feature-value">{% if plan.warehouseLimit > 0 %}{{ plan.warehouseLimit }}{% else %}Ilimitados{% endif %}</span>
+                </div>
+                {% endif %}
+                {% if plan.employeeLimit is defined and has_nomina %}
+                <div class="plan-feature">
+                    <i class="fa-solid fa-user-tie"></i>
+                    <span class="feature-label">Empleados
+                        {% if plan.additionalEmployeeCost is defined and plan.additionalEmployeeCost > 0 %}
+                        <span class="feature-sub">+${{ "%.2f"|format(plan.additionalEmployeeCost|float) }} por excedente</span>
+                        {% endif %}
+                    </span>
+                    <span class="feature-value">{% if plan.employeeLimit > 0 %}{{ plan.employeeLimit }}{% else %}Ilimitados{% endif %}</span>
+                </div>
+                {% endif %}
+                {% if plan.boxLimit is defined and has_pos %}
+                <div class="plan-feature">
+                    <i class="fa-solid fa-cash-register"></i>
+                    <span class="feature-label">Cajas Registradoras
+                        {% if plan.additionalBoxCost is defined and plan.additionalBoxCost > 0 %}
+                        <span class="feature-sub">+${{ "%.2f"|format(plan.additionalBoxCost|float) }} por excedente</span>
+                        {% endif %}
+                    </span>
+                    <span class="feature-value">{% if plan.boxLimit > 0 %}{{ plan.boxLimit }}{% else %}Ilimitadas{% endif %}</span>
                 </div>
                 {% endif %}
                 <div class="plan-feature">
@@ -182,7 +240,16 @@
                     <span class="feature-label">Módulos incluidos</span>
                     <span class="feature-value" style="font-size:0.75rem;">{{ plan.modules.values()|selectattr('enabled')|list|length if plan.modules else '—' }}</span>
                 </div>
-                {% set all_module_keys = ["e_cf","dashboard","catalogo","cotizaciones","crm","pos","inventario","cxc","cxp_compras","gastos","contratos","comisiones","reporte_606","api","multi_empresa","portal_cliente","ia_bi","auditoria","exportacion_contable","pasarela_azul"] %}
+                {% if has_pos %}
+                <div class="plan-feature">
+                    <i class="fa-solid fa-store"></i>
+                    <span class="feature-label">Punto de Venta (POS)</span>
+                    <span class="feature-value">
+                        <i class="fa-solid fa-circle-check" style="color:var(--accent-emerald);"></i> Incluido
+                    </span>
+                </div>
+                {% endif %}
+                {% set all_module_keys = ["e_cf","dashboard","catalogo","cotizaciones","crm","pos","inventario","nomina","cxc","cxp_compras","gastos","contratos","comisiones","reporte_606","api","multi_empresa","portal_cliente","ia_bi","auditoria","exportacion_contable","pasarela_azul"] %}
                 {% set plan_module_keys = plan.modules.keys()|list if plan.modules else [] %}
                 <div class="module-badges-wrap">
                     {% for mod_key in all_module_keys %}
@@ -206,8 +273,14 @@
                 {% if plan.branchLimit is defined and plan.branchLimit > 0 and current_usage.branches > plan.branchLimit %}
                     {% set _ = blockers.append('sucursales') %}
                 {% endif %}
-                {% if plan.boxLimit is defined and plan.boxLimit > 0 and current_usage.boxes > plan.boxLimit %}
+                {% if plan.boxLimit is defined and plan.boxLimit > 0 and has_pos and current_usage.boxes > plan.boxLimit %}
                     {% set _ = blockers.append('cajas') %}
+                {% endif %}
+                {% if plan.warehouseLimit is defined and plan.warehouseLimit > 0 and has_inventario and current_usage.warehouses > plan.warehouseLimit %}
+                    {% set _ = blockers.append('almacenes') %}
+                {% endif %}
+                {% if plan.employeeLimit is defined and plan.employeeLimit > 0 and has_nomina and current_usage.employees > plan.employeeLimit %}
+                    {% set _ = blockers.append('empleados') %}
                 {% endif %}
                 {% if blockers %}
                 <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:var(--radius-sm);padding:10px 14px;margin-top:12px;font-size:0.78rem;color:var(--accent-red);display:flex;align-items:flex-start;gap:6px;">
