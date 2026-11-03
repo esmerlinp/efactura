@@ -656,6 +656,7 @@ def kardex_view():
     warehouse_id = request.args.get("warehouse_id", "").strip() or None
     date_from = request.args.get("date_from", "").strip() or None
     date_to = request.args.get("date_to", "").strip() or None
+    with_movements = request.args.get("with_movements") == "1"
 
     warehouses = DatabaseService.get_warehouses(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
     physical_items = [
@@ -690,7 +691,8 @@ def kardex_view():
             date_from=date_from,
             date_to=date_to,
             sandbox=sandbox,
-            owner_uid=owner_uid
+            owner_uid=owner_uid,
+            with_movements=with_movements
         )
 
     return render_template(
@@ -703,7 +705,8 @@ def kardex_view():
         date_from=date_from,
         date_to=date_to,
         kardex_data=kardex_data,
-        summary_data=summary_data
+        summary_data=summary_data,
+        only_with_movements=with_movements
     )
 
 

@@ -180,6 +180,7 @@ class KardexService:
         date_to: Optional[str] = None,
         sandbox: bool = True,
         owner_uid: Optional[str] = None,
+        with_movements: bool = False,
     ) -> Dict[str, Any]:
         """
         Genera el resumen de Kardex con conciliación obligatoria entre:
@@ -252,12 +253,19 @@ class KardexService:
                 warehouse_id=warehouse_id,
             )
 
-            if reconcil.get("status") != "OK":
-                discrepancies_count += 1
-
             init_b = k_res["initialBalance"]
             fin_b = k_res["finalBalance"]
             p_tot = k_res["periodTotals"]
+
+            if with_movements and (
+                float(p_tot["inQuantity"]) == 0.0
+                and float(p_tot["outQuantity"]) == 0.0
+                and float(init_b["quantity"]) == 0.0
+            ):
+                continue
+
+            if reconcil.get("status") != "OK":
+                discrepancies_count += 1
 
             total_initial_value += init_b["totalValue"]
             total_in_value += p_tot["inTotalValue"]

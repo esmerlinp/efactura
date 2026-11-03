@@ -4,7 +4,7 @@
 
 {% block page_header %}Kardex Valorizado de Inventario{% endblock %}
 
-{% block head_extra %}
+{% block extra_head %}
 <style>
     .kardex-skeleton {
         display: none !important;
@@ -35,6 +35,40 @@
         0% { background-position: 100% 0; }
         100% { background-position: -100% 0; }
     }
+    .kardex-item-picker { position: relative; }
+    .kardex-item-options {
+        display: none;
+        position: absolute;
+        z-index: 9999;
+        top: 42px;
+        left: 0;
+        right: 0;
+        max-height: 280px;
+        overflow-y: auto;
+        background: #fff;
+        border: 1px solid #cbd5e1;
+        border-radius: 7px;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, .12);
+    }
+    .kardex-item-picker.open .kardex-item-options { display: block; }
+    .kardex-item-option {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        width: 100%;
+        text-align: left;
+        border: 0;
+        border-bottom: 1px solid #f1f5f9;
+        background: transparent;
+        padding: 8px 10px;
+        cursor: pointer;
+    }
+    .kardex-item-option:last-child { border-bottom: 0; }
+    .kardex-item-option:hover,
+    .kardex-item-option.selected { background: #eff6ff; }
+    .kardex-item-option-main { font-size: 0.85rem; font-weight: 600; color: #0f172a; }
+    .kardex-item-option-meta { font-size: 0.75rem; color: #64748b; }
+    .kardex-item-empty { padding: 10px; font-size: 0.8rem; color: #94a3b8; text-align: center; }
 </style>
 {% endblock %}
 
@@ -80,19 +114,34 @@
     <form method="GET" action="{{ url_for('web_inventory.kardex_view') }}" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 24px;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: flex-end;">
             
-            <!-- Selector de Artículo -->
+            <!-- Selector de Artículo (buscable) -->
             <div>
                 <label style="display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 5px;">
                     Artículo / Producto
                 </label>
-                <select name="item_id" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 10px; font-size: 0.85rem; background: white;" onchange="this.form.submit()">
-                    <option value="">-- Consolidado General de Artículos --</option>
-                    {% for it in items %}
-                    <option value="{{ it.id }}" {% if it.id == selected_item_id %}selected{% endif %}>
-                        [{{ it.code or it.reference or '-' }}] {{ it.name }}
-                    </option>
-                    {% endfor %}
-                </select>
+                <div class="kardex-item-picker" id="kardex-item-picker">
+                    <input type="search" id="kardex-item-search" placeholder="Buscar por nombre o código..." autocomplete="off"
+                           aria-controls="kardex-item-options" role="combobox" aria-expanded="false"
+                           style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 10px; font-size: 0.85rem; background: white;">
+                    <input type="hidden" name="item_id" id="kardex-item-id" value="{{ selected_item_id }}">
+                    <div class="kardex-item-options" id="kardex-item-options" role="listbox" aria-label="Artículos físicos">
+                        <button type="button" class="kardex-item-option" role="option" data-id="" data-name="" data-code="" data-reference="">
+                            <span class="kardex-item-option-main">— Consolidado General de Artículos —</span>
+                            <span class="kardex-item-option-meta">Mostrar todos los artículos</span>
+                        </button>
+                        {% for it in items %}
+                        <button type="button" class="kardex-item-option" role="option"
+                                data-id="{{ it.id }}"
+                                data-name="{{ it.name or '' }}"
+                                data-code="{{ it.code or '' }}"
+                                data-reference="{{ it.reference or '' }}">
+                            <span class="kardex-item-option-main">{{ it.name }}</span>
+                            <span class="kardex-item-option-meta">[{{ it.code or it.reference or '-' }}]</span>
+                        </button>
+                        {% endfor %}
+                    </div>
+                    <div class="kardex-item-empty" id="kardex-item-empty" hidden>No se encontraron artículos.</div>
+                </div>
             </div>
 
             <!-- Selector de Almacén -->
@@ -124,6 +173,17 @@
                     Fecha Hasta
                 </label>
                 <input type="date" name="date_to" value="{{ date_to or '' }}" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 10px; font-size: 0.85rem; background: white;">
+            </div>
+
+            <!-- Filtro: solo artículos con movimientos -->
+            <div>
+                <label style="display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 5px;">
+                    Visibilidad
+                </label>
+                <label style="display: inline-flex; align-items: center; gap: 8px; width: 100%; height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 10px; font-size: 0.85rem; background: white; color: #334155; cursor: pointer;">
+                    <input type="checkbox" name="with_movements" value="1" {% if only_with_movements %}checked{% endif %}>
+                    <span>Solo con movimientos</span>
+                </label>
             </div>
 
             <!-- Botón Filtrar -->
@@ -374,6 +434,11 @@
         <div style="margin-bottom: 20px;">
             <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 6px;">
                 Resumen Valorizado de Inventario por Artículo
+                {% if only_with_movements %}
+                <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:600; padding:3px 9px; border-radius:10px; font-size:0.72rem; margin-left:8px; vertical-align:middle;">
+                    Solo con movimientos
+                </span>
+                {% endif %}
             </h3>
             <p style="color: #64748b; font-size: 0.85rem; margin: 0;">
                 Haga clic en cualquier artículo para ver su desglose cronológico completo de Kardex y capas FIFO.
@@ -457,7 +522,11 @@
                     {% else %}
                     <tr>
                         <td colspan="10" style="padding: 24px; text-align: center; color: #94a3b8;">
-                            No se encontraron artículos registrados en el catálogo.
+                            {% if only_with_movements %}
+                                No hay artículos con movimientos registrados para los filtros seleccionados.
+                            {% else %}
+                                No se encontraron artículos registrados en el catálogo.
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -492,9 +561,6 @@
 
         function showSkeleton() {
             skeleton.style.display = 'block';
-            form.querySelectorAll('select, input, button').forEach((control) => {
-                control.disabled = true;
-            });
         }
 
         form.addEventListener('submit', showSkeleton);
@@ -505,6 +571,96 @@
                 }
             });
         });
+    })();
+</script>
+<script>
+    (function () {
+        const form = document.querySelector('form[action*="/inventory/kardex"]');
+        const picker = document.getElementById('kardex-item-picker');
+        const search = document.getElementById('kardex-item-search');
+        const hidden = document.getElementById('kardex-item-id');
+        const empty = document.getElementById('kardex-item-empty');
+        if (!form || !picker || !search || !hidden) return;
+
+        const options = Array.from(picker.querySelectorAll('.kardex-item-option'));
+
+        function normalize(value) {
+            return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        }
+
+        function displayText(option) {
+            if (!option.dataset.id) return '';
+            const code = option.dataset.code || option.dataset.reference || '-';
+            return `[${code}] ${option.dataset.name}`;
+        }
+
+        function openPicker() {
+            picker.classList.add('open');
+            search.setAttribute('aria-expanded', 'true');
+        }
+
+        function closePicker() {
+            picker.classList.remove('open');
+            search.setAttribute('aria-expanded', 'false');
+        }
+
+        function filterItems() {
+            const query = normalize(search.value.trim());
+            let visible = 0;
+            options.forEach(option => {
+                if (!option.dataset.id) {
+                    option.style.display = query ? 'none' : 'flex';
+                    return;
+                }
+                const haystack = normalize(`${option.dataset.name} ${option.dataset.code} ${option.dataset.reference}`);
+                const matches = !query || haystack.includes(query);
+                option.style.display = matches ? 'flex' : 'none';
+                if (matches) visible += 1;
+            });
+            empty.hidden = visible !== 0 || !query;
+            openPicker();
+        }
+
+        function submitForm() {
+            closePicker();
+            form.submit();
+        }
+
+        function chooseItem(option) {
+            hidden.value = option.dataset.id || '';
+            search.value = displayText(option);
+            options.forEach(current => current.classList.toggle('selected', current === option));
+            submitForm();
+        }
+
+        options.forEach(option => option.addEventListener('click', () => chooseItem(option)));
+
+        search.addEventListener('focus', filterItems);
+        search.addEventListener('input', () => {
+            hidden.value = '';
+            options.forEach(option => option.classList.remove('selected'));
+            filterItems();
+        });
+        search.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const first = options.find(option => option.dataset.id && option.style.display !== 'none');
+                if (first) chooseItem(first);
+            } else if (event.key === 'Escape') {
+                closePicker();
+            }
+        });
+        document.addEventListener('click', event => {
+            if (!picker.contains(event.target)) closePicker();
+        });
+
+        if (hidden.value) {
+            const current = options.find(option => option.dataset.id === hidden.value);
+            if (current) {
+                search.value = displayText(current);
+                current.classList.add('selected');
+            }
+        }
     })();
 </script>
 {% endblock %}
