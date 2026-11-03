@@ -32,11 +32,16 @@
 </div>
 
 <div class="card-table-wrapper" style="margin-bottom:30px; padding:24px; background:var(--bg-card, #ffffff); border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-    <div class="table-header-row">
+    <div class="table-header-row" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
         <div>
             <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:6px;">Historial de Recepciones</h3>
             <p style="color:var(--text-secondary); font-size:0.88rem;">Registro de entradas de mercancía por órdenes de compra.</p>
         </div>
+        {% if check_permission('canInventoryAdjustments') %}
+        <a href="{{ url_for('web_invoices.new_inventory_transaction') }}" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-right-left"></i> Nuevo ajuste de inventario
+        </a>
+        {% endif %}
     </div>
 
     <div class="table-responsive" style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px;">
