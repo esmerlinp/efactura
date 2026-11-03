@@ -138,8 +138,14 @@
     <div class="inp-row">
       <div class="inp-group wide" style="position:relative;">
         <label for="client-search-input">Cliente <span style="color:var(--accent-red);">*</span></label>
-        <input type="text" id="client-search-input" class="form-input" placeholder="Buscar cliente por nombre, RNC o email…" autocomplete="off"
-          value="{% if invoice and invoice.clientName %}{{ invoice.clientName }} ({{ invoice.clientRNC or 'Consumidor Final' }}){% endif %}" {% if is_referencing %}readonly{% endif %}>
+        <div style="position:relative;">
+          <input type="text" id="client-search-input" class="form-input" placeholder="Buscar cliente por nombre, RNC o email…" autocomplete="off" style="padding-right:34px;"
+            value="{% if invoice and invoice.clientName %}{{ invoice.clientName }} ({{ invoice.clientRNC or 'Consumidor Final' }}){% endif %}" {% if is_referencing %}readonly{% endif %}>
+          <button type="button" id="btn-clear-client" aria-label="Quitar cliente" title="Quitar cliente" {% if is_referencing %}disabled{% endif %}
+            style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);width:26px;height:26px;border:0;border-radius:50%;background:transparent;color:var(--text-muted);cursor:pointer;align-items:center;justify-content:center;padding:0;">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          </button>
+        </div>
         <input type="hidden" id="client-id-hidden" name="clientId" value="{% if invoice %}{{ invoice.clientId or '' }}{% endif %}">
         <input type="hidden" id="client-name-hidden" name="clientName" value="{% if invoice %}{{ invoice.clientName or '' }}{% endif %}">
         <input type="hidden" id="client-foreign-tax-id-hidden" name="foreignTaxId" value="{% if invoice %}{{ invoice.get('foreignTaxId', '') or '' }}{% endif %}">
@@ -733,6 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (clientSearchInput) {
         clientSearchInput.addEventListener('input', () => {
+            clientSearchInput.dataset.clientCleared = 'false';
             if (clientIdHidden) clientIdHidden.value = '';
             if (clientNameHidden) clientNameHidden.value = clientSearchInput.value.split(' (')[0];
         });

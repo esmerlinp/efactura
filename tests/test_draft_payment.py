@@ -580,3 +580,51 @@ def test_save_draft_invoice_with_exempt_item_from_catalog_fallback(client):
         assert saved_invoice_dict["total"] == 400.0
         assert saved_invoice_dict["items"][0]["itbisRate"] == 0.0
         assert saved_invoice_dict["items"][0]["itbisAmount"] == 0.0
+
+
+def test_new_invoice_excludes_inactive_catalog_items(client):
+    mock_login(client)
+
+    active_item = {
+        "id": "prod-active",
+        "name": "Producto activo",
+        "code": "ACT-01",
+        "price": 100.0,
+        "itbisRate": 0.18,
+        "isActive": True,
+    }
+    inactive_item = {
+        "id": "prod-inactive",
+        "name": "Producto inactivo",
+        "code": "INA-01",
+        "price": 200.0,
+        "itbisRate": 0.18,
+        "isActive": False,
+    }
+
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch(
+            'app.services.db_service.DatabaseService.get_items',
+            return_value=[active_item, inactive_item],
+        ))
+        stack.enter_context(patch(
+            'app.services.db_service.DatabaseService.get_clients',
+            return_value=[],
+        ))
+        stack.enter_context(patch(
+            'app.services.db_service.DatabaseService.get_warehouses',
+            return_value=[],
+        ))
+        stack.enter_context(patch(
+            'app.services.db_service.DatabaseService.get_price_lists',
+            return_value=[],
+        ))
+
+        response = client.get('/invoices/new')
+
+    assert response.status_code == 200
+    html = response.data.decode('utf-8')
+    assert 'Producto activo' in html
+    assert 'Producto inactivo' not in html

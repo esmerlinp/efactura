@@ -32,7 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let catalogItems = [];
     const catalogDataElement = document.getElementById('catalog-data-json');
     if (catalogDataElement) {
-        catalogItems = JSON.parse(catalogDataElement.textContent);
+        catalogItems = JSON.parse(catalogDataElement.textContent)
+            .filter(item => item.isActive !== false);
     }
 
     let crmClients = [];
@@ -130,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     const clientSearchModal = document.getElementById('client-search-modal');
     const clientSearchInput = document.getElementById('client-search-input');
+    const btnClearClient = document.getElementById('btn-clear-client');
     const btnOpenClientModal = document.getElementById('btn-open-client-modal');
     const btnCloseClientModal = document.getElementById('btn-close-client-modal');
     const clientModalBackdrop = document.getElementById('client-modal-backdrop');
@@ -137,6 +139,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalClientListBody = document.getElementById('modal-client-list-body');
     const clientIdHidden = document.getElementById('client-id-hidden');
     const projectIdHidden = document.getElementById('project-id-hidden');
+
+    const updateClearClientButton = () => {
+        if (!btnClearClient || !clientSearchInput) return;
+        const hasSelectedClient = Boolean(clientIdHidden && clientIdHidden.value) ||
+            (clientSearchInput.value.trim() && clientSearchInput.value.trim() !== 'Consumidor Final');
+        btnClearClient.style.display = hasSelectedClient ? 'inline-flex' : 'none';
+    };
+
+    const clearSelectedClient = () => {
+        clientSearchInput.dataset.clientCleared = 'true';
+        if (clientIdHidden) clientIdHidden.value = '';
+        const clientNameHidden = document.getElementById('client-name-hidden');
+        const clientForeignTaxId = document.getElementById('client-foreign-tax-id-hidden');
+        if (clientNameHidden) clientNameHidden.value = '';
+        if (clientForeignTaxId) clientForeignTaxId.value = '';
+        if (projectIdHidden) projectIdHidden.value = '';
+        if (clientSearchInput) clientSearchInput.value = '';
+        if (clientRncInput) clientRncInput.value = '';
+
+        const dropdown = getOrCreateClientDropdown();
+        if (dropdown) dropdown.style.display = 'none';
+
+        const ecfSelect = document.getElementById('ecf-type-select');
+        const code = ecfSelect && typeof extractCodeFromLabel === 'function'
+            ? extractCodeFromLabel(ecfSelect.value) : '';
+        if (code === 'E32' && typeof setConsumerClient === 'function') setConsumerClient();
+        else if (typeof enableRncInput === 'function') enableRncInput();
+
+        updateClearClientButton();
+        if (typeof syncRncState === 'function') syncRncState();
+        if (typeof updateE45RncWarning === 'function') updateE45RncWarning();
+        if (typeof validateTaxConstraints === 'function') validateTaxConstraints();
+    };
+
+    if (btnClearClient) btnClearClient.addEventListener('click', clearSelectedClient);
 
     const isExportE46Selected = () => {
         const ecfSel = document.getElementById('ecf-type-select');
@@ -205,12 +242,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rnc = btn.getAttribute('data-rnc');
                 const foreignTaxId = btn.getAttribute('data-foreign-tax-id') || '';
 
+                clientSearchInput.dataset.clientCleared = 'false';
                 clientIdHidden.value = id;
                 const clientNameHidden = document.getElementById('client-name-hidden');
                 if (clientNameHidden) clientNameHidden.value = name;
                 const clientForeignTaxId = document.getElementById('client-foreign-tax-id-hidden');
                 if (clientForeignTaxId) clientForeignTaxId.value = foreignTaxId;
                 clientSearchInput.value = `${name} (${rnc || 'Consumidor Final'})`;
+                updateClearClientButton();
                 if (clientRncInput) {
                     clientRncInput.value = rnc;
                     if (typeof window.enableRncInput === 'function') window.enableRncInput();
@@ -658,6 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const selectClient = (id, name, rnc, client) => {
+        if (clientSearchInput) clientSearchInput.dataset.clientCleared = 'false';
         if (clientIdHidden) clientIdHidden.value = id;
         const clientNameHidden = document.getElementById('client-name-hidden');
         if (clientNameHidden) clientNameHidden.value = name;
@@ -666,6 +706,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (clientSearchInput) {
             clientSearchInput.value = rnc ? `${name} (${rnc})` : name;
         }
+        updateClearClientButton();
         if (clientRncInput) {
             clientRncInput.value = rnc || '';
             if (typeof window.enableRncInput === 'function') window.enableRncInput();
@@ -753,6 +794,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dropdown.style.display = 'block';
         });
 
+        clientSearchInput.addEventListener('input', updateClearClientButton);
+
         clientSearchInput.addEventListener('blur', () => {
             setTimeout(() => {
                 const dropdown = getOrCreateClientDropdown();
@@ -761,11 +804,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         clientSearchInput.addEventListener('focus', () => {
+            if (clientSearchInput.dataset.clientCleared === 'true') {
+                clientSearchInput.dataset.clientCleared = 'false';
+                return;
+            }
             if (clientSearchInput.value.trim().length >= 1) {
                 clientSearchInput.dispatchEvent(new Event('keyup'));
             }
         });
     }
+
+    updateClearClientButton();
 
     // =========================================================================
     // AUTOCOMPLETADO INLINE PARA PRODUCTOS (sin necesidad de abrir modal)
@@ -1312,10 +1361,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             disableSubmitButtons(false);
 
                             // Autocompletar la razón social en el input de búsqueda del cliente si está vacío o es por defecto
-                            const clientSearchInput = document.getElementById('client-search-input');
-                            if (clientSearchInput && (!clientSearchInput.value || clientSearchInput.value.includes('Consumidor Final'))) {
-                                clientSearchInput.value = `${data.razon_social} (${cleanRnc})`;
-                            }
+                const clientSearchInput = document.getElementById('client-search-input');
+                if (clientSearchInput && clientSearchInput.dataset.clientCleared !== 'true' && (!clientSearchInput.value || clientSearchInput.value.includes('Consumidor Final'))) {
+                    clientSearchInput.value = `${data.razon_social} (${cleanRnc})`;
+                    const clearButton = document.getElementById('btn-clear-client');
+                    if (clearButton) clearButton.style.display = 'inline-flex';
+                }
                         }
                     })
                     .catch(err => {
