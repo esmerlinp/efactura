@@ -198,7 +198,39 @@
                     <span class="badge" style="background: linear-gradient(135deg,#7c3aed,#a78bfa); color:white; margin-bottom: 10px; margin-left: 4px;">Profesional</span>
                     {% endif %}
                     {% else %}
-                    <span class="badge {% if invoice.status == 'Vencida' or invoice.status == 'Rechazado DGII' %}badge-danger{% elif invoice.status == 'Cobrada' or invoice.status == 'Pagada' or invoice.status == 'Pagado pero no emitido' %}badge-success{% elif invoice.status in ['Emitida', 'Parcialmente Cobrada', 'Pendiente'] %}badge-warning{% elif invoice.status == 'Borrador' %}badge-secondary{% else %}badge-secondary{% endif %}" style="margin-bottom: 10px;">{{ invoice.status }}</span>
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: nowrap; margin-bottom: 10px;">
+                        {% if invoice.status == 'Anulada' %}
+                        <span class="badge badge-danger" style="white-space: nowrap;">Anulada</span>
+                        {% elif invoice.status == 'Borrador' %}
+                        <span class="badge badge-secondary" style="white-space: nowrap;">Borrador</span>
+                        {% elif invoice.status == 'Pagado pero no emitido' %}
+                        <span class="badge badge-success" style="white-space: nowrap;">Pagado pero no emitido</span>
+                        {% elif invoice.remainingBalance <= 0.01 and invoice.totalPaid|default(0.0) > 0.0 %}
+                        <span class="badge badge-success" style="white-space: nowrap;">Cobrada</span>
+                        {% elif invoice.totalPaid|default(0.0) > 0.0 %}
+                        <span class="badge badge-warning" style="white-space: nowrap; background-color: rgba(245, 158, 11, 0.15); color: #d97706;">Cobro parcial</span>
+                        {% elif invoice.status == 'Vencida' %}
+                        <span class="badge badge-danger" style="white-space: nowrap;">Vencida</span>
+                        {% else %}
+                        <span class="badge badge-warning" style="white-space: nowrap; background-color: rgba(251, 191, 36, 0.15); color: #b45309;">Por cobrar</span>
+                        {% endif %}
+
+                        {% if invoice.isSyncedWithDGII or invoice.dgiiStatus in ['ACCEPTED', 'ACEPTADO', 'ACCEPTED_PREVIOUSLY'] %}
+                        <span class="badge badge-success" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-circle-check" style="font-size: 0.65rem;"></i> DGII: Aceptado</span>
+                        {% elif invoice.dgiiStatus in ['REJECTED', 'RECHAZADO'] %}
+                        <span class="badge badge-danger" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-circle-xmark" style="font-size: 0.65rem;"></i> DGII: Rechazado</span>
+                        {% elif invoice.dgiiStatus == 'CONTINGENCY' or (invoice.emisionMode == 'FALLBACK' and not invoice.isSyncedWithDGII) %}
+                        <span class="badge badge-warning" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(245, 158, 11, 0.15); color: #d97706;" title="Emitido en contingencia (pendiente de sincronizar con DGII)"><i class="fa-solid fa-triangle-exclamation" style="font-size: 0.65rem;"></i> DGII: Contingencia</span>
+                        {% elif invoice.dgiiStatus in ['PENDING', 'PENDIENTE'] or invoice.status == 'Pendiente DGII' or (invoice.emisionMode == 'API' and not invoice.isSyncedWithDGII and invoice.encf and invoice.status != 'Anulada') %}
+                        <span class="badge" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(59, 130, 246, 0.15); color: #2563eb;" title="Comprobante enviado a DGII (esperando confirmación)"><i class="fa-solid fa-clock" style="font-size: 0.65rem;"></i> DGII: Pendiente</span>
+                        {% elif invoice.dgiiStatus in ['CONDITIONAL', 'CONDICIONAL', 'ACEPTADO_CONDICIONAL'] %}
+                        <span class="badge" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(99, 102, 241, 0.15); color: #6366f1;"><i class="fa-solid fa-circle-info" style="font-size: 0.65rem;"></i> DGII: Condicional</span>
+                        {% elif invoice.encf %}
+                        <span class="badge badge-secondary" style="white-space: nowrap;">DGII: {{ invoice.dgiiStatus or 'No sincronizado' }}</span>
+                        {% else %}
+                        <span class="badge badge-secondary" style="white-space: nowrap;">DGII: No emitido</span>
+                        {% endif %}
+                    </div>
                     {% endif %}
                     {% if invoice.get('isImported') %}
                     <span class="badge badge-imported" style="margin-bottom: 10px; margin-left: 4px;"><i class="fa-solid fa-file-import"></i> Importada</span>
