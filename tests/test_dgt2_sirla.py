@@ -183,7 +183,6 @@ class TestGetDgt2Data:
 
     def _run(self, employees, overtime_records, year=2026, month=9):
         with patch("app.services.dgt_service.get_employees", return_value=employees), \
-             patch("app.services.dgt_service.get_vacation_requests", return_value=[]), \
              patch("app.services.dgt_service.get_overtime_records", return_value=overtime_records), \
              patch("app.services.db_service.DatabaseService.get_company",
                    return_value={"rnc": "131880681", "rnl_number": "1234",

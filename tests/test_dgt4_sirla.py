@@ -168,15 +168,6 @@ class TestDGTServiceGetDGT4Data:
             },
         ]
 
-        mock_vacations = [
-            {
-                "employeeId": "emp_4",
-                "startDate": "2026-10-12",
-                "endDate": "2026-10-26",
-                "status": "aprobada", # Vacaciones
-            }
-        ]
-
         mock_history = [
             {
                 "employeeId": "emp_3",
@@ -187,7 +178,6 @@ class TestDGTServiceGetDGT4Data:
 
         with patch("app.services.dgt_service.get_employees", return_value=mock_emps), \
              patch("app.services.dgt_service.get_all_salary_history", return_value=mock_salaries), \
-             patch("app.services.dgt_service.get_vacation_requests", return_value=mock_vacations), \
              patch("app.services.dgt_service.get_all_employment_history", return_value=mock_history), \
              patch("app.services.db_service.DatabaseService.get_company", return_value={"company_name": "Test SRL", "rnc": "131880681"}):
 
@@ -200,13 +190,13 @@ class TestDGTServiceGetDGT4Data:
 
             assert res["altas"] == 1
             assert res["bajas"] == 1
-            assert res["modificaciones"] == 2  # emp_3 (sueldo + turno consolidado) y emp_4 (vacaciones)
-            assert res["totalCambios"] == 4
+            assert res["modificaciones"] == 1  # emp_3 (sueldo + turno consolidado)
+            assert res["totalCambios"] == 3
 
             detalles = [c["detalle"] for c in res["lines"]]
             assert any("Ingresó" in d for d in detalles)
             assert any("Terminó" in d for d in detalles)
             assert any("Salario" in d for d in detalles)
-            assert any("Vacaciones" in d for d in detalles)
             assert any("Turno" in d for d in detalles)
+            assert not any("Vacaciones" in d for d in detalles)
 

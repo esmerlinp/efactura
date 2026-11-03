@@ -696,7 +696,7 @@ class TaxObligationService:
             "label": f"Reporte DGT-4: Cambios en Personal Fijo ({mes_nombre} {target_year})",
             "description": (
                 f"Declaración obligatoria de novedades de personal (altas, bajas, cambios de turno, ocupación, "
-                f"salario, vacaciones o traslado) del período {target_year}-{target_month:02d} ante el Ministerio de Trabajo (SIRLA)."
+                f"salario o traslado) del período {target_year}-{target_month:02d} ante el Ministerio de Trabajo (SIRLA)."
             ),
             "first_due_date": due_date.isoformat(),
             "recurrence": "fixed_date",
