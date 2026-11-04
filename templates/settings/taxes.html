@@ -244,6 +244,46 @@
         </div>
     </div>
 
+    <!-- Retenciones personalizadas -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-sliders"></i> Retenciones personalizadas</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <p style="color:var(--text-muted); font-size:0.82rem; margin:0 0 12px;">
+                Estas retenciones estarán disponibles automáticamente en los formularios de facturas, compras y órdenes de compra.
+            </p>
+            {% set custom_withholdings = rules.get('custom_withholdings', []) %}
+            <div class="table-responsive">
+                <table class="data-grid">
+                    <thead><tr><th>Nombre</th><th>Código</th><th>Tipo</th><th>Tasa (%)</th><th>Activa</th></tr></thead>
+                    <tbody>
+                    {% for item in custom_withholdings %}
+                    <tr>
+                        <td><input class="form-input" name="custom_name_{{ loop.index0 }}" value="{{ item.name }}" required></td>
+                        <td><input class="form-input" name="custom_code_{{ loop.index0 }}" value="{{ item.code }}"></td>
+                        <td><select class="form-select" name="custom_type_{{ loop.index0 }}"><option value="ISR" {% if item.type == 'ISR' %}selected{% endif %}>ISR</option><option value="ITBIS" {% if item.type == 'ITBIS' %}selected{% endif %}>ITBIS</option></select></td>
+                        <td><input class="form-input" type="number" min="0.01" max="100" step="0.01" name="custom_rate_{{ loop.index0 }}" value="{{ '%.2f'|format(item.rate * 100) }}" required></td>
+                        <td style="text-align:center"><input type="checkbox" name="custom_active_{{ loop.index0 }}" {% if item.active %}checked{% endif %}></td>
+                    </tr>
+                    {% endfor %}
+                    {% set next_index = custom_withholdings|length %}
+                    <tr>
+                        <td><input class="form-input" name="custom_name_{{ next_index }}" placeholder="Ej. Retención municipal"></td>
+                        <td><input class="form-input" name="custom_code_{{ next_index }}" placeholder="Opcional"></td>
+                        <td><select class="form-select" name="custom_type_{{ next_index }}"><option value="ISR">ISR</option><option value="ITBIS">ITBIS</option></select></td>
+                        <td><input class="form-input" type="number" min="0.01" max="100" step="0.01" name="custom_rate_{{ next_index }}" placeholder="0.00"></td>
+                        <td style="text-align:center"><input type="checkbox" name="custom_active_{{ next_index }}" checked></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p style="color:var(--text-muted); font-size:0.75rem; margin:12px 0 0; font-style:italic; border-top:1px solid var(--border-color); padding-top:8px;">
+                <i class="fa-solid fa-circle-info"></i> <strong>Ejemplo:</strong> para agregar una retención municipal del 5%, registra el nombre <strong>Retención municipal</strong>, código <strong>MUN-05</strong>, tipo <strong>ISR</strong>, tasa <strong>5.00</strong> y déjala activa.
+            </p>
+        </div>
+    </div>
+
     <div style="display:flex; gap:12px; justify-content:flex-end; flex-wrap:wrap; margin-bottom:24px;">
         <a href="{{ url_for('web_invoices.company_settings') }}" class="btn btn-ghost">Cancelar</a>
         <button type="submit" name="action" value="reset" class="btn btn-ghost" style="color:var(--danger);"

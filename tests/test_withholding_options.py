@@ -59,3 +59,16 @@ def test_itbis_fallback_to_withholding_vat():
 def test_empty_rules_return_empty():
     assert isr_withholding_options({}) == []
     assert itbis_withholding_options({}) == []
+
+
+def test_custom_withholding_options_are_included_by_type():
+    rules = {"custom_withholdings": [
+        {"code": "MUN", "name": "Retención municipal", "type": "ISR", "rate": 0.05, "active": True},
+        {"code": "OLD", "name": "Inactiva", "type": "ISR", "rate": 0.10, "active": False},
+        {"code": "VATX", "name": "ITBIS especial", "type": "ITBIS", "rate": 0.25, "active": True},
+    ]}
+    isr = isr_withholding_options(rules)
+    itbis = itbis_withholding_options(rules)
+    assert isr[-1]["code"] == "MUN"
+    assert all(option["code"] != "OLD" for option in isr)
+    assert itbis[-1]["label"] == "25% — ITBIS especial"
