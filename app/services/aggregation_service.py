@@ -37,9 +37,9 @@ class AggregationService:
 
     @staticmethod
     def _summary_path(owner_uid: str, year: int, month: int, company_id: str = None) -> str:
-        if company_id:
-            return f"companies/{company_id}/monthly_summaries/{year}-{month:02d}"
-        return f"users/{owner_uid}/monthly_summaries/{year}-{month:02d}"
+        from app.services.company_authorization import require_company_id
+        company_id = require_company_id(company_id, "AggregationService")
+        return f"companies/{company_id}/monthly_summaries/{year}-{month:02d}"
 
     @staticmethod
     def get_monthly_summary(owner_uid: str, year: int, month: int, company_id: str = None) -> Optional[dict]:

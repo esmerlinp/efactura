@@ -19,15 +19,19 @@ class PurchaseCreditNoteService:
 
     @classmethod
     def _coll_ref(cls, owner_uid=None, sandbox=True, company_id=None):
-        if company_id:
-            return _company_coll(company_id=company_id, coll_name=cls._coll(sandbox))
-        return _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=cls._coll(sandbox))
+        from app.services.company_authorization import require_company_id
+        return _company_coll(
+            company_id=require_company_id(company_id, "PurchaseCreditNoteService"),
+            coll_name=cls._coll(sandbox),
+        )
 
     @classmethod
     def _counter_ref(cls, owner_uid=None, company_id=None):
-        if company_id:
-            return _company_coll(company_id=company_id, coll_name="config").document("purchase_credit_note_counter")
-        return _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="config").document("purchase_credit_note_counter")
+        from app.services.company_authorization import require_company_id
+        return _company_coll(
+            company_id=require_company_id(company_id, "PurchaseCreditNoteService counter"),
+            coll_name="config",
+        ).document("purchase_credit_note_counter")
 
     @classmethod
     def _get_next_number(cls, owner_uid=None, company_id=None):

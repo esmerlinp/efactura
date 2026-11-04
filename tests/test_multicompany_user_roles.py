@@ -105,6 +105,54 @@ class TestMultiCompanyRoleIsolation:
             assert collab_member["permissions"]["canHR"] is False
             assert collab_member["permissions"]["canInvoice"] is True
 
+    def test_get_team_members_reconciles_active_membership_missing_team_document(self):
+        """Una membresía activa también debe aparecer en Usuarios y permisos."""
+        with patch('app.services.db_service.firebase_initialized', True), \
+             patch.object(DatabaseService, '_company_team_coll') as mock_team_coll, \
+             patch.object(DatabaseService, 'get_company_members') as mock_members, \
+             patch('app.services.db_service.db_firestore') as mock_db:
+            owner_uid = "owner_a"
+            company_id = "comp_a"
+            collab_uid = "user_b"
+
+            team_ref = MagicMock()
+            team_ref.get.return_value = []
+            mock_team_coll.return_value = team_ref
+            mock_members.return_value = [{
+                "uid": collab_uid,
+                "role": "personalizado",
+                "permissions": {"canInvoice": True, "canHR": False},
+                "status": "active",
+                "created_at": "2026-10-15T10:00:00",
+            }]
+
+            profile_doc = MagicMock()
+            profile_doc.exists = True
+            profile_doc.to_dict.return_value = {
+                "uid": collab_uid,
+                "name": "Usuario B",
+                "email": "user_b@test.do",
+            }
+            owner_doc = MagicMock()
+            owner_doc.exists = False
+
+            def profile_lookup(uid):
+                result = MagicMock()
+                result.collection.return_value.document.return_value.get.return_value = (
+                    profile_doc if uid == collab_uid else owner_doc
+                )
+                return result
+
+            mock_db.collection.return_value.document.side_effect = profile_lookup
+
+            team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
+
+            member = next(item for item in team if item["uid"] == collab_uid)
+            assert member["role"] == "personalizado"
+            assert member["permissions"]["canInvoice"] is True
+            team_ref.document.assert_any_call(collab_uid)
+            team_ref.document.return_value.set.assert_called_once()
+
     def test_get_team_members_auto_heals_corrupted_owner_role_for_collaborator(self):
         """Si un colaborador tenía 'role: owner' guardado en team, debe auto-sanarse a 'personalizado'."""
         with patch('app.services.db_service.firebase_initialized', True), \
@@ -177,6 +225,33 @@ class TestMultiCompanyRoleIsolation:
             assert ctx["role"] != "owner"
             assert ctx["role"] == "personalizado"
             assert ctx["owner_uid"] == "owner_a"
+
+    def test_get_company_context_rejects_legacy_owner_without_membership(self):
+        """La igualdad uid/company_id no sustituye una membresía activa."""
+        with patch.object(DatabaseService, 'get_company', return_value={
+            "id": "user_a",
+            "owner_uid": "user_a",
+            "company_name": "Empresa Legacy",
+            "status": "active",
+        }), patch.object(DatabaseService, 'get_membership', return_value=None):
+            ctx = DatabaseService.get_company_context("user_a", "user_a")
+            assert ctx is None
+
+    def test_get_company_context_accepts_owner_with_active_membership(self):
+        """El propietario debe acceder mediante su membresía, no por un bypass."""
+        with patch.object(DatabaseService, 'get_company', return_value={
+            "id": "comp_a",
+            "owner_uid": "user_a",
+            "company_name": "Empresa A",
+            "status": "active",
+        }), patch.object(DatabaseService, 'get_membership', return_value={
+            "status": "active",
+            "role": "owner",
+            "permissions": {"canInvoice": True},
+        }):
+            ctx = DatabaseService.get_company_context("user_a", "comp_a")
+            assert ctx is not None
+            assert ctx["role"] == "owner"
 
     def test_session_role_and_permissions_scoped_to_active_company(self, client):
         """En before_request, session['user'] debe adoptar el rol y permisos de la compañía activa."""

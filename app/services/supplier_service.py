@@ -54,11 +54,17 @@ def _contact_to_supplier(contact):
     return s
 
 
+def _require_company_id(company_id):
+    from app.services.company_authorization import require_company_id
+    return require_company_id(company_id, "SupplierService")
+
+
 class SupplierService:
 
     @classmethod
     def _contacts_as_suppliers(cls, owner_uid=None, sandbox=True, company_id=None):
         """Contactos con tipo 'proveedor' proyectados al shape de supplier (dual read)."""
+        company_id = _require_company_id(company_id)
         try:
             from app.services.contact_service import ContactService
             contacts = ContactService.get_contacts(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
@@ -69,6 +75,7 @@ class SupplierService:
 
     @classmethod
     def get_suppliers(cls, owner_uid=None, sandbox=True, branch_id=None, project_id=None, company_id=None):
+        company_id = _require_company_id(company_id)
         if not firebase_initialized or db_firestore is None:
             return []
         suppliers = []
@@ -101,6 +108,7 @@ class SupplierService:
 
     @classmethod
     def get_supplier(cls, owner_uid=None, supplier_id=None, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         if not firebase_initialized or db_firestore is None:
             return None
         try:
@@ -126,6 +134,7 @@ class SupplierService:
 
     @classmethod
     def save_supplier(cls, owner_uid=None, supplier_id=None, supplier_dict=None, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         supplier_dict["id"] = supplier_id
         supplier_dict["ownerUID"] = owner_uid
         supplier_dict["branchId"] = supplier_dict.get("branchId", "default-sucursal-principal")
@@ -173,6 +182,7 @@ class SupplierService:
 
     @classmethod
     def delete_supplier(cls, owner_uid=None, supplier_id=None, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         if not firebase_initialized or db_firestore is None:
             return
         try:

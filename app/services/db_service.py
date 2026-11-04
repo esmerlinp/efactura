@@ -1100,8 +1100,9 @@ def _company_coll(*, company_id=None, coll_name=None, owner_uid=None):
         resolved_cid = _resolve_company_id(owner_uid)
     if resolved_cid:
         return db_firestore.collection("companies").document(resolved_cid).collection(coll_name)
-    if owner_uid:
-        return db_firestore.collection("users").document(owner_uid).collection(coll_name)
+    # No usar users/{owner_uid} como sustituto silencioso del ambito de
+    # compania. Los callers legacy deben migrar y proporcionar company_id.
+    return None
     return None
 
 
@@ -1312,7 +1313,7 @@ class DatabaseService:
 
             # Inicializar su propia empresa
             if can_manage_own_company:
-                own_comp = cls.get_company_profile(resolved_owner_uid) or {}
+                own_comp = cls.get_company_profile(resolved_owner_uid, company_id=resolved_owner_uid) or {}
                 new_comp_id = cls.create_company(resolved_owner_uid, own_comp)
                 if new_comp_id:
                     profile_data["default_company_id"] = new_comp_id
@@ -1788,6 +1789,21 @@ class DatabaseService:
                 if legacy_docs:
                     team_docs = legacy_docs
             team_data_map = {d.id: d.to_dict() for d in team_docs if d.exists}
+            if company_id:
+                for membership in cls.get_company_members(company_id):
+                    member_uid = membership.get("uid")
+                    if member_uid and member_uid not in team_data_map:
+                        team_data_map[member_uid] = {
+                            "uid": member_uid,
+                            "role": membership.get("role", "employee"),
+                            "permissions": membership.get("permissions", {}),
+                            "status": membership.get("status", "active"),
+                            "createdAt": membership.get("created_at", ""),
+                        }
+                        try:
+                            ref.document(member_uid).set(team_data_map[member_uid], merge=True)
+                        except Exception:
+                            pass
             from app.web.invoices import resolve_permissions, detect_role_from_permissions
             for emp_uid in team_data_map:
                 emp_doc = db_firestore.collection("users").document(emp_uid).collection("config").document("user_profile").get()
@@ -2054,20 +2070,11 @@ class DatabaseService:
 
     @classmethod
     def get_company_profile(cls, owner_uid, company_id=None):
-        """Obtiene el perfil de empresa desde companies/{companyId} con fallback a users/{ownerUID}."""
-        resolved_cid = company_id or _resolve_company_id(owner_uid)
+        """Obtiene el perfil exclusivamente desde companies/{companyId}."""
+        resolved_cid = company_id
         company = None
         if resolved_cid:
             company = cls.get_company(resolved_cid)
-        if not company and owner_uid:
-            doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("profile").get()
-            if not doc.exists:
-                doc = db_firestore.collection("users").document(owner_uid).collection("config").document("profile").get()
-            if doc.exists:
-                company_data = doc.to_dict()
-                company_data["id"] = owner_uid
-                company_data["owner_uid"] = owner_uid
-                company = company_data
         if not company:
             return None
 
@@ -5062,7 +5069,7 @@ class DatabaseService:
             
         if owner_uid:
             try:
-                profile = cls.get_company_profile(owner_uid)
+                profile = cls.get_company_profile(owner_uid, company_id=company_id)
                 if profile:
                     storage_limit = profile.get('storageLimitMB')
                     if storage_limit:
@@ -5320,7 +5327,7 @@ class DatabaseService:
                 data = doc.to_dict()
                 owner_uid = data.get("ownerUID")
                 if owner_uid:
-                    return cls.get_company_profile(owner_uid)
+                    return cls.get_company_profile(owner_uid, company_id=company_id)
         except Exception as e:
             print(f"⚠️ Error al buscar compañía por API Key: {e}")
         return None
@@ -8471,7 +8478,7 @@ class DatabaseService:
 
     @classmethod
     def create_membership(cls, uid, company_id, role="employee", permissions=None, invited_by=""):
-        """Crea una membresía: usuario → compañía."""
+        """Crea una membresía y mantiene el índice de equipo de la compañía."""
         if not firebase_initialized:
             return None
         try:
@@ -8493,6 +8500,15 @@ class DatabaseService:
             }
 
             db_firestore.collection("company_memberships").document(membership_id).set(membership)
+            team_ref = cls._company_team_coll(None, company_id=company_id)
+            if team_ref:
+                team_ref.document(uid).set({
+                    "uid": uid,
+                    "role": role,
+                    "permissions": permissions or {},
+                    "status": "active",
+                    "createdAt": now,
+                }, merge=True)
             return membership_id
         except Exception as e:
             print(f"⚠️ Error al crear membresía: {e}")
@@ -8632,7 +8648,8 @@ class DatabaseService:
     def get_company_context(cls, uid, company_id):
         """
         Construye un CompanyContext con la compañía activa y la membresía del usuario.
-        Con fallback a datos legacy (users/{uid}/config/profile).
+        Los datos legacy pueden identificar la compañía, pero no sustituyen
+        una membresía activa del usuario.
 
         Returns:
             dict con: company_id, owner_uid, company_name, rnc, role, permissions, is_sandbox, branch_id
@@ -8668,10 +8685,6 @@ class DatabaseService:
             member_role = membership.get("role", "employee")
             member_permissions = membership.get("permissions", {})
             member_owner_uid = membership.get("owner_uid", company.get("owner_uid", ""))
-        elif is_legacy and uid == company_id:
-            member_role = "owner"
-            member_permissions = {"canInvoice": True, "canExpenses": True, "canClients": True, "canCreateClient": True, "canDeleteClient": True, "canModifySettings": True, "canManageInventory": True, "canManagePOS": True, "canViewDashboard": True, "canManageCXC": True, "canManageCXP": True, "canManageContracts": True, "canManageCommissions": True, "canViewBI": True}
-            member_owner_uid = company_id
         else:
             return None
 

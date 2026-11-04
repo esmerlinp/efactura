@@ -17,8 +17,14 @@ ASSET_CATEGORIES = {
 
 class FixedAssetService:
 
+    @staticmethod
+    def _require_company_id(company_id):
+        from app.services.company_authorization import require_company_id
+        return require_company_id(company_id, "FixedAssetService")
+
     @classmethod
     def register_asset(cls, owner_uid, asset_data, sandbox=True, company_id=None):
+        company_id = cls._require_company_id(company_id)
         asset_id = str(uuid.uuid4())
         category = asset_data.get("category", "equipos_computo")
         cat_info = ASSET_CATEGORIES.get(category, {})

@@ -322,7 +322,9 @@ def client_portal_main():
     if not owner_uid or not client_id:
         return "Sesión de autogestión no válida o expirada. Por favor use el enlace oficial enviado a su correo.", 403
         
-    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) if company_id else DatabaseService.get_company_profile(owner_uid)
+    if not company_id:
+        return "El enlace no contiene una compañía válida.", 403
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     if not client:
         return "Cliente no encontrado.", 404
@@ -381,7 +383,9 @@ def client_portal_verify_main():
     input_rnc = request.form.get('rnc', '').strip()
     input_pin = request.form.get('accessPin', '').strip()
     
-    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) if company_id else DatabaseService.get_company_profile(owner_uid)
+    if not company_id:
+        return "El enlace no contiene una compañía válida.", 403
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     if not client:
         return "Cliente no encontrado.", 404

@@ -9,10 +9,9 @@ class LedgerAuditService:
 
     @staticmethod
     def _audit_path(owner_uid: str, entry_id: str, audit_id: str = None, company_id=None):
-        if company_id:
-            base = f"companies/{company_id}/journal_entry_audit/{entry_id}"
-        else:
-            base = f"users/{owner_uid}/journal_entry_audit/{entry_id}"
+        from app.services.company_authorization import require_company_id
+        company_id = require_company_id(company_id, "LedgerAuditService")
+        base = f"companies/{company_id}/journal_entry_audit/{entry_id}"
         if audit_id:
             return f"{base}/changes/{audit_id}"
         return base
