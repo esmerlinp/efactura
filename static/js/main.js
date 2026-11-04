@@ -256,6 +256,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 6.1. Control de Secciones de Barra Lateral Colapsables (Dropdowns de Grupos)
     const sidebarHeaders = document.querySelectorAll('.sidebar-section-header');
+    const collapsibleSections = Array.from(document.querySelectorAll('.sidebar-section')).filter(section => {
+        return section.id !== 'sidebar-section-quick' && section.querySelector('.sidebar-section-content');
+    });
+
+    // El menú funciona como acordeón: inicia cerrado y solo la sección activa queda abierta.
+    const activeSection = collapsibleSections.find(section => section.querySelector('.nav-item.active'));
+    collapsibleSections.forEach(section => {
+        section.classList.toggle('collapsed', section !== activeSection);
+    });
 
     // Función helper para colapsar una sección programáticamente
     function collapseSidebarSection(section) {
@@ -266,7 +275,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (content.dataset.transitioning === 'true') return;
         if (section.classList.contains('collapsed')) return;
 
-        const sectionId = section.getAttribute('id');
         content.dataset.transitioning = 'true';
 
         const height = content.scrollHeight;
@@ -278,10 +286,6 @@ document.addEventListener('DOMContentLoaded', () => {
         section.classList.add('collapsed');
         content.style.maxHeight = '0px';
         content.style.opacity = '0';
-
-        if (sectionId) {
-            localStorage.setItem(sectionId, 'true');
-        }
 
         content.addEventListener('transitionend', function onEnd(e) {
             if (e.propertyName === 'max-height') {
@@ -313,20 +317,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const isCurrentlyCollapsed = section.classList.contains('collapsed');
-            const sectionId = section.getAttribute('id');
 
             content.dataset.transitioning = 'true';
 
             if (isCurrentlyCollapsed) {
-                // EXPANDIR — antes de expandir, colapsar automáticamente otras secciones no-General
-                if (sectionId !== 'sidebar-section-general') {
-                    document.querySelectorAll('.sidebar-section').forEach(otherSection => {
-                        const otherId = otherSection.getAttribute('id');
-                        if (otherId && otherId !== sectionId && otherId !== 'sidebar-section-general') {
-                            collapseSidebarSection(otherSection);
-                        }
-                    });
-                }
+                // EXPANDIR: cerrar cualquier otra sección abierta.
+                collapsibleSections.forEach(otherSection => {
+                    if (otherSection !== section) collapseSidebarSection(otherSection);
+                });
 
                 content.style.maxHeight = '0px';
                 content.style.opacity = '0';
@@ -338,10 +336,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 content.style.maxHeight = height + 'px';
                 content.style.opacity = '1';
-
-                if (sectionId) {
-                    localStorage.setItem(sectionId, 'false');
-                }
 
                 const onEnd = (e) => {
                     if (e.propertyName === 'max-height') {
@@ -364,10 +358,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 section.classList.add('collapsed');
                 content.style.maxHeight = '0px';
                 content.style.opacity = '0';
-
-                if (sectionId) {
-                    localStorage.setItem(sectionId, 'true');
-                }
 
                 const onEnd = (e) => {
                     if (e.propertyName === 'max-height') {
@@ -577,15 +567,36 @@ document.addEventListener('click', function (e) {
         }
     }
 
-    function setPinnedHrefs(hrefs) {
-        const key = getPinnedStorageKey();
-        if (hrefs.length === 0) {
-            localStorage.removeItem(key);
-        } else {
-            localStorage.setItem(key, JSON.stringify(hrefs));
+    function getPinnedNavigationIds() {
+        try {
+            const key = `sidebar-quick-navigation_${getCurrentCompanyId() || 'default'}`;
+            const value = localStorage.getItem(key);
+            return value ? (JSON.parse(value) || []) : [];
+        } catch {
+            return [];
         }
-        renderQuickAccess();
-        updatePinIcons();
+    }
+
+    function setPinnedNavigationIds(ids) {
+        const key = `sidebar-quick-navigation_${getCurrentCompanyId() || 'default'}`;
+        if (ids.length) localStorage.setItem(key, JSON.stringify(ids));
+        else localStorage.removeItem(key);
+    }
+
+    function navigationItemById(id) {
+        return document.querySelector(`[data-navigation-id="${CSS.escape(id)}"]`);
+    }
+
+    function migrateLegacyPinnedHrefs() {
+        const ids = getPinnedNavigationIds();
+        const legacy = getPinnedHrefs();
+        if (ids.length || !legacy.length) return ids;
+        const migrated = legacy.map(href => {
+            const link = document.querySelector(`.nav-item a[href="${CSS.escape(href)}"]`);
+            return link?.closest('[data-navigation-id]')?.dataset.navigationId || '';
+        }).filter(Boolean).slice(0, MAX_PINNED);
+        setPinnedNavigationIds(migrated);
+        return migrated;
     }
 
     function renderQuickAccess() {
@@ -593,18 +604,16 @@ document.addEventListener('click', function (e) {
         const list = document.getElementById('quick-access-list');
         if (!section || !list) return;
 
-        const hrefs = getPinnedHrefs();
+        const navigationIds = migrateLegacyPinnedHrefs();
         const validHrefs = [];
 
         list.innerHTML = '';
 
-        hrefs.slice(0, MAX_PINNED).forEach(href => {
-            const originalLink = document.querySelector(`.nav-item a[href="${href}"]`);
+        navigationIds.slice(0, MAX_PINNED).forEach(navigationId => {
+            const originalItem = navigationItemById(navigationId);
+            const originalLink = originalItem?.querySelector('a');
             if (!originalLink) return;
-            validHrefs.push(href);
-
-            const originalItem = originalLink.closest('.nav-item');
-            if (!originalItem) return;
+            validHrefs.push(navigationId);
 
             const iconClass = originalLink.querySelector('i')?.className || 'fa-solid fa-link';
             const label = originalLink.querySelector('span')?.textContent || 'Sin etiqueta';
@@ -615,18 +624,20 @@ document.addEventListener('click', function (e) {
             item.dataset.tooltip = tooltip;
 
             const a = document.createElement('a');
-            a.href = href;
+            a.href = originalLink.getAttribute('href');
+            const onclick = originalLink.getAttribute('onclick');
+            if (onclick) a.setAttribute('onclick', onclick);
             a.innerHTML = `<i class="${iconClass}"></i><span>${label}</span>`;
 
             const unpinBtn = document.createElement('button');
             unpinBtn.className = 'unpin-btn';
             unpinBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-            unpinBtn.dataset.href = href;
+            unpinBtn.dataset.navigationId = navigationId;
             unpinBtn.title = 'Quitar de accesos rápidos';
             unpinBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
-                setPinnedHrefs(getPinnedHrefs().filter(h => h !== href));
+                setPinnedNavigationIds(getPinnedNavigationIds().filter(id => id !== navigationId));
             });
 
             item.style.position = 'relative';
@@ -635,17 +646,13 @@ document.addEventListener('click', function (e) {
             list.appendChild(item);
         });
 
-        if (validHrefs.length !== hrefs.length) {
-            setPinnedHrefs(validHrefs);
-        }
-
         section.style.display = validHrefs.length === 0 ? 'none' : '';
     }
 
     function updatePinIcons() {
-        const pinned = getPinnedHrefs();
+        const pinned = migrateLegacyPinnedHrefs();
         document.querySelectorAll('.pin-btn').forEach(btn => {
-            const isPinned = pinned.includes(btn.dataset.href);
+            const isPinned = pinned.includes(btn.dataset.navigationId);
             btn.classList.toggle('pinned', isPinned);
             btn.title = isPinned ? 'Quitar de accesos rápidos' : 'Agregar a accesos rápidos';
         });
@@ -655,6 +662,7 @@ document.addEventListener('click', function (e) {
         document.querySelectorAll('.nav-item').forEach(item => {
             if (item.closest('#sidebar-section-quick')) return;
             if (item.querySelector('.pin-btn')) return;
+            if (!item.dataset.navigationId) return;
 
             const link = item.querySelector('a');
             if (!link) return;
@@ -663,19 +671,20 @@ document.addEventListener('click', function (e) {
             btn.className = 'pin-btn';
             btn.innerHTML = '<i class="fa-solid fa-thumbtack"></i>';
             btn.dataset.href = link.getAttribute('href');
+            btn.dataset.navigationId = item.dataset.navigationId || '';
             btn.title = 'Agregar a accesos rápidos';
 
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
 
-                const href = btn.dataset.href;
-                const pinned = getPinnedHrefs();
+                const navigationId = btn.dataset.navigationId;
+                const pinned = migrateLegacyPinnedHrefs();
 
-                if (pinned.includes(href)) {
-                    setPinnedHrefs(pinned.filter(h => h !== href));
+                if (pinned.includes(navigationId)) {
+                    setPinnedNavigationIds(pinned.filter(id => id !== navigationId));
                 } else if (pinned.length < MAX_PINNED) {
-                    setPinnedHrefs([...pinned, href]);
+                    setPinnedNavigationIds([...pinned, navigationId]);
                 } else {
                     btn.style.color = 'var(--danger)';
                     setTimeout(() => btn.style.color = '', 800);

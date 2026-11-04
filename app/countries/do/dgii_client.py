@@ -85,7 +85,7 @@ def validate_rnc(clean_rnc):
             expected = 11 - remainder
         if expected != check_digit:
             return {"error": True, "message": "RNC inválido: el dígito verificador no coincide."}
-        return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "source": "local"}
+        return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "regimen_normalized": "", "estado": "", "categoria": "", "source": "local"}
 
     elif len(clean_rnc) == 11:
         weights = [1, 2, 1, 2, 1, 2, 1, 2, 1, 2]
@@ -103,6 +103,6 @@ def validate_rnc(clean_rnc):
         expected = 0 if remainder == 0 else 10 - remainder
         if expected != check_digit:
             return {"error": True, "message": "Cédula inválida: el dígito verificador no coincide."}
-        return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "source": "local"}
+        return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "regimen_normalized": "", "estado": "", "categoria": "", "source": "local"}
 
     return {"error": True, "message": "Debe tener 9 dígitos (RNC) u 11 (Cédula)."}

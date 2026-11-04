@@ -1156,6 +1156,7 @@ def select_company():
             session.pop('company_plan_version', None)
             session.pop('company_modules', None)
             session.pop('company_profile_pos_enabled', None)
+            session.pop('company_developers_enabled', None)
             session.pop('company_production_enabled', None)
             session.pop('company_sandbox_enabled', None)
             session.pop('company_sandbox_indefinite', None)

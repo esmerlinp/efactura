@@ -53,6 +53,16 @@
                 </div>
                 <small id="lookup-status" style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px;">Ingresa
                     9 dígitos para RNC o 11 dígitos para Cédula. Deja vacío si es cliente extranjero.</small>
+                <div id="dgii-taxpayer-info" style="display:{% if client and client.regimenDgii %}block{% else %}none{% endif %}; margin-top:8px; padding:9px 12px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-size:0.75rem; color:var(--text-secondary);">
+                    Régimen DGII: <strong id="dgii-regimen-label">{{ client.regimenDgii if client else '' }}</strong>
+                    <span id="dgii-status-label">{% if client and client.estadoDgii %} · Estado: {{ client.estadoDgii }}{% endif %}</span>
+                    <span id="dgii-category-label">{% if client and client.categoriaDgii %} · Categoría: {{ client.categoriaDgii }}{% endif %}</span>
+                </div>
+                <input type="hidden" name="regimenDgii" id="regimenDgii" value="{{ client.regimenDgii if client else '' }}">
+                <input type="hidden" name="regimenDgiiNormalized" id="regimenDgiiNormalized" value="{{ client.regimenDgiiNormalized if client else '' }}">
+                <input type="hidden" name="estadoDgii" id="estadoDgii" value="{{ client.estadoDgii if client else '' }}">
+                <input type="hidden" name="categoriaDgii" id="categoriaDgii" value="{{ client.categoriaDgii if client else '' }}">
+                <input type="hidden" name="actividadDgii" id="actividadDgii" value="{{ client.actividadDgii if client else '' }}">
             </div>
 
             <div class="form-group" style="grid-column: 1 / -1;">

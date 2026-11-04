@@ -53,6 +53,11 @@ CONTACT_DEFAULTS = {
     "tipoGastoDGII": "02",
     "ecfTypeEmits": "E31",
     "estado": "Activo",
+    "regimenDgii": "",
+    "regimenDgiiNormalized": "",
+    "estadoDgii": "",
+    "categoriaDgii": "",
+    "actividadDgii": "",
     "associatedPeople": [],
     "notes": "",
     "interactions": [],
@@ -114,6 +119,11 @@ def _sync_to_legacy_clients(owner_uid=None, contact=None, sandbox=True, company_
         "createdAt": contact.get("createdAt", datetime.now(timezone.utc).isoformat()),
         "customer_category": contact.get("customer_category", "NORMAL"),
         "foreignTaxId": contact.get("foreignTaxId", ""),
+        "regimenDgii": contact.get("regimenDgii", ""),
+        "regimenDgiiNormalized": contact.get("regimenDgiiNormalized", ""),
+        "estadoDgii": contact.get("estadoDgii", ""),
+        "categoriaDgii": contact.get("categoriaDgii", ""),
+        "actividadDgii": contact.get("actividadDgii", ""),
     }
     DatabaseService.save_client(owner_uid, contact["id"], client_dict, sandbox=sandbox, company_id=company_id)
 

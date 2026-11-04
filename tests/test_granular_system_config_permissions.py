@@ -359,46 +359,12 @@ def test_landing_url_system_and_config(app):
 
 
 def test_sidebar_config_rendering(app):
-    """Test that _sidebar_config.html conditionally renders according to granular permissions."""
+    """The legacy partial is only a compatibility link to the settings center."""
     with app.test_request_context("/"):
-        # User with ONLY canManageTaxes
-        session["user"] = _setup_session({
-            "canManageTaxes": True,
-            "canManageCompanySettings": False,
-            "canManageUsers": False,
-            "canManageSequences": False,
-            "canCertifyDGII": False,
-            "canViewAuditLog": False,
-            "canViewSystemJobs": False,
-            "canExportData": False,
-            "canViewSubscription": False,
-            "canAccountingExport": False,
-            "canManageAPI": False,
-        })
         rendered = render_template("_sidebar_config.html", active_page="", dgii_environment="certecf")
-        assert "Impuestos" in rendered
-        assert "Configuración de Empresa" not in rendered
-        assert "Usuarios y Permisos" not in rendered
-        assert "Secuencias Fiscales" not in rendered
-        assert "Auditoría" not in rendered
-        assert "Jobs y Procesos" not in rendered
-
-        # User with ONLY canManageUsers
-        session["user"] = _setup_session({
-            "canManageTaxes": False,
-            "canManageCompanySettings": False,
-            "canManageUsers": True,
-            "canManageSequences": False,
-            "canCertifyDGII": False,
-            "canViewAuditLog": False,
-            "canViewSystemJobs": False,
-            "canExportData": False,
-            "canViewSubscription": False,
-            "canAccountingExport": False,
-            "canManageAPI": False,
-        })
-        rendered = render_template("_sidebar_config.html", active_page="", dgii_environment="certecf")
-        assert "Usuarios y Permisos" in rendered
+        assert "Configuración" in rendered
+        assert 'href="/settings"' in rendered
         assert "Impuestos" not in rendered
         assert "Configuración de Empresa" not in rendered
+        assert "Usuarios y Permisos" not in rendered
         assert "Secuencias Fiscales" not in rendered

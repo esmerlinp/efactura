@@ -555,6 +555,7 @@ class DgiiDirectService:
                             # No se pudo consultar → marcar como PENDING, no como rechazo
                             dgii_status = "PENDING"
                     if rejection_error:
+                        print(response_text, flush=True)
                         return {
                             "success": False,
                             "encf": encf,
@@ -682,6 +683,7 @@ class DgiiDirectService:
                         (codigo is not None and codigo != 1) or
                         (estado and str(estado).lower() == "rechazado")
                     ):
+                        print(response_text, flush=True)
                         return {
                             "success": False,
                             "encf": encf,

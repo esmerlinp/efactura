@@ -30,6 +30,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (response.ok && !data.error) {
                         showStatusSuccess(data.razon_social);
+                        const info = document.getElementById('dgii-taxpayer-info');
+                        if (info) {
+                            info.style.display = 'block';
+                            document.getElementById('dgii-regimen-label').textContent = data.regimen || 'No informado';
+                            document.getElementById('dgii-status-label').textContent = data.estado ? ` · Estado: ${data.estado}` : '';
+                            document.getElementById('dgii-category-label').textContent = data.categoria ? ` · Categoría: ${data.categoria}` : '';
+                        }
+                        const fields = {
+                            regimenDgii: data.regimen || '',
+                            regimenDgiiNormalized: data.regimen_normalized || '',
+                            estadoDgii: data.estado || '',
+                            categoriaDgii: data.categoria || '',
+                            actividadDgii: data.actividad || ''
+                        };
+                        Object.entries(fields).forEach(([id, value]) => {
+                            const field = document.getElementById(id);
+                            if (field) field.value = value;
+                        });
                         if (nameInput) {
                             nameInput.value = data.razon_social;
                             

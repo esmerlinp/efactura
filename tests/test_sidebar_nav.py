@@ -1,4 +1,4 @@
-"""Regresión del rediseño del Sidebar principal (_sidebar_nav.html + _sidebar_config.html).
+"""Regresión del sidebar declarativo mediante su wrapper de compatibilidad.
 
 Verifica que:
 1. Un módulo no contratado NO aparezca en el Sidebar.
@@ -91,10 +91,12 @@ def test_sidebar_nav_no_duplicate_links(app):
         # list_invoices solo debe aparecer una vez (dedup Facturación ↔ Facturas de Venta)
         invoices_url = _url_for('web_invoices.list_invoices')
         assert html.count(f'href="{invoices_url}"') == 1, f"list_invoices duplicado: {invoices_url}"
+        settings_url = _url_for('web_invoices.settings_center')
+        assert html.count(f'href="{settings_url}"') == 1, f"settings_center duplicado: {settings_url}"
         company_url = _url_for('web_invoices.company_settings')
-        assert html.count(f'href="{company_url}"') == 1, f"company_settings duplicado: {company_url}"
+        assert html.count(f'href="{company_url}"') == 0, "company_settings no debe estar en el sidebar"
         tax_url = _url_for('web_invoices.tax_settings')
-        assert html.count(f'href="{tax_url}"') == 1, f"tax_settings duplicado: {tax_url}"
+        assert html.count(f'href="{tax_url}"') == 0, "tax_settings no debe estar en el sidebar"
 
 
 def test_canonical_catalog_intact(app):
