@@ -1968,7 +1968,7 @@ class DatabaseService:
             return None
 
     @classmethod
-    def update_employee_permissions(cls, employee_uid, permissions, role=None, company_id=None):
+    def update_employee_permissions(cls, employee_uid, permissions, role=None, company_id=None, owner_uid=None):
         """Actualiza los permisos de un colaborador.
 
         Si se especifica role, guarda role + permissions_overrides (solo las diferencias
@@ -1976,6 +1976,8 @@ class DatabaseService:
 
         Si se especifica company_id, también sincroniza la tabla company_memberships.
         """
+        if owner_uid and employee_uid == owner_uid:
+            return False
         if not firebase_initialized:
             return False
         try:
@@ -2055,6 +2057,9 @@ class DatabaseService:
     @classmethod
     def delete_team_member(cls, owner_uid, employee_uid, company_id=None):
         """Desvincula un colaborador del equipo desde companies/{companyId}/team."""
+        if employee_uid == owner_uid:
+            print("⚠️ No se puede desvincular al propietario de la empresa")
+            return False
         if not firebase_initialized:
             return False
         try:

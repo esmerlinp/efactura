@@ -28,6 +28,31 @@ def client(app):
 class TestMultiCompanyRoleIsolation:
     """Verifica que los roles y permisos se aíslen por empresa activa."""
 
+    def test_delete_team_member_rejects_company_owner(self):
+        with patch('app.services.db_service.firebase_initialized', True), \
+             patch.object(DatabaseService, '_company_team_coll') as mock_team_coll, \
+             patch.object(DatabaseService, 'delete_membership') as mock_delete_membership:
+            assert DatabaseService.delete_team_member(
+                owner_uid="owner_a",
+                employee_uid="owner_a",
+                company_id="comp_a",
+            ) is False
+
+            mock_team_coll.assert_not_called()
+            mock_delete_membership.assert_not_called()
+
+    def test_update_employee_permissions_rejects_company_owner(self):
+        with patch('app.services.db_service.firebase_initialized', True), \
+             patch.object(DatabaseService, '_company_team_coll') as mock_team_coll, \
+             patch.object(DatabaseService, 'update_membership') as mock_update_membership:
+            assert DatabaseService.update_employee_permissions(
+                employee_uid="owner_a",
+                permissions={"canInvoice": False},
+                role="consulta",
+                company_id="comp_a",
+                owner_uid="owner_a",
+            ) is False
+
     def test_get_team_members_returns_collaborator_role_not_global_owner(self):
         """Si un colaborador es owner en su perfil global, get_team_members debe retornar su rol en la empresa y NO 'owner'."""
         with patch('app.services.db_service.firebase_initialized', True), \
