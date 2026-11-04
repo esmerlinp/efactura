@@ -9942,6 +9942,11 @@ def update_team_member_permissions(employee_uid):
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
     
+    owner_uid = session['user']['ownerUID']
+    if employee_uid == owner_uid:
+        flash('Los detalles del propietario no pueden ser modificados.', 'error')
+        return redirect(url_for('web_invoices.team_settings'))
+
     permissions = {}
     for k in ALL_PERMISSION_KEYS:
         permissions[k] = k in request.form
@@ -9974,7 +9979,7 @@ def update_team_member_permissions(employee_uid):
     
     role = request.form.get('role', '')
     company_id = session.get('selected_company_id')
-    if DatabaseService.update_employee_permissions(employee_uid, permissions, role=role or None, company_id=company_id):
+    if DatabaseService.update_employee_permissions(employee_uid, permissions, role=role or None, company_id=company_id, owner_uid=owner_uid):
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_USUARIOS
         AuditService.log_from_request(
             owner_uid=session['user']['ownerUID'],
@@ -10001,6 +10006,10 @@ def delete_team_member_route(employee_uid):
     
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
+
+    if employee_uid == owner_uid:
+        flash('El propietario de la empresa no puede ser desvinculado.', 'error')
+        return redirect(url_for('web_invoices.team_settings'))
     
     if DatabaseService.delete_team_member(owner_uid, employee_uid, company_id=company_id):
         from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_USUARIOS
@@ -10030,6 +10039,9 @@ def team_member_detail(employee_uid):
         flash('No tienes permisos para administrar usuarios.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
+    if employee_uid == owner_uid:
+        flash('Los detalles del propietario no están disponibles desde la gestión de equipo.', 'error')
+        return redirect(url_for('web_invoices.team_settings'))
     company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
     member = DatabaseService.get_team_member_detail(owner_uid, employee_uid, company_id=company_id)
     if not member:
@@ -10047,14 +10059,18 @@ def update_team_member_permissions_v2(employee_uid):
         flash('No tienes permisos para administrar usuarios.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
 
+    owner_uid = session['user']['ownerUID']
+    if employee_uid == owner_uid:
+        flash('Los detalles del propietario no pueden ser modificados.', 'error')
+        return redirect(url_for('web_invoices.team_settings'))
+
     role = request.form.get('role', 'personalizado')
     permissions = {}
     for k in ALL_PERMISSION_KEYS:
         permissions[k] = k in request.form
 
-    owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
-    if DatabaseService.update_employee_permissions(employee_uid, permissions, role=role, company_id=company_id):
+    if DatabaseService.update_employee_permissions(employee_uid, permissions, role=role, company_id=company_id, owner_uid=owner_uid):
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_USUARIOS
         AuditService.log_from_request(
             owner_uid=owner_uid,
@@ -10078,6 +10094,8 @@ def reset_team_member_password(employee_uid):
         return jsonify({"success": False, "error": "No autorizado"}), 403
 
     owner_uid = session['user']['ownerUID']
+    if employee_uid == owner_uid:
+        return jsonify({"success": False, "error": "Los detalles del propietario no pueden modificarse desde la gestión de equipo"}), 403
     company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
     member = DatabaseService.get_team_member_detail(owner_uid, employee_uid, company_id=company_id)
     if not member:
@@ -10124,6 +10142,9 @@ def toggle_team_member_status(employee_uid):
         return redirect(url_for('web_invoices.team_settings'))
 
     owner_uid = session['user']['ownerUID']
+    if employee_uid == owner_uid:
+        flash('El estado del propietario no puede ser modificado.', 'error')
+        return redirect(url_for('web_invoices.team_settings'))
     company_id = session.get('selected_company_id') or DatabaseService._resolve_company_id(owner_uid)
     new_status = request.form.get('status', 'active')
     if new_status not in ('active', 'suspended', 'pending'):
@@ -10153,6 +10174,8 @@ def team_member_activity(employee_uid):
     if 'user' not in session: return jsonify({"error": "No autorizado"}), 401
     if not (session.get('user', {}).get('role') == 'owner' or check_permission('canManageUsers')):
         return jsonify({"error": "No autorizado"}), 403
+    if employee_uid == session['user']['ownerUID']:
+        return jsonify({"error": "La actividad del propietario no está disponible desde la gestión de equipo"}), 403
     from app.services.audit_service import AuditService
     limit = request.args.get('limit', 10, type=int)
     activity = AuditService.get_user_recent_activity(session['user']['ownerUID'], employee_uid, limit=limit)
