@@ -749,7 +749,7 @@ class QuotationWizard {
                     <button type="button" class="btn-select-item" data-catalog-id="${it.id || it._id || ''}"
                         data-name="${this._escapeAttr(it.name || '')}"
                         data-price="${it.price || 0}"
-                        data-itbis="${(it.itbisRate !== undefined && it.itbisRate !== null) ? it.itbisRate : 0.18}"
+                        data-itbis="${(it.itbisRate !== undefined && it.itbisRate !== null && it.itbisRate !== '') ? it.itbisRate : 0}"
                         data-code="${this._escapeAttr(it.code || '')}"
                         data-unit="${this._escapeAttr(it.unit || 'Unidad')}">
                         <i class="fa-solid fa-plus"></i> Seleccionar
@@ -764,7 +764,7 @@ class QuotationWizard {
         const name = btn.dataset.name;
         const price = parseFloat(btn.dataset.price) || 0;
         const rawItbis = btn.dataset.itbis;
-        const itbis = (rawItbis !== undefined && rawItbis !== null && rawItbis !== '') ? parseFloat(rawItbis) : 0.18;
+        const itbis = (rawItbis !== undefined && rawItbis !== null && rawItbis !== '') ? parseFloat(rawItbis) : 0;
         const code = btn.dataset.code || '';
         const item = { code, name, quantity: 1, price, itbisRate: itbis, discountRate: 0, catalogId: id };
 

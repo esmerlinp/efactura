@@ -297,3 +297,45 @@ def test_professional_quotation_edit_save_updates_draft(app):
     finally:
         for p in DB_PATCHES:
             p.stop()
+
+
+def test_professional_quotation_catalog_exempt_item_stays_exempt(app):
+    for p in DB_PATCHES:
+        p.stop()
+
+    catalog_item = {
+        "id": "exempt-001",
+        "code": "EX001",
+        "name": "Servicio Exento",
+        "price": 1000.0,
+        "itbisRate": 0.0,
+        "type": "Servicio",
+        "isActive": True,
+    }
+
+    try:
+        patches = [
+            patch("app.services.db_service.DatabaseService.get_items", return_value=[catalog_item]),
+            patch("app.services.db_service.DatabaseService.get_company_profile", return_value=MOCK_COMPANY),
+            patch("app.services.db_service.DatabaseService.get_user_profile", return_value=MOCK_USER_PROFILE),
+            patch("app.services.db_service.DatabaseService.get_associated_companies", return_value=[]),
+            patch("app.services.db_service.DatabaseService.get_company", return_value=None),
+            patch("app.services.db_service.DatabaseService.get_company_context", return_value={'permissions': {}, 'company_name': 'Test Co'}),
+            patch("app.services.db_service.DatabaseService.get_branches", return_value=[]),
+            patch("app.services.db_service.DatabaseService.get_projects", return_value=[]),
+            patch("app.services.db_service.DatabaseService.get_membership", return_value={'status': 'active'}),
+            patch("app.services.db_service.DatabaseService.get_plan", return_value={'modules': {'e_cf': {'enabled': True}, 'cotizaciones': {'enabled': True}}}),
+            patch("app.web.invoices.check_permission", return_value=True),
+        ]
+        for p in patches:
+            p.start()
+
+        client = app.test_client()
+        mock_login(client)
+        response = client.get('/quotations/new/professional')
+        assert response.status_code == 200
+        html = response.get_data(as_text=True)
+        assert '"itbisRate": 0.0' in html
+    finally:
+        for p in patches:
+            p.stop()

@@ -13849,7 +13849,7 @@ def professional_quotation_route():
         price = float(item.get('price', 0))
         qty = float(item.get('quantity', 1))
         raw_itbis = item.get('itbisRate')
-        itbis_rate = float(raw_itbis) if raw_itbis is not None and str(raw_itbis).strip() != '' else 0.18
+        itbis_rate = float(raw_itbis) if raw_itbis is not None and str(raw_itbis).strip() != '' else 0.0
         raw_discount = item.get('discountRate')
         discount_rate = (float(raw_discount) / 100.0) if raw_discount is not None and str(raw_discount).strip() != '' else 0.0
         subtotal = price * qty
@@ -14041,7 +14041,7 @@ def quotation_preview():
         price = float(item.get('price', 0))
         qty = float(item.get('quantity', 1))
         raw_itbis = item.get('itbisRate')
-        itbis_rate = float(raw_itbis) if raw_itbis is not None and str(raw_itbis).strip() != '' else 0.18
+        itbis_rate = float(raw_itbis) if raw_itbis is not None and str(raw_itbis).strip() != '' else 0.0
         raw_discount = item.get('discountRate')
         discount_rate = (float(raw_discount) / 100.0) if raw_discount is not None and str(raw_discount).strip() != '' else 0.0
         subtotal = price * qty
