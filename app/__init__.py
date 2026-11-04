@@ -184,22 +184,21 @@ def create_app():
                 if request.endpoint not in allowed_auth_endpoints:
                     return redirect(flask_url_for('web_auth.select_company'))
 
-            # Validar invariante #6: selected_company_id debe existir en membresías
-            # Legacy: si uid == cid (el usuario es el dueño), permitir sin membresía
+            # Validar invariante #6: selected_company_id debe existir en una
+            # membresía activa. El owner legacy también debe migrarse a una
+            # membresía; no se autoriza por igualdad de IDs.
             if 'selected_company_id' in session and 'user' in session:
                 uid = session['user']['uid']
                 cid = session['selected_company_id']
-                is_legacy_owner = (uid == cid)
-                if not is_legacy_owner:
-                    membership = DatabaseService.get_membership(uid, cid)
-                    if not membership or membership.get('status') != 'active':
-                        session.pop('selected_company_id', None)
-                        session.pop('selected_owner_uid', None)
-                        flash('Tu acceso a esta compañía ha sido removido.', 'warning')
-                        allowed = ['web_auth.select_company', 'web_auth.select_branch',
-                                   'web_auth.select_project', 'web_auth.logout', 'static']
-                        if request.endpoint not in allowed:
-                            return redirect(flask_url_for('web_auth.select_company'))
+                membership = DatabaseService.get_membership(uid, cid)
+                if not membership or membership.get('status') != 'active':
+                    session.pop('selected_company_id', None)
+                    session.pop('selected_owner_uid', None)
+                    flash('Tu acceso a esta compañía ha sido removido.', 'warning')
+                    allowed = ['web_auth.select_company', 'web_auth.select_branch',
+                               'web_auth.select_project', 'web_auth.logout', 'static']
+                    if request.endpoint not in allowed:
+                        return redirect(flask_url_for('web_auth.select_company'))
             
             # Si no hay sucursal seleccionada y hay sucursales disponibles, permitir continuar
             # (selected_branch_id None = ver todas como admin)

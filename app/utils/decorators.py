@@ -1,5 +1,6 @@
 # app/utils/decorators.py
 from flask import session, render_template, flash
+from app.services.company_authorization import get_company_access
 from app.utils.module_gate import module_enabled, clients_module_enabled
 
 # ═════════════════════════════════════════════════════════════════════
@@ -32,10 +33,14 @@ def check_permission(permission_name):
     if permission_name == 'canManagePOS' and not module_enabled('pos'):
         return False
     user = session['user']
-    if user.get('role') == 'owner':
+    company_id = session.get('selected_company_id')
+    access = get_company_access(user.get('uid'), company_id)
+    if access is None:
+        return False
+    if access.role == 'owner':
         return True
 
-    user_perms = user.get('permissions', {})
+    user_perms = access.permissions
 
     if permission_name in {
         'canCreateInternalServiceDocument',

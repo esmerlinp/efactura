@@ -87,9 +87,11 @@ def _build_contact_from_doc(doc, owner_uid):
 # =========================================================================
 
 def _coll_ref(owner_uid=None, sandbox=True, company_id=None):
-    if company_id:
-        return _company_coll(company_id=company_id, coll_name=_coll_name(sandbox))
-    return _company_coll(owner_uid=owner_uid, coll_name=_coll_name(sandbox))
+    from app.services.company_authorization import require_company_id
+    return _company_coll(
+        company_id=require_company_id(company_id, "ContactService"),
+        coll_name=_coll_name(sandbox),
+    )
 
 
 def _sync_to_legacy_clients(owner_uid=None, contact=None, sandbox=True, company_id=None):

@@ -119,11 +119,20 @@ def get_current_owner_uid() -> Optional[str]:
 
 
 def require_company():
+    from app.services.company_authorization import require_company_access
+    from flask import abort
+
     company = get_current_company()
     if not company:
         from flask import current_app, abort
         current_app.logger.warning('Se requirió contexto de compañía pero no hay selected_company_id en sesión.')
         abort(403, 'No hay una compañía seleccionada.')
+
+    uid = session.get('user', {}).get('uid')
+    try:
+        require_company_access(uid, company.company_id)
+    except (PermissionError, TypeError):
+        abort(403, 'No tienes acceso a esta compañía.')
     return company
 
 

@@ -28,9 +28,9 @@ class BudgetService:
 
     @staticmethod
     def _path(owner_uid: str = None, year: int = 0, company_id: str = None) -> str:
-        if company_id:
-            return f"companies/{company_id}/budgets/{year}"
-        return f"users/{owner_uid}/budgets/{year}"
+        from app.services.company_authorization import require_company_id
+        company_id = require_company_id(company_id, "BudgetService")
+        return f"companies/{company_id}/budgets/{year}"
 
     @staticmethod
     def _parse_amount(value) -> float:

@@ -53,10 +53,16 @@ PAYMENT_TERMS = [
 CURRENCIES = ["DOP", "USD", "EUR"]
 
 
+def _require_company_id(company_id):
+    from app.services.company_authorization import require_company_id
+    return require_company_id(company_id, "PurchaseOrderService")
+
+
 class PurchaseOrderService:
 
     @classmethod
     def get_purchase_orders(cls, owner_uid=None, sandbox=True, branch_id=None, project_id=None, company_id=None):
+        company_id = _require_company_id(company_id)
         if not firebase_initialized or db_firestore is None:
             return []
         orders = []
@@ -82,6 +88,7 @@ class PurchaseOrderService:
 
     @classmethod
     def get_purchase_order(cls, owner_uid=None, po_id=None, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         if not firebase_initialized or db_firestore is None:
             return None
         try:
@@ -97,6 +104,7 @@ class PurchaseOrderService:
 
     @classmethod
     def save_purchase_order(cls, owner_uid=None, po_id=None, po_dict=None, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         po_dict["id"] = po_id
         po_dict["ownerUID"] = owner_uid
         po_dict["branchId"] = po_dict.get("branchId", "default-sucursal-principal")
@@ -150,6 +158,7 @@ class PurchaseOrderService:
 
     @classmethod
     def delete_purchase_order(cls, owner_uid=None, po_id=None, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         if not firebase_initialized or db_firestore is None:
             return
         try:

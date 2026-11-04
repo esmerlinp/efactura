@@ -9,10 +9,10 @@ from app.services.db_service import db_firestore, firebase_initialized, Database
 
 
 def _coll_path(owner_uid: str, collection: str, sandbox: bool = True, company_id=None) -> str:
+    from app.services.company_authorization import require_company_id
+    company_id = require_company_id(company_id, "HerramientasService")
     prefix = "sandbox_" if sandbox else ""
-    if company_id:
-        return f"companies/{company_id}/{prefix}{collection}"
-    return f"users/{owner_uid}/{prefix}{collection}"
+    return f"companies/{company_id}/{prefix}{collection}"
 
 
 def _get_all(owner_uid: str, collection: str, sandbox: bool = True, company_id=None) -> list:

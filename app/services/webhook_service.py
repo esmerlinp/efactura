@@ -15,17 +15,16 @@ class WebhookService:
 
     @staticmethod
     def _path(owner_uid: str = None, webhook_id: str = None, company_id: str = None) -> str:
-        if company_id:
-            base = f"companies/{company_id}/webhooks"
-        else:
-            base = f"users/{owner_uid}/webhooks"
+        from app.services.company_authorization import require_company_id
+        company_id = require_company_id(company_id, "WebhookService")
+        base = f"companies/{company_id}/webhooks"
         return f"{base}/{webhook_id}" if webhook_id else base
 
     @staticmethod
     def _dlq_path(owner_uid: str = None, company_id: str = None) -> str:
-        if company_id:
-            return f"companies/{company_id}/webhooks_dlq"
-        return f"users/{owner_uid}/webhooks_dlq"
+        from app.services.company_authorization import require_company_id
+        company_id = require_company_id(company_id, "WebhookService DLQ")
+        return f"companies/{company_id}/webhooks_dlq"
 
     @classmethod
     def get_webhooks(cls, owner_uid: str = None, company_id: str = None) -> list:
