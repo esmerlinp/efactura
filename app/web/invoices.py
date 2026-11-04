@@ -9006,6 +9006,7 @@ def tax_settings():
             from app.countries.do.tax_rules import DEFAULT_TAX_RULES
             import copy
             rules = copy.deepcopy(DEFAULT_TAX_RULES)
+            rules["custom_withholdings"] = []
             rules["updatedBy"] = session.get("user", {}).get("email", "")
             success, error_msg = DatabaseService.save_tax_rules(owner_uid, rules, company_id=company_id)
             if not success:
@@ -9035,6 +9036,7 @@ def tax_settings():
                     if rate:
                         rst_brackets.append([999999999.0, float(rate) / 100.0, float(fixed or 0)])
 
+            existing_custom_withholdings = rules.get("custom_withholdings", []) or []
             rules = {
                 "country": request.form.get("country", "RD"),
                 "itbis": {
@@ -9061,8 +9063,38 @@ def tax_settings():
                     "limit": float(request.form.get("rst_annual_limit", 0) or 0),
                     "brackets": rst_brackets,
                 },
+                "custom_withholdings": existing_custom_withholdings,
                 "updatedBy": session.get("user", {}).get("email", ""),
             }
+
+            custom_items = []
+            for index in range(100):
+                name = request.form.get(f"custom_name_{index}", "").strip()
+                rate = request.form.get(f"custom_rate_{index}", "").strip()
+                kind = request.form.get(f"custom_type_{index}", "ISR").upper().strip()
+                code = request.form.get(f"custom_code_{index}", "").strip()
+                active = request.form.get(f"custom_active_{index}") == "on"
+                if not name and not rate:
+                    continue
+                if not name or kind not in ("ISR", "ITBIS"):
+                    flash("Cada retención personalizada requiere nombre y tipo válido.", "error")
+                    continue
+                try:
+                    rate_value = float(rate) / 100.0
+                except ValueError:
+                    flash(f"La tasa de '{name}' no es válida.", "error")
+                    continue
+                if rate_value <= 0 or rate_value > 1:
+                    flash(f"La tasa de '{name}' debe estar entre 0 y 100%.", "error")
+                    continue
+                custom_items.append({
+                    "code": code or f"custom_{kind.lower()}_{index}",
+                    "name": name,
+                    "type": kind,
+                    "rate": rate_value,
+                    "active": active,
+                })
+            rules["custom_withholdings"] = custom_items
             success, error_msg = DatabaseService.save_tax_rules(owner_uid, rules, company_id=company_id)
             print(f"🔧 tax_settings SAVE: success={success}, error={error_msg}")
             print(f"   rst_annual={rules.get('rst', {}).get('limit')}, brackets_len={len(rules.get('rst', {}).get('brackets', []))}")

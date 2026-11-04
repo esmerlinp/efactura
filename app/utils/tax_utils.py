@@ -37,6 +37,27 @@ def _build_options(rates, labels, order, default_extra=None):
     return options
 
 
+def _custom_withholding_options(rules, withholding_type):
+    """Construye opciones de retenciones configuradas por la empresa."""
+    options = []
+    for item in (rules or {}).get("custom_withholdings", []) or []:
+        if not isinstance(item, dict) or not item.get("active", True):
+            continue
+        if str(item.get("type", "")).upper() != withholding_type:
+            continue
+        try:
+            rate = float(item.get("rate", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if rate <= 0:
+            continue
+        name = str(item.get("name", "")).strip()
+        if not name:
+            continue
+        options.append({"value": rate, "label": f"{_fmt_rate(rate)} — {name}", "code": item.get("code", ""), "custom": True})
+    return options
+
+
 def isr_withholding_options(rules, include_payments_abroad=False):
     """Lista de opciones de retención ISR a partir de tax_rules.
 
@@ -49,11 +70,11 @@ def isr_withholding_options(rules, include_payments_abroad=False):
     default_extra = None
     if include_payments_abroad:
         default_extra = {"payments_abroad": float(rates.get("payments_abroad") or DEFAULT_ISR_PAYMENTS_ABROAD)}
-    return _build_options(rates, ISR_WITHHOLDING_LABELS, order, default_extra)
+    return _build_options(rates, ISR_WITHHOLDING_LABELS, order, default_extra) + _custom_withholding_options(rules, "ISR")
 
 
 def itbis_withholding_options(rules):
     """Lista de opciones de retención ITBIS a partir de tax_rules."""
     rules = rules or {}
     rates = rules.get("withholding_itbis", {}) or rules.get("withholding_vat", {}) or {}
-    return _build_options(rates, ITBIS_WITHHOLDING_LABELS, ITBIS_WITHHOLDING_ORDER)
+    return _build_options(rates, ITBIS_WITHHOLDING_LABELS, ITBIS_WITHHOLDING_ORDER) + _custom_withholding_options(rules, "ITBIS")
