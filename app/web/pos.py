@@ -1,4 +1,5 @@
 # app/web/pos.py
+import re
 import uuid
 import html
 from datetime import datetime, timezone
@@ -15,6 +16,248 @@ from app.models.fiscal_document_type import all_types as _all_fiscal_types, Fami
 from app.utils.module_gate import module_enabled
 
 web_pos_bp = Blueprint('web_pos', __name__)
+
+# Métodos de pago admitidos por el POS. "Crédito" nunca genera movimiento de caja.
+POS_ALLOWED_PAYMENT_METHODS = {
+    "Efectivo", "Efectivo USD", "Tarjeta", "Transferencia", "Cheque", "Crédito"
+}
+
+_POS_DEMO_PRODUCTS = (
+    {
+        "id": "demo-arroz-selecto-5lb", "code": "DEMO-001", "barcode": "7460000000011",
+        "name": "Arroz selecto 5 lb", "price": 285.00, "costPrice": 210.00,
+        "categoryId": "alimentos", "type": "Bien", "unit": "Unidad",
+        "itbisRate": 0.18, "totalStock": 48, "minStock": 6, "imageUrl": "",
+    },
+    {
+        "id": "demo-aceite-vegetal-1l", "code": "DEMO-002", "barcode": "7460000000028",
+        "name": "Aceite vegetal 1 litro", "price": 195.00, "costPrice": 150.00,
+        "categoryId": "alimentos", "type": "Bien", "unit": "Unidad",
+        "itbisRate": 0.18, "totalStock": 32, "minStock": 6, "imageUrl": "",
+    },
+    {
+        "id": "demo-refresco-cola-2l", "code": "DEMO-003", "barcode": "7460000000035",
+        "name": "Refresco Coca-Cola 2 litros", "price": 165.00, "costPrice": 120.00,
+        "categoryId": "bebidas", "type": "Bien", "unit": "Unidad",
+        "itbisRate": 0.18, "totalStock": 60, "minStock": 12, "imageUrl": "",
+    },
+    {
+        "id": "demo-leche-entera-1l", "code": "DEMO-004", "barcode": "7460000000042",
+        "name": "Leche entera 1 litro", "price": 98.00, "costPrice": 72.00,
+        "categoryId": "lacteos", "type": "Bien", "unit": "Unidad",
+        "itbisRate": 0.18, "totalStock": 24, "minStock": 8, "imageUrl": "",
+    },
+    {
+        "id": "demo-azucar-crema-2lb", "code": "DEMO-005", "barcode": "7460000000059",
+        "name": "Azúcar crema 2 lb", "price": 72.00, "costPrice": 54.00,
+        "categoryId": "alimentos", "type": "Bien", "unit": "Unidad",
+        "itbisRate": 0.18, "totalStock": 40, "minStock": 6, "imageUrl": "",
+    },
+    {
+        "id": "demo-detergente-500g", "code": "DEMO-006", "barcode": "7460000000066",
+        "name": "Detergente 500 g", "price": 135.00, "costPrice": 95.00,
+        "categoryId": "limpieza", "type": "Bien", "unit": "Unidad",
+        "itbisRate": 0.18, "totalStock": 18, "minStock": 4, "imageUrl": "",
+    },
+)
+
+
+def _pos_demo_items():
+    """Catálogo ficticio de demostración. Solo se sirve en sandbox y nunca se persiste."""
+    items = []
+    for raw in _POS_DEMO_PRODUCTS:
+        item = dict(raw)
+        item.update({
+            "branchId": "default-sucursal-principal",
+            "projectId": None,
+            "rackLocation": "",
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+            "codigoImpuesto": "",
+            "tasaImpuestoAdicional": 0.0,
+            "gradosAlcohol": 0.0,
+            "cantidadReferencia": 0.0,
+            "subcantidad": 1.0,
+            "precioReferencia": 0.0,
+            "isActive": True,
+            "supplierName": "Demostración",
+            "wholesalePrice": 0.0,
+            "brand": "VykOne Demo",
+            "maxStock": 0.0,
+            "isDemo": True,
+        })
+        items.append(item)
+    return items
+
+
+def _pos_parse_rate(value, field_name, default=0.0):
+    try:
+        rate = float(value if value is not None and str(value).strip() != "" else default)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field_name} inválido.")
+    if rate < 0 or rate > 1:
+        raise ValueError(f"{field_name} debe estar entre 0% y 100%.")
+    return rate
+
+
+def _pos_parse_quantity(value):
+    try:
+        qty = float(value if value is not None and str(value).strip() != "" else 1)
+    except (TypeError, ValueError):
+        raise ValueError("Cantidad inválida.")
+    if qty <= 0:
+        raise ValueError("La cantidad debe ser mayor a cero.")
+    if qty > 1_000_000:
+        raise ValueError("La cantidad excede el límite permitido.")
+    return qty
+
+
+def _pos_build_items(payload_items, catalog, sandbox):
+    """Construye partidas confiables: precios e impuestos salen del catálogo, no del JS."""
+    if not isinstance(payload_items, list) or not payload_items:
+        raise ValueError("La venta no tiene productos. Recarga el terminal y vuelve a agregar el producto.")
+
+    catalog_by_id = {str(it.get("id")): it for it in (catalog or []) if it.get("id")}
+    parsed = []
+    for raw in payload_items:
+        if not isinstance(raw, dict):
+            raise ValueError("Partida de producto inválida.")
+        item_id = str(raw.get("id") or "").strip()
+        if not item_id:
+            raise ValueError("Cada partida debe tener un producto válido.")
+
+        source = catalog_by_id.get(item_id)
+        if not source:
+            # En producción el producto debe existir en el catálogo. En sandbox se permite
+            # compatibilidad con datos de prueba/legacy que no están en el catálogo.
+            if not sandbox:
+                raise ValueError(f"El producto '{item_id}' no existe en el catálogo activo.")
+            source = {
+                "id": item_id,
+                "name": raw.get("name", ""),
+                "price": raw.get("price", 0.0),
+                "itbisRate": raw.get("itbisRate", 0.18),
+                "type": raw.get("type", "Bien"),
+                "unit": raw.get("unit", "Unidad"),
+                "code": raw.get("code", ""),
+            }
+
+        if not source.get("isActive", True):
+            raise ValueError(f"El producto '{source.get('name', item_id)}' está inactivo.")
+        if item_id.startswith("demo-") and not sandbox:
+            raise ValueError("Los productos de demostración no están permitidos en producción.")
+
+        price = float(source.get("price") or 0.0)
+        if price <= 0:
+            raise ValueError(f"El producto '{source.get('name', item_id)}' no tiene un precio de venta válido.")
+
+        qty = _pos_parse_quantity(raw.get("quantity"))
+        discount_rate = _pos_parse_rate(raw.get("discountRate", 0.0), "Descuento de línea")
+        itbis_rate = float(
+            source.get("itbisRate")
+            if source.get("itbisRate") is not None and str(source.get("itbisRate")).strip() != ""
+            else 0.18
+        )
+
+        parsed.append({
+            "id": item_id,
+            "catalogId": item_id,
+            "itemId": item_id,
+            "code": source.get("code", ""),
+            "name": source.get("name", ""),
+            "price": price,
+            "quantity": qty,
+            "itbisRate": itbis_rate,
+            "discountRate": discount_rate,
+            "type": source.get("type", "Bien"),
+            "unit": source.get("unit", "Unidad"),
+            "codigoImpuesto": source.get("codigoImpuesto", ""),
+            "tasaImpuestoAdicional": float(source.get("tasaImpuestoAdicional", 0.0) or 0.0),
+            "gradosAlcohol": float(source.get("gradosAlcohol", 0.0) or 0.0),
+            "cantidadReferencia": float(source.get("cantidadReferencia", 0.0) or 0.0),
+            "subcantidad": float(source.get("subcantidad", 1.0) or 1.0),
+            "precioReferencia": float(source.get("precioReferencia", 0.0) or 0.0),
+            "imageUrl": source.get("imageUrl", ""),
+        })
+    return parsed
+
+
+def _pos_normalize_payments(data, total, is_consumer_final):
+    """Valida y normaliza pagos. Devuelve método predominante y saldo a crédito."""
+    total = DGIIService.dgii_round(float(total or 0.0), 2)
+    raw_payments = data.get("payments")
+    payments = []
+
+    if isinstance(raw_payments, list) and raw_payments:
+        for idx, raw in enumerate(raw_payments):
+            if not isinstance(raw, dict):
+                raise ValueError(f"Pago #{idx + 1} inválido.")
+            method = str(raw.get("method") or raw.get("paymentMethod") or "").strip()
+            if method.lower() in ("credito", "crédito"):
+                method = "Crédito"
+            if method not in POS_ALLOWED_PAYMENT_METHODS:
+                raise ValueError(f"Forma de pago no permitida: '{method}'.")
+            try:
+                amount = DGIIService.dgii_round(float(raw.get("amount", 0.0)), 2)
+            except (TypeError, ValueError):
+                raise ValueError(f"Monto inválido en el pago #{idx + 1}.")
+            if amount <= 0:
+                raise ValueError(f"El pago #{idx + 1} debe ser mayor a cero.")
+            payments.append({
+                "method": method,
+                "amount": amount,
+                "reference": str(raw.get("reference") or "").strip()[:80],
+                "bank": str(raw.get("bank") or "").strip()[:80],
+                "cashReceived": float(raw.get("cashReceived") or 0.0),
+                "usdAmount": float(raw.get("usdAmount") or 0.0),
+                "usdExchangeRate": float(raw.get("usdExchangeRate") or 1.0),
+            })
+    else:
+        method = str(data.get("paymentMethod") or "Efectivo").strip()
+        if method.lower() in ("credito", "crédito"):
+            method = "Crédito"
+        if method not in POS_ALLOWED_PAYMENT_METHODS:
+            raise ValueError(f"Forma de pago no permitida: '{method}'.")
+        payments.append({
+            "method": method,
+            "amount": total,
+            "reference": str(data.get("paymentReference") or "").strip()[:80],
+            "bank": str(data.get("bank") or "").strip()[:80],
+            "cashReceived": float(data.get("cashReceived") or 0.0),
+            "usdAmount": float(data.get("usdAmount") or 0.0),
+            "usdExchangeRate": float(data.get("usdExchangeRate") or 1.0),
+        })
+
+    paid = DGIIService.dgii_round(sum(p["amount"] for p in payments), 2)
+    if abs(paid - total) > 0.01:
+        raise ValueError(
+            f"La suma de los pagos (RD$ {paid:,.2f}) no coincide con el total (RD$ {total:,.2f})."
+        )
+
+    credit_amount = DGIIService.dgii_round(
+        sum(p["amount"] for p in payments if p["method"] == "Crédito"), 2
+    )
+    if credit_amount > 0 and is_consumer_final:
+        raise ValueError("Las ventas a crédito requieren un cliente registrado con RNC/Cédula.")
+
+    primary = max(payments, key=lambda p: p["amount"]) if payments else payments[0]
+    return {
+        "payments": payments,
+        "primary_method": primary["method"],
+        "payment_type": "02 - Crédito" if credit_amount > 0 else "01 - Contado",
+        "credit_amount": credit_amount,
+        "paid_amount": DGIIService.dgii_round(total - credit_amount, 2),
+    }
+
+
+def _pos_itbis_breakdown(calculated_items):
+    breakdown = {}
+    for item in calculated_items:
+        rate = float(item.get("itbisRate", 0.0) or 0.0)
+        key = f"{rate:.4f}"
+        bucket = breakdown.setdefault(key, {"rate": rate, "base": 0.0, "itbis": 0.0})
+        bucket["base"] = DGIIService.dgii_round(bucket["base"] + float(item.get("subtotal", 0.0)), 2)
+        bucket["itbis"] = DGIIService.dgii_round(bucket["itbis"] + float(item.get("itbisAmount", 0.0)), 2)
+    return sorted(breakdown.values(), key=lambda b: b["rate"], reverse=True)
 
 
 @web_pos_bp.before_request
@@ -648,10 +891,32 @@ def pos_terminal():
     sandbox = session.get('is_sandbox_mode', True)
     
     # Obtener catálogo de productos para la venta rápida
-    items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
     
     # Filtrar solo bienes físicos o servicios del catálogo activos
     active_items = [it for it in items if it.get('price', 0.0) > 0 and it.get('isActive', True)]
+    demo_mode = False
+    if not active_items and sandbox:
+        active_items = _pos_demo_items()
+        demo_mode = True
+
+    categories = DatabaseService.get_categories(
+        owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'),
+        project_id=g.get('project_id'), company_id=company_id
+    ) or []
+    if demo_mode:
+        existing_category_ids = {c.get('id') for c in categories}
+        for demo_cat in (
+            {"id": "alimentos", "name": "Alimentos"},
+            {"id": "bebidas", "name": "Bebidas"},
+            {"id": "lacteos", "name": "Lácteos"},
+            {"id": "limpieza", "name": "Limpieza"},
+        ):
+            if demo_cat["id"] not in existing_category_ids:
+                categories.append(demo_cat)
+
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox) or []
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     
     # Obtener supervisores (propietario + colaboradores con permiso)
     supervisors = []
@@ -670,6 +935,10 @@ def pos_terminal():
             })
             
     _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
+    pos_ecf_types = [
+        {"code": t.code, "label": t.label, "label_with_code": t.label_with_code}
+        for t in _ecf_types if t.code in ("E31", "E32")
+    ]
     
     # Resolver caja y almacén activo del turno
     user_uid = session['user']['uid']
@@ -677,7 +946,7 @@ def pos_terminal():
     registers = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox)
     register = next((r for r in registers if r['id'] == open_shift.get('registerId')), None) if open_shift else None
     
-    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox) or []
     pos_branch_id = register.get('branchId') if register else (session.get('selected_branch_id') or 'default-sucursal-principal')
     default_wh_id = (register.get('warehouseId') if register else '') or DatabaseService.get_default_warehouse(
         owner_uid, company_id=company_id, sandbox=sandbox, branch_id=pos_branch_id
@@ -688,27 +957,45 @@ def pos_terminal():
         'pos/terminal.html',
         active_page='pos',
         items=active_items,
+        categories=categories,
+        branches=branches,
+        company=company,
         supervisors=supervisors,
         ecf_types=_ecf_types,
+        pos_ecf_types=pos_ecf_types,
         open_shift=open_shift,
         register=register,
         warehouses=warehouses,
         current_warehouse=current_warehouse,
-        pos_warehouse_id=default_wh_id
+        pos_warehouse_id=default_wh_id,
+        pos_branch_id=pos_branch_id,
+        demo_mode=demo_mode,
+        sandbox=sandbox,
     )
 
 
 @web_pos_bp.route('/pos/client/lookup', methods=['POST'])
-@require_open_shift
 def pos_client_lookup():
+    """Busca primero el cliente local y luego valida el RNC/cédula en DGII.
+
+    La consulta no requiere turno abierto porque solo obtiene datos y no
+    modifica caja ni emite una factura.
+    """
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "Sesión requerida."}), 401
+    if not check_permission('canManagePOS'):
+        return jsonify({"success": False, "error": "No autorizado para operar el POS."}), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    data = request.json or {}
-    rnc = (data.get('rnc') or '').strip().replace('-', '')
+    data = request.get_json(silent=True) or {}
+    raw_rnc = data.get('rnc') or data.get('rncCedula') or data.get('taxId') or data.get('query') or request.form.get('rnc', '')
+    rnc = re.sub(r'\D', '', str(raw_rnc or ''))
     if not rnc:
         return jsonify({"success": False, "error": "El RNC/Cédula es requerido."}), 400
+    if len(rnc) not in (9, 11):
+        return jsonify({"success": False, "error": "El RNC debe tener 9 dígitos o la cédula 11 dígitos."}), 400
         
     # 1. Buscar localmente en Firestore
     client = DatabaseService.get_client_by_rnc(owner_uid, rnc, company_id=company_id, sandbox=sandbox)
@@ -720,44 +1007,84 @@ def pos_client_lookup():
         })
         
     # 2. Buscar en el directorio de la DGII (Megaplus)
-    res = DGIIService.validate_and_fetch_rnc(rnc)
+    try:
+        res = DGIIService.validate_and_fetch_rnc(rnc) or {}
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"No se pudo consultar la DGII: {exc}"}), 502
     
-    if not res.get('error'):
-        razon_social = res.get('razon_social', 'Empresa Homologada Electrónica SRL')
-        
-        # Registrar el cliente automáticamente para futuras transacciones
-        import uuid
-        client_id = str(uuid.uuid4())
-        client_dict = {
-            "rnc": rnc,
-            "razonSocial": razon_social,
-            "email": real_data.get('email', '').strip() or "contacto@cliente.com",
-            "telefono": real_data.get('telefono', '').strip(),
-            "direccion": real_data.get('address', '').strip() or "República Dominicana",
-            "crmNotes": "Registrado automáticamente desde consulta RNC en POS",
-            "nextContactDate": "",
-            "createdAt": datetime.now(timezone.utc).isoformat(),
-            "customer_category": "NORMAL"
-        }
-        DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
+    if not res.get('error') and (res.get('razon_social') or res.get('name') or res.get('razonSocial')):
+        razon_social = res.get('razon_social') or res.get('razonSocial') or res.get('name')
         
         return jsonify({
             "success": True,
             "source": "dgii",
             "client": {
-                "id": client_id,
+                "id": "dgii-lookup",
                 "rnc": rnc,
                 "razonSocial": razon_social,
-                "email": client_dict["email"],
-                "telefono": client_dict["telefono"],
-                "direccion": client_dict["direccion"]
-            }
+                "name": razon_social,
+                "email": (res.get('email') or '').strip(),
+                "telefono": (res.get('telefono') or '').strip(),
+                "direccion": (res.get('direccion') or res.get('address') or '').strip(),
+                "source": "dgii",
+                "isDgiiLookup": True,
+            },
+            "requiresRegistration": True,
         })
     else:
         return jsonify({
             "success": False,
             "error": "Cliente no encontrado localmente ni en la DGII."
         })
+
+
+@web_pos_bp.route('/pos/cart/quote', methods=['POST'])
+@require_open_shift
+def pos_cart_quote():
+    """Calcula totales autoritativos del carrito con la misma lógica fiscal de la factura."""
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.get_json(silent=True) or {}
+
+    branch_id = data.get('branchId') or session.get('selected_branch_id') or g.get('branch_id')
+    catalog = DatabaseService.get_items(
+        owner_uid, company_id=company_id, sandbox=sandbox,
+        branch_id=branch_id, project_id=g.get('project_id')
+    ) or []
+    if not catalog and sandbox:
+        catalog = _pos_demo_items()
+
+    try:
+        parsed_items = _pos_build_items(data.get('items'), catalog, sandbox)
+        global_rate = _pos_parse_rate(data.get('discountRate', 0.0), "Descuento global")
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    calcs = DGIIService.calculate_invoice_totals(parsed_items, discount_rate=global_rate)
+    return jsonify({
+        "success": True,
+        "subtotal": calcs["subtotal"],
+        "subtotalRaw": calcs["subtotal_raw"],
+        "discountAmount": calcs["total_discount"],
+        "globalDiscount": calcs["global_discount"],
+        "totalITBIS": calcs["total_itbis"],
+        "total": calcs["total"],
+        "netPayable": calcs["net_payable"],
+        "itbisBreakdown": _pos_itbis_breakdown(calcs["items"]),
+        "items": [
+            {
+                "id": it.get("id"),
+                "quantity": it.get("quantity"),
+                "price": it.get("price"),
+                "discountRate": it.get("discountRate"),
+                "subtotal": it.get("subtotal"),
+                "itbisAmount": it.get("itbisAmount"),
+                "total": it.get("total"),
+            }
+            for it in calcs["items"]
+        ],
+    })
 
 
 @web_pos_bp.route('/pos/invoice/new', methods=['POST'])
@@ -770,7 +1097,7 @@ def create_pos_sale():
 
     open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
 
-    data = request.json
+    data = request.get_json(silent=True) or {}
     idempotency_key = request.headers.get('Idempotency-Key') or data.get('idempotencyKey') or data.get('idempotency_key')
     if idempotency_key:
         record = DatabaseService.get_idempotency_record(owner_uid, idempotency_key, company_id=company_id, sandbox=sandbox)
@@ -778,49 +1105,74 @@ def create_pos_sale():
             status_code = int(record.get("statusCode", 200))
             return jsonify(record["response"]), status_code
 
-    client_id = data.get('clientId', '')
-    client_name = data.get('clientName', 'Consumidor Final')
-    client_rnc = data.get('clientRNC', '000000000')
-    payment_method = data.get('paymentMethod', 'Efectivo')
-    items_list = data.get('items', [])
     ecf_type = data.get('ecfType', _by_code("E32").label_with_code)
-
-    client_project_id = None
-    if client_id and client_id != 'default':
-        client = DatabaseService.get_client(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
-        if client:
-            client_project_id = client.get('projectId')
-
     if ecf_type not in ['Factura de Consumo (E32)', 'Factura de Crédito Fiscal (E31)']:
         return jsonify({"success": False, "error": f"El Punto de Venta solo permite emitir Factura de Consumo (E32) o Crédito Fiscal (E31). El tipo '{ecf_type}' está restringido."}), 400
 
-    if not items_list:
-        return jsonify({"success": False, "error": "La venta no tiene productos."}), 400
+    # Sucursal: se valida contra las sucursales reales de la empresa cuando existan.
+    explicit_branch_id = data.get('branchId') or session.get('selected_branch_id') or g.get('branch_id')
+    branch_id = explicit_branch_id or 'default-sucursal-principal'
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox) or []
+    if explicit_branch_id and branches:
+        valid_branch_ids = {b.get('id') for b in branches}
+        if explicit_branch_id not in valid_branch_ids:
+            return jsonify({"success": False, "error": "La sucursal seleccionada no es válida."}), 400
 
-    # Calcular totales
-    parsed_items = []
-    for it in items_list:
-        parsed_items.append({
-            "id": it["id"],
-            "name": it["name"],
-            "price": float(it["price"]),
-            "quantity": int(it["quantity"]),
-            "itbisRate": float(it.get("itbisRate", 0.18)),
-            "discountRate": 0.0,
-            "type": it.get("type", "Bien")
-        })
+    # Catálogo autoritativo: precios, impuestos y estado salen de la base de datos.
+    catalog = DatabaseService.get_items(
+        owner_uid, company_id=company_id, sandbox=sandbox,
+        branch_id=branch_id, project_id=g.get('project_id')
+    ) or []
+    if not catalog and sandbox:
+        catalog = _pos_demo_items()
 
-    calcs = DGIIService.calculate_invoice_totals(parsed_items, discount_rate=0.0)
+    try:
+        parsed_items = _pos_build_items(data.get('items'), catalog, sandbox)
+        global_discount_rate = _pos_parse_rate(data.get('discountRate', 0.0), "Descuento global")
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    calcs = DGIIService.calculate_invoice_totals(parsed_items, discount_rate=global_discount_rate)
+    if float(calcs.get('total') or 0.0) <= 0:
+        return jsonify({"success": False, "error": "El total de la venta debe ser mayor a cero."}), 400
+
+    # Cliente: nombre y RNC se toman del registro, nunca del navegador.
+    client_id = data.get('clientId') or 'default'
+    client_name = 'Consumidor Final'
+    client_rnc = '000000000'
+    client_email = ''
+    client_project_id = None
+    if client_id and client_id != 'default':
+        client = DatabaseService.get_client(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
+        if not client:
+            return jsonify({"success": False, "error": "El cliente seleccionado no existe."}), 400
+        client_name = client.get('razonSocial') or client.get('name') or 'Cliente'
+        client_rnc = re.sub(r'\D', '', str(client.get('rnc') or client.get('identification') or ''))
+        client_email = (client.get('email') or '').strip()
+        client_project_id = client.get('projectId')
+
+    is_consumer_final = (
+        client_id == 'default' or not client_rnc or client_rnc == '000000000'
+    )
+    if ecf_type == 'Factura de Crédito Fiscal (E31)' and (is_consumer_final or len(client_rnc) < 9):
+        return jsonify({
+            "success": False,
+            "error": "La Factura de Crédito Fiscal (E31) requiere un cliente registrado con RNC o Cédula válida."
+        }), 400
+
+    try:
+        payment_info = _pos_normalize_payments(data, calcs['total'], is_consumer_final)
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
 
     invoice_id = str(uuid.uuid4())
     invoice_number = f"POS-{datetime.now(timezone.utc).strftime('%y%m%d%H%M%S')}"
 
     # --- Determinar si aplica modo consolidado ---
     # Condiciones DGII: E32, Consumidor Final (RNC 000000000), total < monto configurable de la empresa
-    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
-    consolidation_enabled = company.get('consolidationEnabled', False)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    consolidation_enabled = bool(company.get('consolidationEnabled', False))
     consolidation_threshold = float(company.get('consolidationThreshold') or 250000.0)
-    is_consumer_final = (client_id == 'default' or client_rnc == '000000000')
     qualifies_for_consolidation = (
         consolidation_enabled
         and ecf_type == 'Factura de Consumo (E32)'
@@ -836,13 +1188,23 @@ def create_pos_sale():
     # -------------------------------------------
 
 
-    # --- Cobro en USD ---
-    usd_amount = float(data.get('usdAmount', 0.0))
-    usd_rate = float(data.get('usdExchangeRate', 1.0))
+    # --- Cobro en USD (informativo; la factura siempre se contabiliza en DOP) ---
+    usd_payments = [p for p in payment_info['payments'] if float(p.get('usdAmount') or 0.0) > 0]
+    usd_amount = DGIIService.dgii_round(sum(float(p['usdAmount']) for p in usd_payments), 2) if usd_payments else 0.0
+    usd_rate = float(usd_payments[0].get('usdExchangeRate') or 1.0) if usd_payments else 1.0
 
-    # Determinar almacén de despacho para control de inventario
+    # Determinar y validar almacén de despacho para control de inventario
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox) or []
     warehouse_id = data.get('warehouseId')
-    if not warehouse_id:
+    if warehouse_id:
+        if warehouses:
+            warehouse = next((w for w in warehouses if w.get('id') == warehouse_id), None)
+            if not warehouse:
+                return jsonify({"success": False, "error": "El almacén seleccionado no es válido."}), 400
+            warehouse_branch = warehouse.get('branchId')
+            if warehouse_branch and branch_id and warehouse_branch != branch_id:
+                return jsonify({"success": False, "error": "El almacén no pertenece a la sucursal seleccionada."}), 400
+    else:
         reg_id = open_shift.get('registerId') if open_shift else None
         reg = None
         if reg_id:
@@ -851,10 +1213,14 @@ def create_pos_sale():
             if reg and reg.get('warehouseId'):
                 warehouse_id = reg['warehouseId']
         if not warehouse_id:
-            pos_branch_id = session.get('selected_branch_id') or (reg.get('branchId') if reg else None) or 'default-sucursal-principal'
             warehouse_id = DatabaseService.get_default_warehouse(
-                owner_uid, company_id=company_id, sandbox=sandbox, branch_id=pos_branch_id
+                owner_uid, company_id=company_id, sandbox=sandbox, branch_id=branch_id
             )
+
+    if payment_info['credit_amount'] > 0:
+        settlement_status = 'Emitida' if payment_info['paid_amount'] <= 0 else 'Parcialmente Cobrada'
+    else:
+        settlement_status = 'Cobrada'
 
     invoice_dict = {
         "invoiceNumber": invoice_number,
@@ -863,16 +1229,27 @@ def create_pos_sale():
         "clientId": client_id,
         "clientName": client_name,
         "clientRNC": client_rnc,
-        "status": "PENDING_CONSOLIDATION" if qualifies_for_consolidation else "Cobrada",
+        "status": "PENDING_CONSOLIDATION" if qualifies_for_consolidation else settlement_status,
         "ecfType": ecf_type,
         "currency": "DOP",
-        "paymentType": "01 - Contado",
-        "paymentMethod": payment_method,
+        "paymentType": payment_info['payment_type'],
+        "paymentMethod": payment_info['primary_method'],
         "incomeType": "01 - Ingresos por operaciones",
         "subtotal": calcs["subtotal"],
+        "subtotalRaw": calcs["subtotal_raw"],
+        "discountRate": global_discount_rate,
+        "discountAmount": calcs["total_discount"],
+        "globalDiscount": calcs["global_discount"],
         "totalITBIS": calcs["total_itbis"],
         "total": calcs["total"],
         "netPayable": calcs["net_payable"],
+        "itbisBreakdown": _pos_itbis_breakdown(calcs["items"]),
+        "payments": payment_info['payments'],
+        "paidAmount": payment_info['paid_amount'],
+        "creditAmount": payment_info['credit_amount'],
+        "totalPaid": payment_info['paid_amount'],
+        "remainingBalance": payment_info['credit_amount'],
+        "notes": str(data.get('notes') or '').strip()[:500],
         "isQuotation": False,
         "isConvertedToInvoice": False,
         "items": calcs["items"],
@@ -881,7 +1258,7 @@ def create_pos_sale():
         "posShiftId": open_shift['id'],  # Necesario para consultas de consolidación
         "isSyncedWithDGII": False,
         "includeInRui": include_in_rui,
-        "branchId": session.get('selected_branch_id') or 'default-sucursal-principal',
+        "branchId": branch_id,
         "projectId": client_project_id or session.get('selected_project_id') or None
     }
     
@@ -889,7 +1266,8 @@ def create_pos_sale():
         invoice_dict["usdAmount"] = usd_amount
         invoice_dict["usdExchangeRate"] = usd_rate
 
-    # 1. Guardar factura en base de datos con manejo controlado de stock
+    # 1. Guardar factura en base de datos con manejo controlado de stock.
+    #    La caja se registra DESPUÉS para que una factura fallida no deje movimientos huérfanos.
     from app.services.inventory_transaction_service import InsufficientStockError, InventoryTransactionError
     try:
         DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
@@ -898,21 +1276,47 @@ def create_pos_sale():
             "success": False,
             "error": str(e)
         }), 400
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception("Error guardando venta POS %s", invoice_id)
+        return jsonify({
+            "success": False,
+            "error": "No se pudo guardar la venta. No se registró ningún movimiento de caja."
+        }), 500
 
-    # 2. Registrar transacción financiera de caja
-    tx_dict = {
-        "shiftId": open_shift['id'],
-        "type": "SALE",
-        "amount": calcs["total"],
-        "paymentMethod": payment_method,
-        "referenceId": invoice_id,
-        "notes": f"{'[CONSOLIDADO] ' if qualifies_for_consolidation else ''}Venta POS: {invoice_number}"
-    }
-    if usd_amount > 0:
-        tx_dict["usdAmount"] = usd_amount
-        tx_dict["usdExchangeRate"] = usd_rate
-        
-    DatabaseService.register_cash_transaction(owner_uid, tx_dict, company_id=company_id, sandbox=sandbox)
+    # 2. Registrar una transacción de caja por cada pago no-crédito.
+    #    "Crédito" no genera entrada de efectivo; su saldo se refleja en CxC.
+    import logging
+    for idx, pay in enumerate(payment_info['payments']):
+        if pay['method'] == 'Crédito':
+            continue
+        tx_dict = {
+            "id": f"{invoice_id}-pay-{idx + 1}",
+            "shiftId": open_shift['id'],
+            "type": "SALE",
+            "amount": pay['amount'],
+            "paymentMethod": pay['method'],
+            "referenceId": invoice_id,
+            "notes": (
+                f"{'[CONSOLIDADO] ' if qualifies_for_consolidation else ''}"
+                f"Venta POS: {invoice_number} (pago {idx + 1}/{len(payment_info['payments'])})"
+            ),
+        }
+        if pay.get('reference'):
+            tx_dict["reference"] = pay['reference']
+        if pay.get('bank'):
+            tx_dict["bank"] = pay['bank']
+        if float(pay.get('usdAmount') or 0.0) > 0:
+            tx_dict["usdAmount"] = pay['usdAmount']
+            tx_dict["usdExchangeRate"] = pay.get('usdExchangeRate') or usd_rate
+        try:
+            DatabaseService.register_cash_transaction(
+                owner_uid, tx_dict, company_id=company_id, sandbox=sandbox
+            )
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "No se pudo registrar el pago %s de la factura POS %s", idx + 1, invoice_id
+            )
 
     # 3. Si aplica modo consolidado → no emitir e-CF individual, retornar con indicador
     if qualifies_for_consolidation:
@@ -958,7 +1362,7 @@ def create_pos_sale():
             invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             invoice_dict["trackId"] = res.get("trackId", "")
             invoice_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
-            invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
+            invoice_dict["status"] = "Pendiente DGII" if pending_dgii else settlement_status
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
 
             # Auto-notificar e-CF al cliente si fue aceptada por DGII y posee correo

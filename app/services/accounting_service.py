@@ -681,19 +681,45 @@ class AccountingService:
                     it["costPrice"] = float(cat["costPrice"])
 
         lines = []
-        lines.append({
-            "accountId": debit_acc["id"],
-            "accountCode": debit_acc.get("code", ""),
-            "accountName": debit_acc.get("name", ""),
-            "debit": round(total, 2),
-            "credit": 0.00,
-            "description": debit_desc,
-            "contactId": client_id,
-            "contactName": client_name,
-            "branchId": branch_id,
-            "costCenterId": cost_center_id,
-            "currency": currency
-        })
+        debit_allocations = []
+        credit_amount = float(invoice.get("creditAmount", 0) or 0)
+        paid_amount = round(total - credit_amount, 2)
+        if invoice.get("payments") and credit_amount > 0.009 and paid_amount > 0.009:
+            # Venta mixta: la parte cobrada se debita a efectivo/banco y la parte
+            # a crédito a CxC, para que el asiento refleje ambos componentes.
+            cash_method = next(
+                (p.get("method") for p in invoice.get("payments", []) if p.get("method") != "Crédito"),
+                invoice.get("paymentMethod", "Efectivo"),
+            )
+            cash_acc, cash_desc = cls._resolve_debit_account(
+                {**invoice, "paymentType": "01 - Contado", "paymentMethod": cash_method},
+                accounts, company_id=company_id, sandbox=sandbox,
+            )
+            credit_acc, credit_desc = cls._resolve_debit_account(
+                {**invoice, "paymentType": "02 - Crédito", "paymentMethod": "Crédito"},
+                accounts, company_id=company_id, sandbox=sandbox,
+            )
+            debit_allocations.append((cash_acc or debit_acc, paid_amount, cash_desc))
+            debit_allocations.append((credit_acc or debit_acc, credit_amount, credit_desc))
+        else:
+            debit_allocations.append((debit_acc, total, debit_desc))
+
+        for alloc_acc, alloc_amount, alloc_desc in debit_allocations:
+            if not alloc_acc or alloc_amount <= 0:
+                continue
+            lines.append({
+                "accountId": alloc_acc["id"],
+                "accountCode": alloc_acc.get("code", ""),
+                "accountName": alloc_acc.get("name", ""),
+                "debit": round(alloc_amount, 2),
+                "credit": 0.00,
+                "description": alloc_desc,
+                "contactId": client_id,
+                "contactName": client_name,
+                "branchId": branch_id,
+                "costCenterId": cost_center_id,
+                "currency": currency
+            })
         lines.append({
             "accountId": sales_acc["id"],
             "accountCode": sales_acc.get("code", ""),

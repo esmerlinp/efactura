@@ -18,20 +18,20 @@ CONDITIONS = {
         "type": "flag",
         "match": lambda ctx: ctx.get("payment_type", "Contado") == "Contado"
         and ctx.get("payment_method", "Efectivo")
-        not in ("Tarjeta de Crédito", "Tarjeta de Débito", "Transferencia"),
+        not in ("Tarjeta de Crédito", "Tarjeta de Débito", "Tarjeta", "Transferencia", "Cheque"),
     },
     "pago_tarjeta": {
         "label": "Pago con tarjeta (crédito/débito)",
         "type": "flag",
         "match": lambda ctx: ctx.get("payment_type", "Contado") == "Contado"
         and ctx.get("payment_method", "Efectivo")
-        in ("Tarjeta de Crédito", "Tarjeta de Débito"),
+        in ("Tarjeta de Crédito", "Tarjeta de Débito", "Tarjeta"),
     },
     "pago_transferencia": {
         "label": "Pago por transferencia",
         "type": "flag",
         "match": lambda ctx: ctx.get("payment_type", "Contado") == "Contado"
-        and ctx.get("payment_method", "Efectivo") == "Transferencia",
+        and ctx.get("payment_method", "Efectivo") in ("Transferencia", "Cheque"),
     },
     "pago_contado": {
         "label": "Operación al contado",

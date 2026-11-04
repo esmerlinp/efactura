@@ -1,1804 +1,507 @@
-{% extends "layout.html" %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>POS · {{ product_name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pos.css') }}">
+</head>
+<body class="pos-body">
+<div class="pos-app" id="pos-app">
 
-{% block title %}Punto de Venta - Terminal CashCow{% endblock %}
-
-{% block page_header %}POS - Terminal de Ventas{% endblock %}
-
-{% block content %}
-<!-- Selector de pestañas para vista móvil / tablet compacta -->
-<div class="pos-mobile-nav">
-    <button type="button" class="pos-mobile-tab active" id="tab-btn-catalog" onclick="switchPosMobileView('catalog')">
-        <i class="fa-solid fa-boxes-stacked"></i> Catálogo
-    </button>
-    <button type="button" class="pos-mobile-tab" id="tab-btn-cart" onclick="switchPosMobileView('cart')">
-        <i class="fa-solid fa-basket-shopping"></i> Carrito
-        <span class="pos-mobile-cart-badge" id="mobile-cart-count" style="display: none;">0</span>
-    </button>
-</div>
-
-<!-- CONTENEDOR PRINCIPAL RESPONSIVE -->
-<div class="pos-main-container">
-
-    <!-- ================= COLUMNA IZQUIERDA: CARRITO, TOTALES Y ACCIONES ================= -->
-    <div class="card-table-wrapper pos-left-panel" id="pos-left-panel">
-        
-        <!-- Info de Cliente y Turno -->
-        <div style="display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: var(--text-muted);">
-                <span>Caja: <strong>{{ register.name if register else 'Caja 01' }}</strong> • Almacén: <strong style="color: var(--text-primary);">{{ current_warehouse.name if current_warehouse else 'Almacén Principal' }}</strong></span>
-                <span id="pos-shift-indicator" style="color: var(--accent-emerald); font-weight: 700;"><i class="fa-solid fa-circle"></i> TURNO ABIERTO</span>
-            </div>
-
-            <!-- Identificación de Cliente -->
-            <div style="display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; background: rgba(255, 255, 255, 0.02); padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px;">
-                <div onclick="openClientLookupModal()" style="cursor: pointer; flex-grow: 1;">
-                    <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Cliente (RNC / Cédula)</div>
-                    <strong id="client-display-name" style="font-size: 0.88rem; color: var(--text-primary);">Consumidor Final</strong>
-                    <div id="client-rnc-label" style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">RNC: 000000000</div>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
-<select id="client-type-select" onchange="updateEcfTypeFromSelect(this.value)" disabled
-    style="font-size: 0.68rem; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.06); color: var(--text-secondary); cursor: not-allowed; outline: none;">
-    {% for t in ecf_types %}{% if t.code in ('E31', 'E32') %}
-    <option value="{{ t.label_with_code }}">{{ t.short_label }} ({{ t.code }})</option>
-    {% endif %}{% endfor %}
-</select>
-                    <button type="button" id="btn-clear-client" onclick="clearPOSClient()"
-                        style="display: none; background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 0.75rem; padding: 0;"
-                        title="Quitar cliente">
-                        <i class="fa-solid fa-circle-xmark"></i> Quitar
-                    </button>
-                </div>
-            </div>
+    <aside class="pos-sidebar" aria-label="Navegación principal">
+        <div class="pos-brand">
+            <span class="pos-brand-mark">V</span>
+            <span class="pos-brand-name">VykOne <b>POS</b></span>
         </div>
 
-        <!-- Tabla del Carrito de Compras (Scroll independiente) -->
-        <div class="pos-cart-table-container" style="flex: 1 1 0%; min-height: 0; overflow-y: auto; margin-bottom: 8px; border-bottom: 1px solid var(--border-color);">
-            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.8rem;">
-                <thead>
-                    <tr style="border-bottom: 1.5px solid var(--border-color); color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase;">
-                        <th style="padding: 6px 4px; width: 48%;">Descripción</th>
-                        <th style="padding: 6px 4px; text-align: center; width: 16%;">Cant</th>
-                        <th style="padding: 6px 4px; text-align: right; width: 26%;">Total</th>
-                        <th style="padding: 6px 4px; text-align: center; width: 10%;"></th>
-                    </tr>
-                </thead>
-                <tbody id="cart-table-body">
-                    <!-- Dinámico desde JS -->
-                </tbody>
-            </table>
-            
-            <div id="cart-empty-state" style="text-align: center; padding: 30px 0; color: var(--text-secondary);">
-                <i class="fa-solid fa-basket-shopping" style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.3; margin-bottom: 6px; display: block;"></i>
-                <span style="font-size: 0.82rem;">Carrito vacío</span>
-            </div>
-        </div>
-
-        <!-- Totales de Venta -->
-        <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 4px;">
-                <span>Subtotal:</span>
-                <span id="subtotal-val" style="font-family: monospace;">RD$ 0.00</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 6px;">
-                <span>ITBIS:</span>
-                <span id="itbis-val" style="font-family: monospace;">RD$ 0.00</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--border-color); padding-top: 6px;">
-                <span style="font-size: 0.85rem; font-weight: 700;">TOTAL GENERAL:</span>
-                <span id="total-val" style="font-size: 1.4rem; font-weight: 800; color: var(--accent-emerald); font-family: monospace;">RD$ 0.00</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px;">
-                <span style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 600;">Equivalente USD (BPD):</span>
-                <span id="total-val-usd" style="font-size: 1rem; font-weight: 750; color: #8b5cf6; font-family: monospace;">$ 0.00</span>
-            </div>
-        </div>
-
-        <!-- Acciones Rápidas del Footer Izquierdo -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <button onclick="clearCartWithConfirm()" class="btn btn-secondary" style="height: 38px; font-weight: 600; border-color: rgba(239,68,68,0.4); color: var(--accent-red); background: rgba(239,68,68,0.05);">
-                <i class="fa-solid fa-ban"></i> Cancelar Venta
+        <nav class="pos-nav">
+            <button type="button" class="pos-nav-item is-active" data-view="sale">
+                <i class="fa-solid fa-cash-register"></i>
+                <span>Venta</span>
+                <kbd>F1</kbd>
             </button>
-            <a href="/pos" class="btn btn-secondary" style="height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600;">
-                <i class="fa-solid fa-chart-line"></i> Dashboard POS
+            <button type="button" class="pos-nav-item" data-view="pending" id="btn-pending-sales">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>En espera</span>
+                <em id="pending-count" hidden>0</em>
+            </button>
+            <a class="pos-nav-item" href="/pos">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Caja</span>
             </a>
-        </div>
+            {% if session.user.role == 'owner' or check_permission('isPosSupervisor') %}
+            <a class="pos-nav-item" href="/pos/admin">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Administración</span>
+            </a>
+            {% endif %}
+        </nav>
 
-    </div>
-
-    <!-- ================= COLUMNA DERECHA: CATÁLOGO (ARRIBA) + TECLADO NUMÉRICO Y COBRO (ABAJO) ================= -->
-    <div class="pos-right-panel" id="pos-right-panel">
-
-        <!-- 1. PARTE SUPERIOR: Catálogo, Pestañas de Departamentos y Buscador -->
-        <div class="card-table-wrapper pos-catalog-wrapper" style="padding: 12px; margin-bottom: 0; display: flex; flex-direction: column; overflow: hidden; height: 100%; min-height: 0;">
-            
-            <!-- Barra Superior: Buscador y Pestañas -->
-            <div style="display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 8px;">
-                <div style="display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center;">
-                    <div style="position: relative; width: 100%;">
-                        <i class="fa-solid fa-barcode" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 1rem;"></i>
-                        <input type="text" id="barcode-search" placeholder="Escanee código o escriba SKU del producto..."
-                            style="width: 100%; height: 38px; padding: 0 32px 0 38px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.88rem; outline: none;"
-                            onkeydown="handleBarcodeSearch(event)" oninput="toggleClearSearchBtn()">
-                        <button type="button" id="btn-clear-search" onclick="clearSearchInput()"
-                            style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; display: none; align-items: center; justify-content: center; font-size: 1.1rem; padding: 4px;">
-                            <i class="fa-solid fa-circle-xmark"></i>
-                        </button>
-                    </div>
-                    <button onclick="submitBarcodeSearch()" class="btn btn-primary" style="height: 38px; font-weight: 600; padding: 0 14px;">
-                        <i class="fa-solid fa-plus"></i> Agregar
-                    </button>
-                    <button onclick="focusBarcode()" class="btn btn-secondary" style="height: 38px; font-weight: 500; padding: 0 12px;" title="Activar foco de lector">
-                        <i class="fa-solid fa-keyboard"></i> Foco
-                    </button>
-                </div>
-
-                <!-- Pestañas de Departamentos / Categorías -->
-                <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin;">
-                    <button onclick="filterCatalog('all')" class="cat-chip active" id="chip-all"><i class="fa-solid fa-border-all"></i> Todos</button>
-                    <button onclick="filterCatalog('alimentos')" class="cat-chip" id="chip-alimentos"><i class="fa-solid fa-utensils"></i> Alimentos</button>
-                    <button onclick="filterCatalog('electronica')" class="cat-chip" id="chip-electronica"><i class="fa-solid fa-laptop"></i> Electrónica</button>
-                    <button onclick="filterCatalog('servicios')" class="cat-chip" id="chip-servicios"><i class="fa-solid fa-handshake"></i> Servicios</button>
-                    <button onclick="filterCatalog('ferreteria')" class="cat-chip" id="chip-ferreteria"><i class="fa-solid fa-screwdriver-wrench"></i> Ferretería</button>
-                    <button onclick="filterCatalog('general')" class="cat-chip" id="chip-general"><i class="fa-solid fa-box"></i> General</button>
-                </div>
-            </div>
-
-            <!-- Grilla de Productos (Scrollable) -->
-            <div id="products-grid" class="pos-products-grid">
-                <!-- Render dinámico -->
-            </div>
-
-        </div>
-
-        <!-- 2. PARTE INFERIOR: Teclado Numérico CashCow y Métodos de Cobro -->
-        <div class="pos-dock-wrapper">
-            
-            <!-- Panel Teclado Numérico (Numpad) -->
-            <div class="card-table-wrapper pos-numpad-card">
-                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px;">
-                    <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Monto Recibido:</span>
-                    <input type="text" id="received-amount" placeholder="0.00" readonly
-                        style="flex-grow: 1; height: 34px; border: 1px solid var(--border-color); background: var(--bg-input); border-radius: 6px; text-align: right; padding: 0 10px; font-size: 1.1rem; font-weight: 800; font-family: monospace; color: var(--accent-emerald);">
-                </div>
-
-                <!-- Matriz de Botones 4x3 del Teclado -->
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; flex-grow: 1;">
-                    <button onclick="pressNum(7)" class="btn btn-secondary num-key">7</button>
-                    <button onclick="pressNum(8)" class="btn btn-secondary num-key">8</button>
-                    <button onclick="pressNum(9)" class="btn btn-secondary num-key">9</button>
-                    
-                    <button onclick="pressNum(4)" class="btn btn-secondary num-key">4</button>
-                    <button onclick="pressNum(5)" class="btn btn-secondary num-key">5</button>
-                    <button onclick="pressNum(6)" class="btn btn-secondary num-key">6</button>
-                    
-                    <button onclick="pressNum(1)" class="btn btn-secondary num-key">1</button>
-                    <button onclick="pressNum(2)" class="btn btn-secondary num-key">2</button>
-                    <button onclick="pressNum(3)" class="btn btn-secondary num-key">3</button>
-                    
-                    <button onclick="pressNum('.')" class="btn btn-secondary num-key">.</button>
-                    <button onclick="pressNum(0)" class="btn btn-secondary num-key">0</button>
-                    <button onclick="pressNum('C')" class="btn btn-secondary num-key" style="color: var(--accent-red); font-weight: bold;"><i class="fa-solid fa-delete-left"></i></button>
-                </div>
-            </div>
-
-            <!-- Panel de Billetes Rápidos y Cobro -->
-            <div class="card-table-wrapper pos-checkout-card">
-                
-                <!-- Billetes comunes dominicanos -->
+        <div class="pos-sidebar-foot">
+            <div class="pos-shift-card">
+                <span class="pos-status-dot"></span>
                 <div>
-                    <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">Dinero Rápido:</span>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 6px;">
-                        <button onclick="quickCash(100)" class="btn btn-secondary cash-btn">RD$ 100</button>
-                        <button onclick="quickCash(200)" class="btn btn-secondary cash-btn">RD$ 200</button>
-                        <button onclick="quickCash(500)" class="btn btn-secondary cash-btn">RD$ 500</button>
-                        <button onclick="quickCash(1000)" class="btn btn-secondary cash-btn">RD$ 1000</button>
-                        <button onclick="quickCash(2000)" class="btn btn-secondary cash-btn">RD$ 2000</button>
-                        <button onclick="quickCash('exact')" class="btn btn-secondary cash-btn" style="border-color: var(--accent-emerald); color: var(--accent-emerald); font-weight: 700;">Exacto</button>
-                    </div>
-                    
-                    <!-- Devolución / Cambio -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 5px 8px; border-radius: 6px;">
-                        <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">Devuelta:</span>
-                        <strong id="change-amount-display" style="font-size: 1.05rem; color: var(--text-primary); font-family: monospace;">RD$ 0.00</strong>
-                    </div>
+                    <strong>Turno abierto</strong>
+                    <small>{{ register.name if register else 'Caja principal' }}</small>
                 </div>
-
-                <!-- Botones de Finalización Directa -->
-                <div style="display: flex; flex-direction: column; gap: 5px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
-                        <button onclick="processDirectCheckout('Efectivo')" class="btn btn-secondary" style="height: 38px; font-weight: 700; color: var(--accent-emerald); background: rgba(16,185,129,0.06); border-color: rgba(16,185,129,0.3);">
-                            <i class="fa-solid fa-money-bill-1-wave"></i> Efectivo
-                        </button>
-                        <button onclick="processDirectCheckout('Tarjeta')" class="btn btn-secondary" style="height: 38px; font-weight: 700; color: var(--accent-blue); background: rgba(59,130,246,0.06); border-color: rgba(59,130,246,0.3);">
-                            <i class="fa-solid fa-credit-card"></i> Tarjeta
-                        </button>
-                    </div>
-                    <button onclick="processDirectCheckout('Transferencia')" class="btn btn-secondary" style="height: 34px; font-weight: 600; width: 100%;">
-                        <i class="fa-solid fa-building-columns"></i> Transferencia Bancaria
-                    </button>
-                    <button onclick="processDirectCheckout('Efectivo USD')" class="btn btn-secondary" style="height: 34px; font-weight: 600; width: 100%; border-color: rgba(139, 92, 246, 0.4); color: #8b5cf6; background: rgba(139, 92, 246, 0.05);">
-                        <i class="fa-solid fa-dollar-sign"></i> Cobrar en USD (Dólares)
-                    </button>
+            </div>
+            <div class="pos-user">
+                <span class="pos-avatar">{{ (session.user.name or session.user.email or 'U')[:1]|upper }}</span>
+                <div>
+                    <strong>{{ session.user.name or 'Cajero' }}</strong>
+                    <small>{{ register.name if register else 'Caja' }} · {{ current_warehouse.name if current_warehouse else 'Almacén' }}</small>
                 </div>
-
             </div>
-
         </div>
+    </aside>
 
-    </div>
-
-</div>
-
-<!-- Barra flotante inferior para dispositivos táctiles compactos / móvil -->
-<div class="pos-mobile-bottom-bar" id="pos-mobile-bottom-bar">
-    <div class="pos-mobile-total-info">
-        <span class="pos-mobile-total-label">Total a Pagar</span>
-        <span class="pos-mobile-total-val" id="mobile-total-val">RD$ 0.00</span>
-    </div>
-    <button type="button" class="btn btn-primary pos-mobile-checkout-btn" onclick="switchPosMobileView('cart')">
-        <i class="fa-solid fa-basket-shopping"></i> Ver Carrito / Cobrar
-    </button>
-</div>
-
-<!-- MODAL: BUSCAR CLIENTE (RNC / Cédula) CON TECLADO TÁCTIL -->
-<div id="client-lookup-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; z-index: 1090;">
-    <div class="modal-backdrop" onclick="closeClientLookupModal()"></div>
-    <div class="modal-content animate-fade-in" style="max-width: 440px; padding: 0; border-radius: var(--radius-md);">
-        <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
-                <i class="fa-solid fa-user-tag" style="color: var(--accent-emerald);"></i>
-                <span>Identificar Cliente (RNC / Cédula)</span>
-            </h3>
-            <button class="btn-close-modal" onclick="closeClientLookupModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem;">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div class="modal-body" style="padding: 24px;">
-            <div class="form-group" style="margin-bottom: 16px;">
-                <label for="lookup-rnc-input">RNC o Cédula del Cliente</label>
-                <input type="text" id="lookup-rnc-input" class="form-input" placeholder="Ingrese RNC/Cédula..."
-                    style="font-size: 1.4rem; height: 46px; text-align: center; font-weight: 700; width: 100%; font-family: monospace;" readonly>
+    <main class="pos-workspace">
+        <header class="pos-topbar">
+            <div class="pos-topbar-left">
+                <button type="button" class="pos-icon-btn pos-menu-btn" id="btn-menu" aria-label="Menú">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="pos-context">
+                    <span class="pos-context-eyebrow">Punto de venta</span>
+                    <h1 class="pos-context-title">
+                        {{ company.get('name') or company.get('razonSocial') or company.get('companyName') or 'Mi empresa' }}
+                        <span class="pos-context-sep">·</span>
+                        {{ branches|selectattr('id', 'equalto', pos_branch_id)|map(attribute='name')|first or 'Sucursal principal' }}
+                    </h1>
+                </div>
             </div>
 
-            <!-- Teclado Numérico Táctil para RNC -->
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; max-width: 320px; margin-left: auto; margin-right: auto;">
-                <button type="button" class="btn btn-secondary numpad-btn" onclick="pressRncNum(7)" style="height: 50px; font-size: 1.4rem; font-weight: 700;">7</button>
-                <button type="button" class="btn btn-secondary numpad-btn" onclick="pressRncNum(8)" style="height: 50px; font-size: 1.4rem; font-weight: 700;">8</button>
-                <button type="button" class="btn btn-secondary numpad-btn" onclick="pressRncNum(9)" style="height: 50px; font-size: 1.4rem; font-weight: 700;">9</button>
-                <button type="button" class="btn btn-secondary numpad-btn" onclick="pressRncNum(4)" style="height: 50px; font-size: 1.4rem; font-weight: 700;">4</button>
-                <button type="button" class="btn btn-secondary numpad-btn" onclick="pressRncNum(5)" style="height: 50px; font-size: 1.4rem; font-weight: 700;">5</button>
-                <button type="button" class="btn btn-secondary numpad-btn" onclick="pressRncNum(6)" style="height: 50px; font-size: 1.4rem; font-weight: 700;">6</button>
-                <button type="button" class="btn btn-secondary numpad-btn" onclick="pressRncNum(1)" style="height: 50px; font-size: 1.4rem; font-weight: 700;">1</button>
-                <button type="button" class="btn btn-secondary numpad-btn" onclick="pressRncNum(2)" style="height: 50px; font-size: 1.4rem; font-weight: 700;">2</button>
-                <button type="button" class="btn btn-secondary numpad-btn" onclick="pressRncNum(3)" style="height: 50px; font-size: 1.4rem; font-weight: 700;">3</button>
-                <button type="button" class="btn btn-secondary numpad-btn" onclick="pressRncNum('C')" style="height: 50px; font-size: 1.1rem; font-weight: 700; color: var(--accent-red); display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-delete-left"></i></button>
-                <button type="button" class="btn btn-secondary numpad-btn" onclick="pressRncNum(0)" style="height: 50px; font-size: 1.4rem; font-weight: 700;">0</button>
-                <button type="button" class="btn btn-secondary numpad-btn" onclick="clearRncNum()" style="height: 50px; font-size: 0.9rem; font-weight: 700; color: var(--text-secondary);">Limpiar</button>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button onclick="submitClientLookupSearch()" id="btn-modal-client-search" class="btn btn-primary"
-                    style="width: 100%; height: 46px; font-weight: 700; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <div class="pos-topbar-actions">
+                <div class="pos-search" id="search-wrap">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <span>Buscar (Local / DGII)</span>
+                    <input id="search-input" type="text" autocomplete="off" spellcheck="false"
+                           placeholder="Buscar producto, SKU o escanear código…">
+                    <kbd>F2</kbd>
+                    <button type="button" class="pos-search-clear" id="search-clear" hidden aria-label="Limpiar">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <button type="button" class="pos-btn pos-btn-ghost" id="btn-client">
+                    <i class="fa-regular fa-user"></i>
+                    <span id="topbar-client-label">Consumidor final</span>
+                    <kbd>F4</kbd>
                 </button>
-                <button onclick="openNewClientFromLookup()" class="btn btn-secondary"
-                    style="width: 100%; height: 42px; font-weight: 500; font-size: 0.9rem;">
-                    <i class="fa-solid fa-user-plus"></i> Registrar Manualmente
+                <button type="button" class="pos-btn pos-btn-ghost pos-icon-only" id="btn-pending-top" title="Ventas en espera">
+                    <i class="fa-regular fa-clock"></i>
                 </button>
+            </div>
+        </header>
+
+        {% if demo_mode %}
+        <div class="pos-demo-banner">
+            <i class="fa-solid fa-flask"></i>
+            <span><b>Modo demostración.</b> Catálogo ficticio disponible solo en sandbox. No se puede emitir este catálogo en producción.</span>
+        </div>
+        {% endif %}
+
+        <div class="pos-mobile-switch">
+            <button type="button" class="is-active" data-mobile-view="catalog">Catálogo</button>
+            <button type="button" data-mobile-view="cart">Carrito <span id="mobile-cart-count">0</span></button>
+        </div>
+
+        <section class="pos-content" id="pos-content">
+            <section class="pos-catalog" aria-label="Catálogo de productos">
+                <div class="pos-catalog-head">
+                    <div class="pos-categories" id="category-chips"></div>
+                    <div class="pos-catalog-meta">
+                        <span id="catalog-count">0 productos</span>
+                        <span class="pos-dot"></span>
+                        <span>Precios sin ITBIS</span>
+                    </div>
+                </div>
+
+                <div class="pos-product-grid" id="product-grid" role="list"></div>
+
+                <div class="pos-empty" id="catalog-empty" hidden>
+                    <i class="fa-solid fa-box-open"></i>
+                    <h3>Sin resultados</h3>
+                    <p>Prueba con otro término o cambia de categoría.</p>
+                </div>
+            </section>
+
+            <aside class="pos-cart" aria-label="Carrito de venta">
+                <div class="pos-cart-head">
+                    <div>
+                        <span class="pos-cart-eyebrow">Venta actual</span>
+                        <h2 class="pos-cart-title">Carrito <span id="cart-count-badge">0</span></h2>
+                    </div>
+                    <button type="button" class="pos-icon-btn" id="btn-clear-cart" title="Vaciar carrito" hidden>
+                        <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                </div>
+
+                <button type="button" class="pos-client-chip" id="cart-client-chip">
+                    <span class="pos-client-avatar" id="client-avatar"><i class="fa-regular fa-user"></i></span>
+                    <span class="pos-client-info">
+                        <strong id="client-name">Consumidor final</strong>
+                        <small id="client-rnc">RNC 000000000</small>
+                    </span>
+                    <span class="pos-client-action">Cambiar</span>
+                </button>
+
+                <div class="pos-ecf-switch" id="ecf-switch" role="group" aria-label="Tipo de comprobante">
+                    <button type="button" data-ecf="E32" class="is-active">Consumo · E32</button>
+                    <button type="button" data-ecf="E31">Crédito fiscal · E31</button>
+                </div>
+
+                <div class="pos-cart-lines" id="cart-lines"></div>
+
+                <div class="pos-cart-empty" id="cart-empty">
+                    <span class="pos-cart-empty-icon"><i class="fa-solid fa-basket-shopping"></i></span>
+                    <h3>Carrito vacío</h3>
+                    <p>Selecciona productos del catálogo para comenzar la venta.</p>
+                </div>
+
+                <div class="pos-cart-foot">
+                    <div class="pos-totals" id="totals">
+                        <div class="pos-total-row">
+                            <span>Subtotal</span>
+                            <strong id="sum-subtotal">RD$ 0.00</strong>
+                        </div>
+                        <div class="pos-total-row" id="discount-row" hidden>
+                            <span>Descuento <button type="button" class="pos-link" id="btn-edit-global-discount">editar</button></span>
+                            <strong class="pos-negative" id="sum-discount">− RD$ 0.00</strong>
+                        </div>
+                        <div class="pos-total-row">
+                            <span>ITBIS</span>
+                            <strong id="sum-itbis">RD$ 0.00</strong>
+                        </div>
+                        <div class="pos-total-row pos-total-grand">
+                            <span>Total</span>
+                            <strong id="sum-total">RD$ 0.00</strong>
+                        </div>
+                        <div class="pos-total-usd">
+                            <span>Equivalente</span>
+                            <strong id="sum-usd">US$ 0.00</strong>
+                            <span class="pos-rate" id="usd-rate-label">Tasa —</span>
+                        </div>
+                    </div>
+
+                    <div class="pos-cart-actions">
+                        <button type="button" class="pos-btn pos-btn-soft" id="btn-save-pending">
+                            <i class="fa-regular fa-bookmark"></i> En espera
+                        </button>
+                        <button type="button" class="pos-btn pos-btn-soft pos-icon-only" id="btn-global-discount" title="Descuento global">
+                            <i class="fa-solid fa-percent"></i>
+                        </button>
+                    </div>
+
+                    <button type="button" class="pos-checkout-btn" id="btn-checkout" disabled>
+                        <span class="pos-checkout-label">
+                            <i class="fa-solid fa-credit-card"></i>
+                            Cobrar
+                        </span>
+                        <span class="pos-checkout-total" id="checkout-total">RD$ 0.00</span>
+                        <kbd>F8</kbd>
+                    </button>
+                </div>
+            </aside>
+        </section>
+        <button type="button" class="pos-tablet-cart-fab" id="btn-tablet-cart">
+            <i class="fa-solid fa-basket-shopping"></i>
+            <span>Ver carrito</span>
+            <strong id="tablet-cart-total">RD$ 0.00</strong>
+        </button>
+    </main>
+</div>
+
+<div class="pos-toast-stack" id="toast-stack" aria-live="polite"></div>
+
+<!-- Modal cliente -->
+<div class="pos-modal" id="client-modal" hidden>
+    <div class="pos-modal-backdrop" data-close="client-modal"></div>
+    <div class="pos-modal-card pos-modal-md" role="dialog" aria-modal="true" aria-labelledby="client-modal-title">
+        <header class="pos-modal-head">
+            <div>
+                <span class="pos-modal-eyebrow">Facturación</span>
+                <h2 id="client-modal-title">Seleccionar cliente</h2>
+            </div>
+            <button type="button" class="pos-icon-btn" data-close="client-modal"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+        <div class="pos-modal-body">
+            <div class="pos-field">
+                <label for="client-search">Buscar por nombre, RNC o cédula</label>
+                <div class="pos-input-icon">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="client-search" type="text" placeholder="Ej. Comercial SRL, RNC o cédula" autocomplete="off">
+                </div>
+            </div>
+            <div class="pos-client-dgii-result" id="client-dgii-result" hidden></div>
+            <div class="pos-client-actions">
+                <button type="button" class="pos-btn pos-btn-ghost" id="btn-consumer-final">
+                    <i class="fa-solid fa-user"></i> Consumidor final
+                </button>
+                <button type="button" class="pos-btn pos-btn-ghost" id="btn-new-client">
+                    <i class="fa-solid fa-plus"></i> Nuevo cliente
+                </button>
+            </div>
+            <div class="pos-client-list" id="client-list"></div>
+            <div class="pos-client-empty" id="client-list-empty" hidden>
+                <i class="fa-regular fa-address-book"></i>
+                <p>No encontramos clientes con ese criterio.</p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- MODAL: REGISTRAR NUEVO CLIENTE -->
-<div id="new-client-modal" class="search-modal"
-    style="display: none; justify-content: center; align-items: center; z-index: 1100;">
-    <div class="modal-backdrop" onclick="closeNewClientModal()"></div>
-    <div class="modal-content animate-fade-in" style="max-width: 460px; padding: 0; border-radius: var(--radius-md);">
-        <div class="modal-header"
-            style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
-            <h3
-                style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-user-plus" style="color: var(--accent-emerald);"></i>
-                <span>Registrar Nuevo Cliente</span>
-            </h3>
-            <button class="btn-close-modal" onclick="closeNewClientModal()"
-                style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem;">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-            <div id="new-client-error"
-                style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); color: var(--accent-red); padding: 10px; border-radius: var(--radius-sm); font-size: 0.85rem;">
+<!-- Modal nuevo cliente -->
+<div class="pos-modal" id="new-client-modal" hidden>
+    <div class="pos-modal-backdrop" data-close="new-client-modal"></div>
+    <div class="pos-modal-card pos-modal-sm" role="dialog" aria-modal="true" aria-labelledby="new-client-title">
+        <header class="pos-modal-head">
+            <div>
+                <span class="pos-modal-eyebrow">Registro rápido</span>
+                <h2 id="new-client-title">Nuevo cliente</h2>
             </div>
-
-            <div class="form-group">
-                <label
-                    style="font-size: 0.82rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 6px;">RNC
-                    / Cédula *</label>
-                <div style="display: flex; gap: 8px;">
-                    <input type="text" id="new-client-rnc" class="form-input" style="width: 100%;"
-                        placeholder="Ej. 132109122 o 22400183741" required>
-                    <button type="button" class="btn btn-secondary" onclick="lookupRNCFromPOS()" id="btn-lookup-rnc"
-                        style="padding: 0 12px; display: flex; align-items: center; justify-content: center;"
-                        title="Buscar RNC en DGII">
+            <button type="button" class="pos-icon-btn" data-close="new-client-modal"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+        <form class="pos-modal-body" id="new-client-form" autocomplete="off">
+            <div class="pos-field">
+                <label for="new-client-rnc">RNC / Cédula *</label>
+                <div class="pos-input-action">
+                    <input id="new-client-rnc" type="text" inputmode="numeric" placeholder="000000000" maxlength="11" required>
+                    <button type="button" class="pos-btn pos-btn-ghost" id="btn-lookup-rnc" title="Consultar DGII">
                         <i class="fa-solid fa-magnifying-glass"></i>
                     </button>
                 </div>
             </div>
-
-            <div class="form-group">
-                <label
-                    style="font-size: 0.82rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 6px;">Razón
-                    Social / Nombre *</label>
-                <input type="text" id="new-client-razonSocial" class="form-input" style="width: 100%;"
-                    placeholder="Ej. Juan Pérez o Comercial SRL" required>
+            <div class="pos-field">
+                <label for="new-client-name">Razón social / Nombre *</label>
+                <input id="new-client-name" type="text" placeholder="Comercial Ejemplo SRL" required>
             </div>
-
-            <div class="form-group">
-                <label
-                    style="font-size: 0.82rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 6px;">Correo
-                    Electrónico</label>
-                <input type="email" id="new-client-email" class="form-input" style="width: 100%;"
-                    placeholder="cliente@correo.com">
+            <div class="pos-grid-2">
+                <div class="pos-field">
+                    <label for="new-client-email">Correo</label>
+                    <input id="new-client-email" type="email" placeholder="cliente@correo.com">
+                </div>
+                <div class="pos-field">
+                    <label for="new-client-phone">Teléfono</label>
+                    <input id="new-client-phone" type="tel" placeholder="809-000-0000">
+                </div>
             </div>
-
-            <div class="form-group">
-                <label
-                    style="font-size: 0.82rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 6px;">Teléfono</label>
-                <input type="text" id="new-client-telefono" class="form-input" style="width: 100%;"
-                    placeholder="809-555-5555">
+            <div class="pos-field">
+                <label for="new-client-address">Dirección</label>
+                <input id="new-client-address" type="text" placeholder="Calle, número, ciudad">
             </div>
+            <p class="pos-form-error" id="new-client-error" hidden></p>
+            <footer class="pos-modal-foot">
+                <button type="button" class="pos-btn pos-btn-ghost" data-close="new-client-modal">Cancelar</button>
+                <button type="submit" class="pos-btn pos-btn-primary" id="btn-save-client">
+                    <i class="fa-solid fa-check"></i> Guardar cliente
+                </button>
+            </footer>
+        </form>
+    </div>
+</div>
 
-            <div class="form-group">
-                <label
-                    style="font-size: 0.82rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 6px;">Dirección</label>
-                <input type="text" id="new-client-direccion" class="form-input" style="width: 100%;"
-                    placeholder="Calle principal #12, Santo Domingo">
+<!-- Modal descuento -->
+<div class="pos-modal" id="discount-modal" hidden>
+    <div class="pos-modal-backdrop" data-close="discount-modal"></div>
+    <div class="pos-modal-card pos-modal-xs" role="dialog" aria-modal="true" aria-labelledby="discount-title">
+        <header class="pos-modal-head">
+            <div>
+                <span class="pos-modal-eyebrow" id="discount-eyebrow">Ajuste</span>
+                <h2 id="discount-title">Descuento</h2>
             </div>
-        </div>
-        <div class="modal-footer"
-            style="border-top: 1px solid var(--border-color); padding: 16px 24px; display: flex; justify-content: flex-end; gap: 12px; background: rgba(0, 0, 0, 0.05);">
-            <button class="btn btn-secondary" onclick="closeNewClientModal()">Cancelar</button>
-            <button class="btn btn-primary" onclick="submitNewClientFromPOS()" id="btn-save-client">
-                <i class="fa-solid fa-floppy-disk"></i> Guardar Cliente
-            </button>
+            <button type="button" class="pos-icon-btn" data-close="discount-modal"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+        <div class="pos-modal-body">
+            <div class="pos-field">
+                <label for="discount-input">Porcentaje (%)</label>
+                <div class="pos-input-suffix">
+                    <input id="discount-input" type="number" min="0" max="100" step="0.01" value="0">
+                    <span>%</span>
+                </div>
+            </div>
+            <div class="pos-discount-presets" id="discount-presets">
+                <button type="button" data-discount="0">0%</button>
+                <button type="button" data-discount="5">5%</button>
+                <button type="button" data-discount="10">10%</button>
+                <button type="button" data-discount="15">15%</button>
+                <button type="button" data-discount="20">20%</button>
+            </div>
+            <footer class="pos-modal-foot">
+                <button type="button" class="pos-btn pos-btn-ghost" data-close="discount-modal">Cancelar</button>
+                <button type="button" class="pos-btn pos-btn-primary" id="btn-apply-discount">Aplicar</button>
+            </footer>
         </div>
     </div>
 </div>
 
-<!-- MODAL: ÉXITO DE FACTURACIÓN (Imprimir / Ticket) -->
-<div id="success-modal" class="search-modal" style="display: none; justify-content: center; align-items: center;">
-    <div class="modal-backdrop"></div>
-    <div class="modal-content animate-fade-in" style="max-width: 440px; padding: 32px; text-align: center;">
-        <i class="fa-solid fa-circle-check"
-            style="font-size: 4rem; color: var(--accent-emerald); margin-bottom: 16px;"></i>
-
-        <h3 style="font-size: 1.3rem; font-family: var(--font-heading); margin-bottom: 8px;">¡Venta Registrada con
-            Éxito!</h3>
-        <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 24px;" id="success-msg">Comprobante
-            Fiscal emitido correctamente.</p>
-
-        <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
-            <button onclick="printCurrentReceipt()" class="btn btn-primary"
-                style="height: 46px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="fa-solid fa-print"></i>
-                <span>Imprimir Ticket (80mm)</span>
-            </button>
-            <button onclick="reloadPOS()" class="btn btn-secondary" style="height: 46px; font-weight: 500;">
-                <span>Nueva Venta</span>
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL: AUTORIZACIÓN DE SUPERVISOR (SELECCIONAR USUARIO Y DIGITAR PIN) -->
-<div id="supervisor-auth-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; z-index: 1100;">
-    <div class="modal-backdrop" onclick="closeSupervisorAuthModal()"></div>
-    <div class="modal-content animate-fade-in" style="max-width: 400px; padding: 0; border-radius: var(--radius-md); background-color: var(--card-bg, #fff); color: var(--text-primary, #000);">
-        <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; font-size: 1.1rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
-                <i class="fa-solid fa-shield-halved" style="color: #eab308;"></i>
-                <span id="supervisor-auth-title">Autorización Requerida</span>
-            </h3>
-            <button class="btn-close-modal" onclick="closeSupervisorAuthModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem;">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-            <p id="supervisor-auth-desc" style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);"></p>
-            
-            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
-                <label for="supervisor-select" style="font-weight: 600; font-size: 0.85rem;">Seleccione Supervisor</label>
-                <select id="supervisor-select" class="form-input" style="width: 100%; height: 40px; font-size: 0.95rem; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-primary);">
-                    {% for supervisor in supervisors %}
-                    <option value="{{ supervisor.uid }}">{{ supervisor.name }}</option>
-                    {% endfor %}
-                </select>
+<!-- Modal cobro -->
+<div class="pos-modal" id="checkout-modal" hidden>
+    <div class="pos-modal-backdrop" data-close="checkout-modal"></div>
+    <div class="pos-modal-card pos-modal-lg" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
+        <header class="pos-modal-head">
+            <div>
+                <span class="pos-modal-eyebrow">Cobro</span>
+                <h2 id="checkout-title">Completar venta</h2>
             </div>
-
-            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
-                <label for="supervisor-pin-input" style="font-weight: 600; font-size: 0.85rem;">PIN de Supervisor</label>
-                <input type="password" id="supervisor-pin-input" class="form-input" placeholder="••••" maxlength="8"
-                    style="font-size: 1.5rem; height: 46px; text-align: center; font-weight: 700; width: 100%; letter-spacing: 6px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-primary);">
-            </div>
-        </div>
-        <div class="modal-footer" style="border-top: 1px solid var(--border-color); padding: 16px 24px; display: flex; justify-content: flex-end; gap: 12px; background: rgba(0, 0, 0, 0.02);">
-            <button class="btn btn-secondary" onclick="closeSupervisorAuthModal()">Cancelar</button>
-            <button class="btn btn-primary" onclick="submitSupervisorAuth()" id="btn-submit-supervisor-auth" style="background-color: #eab308; border-color: #eab308; color: #000; font-weight: 600;">
-                <i class="fa-solid fa-check"></i> Autorizar
-            </button>
-        </div>
-    </div>
-</div>
-
-<script>
-    const productCatalog = [
-        {% for item in items %}
-    {
-        id: {{ item.id | tojson }},
-        code: {{ (item.code or '') | tojson }},
-        barcode: {{ (item.barcode or '') | tojson }},
-        categoryId: {{ (item.categoryId or 'general') | tojson }},
-        name: {{ item.name | tojson }},
-        price: {{ item.price | tojson }},
-        type: {{ (item.type or 'Bien') | tojson }},
-        itbisRate: {{ (item.itbisRate or 0.18) | tojson }},
-        imageUrl: {{ (item.imageUrl or '') | tojson }}
-    } {% if not loop.last %}, {% endif %}
-    {% endfor %}
-];
-
-    let cart = [];
-    let currentClientId = 'default';
-    let currentClientName = 'Consumidor Final';
-    let currentClientRNC = '000000000';
-    let currentEcfType = 'Factura de Consumo (E32)';
-    let successInvoiceId = null;
-    let usdExchangeRate = 58.50;
-    const currentWarehouseId = {{ (pos_warehouse_id or '') | tojson }};
-
-    function saveCart() {
-        localStorage.setItem('pos_cart', JSON.stringify(cart));
-    }
-
-    // Inicialización
-    document.addEventListener('DOMContentLoaded', () => {
-        filterCatalog('all');
-
-        // Obtener tasa USD
-        fetch('/pos/usd-rate')
-            .then(r => r.json())
-            .then(data => {
-                if (data.success && data.rate) {
-                    usdExchangeRate = parseFloat(data.rate);
-                    console.log("USD Rate loaded (BPD):", usdExchangeRate);
-                    renderCart();
-                }
-            })
-            .catch(err => console.error("Error al cargar tasa USD:", err));
-
-        // Cargar carrito desde caché (localStorage)
-        const savedCart = localStorage.getItem('pos_cart');
-        if (savedCart) {
-            try {
-                cart = JSON.parse(savedCart);
-                renderCart();
-            } catch (e) {
-                console.error('Error al restaurar carrito:', e);
-                cart = [];
-            }
-        }
-
-        focusBarcode();
-    });
-
-    function focusBarcode() {
-        const input = document.getElementById('barcode-search');
-        if (input) input.focus();
-    }
-
-    function toggleClearSearchBtn() {
-        const input = document.getElementById('barcode-search');
-        const btn = document.getElementById('btn-clear-search');
-        if (input && btn) {
-            btn.style.display = input.value.trim().length > 0 ? 'flex' : 'none';
-        }
-    }
-
-    function clearSearchInput() {
-        const input = document.getElementById('barcode-search');
-        if (input) {
-            input.value = '';
-            toggleClearSearchBtn();
-            // Restaurar catálogo según el chip de categoría activo
-            const activeChip = document.querySelector('.cat-chip.active');
-            const categoryId = activeChip ? activeChip.id.replace('chip-', '') : 'all';
-            filterCatalog(categoryId);
-            focusBarcode();
-        }
-    }
-
-    function handleBarcodeSearch(event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            submitBarcodeSearch();
-        }
-    }
-
-    function submitBarcodeSearch() {
-        const input = document.getElementById('barcode-search');
-        const value = input.value.trim().toLowerCase();
-        if (!value) return;
-
-        // Buscar por código exacto o código de barras
-        const product = productCatalog.find(p => 
-            (p.barcode && p.barcode.toLowerCase() === value) || 
-            (p.code && p.code.toLowerCase() === value)
-        );
-
-        if (product) {
-            addToCart(product.id);
-            input.value = '';
-            toggleClearSearchBtn();
-            focusBarcode();
-        } else {
-            // Si no coincide exacto, aplicar filtro normal en la grilla
-            applyTextSearchFilter(value);
-        }
-    }
-
-    function applyTextSearchFilter(query) {
-        const grid = document.getElementById('products-grid');
-        grid.innerHTML = '';
-
-        const filtered = productCatalog.filter(p =>
-            p.name.toLowerCase().includes(query) ||
-            p.code.toLowerCase().includes(query) ||
-            (p.barcode && p.barcode.toLowerCase().includes(query))
-        );
-
-        renderProductGrid(filtered);
-    }
-
-    function filterCatalog(categoryId) {
-        // Actualizar chips activos
-        document.querySelectorAll('.cat-chip').forEach(el => el.classList.remove('active'));
-        document.getElementById(`chip-${categoryId}`).classList.add('active');
-
-        const filtered = categoryId === 'all'
-            ? productCatalog
-            : productCatalog.filter(p => p.categoryId === categoryId);
-
-        renderProductGrid(filtered);
-    }
-
-    const categoryIconMap = {
-        'alimentos': 'fa-utensils',
-        'electronica': 'fa-laptop',
-        'servicios': 'fa-handshake',
-        'ferreteria': 'fa-screwdriver-wrench',
-        'general': 'fa-box'
-    };
-
-    function renderProductGrid(products) {
-        const grid = document.getElementById('products-grid');
-        grid.innerHTML = '';
-
-        if (products.length === 0) {
-            grid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 40px 0; color: var(--text-secondary);">
-                <i class="fa-solid fa-boxes-packing" style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.4; margin-bottom: 6px; display: block;"></i>
-                <span style="font-size: 0.85rem;">No hay productos disponibles</span>
-            </div>
-        `;
-            return;
-        }
-
-        products.forEach(p => {
-            const card = document.createElement('div');
-            card.className = 'pos-product-card';
-            card.setAttribute('onclick', `addToCart('${p.id}')`);
-
-            const cartItem = cart.find(i => i.id === p.id);
-            const qty = cartItem ? cartItem.quantity : 0;
-            const iconClass = categoryIconMap[p.categoryId] || 'fa-box';
-
-            let mediaHtml = '';
-            if (p.imageUrl) {
-                mediaHtml = `
-                    <img class="pos-card-thumb" src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                    <div class="pos-card-icon-box" style="display:none;"><i class="fa-solid ${iconClass}"></i></div>
-                `;
-            } else {
-                mediaHtml = `
-                    <div class="pos-card-icon-box"><i class="fa-solid ${iconClass}"></i></div>
-                `;
-            }
-
-            card.innerHTML = `
-                <div class="pos-card-header">
-                    <span class="pos-card-sku">${p.code || 'S/C'}</span>
-                    <span class="pos-card-qty-badge" data-product-id="${p.id}" style="${qty > 0 ? '' : 'display:none;'}">${qty}</span>
-                </div>
-                <div class="pos-card-body">
-                    ${mediaHtml}
-                    <div class="pos-card-name" title="${p.name}">${p.name}</div>
-                </div>
-                <div class="pos-card-footer">
-                    <span class="pos-card-price">RD$ ${p.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                    <span class="pos-card-add-btn" title="Agregar"><i class="fa-solid fa-plus"></i></span>
-                </div>
-            `;
-            grid.appendChild(card);
-        });
-    }
-
-    function updateProductCardBadges() {
-        const badges = document.querySelectorAll('.pos-card-qty-badge');
-        badges.forEach(b => {
-            const pid = b.getAttribute('data-product-id');
-            const cartItem = cart.find(i => i.id === pid);
-            if (cartItem && cartItem.quantity > 0) {
-                b.textContent = cartItem.quantity;
-                b.style.display = 'inline-flex';
-            } else {
-                b.style.display = 'none';
-            }
-        });
-    }
-
-    function switchPosMobileView(view) {
-        const leftPanel = document.getElementById('pos-left-panel');
-        const rightPanel = document.getElementById('pos-right-panel');
-        const bottomBar = document.getElementById('pos-mobile-bottom-bar');
-        const tabCatalog = document.getElementById('tab-btn-catalog');
-        const tabCart = document.getElementById('tab-btn-cart');
-
-        if (view === 'cart') {
-            if (leftPanel) leftPanel.classList.add('mobile-active');
-            if (rightPanel) rightPanel.classList.add('mobile-hidden');
-            if (bottomBar) bottomBar.style.display = 'none';
-            if (tabCart) tabCart.classList.add('active');
-            if (tabCatalog) tabCatalog.classList.remove('active');
-        } else {
-            if (leftPanel) leftPanel.classList.remove('mobile-active');
-            if (rightPanel) rightPanel.classList.remove('mobile-hidden');
-            if (bottomBar) bottomBar.style.display = 'flex';
-            if (tabCatalog) tabCatalog.classList.add('active');
-            if (tabCart) tabCart.classList.remove('active');
-        }
-    }
-
-    function addToCart(productId) {
-        const product = productCatalog.find(p => p.id === productId);
-        if (!product) return;
-
-        const existing = cart.find(item => item.id === productId);
-        if (existing) {
-            existing.quantity++;
-        } else {
-            cart.push({
-                id: product.id,
-                name: product.name,
-                price: product.price,
-                itbisRate: product.itbisRate,
-                type: product.type,
-                quantity: 1
-            });
-        }
-
-        renderCart();
-        saveCart();
-    }
-
-    let supervisorApprovalCallback = null;
-    let currentApprovalAction = "";
-
-    function requestSupervisorApproval(actionName, onApproved) {
-        supervisorApprovalCallback = onApproved;
-        currentApprovalAction = actionName;
-        
-        document.getElementById('supervisor-auth-desc').innerText = `Esta operación requiere autorización de un supervisor: ${actionName}`;
-        document.getElementById('supervisor-pin-input').value = "";
-        document.getElementById('supervisor-auth-modal').style.display = 'flex';
-        document.getElementById('supervisor-pin-input').focus();
-    }
-
-    function closeSupervisorAuthModal() {
-        document.getElementById('supervisor-auth-modal').style.display = 'none';
-        supervisorApprovalCallback = null;
-        currentApprovalAction = "";
-    }
-
-    function submitSupervisorAuth() {
-        const select = document.getElementById('supervisor-select');
-        const supervisorUid = select.value;
-        const pin = document.getElementById('supervisor-pin-input').value.trim();
-        
-        if (!supervisorUid) {
-            alert("Por favor, seleccione un supervisor.");
-            return;
-        }
-        if (!pin) {
-            alert("Por favor, ingrese el PIN de supervisor.");
-            return;
-        }
-        
-        const btn = document.getElementById('btn-submit-supervisor-auth');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
-
-        fetch('/pos/supervisor/authorize', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                pin: pin, 
-                action: currentApprovalAction,
-                supervisorUid: supervisorUid
-            })
-        })
-        .then(r => r.json())
-        .then(data => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-check"></i> Autorizar';
-            if (data.success) {
-                const callback = supervisorApprovalCallback;
-                closeSupervisorAuthModal();
-                if (callback) {
-                    callback();
-                }
-            } else {
-                alert(data.error || "PIN de supervisor incorrecto.");
-            }
-        })
-        .catch(err => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-check"></i> Autorizar';
-            console.error(err);
-            alert("Error de conexión al validar PIN del supervisor.");
-        });
-    }
-
-    function updateQty(productId, delta) {
-        const item = cart.find(i => i.id === productId);
-        if (!item) return;
-
-        if (delta < 0) {
-            requestSupervisorApproval("Reducir cantidad de producto", () => {
-                item.quantity += delta;
-                if (item.quantity <= 0) {
-                    cart = cart.filter(i => i.id !== productId);
-                }
-                renderCart();
-                saveCart();
-            });
-        } else {
-            item.quantity += delta;
-            renderCart();
-            saveCart();
-        }
-    }
-
-    function deleteCartItem(productId) {
-        requestSupervisorApproval("Eliminar producto del carrito", () => {
-            cart = cart.filter(i => i.id !== productId);
-            renderCart();
-            saveCart();
-        });
-    }
-
-    function clearCartWithConfirm() {
-        const hasCartItems = cart.length > 0;
-        const hasCustomClient = currentClientId !== 'default';
-        const receivedInput = document.getElementById('received-amount');
-        const hasReceivedAmount = receivedInput && receivedInput.value.trim().length > 0;
-
-        if (!hasCartItems && !hasCustomClient && !hasReceivedAmount) {
-            return;
-        }
-
-        if (hasCartItems) {
-            requestSupervisorApproval("Cancelar venta con artículos", () => {
-                cart = [];
-                saveCart();
-                renderCart();
-                clearPOSClient();
-                if (receivedInput) {
-                    receivedInput.value = '';
-                }
-                calculateChange();
-                focusBarcode();
-            });
-        } else {
-            cart = [];
-            saveCart();
-            renderCart();
-            clearPOSClient();
-            if (receivedInput) {
-                receivedInput.value = '';
-            }
-            calculateChange();
-            focusBarcode();
-        }
-    }
-
-    function renderCart() {
-        const body = document.getElementById('cart-table-body');
-        const emptyState = document.getElementById('cart-empty-state');
-
-        // Limpiar tabla
-        body.innerHTML = '';
-
-        if (cart.length === 0) {
-            if (emptyState) emptyState.style.display = 'block';
-            updateTotals(0, 0, 0);
-            return;
-        }
-
-        if (emptyState) emptyState.style.display = 'none';
-
-        let subtotal = 0;
-        let totalItbis = 0;
-
-        cart.forEach(item => {
-            const lineTotal = item.price * item.quantity;
-            const lineBase = lineTotal / (1 + item.itbisRate);
-            const lineItbis = lineTotal - lineBase;
-
-            subtotal += lineBase;
-            totalItbis += lineItbis;
-
-            const row = document.createElement('tr');
-            row.style = "border-bottom: 1px solid var(--border-color); vertical-align: middle;";
-            row.innerHTML = `
-                <td style="padding: 8px 4px;">
-                    <div style="font-weight: 500; color: var(--text-primary); line-height: 1.25; word-break: break-word;">${item.name}</div>
-                    <div style="font-size: 0.68rem; color: var(--text-muted); font-family: monospace; white-space: nowrap;">RD$ ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2 })} c/u</div>
-                </td>
-                <td style="padding: 8px 4px; text-align: center;">
-                    <div style="display: inline-flex; align-items: center; gap: 4px;">
-                        <button onclick="updateQty('${item.id}', -1)" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--bg-card); cursor: pointer; color: var(--text-primary); font-weight: bold; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;">-</button>
-                        <span style="font-weight: 500; width: 14px; font-size: 0.8rem;">${item.quantity}</span>
-                        <button onclick="updateQty('${item.id}', 1)" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--bg-card); cursor: pointer; color: var(--text-primary); font-weight: bold; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;">+</button>
+            <button type="button" class="pos-icon-btn" data-close="checkout-modal"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+        <div class="pos-checkout-body">
+            <section class="pos-checkout-main">
+                <div class="pos-pay-summary">
+                    <div>
+                        <span>Total a cobrar</span>
+                        <strong id="pay-total">RD$ 0.00</strong>
                     </div>
-                </td>
-                <td style="padding: 8px 4px; text-align: right; font-weight: 500; font-family: monospace; color: var(--text-primary); white-space: nowrap;">
-                    RD$ ${lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </td>
-                <td style="padding: 8px 4px; text-align: center;">
-                    <button onclick="deleteCartItem('${item.id}')" style="background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 0.9rem; padding: 4px;">
-                        <i class="fa-solid fa-trash-can"></i>
+                    <div class="pos-pay-remaining">
+                        <span>Restante</span>
+                        <strong id="pay-remaining">RD$ 0.00</strong>
+                    </div>
+                </div>
+
+                <div class="pos-pay-quick">
+                    <button type="button" class="pos-btn pos-btn-ghost" id="btn-pay-exact">
+                        <i class="fa-solid fa-equals"></i> Pago exacto
                     </button>
-                </td>
-            `;
-            body.appendChild(row);
-        });
+                    <div class="pos-cash-presets" id="cash-presets" hidden aria-label="Importes rápidos"></div>
+                    <button type="button" class="pos-btn pos-btn-ghost" id="btn-add-payment">
+                        <i class="fa-solid fa-plus"></i> Agregar pago
+                    </button>
+                </div>
 
-        const total = subtotal + totalItbis;
-        updateTotals(subtotal, totalItbis, total);
+                <div class="pos-payments" id="payment-rows"></div>
+
+                <div class="pos-field pos-notes-field">
+                    <label for="checkout-notes">Nota de la venta</label>
+                    <textarea id="checkout-notes" rows="2" maxlength="500" placeholder="Referencia, observación o comentario opcional"></textarea>
+                </div>
+            </section>
+
+            <aside class="pos-checkout-side">
+                <div class="pos-checkout-client" id="checkout-client"></div>
+                <div class="pos-checkout-lines" id="checkout-lines"></div>
+                <div class="pos-checkout-breakdown" id="checkout-breakdown"></div>
+                <div class="pos-checkout-error" id="checkout-error" hidden></div>
+            </aside>
+        </div>
+        <footer class="pos-modal-foot pos-checkout-foot">
+            <div class="pos-checkout-secondary">
+                <span id="checkout-ecf-badge" class="pos-badge">E32</span>
+                <span id="checkout-payment-status" class="pos-muted">Agrega un método de pago</span>
+            </div>
+            <div class="pos-checkout-foot-actions">
+                <button type="button" class="pos-btn pos-btn-ghost" data-close="checkout-modal">Cancelar</button>
+                <button type="button" class="pos-btn pos-btn-primary pos-btn-lg" id="btn-confirm-sale" disabled>
+                    <i class="fa-solid fa-lock"></i> Confirmar venta
+                </button>
+            </div>
+        </footer>
+    </div>
+</div>
+
+<!-- Modal éxito -->
+<div class="pos-modal" id="success-modal" hidden>
+    <div class="pos-modal-backdrop"></div>
+    <div class="pos-modal-card pos-modal-sm pos-success-card" role="dialog" aria-modal="true" aria-labelledby="success-title">
+        <div class="pos-success-icon"><i class="fa-solid fa-check"></i></div>
+        <h2 id="success-title">Venta registrada</h2>
+        <p id="success-message">El comprobante fue emitido correctamente.</p>
+        <div class="pos-success-meta" id="success-meta"></div>
+        <div class="pos-success-actions">
+            <button type="button" class="pos-btn pos-btn-primary" id="btn-print-receipt">
+                <i class="fa-solid fa-print"></i> Imprimir ticket
+            </button>
+            <button type="button" class="pos-btn pos-btn-ghost" id="btn-download-receipt">
+                <i class="fa-solid fa-file-arrow-down"></i> Descargar PDF
+            </button>
+            <button type="button" class="pos-btn pos-btn-ghost" id="btn-share-receipt">
+                <i class="fa-solid fa-share-nodes"></i> Compartir
+            </button>
+            <button type="button" class="pos-btn pos-btn-ghost" id="btn-return-sale" hidden>
+                <i class="fa-solid fa-rotate-left"></i> Devolución E34
+            </button>
+            <button type="button" class="pos-btn pos-btn-ghost" id="btn-new-sale">
+                Nueva venta <kbd>Enter</kbd>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal ventas en espera -->
+<div class="pos-modal" id="pending-modal" hidden>
+    <div class="pos-modal-backdrop" data-close="pending-modal"></div>
+    <div class="pos-modal-card pos-modal-md" role="dialog" aria-modal="true" aria-labelledby="pending-title">
+        <header class="pos-modal-head">
+            <div>
+                <span class="pos-modal-eyebrow">Solo en este dispositivo</span>
+                <h2 id="pending-title">Ventas en espera</h2>
+            </div>
+            <button type="button" class="pos-icon-btn" data-close="pending-modal"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+        <div class="pos-modal-body">
+            <div class="pos-pending-list" id="pending-list"></div>
+            <div class="pos-client-empty" id="pending-empty" hidden>
+                <i class="fa-regular fa-clock"></i>
+                <p>No hay ventas en espera.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="pos-bootstrap" type="application/json">
+{
+    "items": [
+        {% for item in items %}
+        {
+            "id": {{ item.id|tojson }},
+            "code": {{ (item.code or '')|tojson }},
+            "barcode": {{ (item.barcode or '')|tojson }},
+            "name": {{ (item.name or '')|tojson }},
+            "price": {{ (item.price or 0)|tojson }},
+            "itbisRate": {{ (item.itbisRate if item.itbisRate is not none else 0.18)|tojson }},
+            "categoryId": {{ (item.categoryId or item.category_id or 'general')|tojson }},
+            "type": {{ (item.type or 'Bien')|tojson }},
+            "unit": {{ (item.unit or 'Unidad')|tojson }},
+            "imageUrl": {{ (item.imageUrl or item.image_url or '')|tojson }},
+            "totalStock": {{ (item.get('totalStock', item.get('stock', 0)) or 0)|tojson }},
+            "isDemo": {{ (item.get('isDemo', false))|tojson }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ],
+    "categories": [
+        {% for category in categories %}
+        {
+            "id": {{ category.id|tojson }},
+            "name": {{ (category.name or category.nombre or 'General')|tojson }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ],
+    "ecfTypes": [
+        {% for t in pos_ecf_types %}
+        {
+            "code": {{ t.code|tojson }},
+            "label": {{ t.label|tojson }},
+            "value": {{ t.label_with_code|tojson }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ],
+    "config": {
+        "branchId": {{ (pos_branch_id or '')|tojson }},
+        "warehouseId": {{ (pos_warehouse_id or '')|tojson }},
+        "warehouseName": {{ (current_warehouse.name if current_warehouse else 'Almacén principal')|tojson }},
+        "registerName": {{ (register.name if register else 'Caja principal')|tojson }},
+        "shiftId": {{ (open_shift.id if open_shift else '')|tojson }},
+        "demoMode": {{ demo_mode|tojson }},
+        "sandbox": {{ sandbox|tojson }},
+        "companyName": {{ (company.get('name') or company.get('razonSocial') or company.get('companyName') or 'Mi empresa')|tojson }},
+        "userName": {{ (session.user.name or 'Cajero')|tojson }}
     }
-
-    function updateTotals(sub, itbis, total) {
-        document.getElementById('subtotal-val').textContent = `RD$ ${sub.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-        document.getElementById('itbis-val').textContent = `RD$ ${itbis.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-        document.getElementById('total-val').textContent = `RD$ ${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-        
-        const totalUsd = total / usdExchangeRate;
-        document.getElementById('total-val-usd').textContent = `$ ${totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-        
-        // Sincronizar barra móvil inferior y contador de pestaña móvil
-        const mobileTotal = document.getElementById('mobile-total-val');
-        if (mobileTotal) {
-            mobileTotal.textContent = `RD$ ${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-        }
-        const mobileCount = document.getElementById('mobile-cart-count');
-        if (mobileCount) {
-            const totalItems = cart.reduce((acc, i) => acc + i.quantity, 0);
-            mobileCount.textContent = totalItems;
-            mobileCount.style.display = totalItems > 0 ? 'inline-flex' : 'none';
-        }
-
-        // Sincronizar insignias en vivo de los cards de catálogo
-        updateProductCardBadges();
-
-        // Sincronizar teclado y cambio
-        calculateChange();
-    }
-
-    // Lógica del Numpad Táctil CashCow
-    function pressNum(val) {
-        const input = document.getElementById('received-amount');
-        if (val === 'C') {
-            input.value = input.value.slice(0, -1);
-        } else if (val === '.') {
-            if (!input.value.includes('.')) {
-                input.value += '.';
-            }
-        } else {
-            input.value += val;
-        }
-        calculateChange();
-    }
-
-    function quickCash(amt) {
-        const input = document.getElementById('received-amount');
-        if (amt === 'exact') {
-            input.value = getCartTotalAmount().toFixed(2);
-        } else {
-            input.value = parseFloat(amt).toFixed(2);
-        }
-        calculateChange();
-    }
-
-    function calculateChange() {
-        const total = getCartTotalAmount();
-        const received = parseFloat(document.getElementById('received-amount').value) || 0;
-        const change = Math.max(0, received - total);
-
-        document.getElementById('change-amount-display').textContent = `RD$ ${change.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    }
-
-    function getCartTotalAmount() {
-        let total = 0;
-        cart.forEach(item => {
-            total += item.price * item.quantity;
-        });
-        return total;
-    }
-
-    // Funciones del Numpad para RNC / Cliente
-    function openClientLookupModal() {
-        document.getElementById('lookup-rnc-input').value = '';
-        document.getElementById('client-lookup-modal').style.display = 'flex';
-    }
-
-    function closeClientLookupModal() {
-        document.getElementById('client-lookup-modal').style.display = 'none';
-        focusBarcode();
-    }
-
-    function pressRncNum(val) {
-        const input = document.getElementById('lookup-rnc-input');
-        if (val === 'C') {
-            input.value = input.value.slice(0, -1);
-        } else {
-            input.value += val;
-        }
-    }
-
-    function clearRncNum() {
-        document.getElementById('lookup-rnc-input').value = '';
-    }
-
-    function openNewClientFromLookup() {
-        const rnc = document.getElementById('lookup-rnc-input').value.trim();
-        closeClientLookupModal();
-        openNewClientModal();
-        if (rnc) {
-            document.getElementById('new-client-rnc').value = rnc;
-        }
-    }
-
-    function submitClientLookupSearch() {
-        const rnc = document.getElementById('lookup-rnc-input').value.trim();
-        if (!rnc) {
-            alert('Por favor ingrese un RNC o Cédula.');
-            return;
-        }
-
-        const btn = document.getElementById('btn-modal-client-search');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Buscando...';
-
-        fetch('/pos/client/lookup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rnc: rnc })
-        })
-            .then(r => r.json())
-            .then(data => {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> <span>Buscar (Local / DGII)</span>';
-
-                if (data.success) {
-                    selectPOSClient(data.client);
-                    closeClientLookupModal();
-                } else {
-                    const confirmRegister = confirm('El cliente no existe localmente ni en la DGII. ¿Deseas registrarlo manualmente?');
-                    if (confirmRegister) {
-                        closeClientLookupModal();
-                        openNewClientModal();
-                        document.getElementById('new-client-rnc').value = rnc;
-                        document.getElementById('new-client-razonSocial').focus();
-                    }
-                }
-            })
-            .catch(err => {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> <span>Buscar (Local / DGII)</span>';
-                console.error(err);
-                alert('Error al buscar cliente.');
-            });
-    }
-
-    function openNewClientModal() {
-        document.getElementById('new-client-error').style.display = 'none';
-        document.getElementById('new-client-razonSocial').value = '';
-        document.getElementById('new-client-rnc').value = '';
-        document.getElementById('new-client-email').value = '';
-        document.getElementById('new-client-telefono').value = '';
-        document.getElementById('new-client-direccion').value = '';
-        document.getElementById('new-client-modal').style.display = 'flex';
-    }
-
-    function closeNewClientModal() {
-        document.getElementById('new-client-modal').style.display = 'none';
-    }
-
-    function lookupRNCFromPOS() {
-        const rncInput = document.getElementById('new-client-rnc');
-        const rnc = rncInput.value.trim().replace(/-/g, '');
-        if (!rnc || rnc.length < 9) {
-            alert('Por favor ingrese un RNC o Cédula válido (mínimo 9 dígitos).');
-            rncInput.focus();
-            return;
-        }
-
-        const btn = document.getElementById('btn-lookup-rnc');
-        const nameInput = document.getElementById('new-client-razonSocial');
-
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-
-        fetch('/reports/check-directory-ajax', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rnc: rnc })
-        })
-            .then(r => r.json())
-            .then(data => {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
-
-                let realData = data.success && data.data ? data.data : data;
-
-                if (data.success) {
-                    const clientName = realData.razonSocial || realData.companyName || 'Empresa Homologada Electrónica SRL';
-                    nameInput.value = clientName;
-                    document.getElementById('new-client-error').style.display = 'none';
-                } else {
-                    alert('El RNC no está activo en el directorio de facturación electrónica de la DGII, pero puedes proceder a guardarlo manualmente.');
-                }
-            })
-            .catch(err => {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
-                console.error(err);
-                alert('Error al consultar el RNC. Por favor, digítalo manualmente.');
-            });
-    }
-
-    function submitNewClientFromPOS() {
-        const razonSocial = document.getElementById('new-client-razonSocial').value.trim();
-        const rnc = document.getElementById('new-client-rnc').value.trim();
-        const email = document.getElementById('new-client-email').value.trim();
-        const telefono = document.getElementById('new-client-telefono').value.trim();
-        const direccion = document.getElementById('new-client-direccion').value.trim();
-
-        if (!razonSocial) {
-            showClientError('La Razón Social es requerida.');
-            return;
-        }
-
-        if (!rnc) {
-            showClientError('El RNC o Cédula es requerido.');
-            return;
-        }
-
-        const btn = document.getElementById('btn-save-client');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
-
-        fetch('/clients/ajax_create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                rnc: rnc,
-                razonSocial: razonSocial,
-                email: email,
-                telefono: telefono,
-                direccion: direccion
-            })
-        })
-            .then(r => r.json())
-            .then(data => {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Cliente';
-
-                if (data.success) {
-                    selectPOSClient(data.client);
-                    closeNewClientModal();
-                } else {
-                    showClientError(data.error || 'Error al guardar cliente.');
-                }
-            })
-            .catch(err => {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Cliente';
-                showClientError(err.message || 'Error de conexión.');
-            });
-    }
-
-    function showClientError(msg) {
-        const errDiv = document.getElementById('new-client-error');
-        errDiv.textContent = msg;
-        errDiv.style.display = 'block';
-    }
-
-    function selectPOSClient(client) {
-        currentClientId = client.id;
-        currentClientName = client.razonSocial;
-        currentClientRNC = client.rnc;
-
-        document.getElementById('client-display-name').textContent = client.razonSocial;
-        document.getElementById('client-rnc-label').textContent = `RNC: ${client.rnc}`;
-
-        const typeSelect = document.getElementById('client-type-select');
-
-        if (client.rnc === '000000000' || !client.rnc) {
-            currentEcfType = 'Factura de Consumo (E32)';
-            typeSelect.value = 'Factura de Consumo (E32)';
-            typeSelect.disabled = true;
-        } else {
-            currentEcfType = 'Factura de Crédito Fiscal (E31)';
-            typeSelect.value = 'Factura de Crédito Fiscal (E31)';
-            typeSelect.disabled = false;
-        }
-
-        document.getElementById('btn-clear-client').style.display = 'inline-block';
-    }
-
-    function clearPOSClient() {
-        currentClientId = 'default';
-        currentClientName = 'Consumidor Final';
-        currentClientRNC = '000000000';
-        currentEcfType = 'Factura de Consumo (E32)';
-
-        document.getElementById('client-display-name').textContent = 'Consumidor Final';
-        document.getElementById('client-rnc-label').textContent = 'RNC: 000000000';
-
-        const typeSelect = document.getElementById('client-type-select');
-        typeSelect.value = 'Factura de Consumo (E32)';
-        typeSelect.disabled = true;
-
-        document.getElementById('btn-clear-client').style.display = 'none';
-    }
-
-    function updateEcfTypeFromSelect(value) {
-        currentEcfType = value;
-    }
-
-    // Flujo de checkout directo desde pantalla principal
-    function processDirectCheckout(method) {
-        if (cart.length === 0) {
-            alert('El carrito está vacío.');
-            return;
-        }
-
-        const total = getCartTotalAmount();
-        const received = parseFloat(document.getElementById('received-amount').value) || 0;
-        let usdAmount = 0;
-        let usdRate = 1;
-
-        if (method === 'Efectivo USD') {
-            const usdTotal = total / usdExchangeRate;
-            const receivedUsd = parseFloat(prompt(`Total en USD: $ ${usdTotal.toFixed(2)} (Tasa BPD: ${usdExchangeRate})\nIngrese dólares recibidos (USD):`)) || 0;
-            if (receivedUsd < usdTotal) {
-                alert(`Monto recibido ($ ${receivedUsd.toFixed(2)}) es menor al total ($ ${usdTotal.toFixed(2)}). Pago incompleto.`);
-                return;
-            }
-            const changeDop = (receivedUsd * usdExchangeRate) - total;
-            alert(`Pago recibido en dólares. Entregar devuelta en pesos: RD$ ${changeDop.toFixed(2)}`);
-            usdAmount = receivedUsd;
-            usdRate = usdExchangeRate;
-        } else if (method === 'Efectivo' && received < total) {
-            if (confirm(`El monto recibido (RD$ ${received.toFixed(2)}) es menor al total (RD$ ${total.toFixed(2)}). ¿Desea registrar el pago como monto exacto?`)) {
-                quickCash('exact');
-            } else {
-                return;
-            }
-        }
-
-        // Construir estructura para llamar a la API
-        const payload = {
-            clientId: currentClientId === 'default' ? '' : currentClientId,
-            clientName: currentClientName,
-            clientRNC: currentClientRNC,
-            paymentMethod: method,
-            ecfType: currentEcfType,
-            warehouseId: currentWarehouseId,
-            usdAmount: usdAmount,
-            usdExchangeRate: usdRate,
-            items: cart.map(item => ({
-                id: item.id,
-                name: item.name,
-                price: item.price,
-                quantity: item.quantity,
-                itbisRate: item.itbisRate,
-                type: item.type
-            }))
-        };
-
-        fetch('/pos/invoice/new', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    successInvoiceId = data.invoiceId;
-                    if (data.consolidated) {
-                        document.getElementById('success-msg').innerHTML =
-                            `<span style="color:#ca8a04;"><i class="fa-solid fa-layer-group"></i> Venta registrada en modo consolidado.</span><br>` +
-                            `<small style="color:#92400e; font-size:0.82rem;">Esta venta será incluida en un único Comprobante Electrónico de Consumo (E32) al cerrar el turno.</small>`;
-                    } else {
-                        document.getElementById('success-msg').textContent = `Comprobante ${data.encf} emitido de forma exitosa.`;
-                    }
-                    
-                    document.getElementById('success-modal').style.display = 'flex';
-                    cart = [];
-                    saveCart();
-                    document.getElementById('received-amount').value = '';
-                } else {
-                    alert(`Error al registrar venta: ${data.error}`);
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Ocurrió un error al conectar con el servidor.');
-            });
-    }
-
-    function printCurrentReceipt() {
-        if (successInvoiceId) {
-            window.open(`/pos/invoice/${successInvoiceId}/print`, '_blank');
-        }
-    }
-
-    function reloadPOS() {
-        cart = [];
-        saveCart();
-        renderCart();
-        clearPOSClient();
-        document.getElementById('success-modal').style.display = 'none';
-        focusBarcode();
-    }
+}
 </script>
-
-<style>
-    /* ==========================================================================
-       SISTEMA DE DISEÑO RESPONSIVE Y MODERNO - POS TERMINAL
-       ========================================================================== */
-
-    /* Contenedor Principal Flexible y Adaptativo */
-    .pos-main-container {
-        display: grid;
-        grid-template-columns: clamp(340px, 28vw, 420px) 1fr;
-        gap: 12px;
-        height: calc(100vh - 20px);
-        height: calc(100dvh - 20px);
-        width: 100%;
-        box-sizing: border-box;
-        font-family: var(--font-body);
-        overflow: hidden;
-    }
-
-    /* Columna Izquierda: Carrito, Totales y Acciones */
-    .pos-left-panel {
-        padding: 12px;
-        margin-bottom: 0;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        height: 100%;
-        box-sizing: border-box;
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        overflow: hidden;
-        min-width: 0;
-    }
-
-    /* Columna Derecha: Catálogo Arriba + Teclado/Cobro Abajo */
-    .pos-right-panel {
-        display: grid;
-        grid-template-rows: 1fr auto;
-        gap: 12px;
-        height: 100%;
-        overflow: hidden;
-        min-width: 0;
-    }
-
-    /* Panel Superior de Catálogo */
-    .pos-catalog-wrapper {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        box-sizing: border-box;
-    }
-
-    /* Muelle Inferior: Teclado Numérico y Cobro */
-    .pos-dock-wrapper {
-        display: grid;
-        grid-template-columns: 1.15fr 1fr;
-        gap: 12px;
-        height: 255px; /* Optimizado de 310px a 255px para dar más espacio a los productos */
-        min-height: 235px;
-        box-sizing: border-box;
-    }
-
-    .pos-numpad-card,
-    .pos-checkout-card {
-        padding: 10px 12px;
-        margin-bottom: 0;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        height: 100%;
-        box-sizing: border-box;
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-    }
-
-    /* Grilla de Productos de Alta Densidad */
-    .pos-products-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 8px;
-        overflow-y: auto;
-        flex-grow: 1;
-        align-content: start;
-        padding-right: 4px;
-    }
-
-    .pos-products-grid::-webkit-scrollbar,
-    .pos-cart-table-container::-webkit-scrollbar {
-        width: 5px;
-        height: 5px;
-    }
-    .pos-products-grid::-webkit-scrollbar-thumb,
-    .pos-cart-table-container::-webkit-scrollbar-thumb {
-        background: rgba(150, 150, 150, 0.25);
-        border-radius: 4px;
-    }
-
-    /* ==========================================================================
-       TARJETA DE PRODUCTO: COMPACTA, MINIMALISTA Y PROFESIONAL
-       ========================================================================== */
-    .pos-product-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        padding: 8px 9px;
-        cursor: pointer;
-        transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), 
-                    border-color 0.15s ease, 
-                    box-shadow 0.15s ease;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        position: relative;
-        user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        min-height: 82px;
-        box-sizing: border-box;
-    }
-
-    .pos-product-card:hover {
-        border-color: var(--accent-emerald);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    }
-
-    .pos-product-card:active {
-        transform: scale(0.97);
-        border-color: var(--accent-emerald);
-    }
-
-    .pos-card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 5px;
-        gap: 4px;
-    }
-
-    .pos-card-sku {
-        font-size: 0.62rem;
-        font-family: var(--font-mono);
-        color: var(--text-muted);
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(150, 150, 150, 0.15);
-        padding: 1px 5px;
-        border-radius: 3px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 85px;
-    }
-
-    .pos-card-qty-badge {
-        background: var(--accent-emerald);
-        color: #ffffff;
-        font-size: 0.65rem;
-        font-weight: 700;
-        padding: 1px 6px;
-        border-radius: 10px;
-        min-width: 18px;
-        height: 18px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35);
-    }
-
-    .pos-card-body {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        flex-grow: 1;
-        margin-bottom: 5px;
-    }
-
-    .pos-card-thumb {
-        width: 34px;
-        height: 34px;
-        border-radius: 5px;
-        object-fit: cover;
-        border: 1px solid var(--border-color);
-        flex-shrink: 0;
-    }
-
-    .pos-card-icon-box {
-        width: 30px;
-        height: 30px;
-        border-radius: 5px;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid var(--border-color);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--text-muted);
-        font-size: 0.82rem;
-        flex-shrink: 0;
-    }
-
-    .pos-card-name {
-        font-size: 0.77rem;
-        font-weight: 600;
-        line-height: 1.25;
-        color: var(--text-primary);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        word-break: break-word;
-    }
-
-    .pos-card-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-top: 1px solid rgba(150, 150, 150, 0.1);
-        padding-top: 4px;
-        margin-top: auto;
-    }
-
-    .pos-card-price {
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: var(--accent-emerald);
-        font-family: var(--font-mono);
-        line-height: 1;
-    }
-
-    .pos-card-add-btn {
-        width: 20px;
-        height: 20px;
-        border-radius: 4px;
-        background: rgba(16, 185, 129, 0.1);
-        color: var(--accent-emerald);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.7rem;
-        transition: background 0.15s, color 0.15s;
-    }
-
-    .pos-product-card:hover .pos-card-add-btn {
-        background: var(--accent-emerald);
-        color: white;
-    }
-
-    /* ==========================================================================
-       CHIPS DE CATEGORÍAS Y TECLADO INDUSTRIAL
-       ========================================================================== */
-    .cat-chip {
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid var(--border-color);
-        color: var(--text-secondary);
-        padding: 6px 12px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        white-space: nowrap;
-    }
-
-    .cat-chip:hover {
-        background: rgba(255, 255, 255, 0.08);
-        color: var(--text-primary);
-    }
-
-    .cat-chip.active {
-        background: var(--accent-emerald);
-        color: white;
-        border-color: var(--accent-emerald);
-        box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
-    }
-
-    .num-key {
-        font-size: 1.2rem;
-        font-weight: 800;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid var(--border-color);
-        background: rgba(255, 255, 255, 0.02);
-        color: var(--text-primary);
-        border-radius: 6px;
-        transition: all 0.1s;
-    }
-
-    .num-key:active {
-        background: var(--accent-emerald);
-        color: white;
-        transform: scale(0.96);
-    }
-
-    .cash-btn {
-        font-size: 0.72rem;
-        font-weight: 700;
-        padding: 5px 3px;
-        height: 32px;
-        border: 1px solid var(--border-color);
-        background: rgba(255, 255, 255, 0.02);
-        color: var(--text-secondary);
-        border-radius: 6px;
-    }
-
-    .cash-btn:active {
-        background: rgba(255, 255, 255, 0.08);
-        transform: scale(0.96);
-    }
-
-    /* Barra Superior Móvil de Pestañas */
-    .pos-mobile-nav {
-        display: none;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin-bottom: 8px;
-    }
-
-    .pos-mobile-tab {
-        height: 38px;
-        border: 1px solid var(--border-color);
-        background: var(--bg-card);
-        color: var(--text-secondary);
-        font-weight: 600;
-        font-size: 0.85rem;
-        border-radius: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        cursor: pointer;
-        position: relative;
-    }
-
-    .pos-mobile-tab.active {
-        background: var(--accent-emerald);
-        color: #ffffff;
-        border-color: var(--accent-emerald);
-    }
-
-    .pos-mobile-cart-badge {
-        background: #ef4444;
-        color: #ffffff;
-        font-size: 0.68rem;
-        font-weight: 700;
-        padding: 1px 6px;
-        border-radius: 10px;
-        min-width: 18px;
-    }
-
-    /* Barra Inferior Móvil */
-    .pos-mobile-bottom-bar {
-        display: none;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: var(--bg-card);
-        border-top: 1px solid var(--border-color);
-        padding: 8px 16px;
-        box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
-        z-index: 100;
-        align-items: center;
-        justify-content: space-between;
-    }
-
-    .pos-mobile-total-info {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .pos-mobile-total-label {
-        font-size: 0.68rem;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        font-weight: 600;
-    }
-
-    .pos-mobile-total-val {
-        font-size: 1.15rem;
-        font-weight: 800;
-        color: var(--accent-emerald);
-        font-family: var(--font-mono);
-    }
-
-    .pos-mobile-checkout-btn {
-        height: 38px;
-        padding: 0 16px;
-        font-weight: 700;
-        font-size: 0.85rem;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    /* ==========================================================================
-       MEDIA QUERIES RESPONSIVE
-       ========================================================================== */
-
-    /* Pantallas con altura reducida (ej. Monitores de 15" 1024x768 / 1366x768) */
-    @media (max-height: 760px) {
-        .pos-dock-wrapper {
-            height: 220px !important;
-            min-height: 210px !important;
-        }
-        .pos-numpad-card,
-        .pos-checkout-card {
-            padding: 8px 10px !important;
-        }
-        .num-key {
-            font-size: 1.05rem !important;
-        }
-        .cash-btn {
-            height: 28px !important;
-            font-size: 0.68rem !important;
-            padding: 2px !important;
-        }
-        .pos-checkout-card button {
-            height: 32px !important;
-            font-size: 0.78rem !important;
-        }
-    }
-
-    /* Tablets en Horizontal y Laptops (992px a 1199px) */
-    @media (max-width: 1199px) {
-        .pos-main-container {
-            grid-template-columns: 320px 1fr;
-            gap: 8px;
-        }
-        .pos-products-grid {
-            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-        }
-        .pos-dock-wrapper {
-            grid-template-columns: 1fr 1fr;
-            height: 240px;
-        }
-    }
-
-    /* Tablets en Vertical y Pantallas Táctiles Compactas (< 992px) */
-    @media (max-width: 991px) {
-        .pos-mobile-nav {
-            display: grid;
-        }
-        .pos-main-container {
-            display: block;
-            height: calc(100vh - 65px);
-            height: calc(100dvh - 65px);
-            position: relative;
-        }
-        .pos-left-panel {
-            display: none;
-            height: 100%;
-            overflow-y: auto;
-        }
-        .pos-left-panel.mobile-active {
-            display: flex;
-        }
-        .pos-right-panel {
-            display: grid;
-            grid-template-rows: 1fr auto;
-            height: 100%;
-        }
-        .pos-right-panel.mobile-hidden {
-            display: none;
-        }
-        .pos-mobile-bottom-bar {
-            display: flex;
-        }
-    }
-
-    /* Teléfonos y Pantallas Extra Compactas (< 600px) */
-    @media (max-width: 599px) {
-        .pos-dock-wrapper {
-            grid-template-columns: 1fr;
-            height: auto;
-            max-height: 280px;
-            overflow-y: auto;
-        }
-        .pos-products-grid {
-            grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
-            gap: 6px;
-        }
-        .pos-card-thumb,
-        .pos-card-icon-box {
-            width: 26px;
-            height: 26px;
-        }
-    }
-
-    /* Vista de Pantalla Completa sin Distracciones */
-    .sidebar, .menu-bar, .utility-bar, .tool-bar, .chatbot-trigger, #chatbot-sidebar, #sandbox-indicator-banner, .chatbot-sidebar, #no-plan-warning-banner {
-        display: none !important;
-    }
-    
-    .app-container {
-        grid-template-columns: 1fr !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-    }
-    
-    .main-content {
-        padding: 0 !important;
-        margin: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-    }
-    
-    .content-wrapper {
-        padding: 6px 8px 12px 8px !important;
-        margin: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-    }
-</style>
-{% endblock %}
+<script src="{{ url_for('static', filename='js/pos.js') }}?v=20261104-1518"></script>
+</body>
+</html>
