@@ -309,6 +309,51 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSaveNewClient = document.getElementById('btn-save-new-client');
     const btnSaveNewClientLabel = document.getElementById('btn-save-new-client-label');
     const createClientAlert = document.getElementById('create-client-alert');
+    const rncStatus = document.getElementById('new-client-rnc-status');
+    let rncLookupSeq = 0;
+    let pendingRnc = '';
+    let lastLookedUpRnc = '';
+    let rncLookupDebounce = null;
+
+    const setRncLookupStatus = (state, message = '') => {
+        if (!rncStatus) return;
+        if (state === 'loading') {
+            rncStatus.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="margin-right:6px;color:var(--accent-emerald);"></i><span></span>';
+            const label = rncStatus.querySelector('span');
+            if (label) label.textContent = message || 'Consultando RNC en el padrón de la DGII...';
+            rncStatus.style.display = 'block';
+            rncStatus.setAttribute('aria-busy', 'true');
+        } else {
+            rncStatus.style.display = 'none';
+            rncStatus.textContent = '';
+            rncStatus.removeAttribute('aria-busy');
+        }
+    };
+
+    const setRncLookupBusy = (busy) => {
+        if (btnSaveNewClient) btnSaveNewClient.disabled = busy;
+        if (btnSaveNewClientLabel) {
+            btnSaveNewClientLabel.textContent = busy ? 'Consultando RNC...' : 'Guardar Cliente';
+        }
+    };
+
+    const resetRncLookupState = () => {
+        clearTimeout(rncLookupDebounce);
+        rncLookupSeq++;
+        pendingRnc = '';
+        lastLookedUpRnc = '';
+        setRncLookupStatus('idle');
+        setRncLookupBusy(false);
+        const dgiiInfo = document.getElementById('new-client-dgii-info');
+        if (dgiiInfo) {
+            dgiiInfo.style.display = 'none';
+            dgiiInfo.textContent = '';
+        }
+        ['new-client-regimen-dgii', 'new-client-regimen-dgii-normalized', 'new-client-estado-dgii', 'new-client-categoria-dgii', 'new-client-actividad-dgii'].forEach(id => {
+            const field = document.getElementById(id);
+            if (field) field.value = '';
+        });
+    };
 
     const toggleModalForeignFields = () => {
         const cat = document.getElementById('new-client-category');
@@ -321,10 +366,18 @@ document.addEventListener('DOMContentLoaded', () => {
             rncField.placeholder = isForeign ? 'Ej: EIN 12-3456789, NIF B-12345678' : 'Ej: 101234567';
             rncField.style.fontFamily = isForeign ? '' : 'monospace';
         }
+        if (isForeign) {
+            clearTimeout(rncLookupDebounce);
+            rncLookupSeq++;
+            pendingRnc = '';
+            setRncLookupStatus('idle');
+            setRncLookupBusy(false);
+        }
     };
 
     const openCreateClientModal = () => {
         if (!clientCreateModal) return;
+        resetRncLookupState();
         // Reset campos del modal
         const fields = ['new-client-rnc', 'new-client-razon', 'new-client-email', 'new-client-telefono', 'new-client-direccion'];
         fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -340,6 +393,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const closeCreateClientModal = () => {
+        clearTimeout(rncLookupDebounce);
+        rncLookupSeq++;
+        pendingRnc = '';
+        setRncLookupStatus('idle');
+        setRncLookupBusy(false);
         if (clientCreateModal) clientCreateModal.style.display = 'none';
     };
 
@@ -367,27 +425,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const rncCreateInput = document.getElementById('new-client-rnc');
     if (rncCreateInput) {
-        rncCreateInput.addEventListener('blur', async () => {
+        const razonField = document.getElementById('new-client-razon');
+
+        const lookupRncForNewClient = async () => {
             const categoryField = document.getElementById('new-client-category');
-            if (categoryField && categoryField.value === 'FOREIGN') return;
+            if (categoryField && categoryField.value === 'FOREIGN') {
+                setRncLookupStatus('idle');
+                return;
+            }
 
-            const rawVal = rncCreateInput.value.trim();
-            const cleanedVal = rawVal.replace(/[^0-9]/g, '');
-
+            const cleanedVal = rncCreateInput.value.replace(/[^0-9]/g, '');
             if (cleanedVal.length !== 9 && cleanedVal.length !== 11) {
+                setRncLookupStatus('idle');
                 if (createClientAlert && cleanedVal.length === 0) {
                     createClientAlert.style.display = 'none';
                 }
                 return;
             }
+            if (cleanedVal === pendingRnc || cleanedVal === lastLookedUpRnc) return;
 
-            const razonField = document.getElementById('new-client-razon');
+            const seq = ++rncLookupSeq;
+            pendingRnc = cleanedVal;
+            const startedAt = Date.now();
+            setRncLookupStatus('loading');
+            setRncLookupBusy(true);
+            if (createClientAlert) createClientAlert.style.display = 'none';
 
             try {
                 const response = await fetch(`/api/rnc-lookup?rnc=${cleanedVal}`);
                 const data = await response.json();
+                const elapsed = Date.now() - startedAt;
+                if (elapsed < 350) {
+                    await new Promise(resolve => setTimeout(resolve, 350 - elapsed));
+                }
+                if (seq !== rncLookupSeq) return;
 
                 if (response.ok && !data.error) {
+                    lastLookedUpRnc = cleanedVal;
+                    const dgiiInfo = document.getElementById('new-client-dgii-info');
+                    if (dgiiInfo) {
+                        dgiiInfo.textContent = `Régimen: ${data.regimen || 'No informado'}${data.estado ? ` · Estado: ${data.estado}` : ''}${data.categoria ? ` · Categoría: ${data.categoria}` : ''}`;
+                        dgiiInfo.style.display = 'block';
+                    }
+                    const dgiiFields = {
+                        'new-client-regimen-dgii': data.regimen || '',
+                        'new-client-regimen-dgii-normalized': data.regimen_normalized || '',
+                        'new-client-estado-dgii': data.estado || '',
+                        'new-client-categoria-dgii': data.categoria || '',
+                        'new-client-actividad-dgii': data.actividad || ''
+                    };
+                    Object.entries(dgiiFields).forEach(([id, value]) => {
+                        const field = document.getElementById(id);
+                        if (field) field.value = value;
+                    });
                     if (razonField && !razonField.value.trim()) {
                         razonField.value = data.razon_social || '';
                         razonField.style.border = '1px solid var(--accent-emerald)';
@@ -397,22 +487,56 @@ document.addEventListener('DOMContentLoaded', () => {
                             razonField.style.boxShadow = '';
                         }, 2000);
                     }
-                    if (data.regimen && categoryField) {
-                        const regimenMap = { 'NORMAL': 'NORMAL', 'RST': 'SPECIAL_REGIME', 'GOBIERNO': 'GOVERNMENT' };
-                        const mapped = regimenMap[data.regimen.toUpperCase()] || null;
+                    if (categoryField) {
+                        const normalized = data.regimen_normalized || '';
+                        let mapped = null;
+                        if (['rst_income', 'rst_purchases'].includes(normalized) || /^RST/i.test(data.regimen || '')) {
+                            mapped = 'SPECIAL_REGIME';
+                        } else if (/GOBIERNO|GUBERNAMENTAL/i.test(data.regimen || '')) {
+                            mapped = 'GOVERNMENT';
+                        } else if (data.regimen) {
+                            mapped = 'NORMAL';
+                        }
                         if (mapped) categoryField.value = mapped;
                     }
                     showCreateAlert(`✓ RNC validado: ${data.razon_social}`, false);
                 } else {
+                    lastLookedUpRnc = '';
                     showCreateAlert(data.message || 'RNC no encontrado en DGII.', true);
                 }
             } catch (err) {
+                if (seq !== rncLookupSeq) return;
+                lastLookedUpRnc = '';
                 showCreateAlert('Error de red al consultar padrón DGII.', true);
+            } finally {
+                if (seq === rncLookupSeq) {
+                    pendingRnc = '';
+                    setRncLookupStatus('idle');
+                    setRncLookupBusy(false);
+                }
             }
+        };
+
+        rncCreateInput.addEventListener('input', () => {
+            const cleanedVal = rncCreateInput.value.replace(/[^0-9]/g, '');
+            if (cleanedVal !== lastLookedUpRnc) {
+                lastLookedUpRnc = '';
+            }
+            clearTimeout(rncLookupDebounce);
+            if (cleanedVal.length !== 9 && cleanedVal.length !== 11) {
+                setRncLookupStatus('idle');
+                if (createClientAlert) createClientAlert.style.display = 'none';
+                return;
+            }
+            rncLookupDebounce = setTimeout(lookupRncForNewClient, 450);
+        });
+
+        rncCreateInput.addEventListener('blur', () => {
+            clearTimeout(rncLookupDebounce);
+            lookupRncForNewClient();
         });
 
         // Limpiar feedback visual al editar directamente la razón social
-        const razonField = document.getElementById('new-client-razon');
         if (razonField) {
             razonField.addEventListener('input', () => {
                 if (createClientAlert) createClientAlert.style.display = 'none';
@@ -442,10 +566,17 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const customerCategory = (document.getElementById('new-client-category')?.value || 'NORMAL');
                 const foreignTaxId = customerCategory === 'FOREIGN' ? rnc : '';
+                const dgiiFields = {
+                    regimenDgii: document.getElementById('new-client-regimen-dgii')?.value || '',
+                    regimenDgiiNormalized: document.getElementById('new-client-regimen-dgii-normalized')?.value || '',
+                    estadoDgii: document.getElementById('new-client-estado-dgii')?.value || '',
+                    categoriaDgii: document.getElementById('new-client-categoria-dgii')?.value || '',
+                    actividadDgii: document.getElementById('new-client-actividad-dgii')?.value || ''
+                };
                 const response = await fetch('/clients/ajax_create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rnc, razonSocial, email, telefono, direccion, foreignTaxId, projectId: projectIdHidden ? projectIdHidden.value : '', customer_category: customerCategory })
+                    body: JSON.stringify({ rnc, razonSocial, email, telefono, direccion, foreignTaxId, projectId: projectIdHidden ? projectIdHidden.value : '', customer_category: customerCategory, ...dgiiFields })
                 });
 
                 const result = await response.json();
@@ -464,6 +595,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         phone: newClient.telefono,
                         projectId: newClient.projectId || '',
                         customer_category: newClient.customer_category || customerCategory,
+                        regimenDgii: newClient.regimenDgii || '',
+                        regimenDgiiNormalized: newClient.regimenDgiiNormalized || '',
+                        estadoDgii: newClient.estadoDgii || '',
+                        categoriaDgii: newClient.categoriaDgii || '',
+                        actividadDgii: newClient.actividadDgii || '',
                         foreignTaxId: newClient.foreignTaxId || ''
                     });
 

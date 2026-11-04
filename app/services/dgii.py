@@ -71,7 +71,7 @@ class DGIIService:
                 expected = 11 - remainder
             if expected != check_digit:
                 return {"error": True, "message": "RNC invalido: el digito verificador no coincide."}
-            return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "source": "local"}
+            return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "regimen_normalized": "", "estado": "", "categoria": "", "source": "local"}
 
         elif len(clean_rnc) == 11:
             weights = [1, 2, 1, 2, 1, 2, 1, 2, 1, 2]
@@ -89,7 +89,7 @@ class DGIIService:
             expected = next_ten - total
             if expected != check_digit:
                 return {"error": True, "message": "Cedula invalida: el digito verificador no coincide."}
-            return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "source": "local"}
+            return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "regimen_normalized": "", "estado": "", "categoria": "", "source": "local"}
 
         return {"error": True, "message": "Formato de RNC/Cedula invalido. Debe tener 9 u 11 digitos sin guiones."}
 
@@ -110,18 +110,42 @@ class DGIIService:
                 if not data.get("error"):
                     razon_social = data.get("nombre_razon_social") or data.get("nombre_comercial")
                     if razon_social:
+                        regimen = data.get("regimen_de_pagos") or data.get("regimen_pagos", "")
                         return {
                             "error": False,
                             "rnc": clean_rnc,
                             "razon_social": razon_social,
                             "actividad": data.get("actividad_economica", ""),
-                            "regimen": data.get("regimen_pagos", ""),
+                            "regimen": regimen,
+                            "regimen_normalized": cls._normalize_lookup_regimen(regimen),
+                            "estado": data.get("estado", ""),
+                            "categoria": data.get("categoria", ""),
+                            "facturador_electronico": data.get("facturador_electronico", ""),
+                            "administracion_local": data.get("administracion_local", ""),
                             "source": "megaplus"
                         }
         except requests.RequestException:
             pass
 
         return cls._validate_rnc_local(clean_rnc)
+
+    @classmethod
+    def _normalize_lookup_regimen(cls, regimen):
+        """Normaliza las etiquetas del padrón DGII para uso interno."""
+        value = str(regimen or "").strip().upper()
+        if value in ("RST INGRESOS", "RST POR INGRESOS", "RST - INGRESOS"):
+            return "rst_income"
+        if value in ("RST COMPRAS", "RST POR COMPRAS", "RST - COMPRAS"):
+            return "rst_purchases"
+        if value.startswith("RST"):
+            return "rst_income"
+        if value in ("EXENTO", "EXENTA"):
+            return "exempt"
+        if value in ("CONSUMIDOR FINAL", "CONSUMIDOR"):
+            return "consumer"
+        if value in ("NORMAL", "ORDINARIO", "GENERAL"):
+            return "ordinary"
+        return ""
 
     @staticmethod
     def dgii_round(value, decimals=2):

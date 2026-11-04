@@ -190,6 +190,11 @@ def new_client():
             "priceListId": request.form.get('priceListId', ''),
             "projectId": request.form.get('projectId') or None,
             "customer_category": customer_category,
+            "regimenDgii": (request.form.get('regimenDgii') or '').strip(),
+            "regimenDgiiNormalized": (request.form.get('regimenDgiiNormalized') or '').strip(),
+            "estadoDgii": (request.form.get('estadoDgii') or '').strip(),
+            "categoriaDgii": (request.form.get('categoriaDgii') or '').strip(),
+            "actividadDgii": (request.form.get('actividadDgii') or '').strip(),
             "creditLimit": float(request.form.get('creditLimit', 0) or 0),
         }
         
@@ -252,7 +257,12 @@ def ajax_create_client():
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "accessPin": access_pin,
         "projectId": (data.get('projectId') or '').strip() or None,
-        "customer_category": customer_category
+        "customer_category": customer_category,
+        "regimenDgii": (data.get('regimenDgii') or '').strip(),
+        "regimenDgiiNormalized": (data.get('regimenDgiiNormalized') or '').strip(),
+        "estadoDgii": (data.get('estadoDgii') or '').strip(),
+        "categoriaDgii": (data.get('categoriaDgii') or '').strip(),
+        "actividadDgii": (data.get('actividadDgii') or '').strip()
     }
     
     DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
@@ -281,7 +291,12 @@ def ajax_create_client():
             "direccion": client_dict["direccion"],
             "foreignTaxId": client_dict.get("foreignTaxId", ""),
             "projectId": client_dict.get("projectId") or "",
-            "customer_category": client_dict.get("customer_category", "NORMAL")
+            "customer_category": client_dict.get("customer_category", "NORMAL"),
+            "regimenDgii": client_dict.get("regimenDgii", ""),
+            "regimenDgiiNormalized": client_dict.get("regimenDgiiNormalized", ""),
+            "estadoDgii": client_dict.get("estadoDgii", ""),
+            "categoriaDgii": client_dict.get("categoriaDgii", ""),
+            "actividadDgii": client_dict.get("actividadDgii", "")
         }
     })
 
@@ -346,7 +361,12 @@ def edit_client(client_id):
             "accessPin": access_pin,
             "priceListId": request.form.get('priceListId', ''),
             "projectId": request.form.get('projectId') or None,
-            "customer_category": customer_category
+            "customer_category": customer_category,
+            "regimenDgii": (request.form.get('regimenDgii') or '').strip(),
+            "regimenDgiiNormalized": (request.form.get('regimenDgiiNormalized') or '').strip(),
+            "estadoDgii": (request.form.get('estadoDgii') or '').strip(),
+            "categoriaDgii": (request.form.get('categoriaDgii') or '').strip(),
+            "actividadDgii": (request.form.get('actividadDgii') or '').strip()
         }
         DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
         

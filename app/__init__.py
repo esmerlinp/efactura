@@ -217,6 +217,7 @@ def create_app():
                         'tradeName': company.get('trade_name', ''),
                         'companyRNC': company.get('rnc', ''),
                         'posEnabled': company.get('pos_enabled', True),
+                        'developersEnabled': company.get('developers_enabled', company.get('developersEnabled', False)),
                         'productionEnabled': company.get('production_enabled', True),
                         'sandboxEnabled': company.get('sandbox_enabled', True),
                         'sandboxIndefinite': company.get('sandbox_indefinite', True),
@@ -277,8 +278,10 @@ def create_app():
                 except Exception:
                     pass
 
+            session['company_developers_enabled'] = False
             if company_profile:
                 session['company_profile_pos_enabled'] = company_profile.get('posEnabled', True)
+                session['company_developers_enabled'] = company_profile.get('developersEnabled', False)
                 session['company_production_enabled'] = company_profile.get('productionEnabled', True)
                 session['company_sandbox_enabled'] = company_profile.get('sandboxEnabled', True)
                 session['company_sandbox_indefinite'] = company_profile.get('sandboxIndefinite', True)
@@ -832,6 +835,55 @@ def create_app():
                 # Si de todas formas falla, relanzar el error original de Flask BuildError
                 raise
         return dict(url_for=custom_url_for)
+
+    @app.context_processor
+    def inject_navigation():
+        """Expose lazy, request-scoped navigation resolution.
+
+        Only the workspace rendered by the active layout is resolved. Permission
+        and module checks are memoized for the duration of the request to avoid
+        repeated authorization lookups for every navigation item.
+        """
+        from app.navigation.resolver import resolve_navigation
+        from app.utils.decorators import check_permission
+        from app.utils.module_gate import module_enabled
+
+        active_endpoint = request.endpoint or ""
+        resolved = {}
+        permission_cache = {}
+        module_cache = {}
+        is_owner = session.get("user", {}).get("role") == "owner"
+
+        def resolve_workspace(workspace, active_page=None):
+            if workspace not in resolved:
+                def cached_permission(permission):
+                    if is_owner:
+                        return True
+                    if permission not in permission_cache:
+                        permission_cache[permission] = check_permission(permission)
+                    return permission_cache[permission]
+
+                def cached_module(module_key):
+                    if module_key not in module_cache:
+                        module_cache[module_key] = module_enabled(module_key)
+                    return module_cache[module_key]
+
+                resolved[workspace] = resolve_navigation(
+                    workspace=workspace,
+                    active_page=active_page or "",
+                    active_endpoint=active_endpoint,
+                    session_data=session,
+                    environment=(
+                        Config.DGII_ENVIRONMENT
+                        if session.get("is_sandbox_mode", True)
+                        else Config.DGII_ENVIRONMENT_PRODUCTION
+                    ),
+                    check_permission_fn=cached_permission,
+                    module_enabled_fn=cached_module,
+                )
+            return resolved[workspace]
+
+        return dict(resolve_navigation_workspace=resolve_workspace)
 
     # =========================================================================
     # SEGURIDAD: HEADERS HTTP

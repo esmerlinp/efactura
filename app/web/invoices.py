@@ -50,6 +50,7 @@ from app.utils.module_gate import require_module
 from app.utils.ecf_utils import get_ecf_type_short_code
 from app.brand import get_product_name
 from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
+from app.navigation.resolver import resolve_settings_center
 
 
 from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify, g
@@ -8988,6 +8989,35 @@ def new_cancellation_route():
 # CONFIGURACIÓN DE EMPRESA Y EQUIPO
 # =========================================================================
 
+@web_invoices_bp.route('/settings')
+def settings_center():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not session.get('selected_company_id'):
+        flash('Seleccione una empresa para acceder a su configuración.', 'warning')
+        return redirect(url_for('web_auth.select_company'))
+
+    sandbox = session.get('is_sandbox_mode', True)
+    environment = Config.DGII_ENVIRONMENT if sandbox else Config.DGII_ENVIRONMENT_PRODUCTION
+    is_owner = session.get('user', {}).get('role') == 'owner'
+
+    def can_access(permission):
+        return is_owner or check_permission(permission)
+
+    categories = resolve_settings_center(
+        active_page='settings_center',
+        active_endpoint=request.endpoint,
+        check_permission_fn=can_access,
+        module_enabled_fn=module_enabled,
+        session_data=session,
+        environment=environment,
+    )
+    return render_template(
+        'settings/index.html',
+        active_page='settings_center',
+        settings_categories=categories,
+    )
+
 @web_invoices_bp.route('/settings/taxes', methods=['GET', 'POST'])
 def tax_settings():
     if 'user' not in session:
@@ -11301,7 +11331,12 @@ def check_directory_ajax():
         "data": {
             "razonSocial": res.get("razon_social", ""),
             "actividad": res.get("actividad", ""),
-            "regimen": res.get("regimen", "")
+            "regimen": res.get("regimen", ""),
+            "regimenNormalized": res.get("regimen_normalized", ""),
+            "estado": res.get("estado", ""),
+            "categoria": res.get("categoria", ""),
+            "facturadorElectronico": res.get("facturador_electronico", ""),
+            "administracionLocal": res.get("administracion_local", "")
         } if not res.get("error") else None,
         "message": res.get("message", "")
     })

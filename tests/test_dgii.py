@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import Mock, patch
 from app.services.dgii import DGIIService
 from app.countries.do.dgii_client import REGIMEN_RULES
 
@@ -23,6 +24,39 @@ class TestRncCleaner:
 
     def test_cleans_spaces(self):
         assert DGIIService.clean_rnc("131 23456 7") == "131234567"
+
+
+class TestRncLookupRegimen:
+    def test_reads_dgii_regimen_de_pagos(self):
+        response = Mock(status_code=200)
+        response.json.return_value = {
+            "error": False,
+            "nombre_razon_social": "CONTRIBUYENTE TEST",
+            "regimen_de_pagos": "NORMAL",
+            "estado": "ACTIVO",
+            "categoria": "",
+        }
+
+        with patch("app.services.dgii.requests.get", return_value=response):
+            result = DGIIService.validate_and_fetch_rnc("131880681")
+
+        assert result["regimen"] == "NORMAL"
+        assert result["regimen_normalized"] == "ordinary"
+        assert result["estado"] == "ACTIVO"
+
+    def test_supports_legacy_regimen_pagos_key(self):
+        response = Mock(status_code=200)
+        response.json.return_value = {
+            "error": False,
+            "nombre_razon_social": "CONTRIBUYENTE TEST",
+            "regimen_pagos": "RST INGRESOS",
+        }
+
+        with patch("app.services.dgii.requests.get", return_value=response):
+            result = DGIIService.validate_and_fetch_rnc("131880681")
+
+        assert result["regimen"] == "RST INGRESOS"
+        assert result["regimen_normalized"] == "rst_income"
 
     def test_none_returns_empty(self):
         assert DGIIService.clean_rnc(None) == ""

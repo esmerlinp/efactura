@@ -1,77 +1,36 @@
-<!-- GRUPO: MÓDULOS -->
+<!-- SELECTOR DE WORKSPACES -->
+{% set current_workspace = current_workspace|default('global') %}
 <div class="sidebar-discover-group">
     <div class="sidebar-divider"></div>
     <span class="sidebar-discover-title">Módulos</span>
 
-    {% if session.get('user', {}).get('role') == 'owner' or check_permission('canViewInternalServiceDocuments') or check_permission('canCreateInternalServiceDocument') %}
-    <a href="{{ url_for('web_internal_service_documents.list_documents') }}"
-        class="sidebar-discover-item {% if active_page == 'internal_documents' %}active{% endif %}"
-        data-tooltip="Documentos internos">
-        <i class="fa-solid fa-gift"></i>
-        <span>Documentos internos</span>
+    {% if current_workspace != 'global' %}
+    <a href="{{ url_for('web_dashboard.dashboard') }}"
+        class="sidebar-discover-item"
+        data-navigation-id="global.home"
+        data-tooltip="Panel principal">
+        <i class="fa-solid fa-house"></i>
+        <span>Panel principal</span>
     </a>
     {% endif %}
 
-    {% if module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True)) %}
-    <a href="{{ url_for('web_invoices.list_invoices') }}"
-        class="sidebar-discover-item {% if active_page == 'invoices' %}active{% endif %}"
-        data-tooltip="Facturación">
-        <i class="fa-solid fa-file-invoice-dollar"></i>
-        <span>Facturación</span>
-    </a>
-    {% endif %}
-
-    {% if module_enabled('nomina') and (session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRDashboard') or check_permission('canHREmployees') or check_permission('canHRAttendance') or check_permission('canHRVacations') or check_permission('canHRPayroll') or check_permission('canHROffboarding') or check_permission('canHRAuthorizations') or check_permission('canHRDevelopment') or check_permission('canHRSettings')) %}
+    {% if current_workspace != 'rrhh' and module_enabled('nomina') and (session.get('user', {}).get('role') == 'owner' or check_permission('canHR') or check_permission('canHRDashboard') or check_permission('canHREmployees') or check_permission('canHRAttendance') or check_permission('canHRVacations') or check_permission('canHRPayroll') or check_permission('canHROffboarding') or check_permission('canHRAuthorizations') or check_permission('canHRDevelopment') or check_permission('canHRSettings')) %}
     <a href="{{ url_for('web_rrhh.payroll_dashboard') }}"
-        class="sidebar-discover-item {% if active_page and active_page.startswith('rrhh_') %}active{% endif %}"
+        class="sidebar-discover-item"
+        data-navigation-id="rrhh.dashboard"
         data-tooltip="Nómina y RRHH">
         <i class="fa-solid fa-coins"></i>
         <span>Nómina y RRHH</span>
     </a>
     {% endif %}
-    {% if module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or check_permission('canAccounting') or check_permission('canAccountingDashboard') or check_permission('canAccountingChart') or check_permission('canAccountingJournal') or check_permission('canAccountingReports') or check_permission('canAccountingFixedAssets') or check_permission('canAccountingFiscalPeriods') or check_permission('canAccountingSettings')) %}
+
+    {% if current_workspace != 'accounting' and module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or check_permission('canAccounting') or check_permission('canAccountingDashboard') or check_permission('canAccountingChart') or check_permission('canAccountingJournal') or check_permission('canAccountingReports') or check_permission('canAccountingFixedAssets') or check_permission('canAccountingFiscalPeriods') or check_permission('canAccountingSettings')) %}
     <a href="{{ url_for('web_accounting.dashboard') }}"
-        class="sidebar-discover-item {% if active_page and active_page.startswith('acc_') %}active{% endif %}"
+        class="sidebar-discover-item"
+        data-navigation-id="global.accounting"
         data-tooltip="Contabilidad">
         <i class="fa-solid fa-scale-balanced"></i>
         <span>Contabilidad</span>
-    </a>
-    {% endif %}
-
-    {% if module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or
-    session.get('user', {}).get('permissions', {}).get('canManagePOS', True)) and
-    session.get('company_profile_pos_enabled', True) %}
-    <a href="{{ url_for('web_pos.pos_dashboard') }}"
-        class="sidebar-discover-item {% if active_page == 'pos' or active_page == 'pos_admin' %}active{% endif %}"
-        data-tooltip="Caja / POS">
-        <i class="fa-solid fa-cash-register"></i>
-        <span>Punto de Venta (POS)</span>
-    </a>
-    {% endif %}
-    {% if module_enabled('portal_cliente') and (session.get('user', {}).get('role') == 'owner' or
-    check_permission('canManageClientPortal')) %}
-    <a href="{{ url_for('portal.portal_admin') }}"
-        class="sidebar-discover-item {% if active_page == 'portal_admin' %}active{% endif %}"
-        data-tooltip="Portal de Clientes">
-        <i class="fa-solid fa-globe"></i>
-        <span>Portal de Clientes</span>
-    </a>
-    {% endif %}
-    {% if module_enabled('certificacion') and dgii_environment == 'certecf' and (session.get('user', {}).get('role') == 'owner' or check_permission('canCertifyDGII')) %}
-    <a href="{{ url_for('web_certificacion.wizard') }}"
-        class="sidebar-discover-item {% if active_page == 'certificacion' %}active{% endif %}"
-        data-tooltip="Certificación DGII">
-        <i class="fa-solid fa-certificate"></i>
-        <span>Certificación DGII</span>
-    </a>
-    {% endif %}
-    {% if module_enabled('ia_bi') and (session.get('user', {}).get('role') == 'owner' or
-    session.get('user', {}).get('permissions', {}).get('canViewBI', True)) %}
-    <a href="{{ url_for('web_bi.drilldown', metric='sales') }}"
-        class="sidebar-discover-item {% if active_page == 'bi_drilldown' %}active{% endif %}"
-        data-tooltip="BI Drill-down">
-        <i class="fa-solid fa-magnifying-glass-chart"></i>
-        <span>BI Drill-down</span>
     </a>
     {% endif %}
 </div>

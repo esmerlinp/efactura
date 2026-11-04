@@ -1238,8 +1238,9 @@
 
             <nav class="nav-menu">
                 {% block sidebar %}
-                {% include "_sidebar_nav.html" %}
-            {% endblock %}
+                {% set navigation_items = resolve_navigation_workspace('global', active_page|default('')) %}
+                {% include "_navigation_sidebar.html" with context %}
+                {% endblock %}
             </nav>
 
             <div class="sidebar-footer" style="flex-direction: column; gap: 0; padding-top: 0;">
@@ -1403,6 +1404,8 @@
                     <div class="config-dropdown" id="config-dropdown-trigger" style="position:relative;">
                         <button class="utility-item" title="Configuración"><i class="fa-solid fa-gear"></i></button>
                         <div class="dropdown-menu" id="config-dropdown-menu" style="display:none; position:absolute; top:100%; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); width:240px; box-shadow:0 4px 12px rgba(0,0,0,0.1); padding:8px; z-index:1001; flex-direction:column;">
+                            <a href="{{ url_for('web_invoices.settings_center') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-primary); text-decoration:none; font-size:0.85rem;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'"><i class="fa-solid fa-gear" style="width:16px; text-align:center;"></i> Configuración</a>
+
                             <a href="{{ url_for('web_i18n.language_settings') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-primary); text-decoration:none; font-size:0.85rem;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'"><i class="fa-solid fa-language" style="width:16px; text-align:center;"></i> Idioma</a>
 
                             <a href="{{ url_for('web_invoices.help_center') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-primary); text-decoration:none; font-size:0.85rem;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'"><i class="fa-solid fa-circle-question" style="width:16px; text-align:center;"></i> Centro de Ayuda</a>
