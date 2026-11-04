@@ -7,7 +7,7 @@
 {% block content %}
 {% set is_referencing = invoice and invoice.informationReference is defined and invoice.informationReference %}
 <style>
-    .doc-main-col { max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+    .doc-main-col { max-width:1200px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
     .section-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:22px 24px; }
     .section-card h3 { font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0 0 16px 0; display:flex; align-items:center; gap:10px; }
     .section-card h3 i { color:var(--accent-emerald); font-size:0.95rem; }
@@ -16,7 +16,7 @@
     .inp-group.wide { flex:2; min-width:220px; }
     .inp-group label { font-size:0.78rem; color:var(--text-secondary); display:block; margin-bottom:4px; font-weight:500; }
 
-    .product-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+    .product-table { width:100%; min-width:0; border-collapse:collapse; font-size:0.85rem; }
     .product-table th { padding:8px 12px; text-align:left; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid var(--border-color); white-space:nowrap; }
     .product-table td { padding:8px 12px; border-bottom:1px solid var(--border-color); vertical-align:middle; }
     .product-table td:last-child { text-align:center; width:40px; padding:6px 8px; }
