@@ -166,6 +166,22 @@ class CacheService:
         if company_id:
             cls.bump_version(company_id, sandbox, "audit")
 
+    @classmethod
+    def invalidate_production_agreement(cls, company_id, user_id=None, sandbox=False):
+        """Invalida el dominio de contrato de producción para una compañía.
+
+        El dominio se versiona por ambiente (producción o sandbox), de modo que
+        una aceptación en sandbox no invalide indebidamente la decisión de
+        producción y viceversa.
+        """
+        if company_id:
+            cls.bump_version(company_id, bool(sandbox), "production_agreement")
+
+    @classmethod
+    def invalidate_production_agreement_global(cls):
+        """Invalida el puntero global de la versión activa del contrato."""
+        cls.bump_version("__global__", False, "production_agreement_global")
+
     @staticmethod
     def invalidate_dashboard(owner_uid: str, company_id=None):
         CacheService.invalidate_pattern("web_dashboard.dashboard")

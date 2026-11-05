@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+
+{% block title %}Configuración{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings_center.css') }}?v={{ static_hash('css/settings_center.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="settings-center" aria-labelledby="settings-center-title">
+    <header class="settings-center-header">
+        <div>
+            <p class="settings-center-eyebrow">Administración de la empresa</p>
+            <h1 id="settings-center-title">Configuración</h1>
+            <p>Gestiona la empresa, seguridad, integraciones y servicios disponibles desde un solo lugar.</p>
+        </div>
+    </header>
+
+    {% if settings_categories %}
+    <div class="settings-search-wrap">
+        <label class="sr-only" for="settings-search">Buscar configuraciones</label>
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input
+            id="settings-search"
+            type="search"
+            placeholder="Buscar por nombre, categoría o función..."
+            autocomplete="off"
+            aria-controls="settings-sections"
+        >
+        <button type="button" id="settings-search-clear" aria-label="Limpiar búsqueda" hidden>
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+    </div>
+
+    <div id="settings-sections" class="settings-sections">
+        {% for category in settings_categories %}
+        <section class="settings-category" data-settings-category>
+            <div class="settings-category-heading">
+                <span class="settings-category-icon"><i class="{{ category.icon }}" aria-hidden="true"></i></span>
+                <h2>{{ category.label }}</h2>
+            </div>
+            <div class="settings-grid">
+                {% for item in category['items'] %}
+                {% if item.id == 'global.settings.export' %}
+                <button
+                    type="button"
+                    class="settings-card"
+                    data-settings-item
+                    data-search="{{ item.search_text }}"
+                    data-settings-action="export-data"
+                >
+                {% else %}
+                <a
+                    class="settings-card"
+                    href="{{ url_for(item.route, **item.route_params) }}"
+                    data-settings-item
+                    data-search="{{ item.search_text }}"
+                >
+                {% endif %}
+                    <span class="settings-card-icon"><i class="{{ item.icon }}" aria-hidden="true"></i></span>
+                    <span class="settings-card-content">
+                        <strong>{{ item.label }}</strong>
+                        <span>{{ item.description }}</span>
+                    </span>
+                    <i class="fa-solid fa-chevron-right settings-card-arrow" aria-hidden="true"></i>
+                {% if item.id == 'global.settings.export' %}</button>{% else %}</a>{% endif %}
+                {% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+    </div>
+
+    <div id="settings-no-results" class="settings-empty" role="status" aria-live="polite" hidden>
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <strong>No encontramos configuraciones</strong>
+        <span>Prueba con otro término de búsqueda.</span>
+    </div>
+    {% else %}
+    <div class="settings-empty" role="status">
+        <i class="fa-solid fa-lock" aria-hidden="true"></i>
+        <strong>No hay configuraciones disponibles</strong>
+        <span>Tu usuario no tiene opciones administrativas habilitadas para esta empresa.</span>
+    </div>
+    {% endif %}
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/settings_center.js') }}?v={{ static_hash('js/settings_center.js') }}"></script>
+{% endblock %}

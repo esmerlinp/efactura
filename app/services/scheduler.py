@@ -38,6 +38,21 @@ def _get_all_owner_uids(company_id=None):
     return uids
 
 
+def _production_contract_blocked(owner_uid: str) -> bool:
+    """True si la operación de producción de este owner debe omitirse por contrato.
+
+    Los procesos automáticos requieren aceptación empresarial vigente, pero no
+    reconocimiento individual. Falla cerrado: si no puede resolverse la compañía
+    o el estado contractual, la operación se omite.
+    """
+    from app.services.production_agreement_access_service import ProductionAgreementAccessService
+    try:
+        return ProductionAgreementAccessService.requires_job_contract_access_for_owner(owner_uid)
+    except Exception as e:
+        logger.error(f"Error verificando contrato de producción para {owner_uid}: {e}")
+        return True
+
+
 def run_daily_contract_billing(company_id=None):
     """
     Job diario (6:00 AM hora RD): recorre todos los usuarios con contratos Activos
@@ -69,6 +84,10 @@ def run_daily_contract_billing(company_id=None):
                     .where("status", "==", "Activo").stream()
                 has_active = any(True for _ in contracts)
                 if not has_active:
+                    continue
+
+                if not is_sandbox and _production_contract_blocked(owner_uid):
+                    logger.info(f"⏭️ Contrato de producción no aceptado — omitiendo {owner_uid} (sandbox={is_sandbox})")
                     continue
 
                 count = RecurrenceService.process_pending_contracts(
@@ -117,6 +136,10 @@ def run_daily_depreciation(company_id=None):
                 docs = assets_coll.where("status", "==", "active").stream()
                 has_active = any(True for _ in docs)
                 if not has_active:
+                    continue
+
+                if not is_sandbox and _production_contract_blocked(owner_uid):
+                    logger.info(f"⏭️ Contrato de producción no aceptado — omitiendo {owner_uid} (sandbox={is_sandbox})")
                     continue
 
                 results = FixedAssetService.run_auto_depreciation(owner_uid, sandbox=is_sandbox)
@@ -192,6 +215,11 @@ def run_daily_rui_generation(company_id=None):
                     continue
                 profile = profile_doc.to_dict()
                 if not profile.get("ruiEnabled") or not profile.get("ruiAutoGenerate"):
+                    skipped += 1
+                    continue
+
+                if not is_sandbox and _production_contract_blocked(owner_uid):
+                    logger.info(f"⏭️ Contrato de producción no aceptado — omitiendo RUI de {owner_uid}")
                     skipped += 1
                     continue
 

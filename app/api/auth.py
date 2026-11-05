@@ -5,6 +5,22 @@ from app.services.db_service import DatabaseService
 from app.utils.module_gate import MODULE_MAP, get_module_label
 
 
+def _production_api_blocked():
+    """Bloquea las APIs de producción hasta resolver la identidad contractual
+    verificable de la credencial.
+
+    Devuelve una Response 403 si la petición está en producción, o None si la
+    petición puede continuar (sandbox). No se acepta userId del consumidor.
+    """
+    if not getattr(g, "sandbox_mode", True):
+        return jsonify({
+            "success": False,
+            "code": "PRODUCTION_AGREEMENT_REQUIRED",
+            "error": "Debes completar la aceptación contractual para acceder a producción.",
+        }), 403
+    return None
+
+
 def check_company_module_enabled(company, module_key):
     """Verifica si una empresa tiene un módulo habilitado en su plan (Fail-Closed)."""
     if not company or not module_key or module_key not in MODULE_MAP:
@@ -78,6 +94,10 @@ def gate_api_blueprint_module(bp, module_key, feature_name=None):
         g.owner_uid = company.get("ownerUID")
         g.sandbox_mode = request.headers.get('X-Sandbox-Mode', 'true').lower() == 'true'
 
+        _blocked = _production_api_blocked()
+        if _blocked:
+            return _blocked
+
         if not check_company_module_enabled(company, module_key):
             label = feature_name or get_module_label(module_key)
             return jsonify({
@@ -127,6 +147,10 @@ def require_api_key(f):
         g.company_id = company.get("id") or company.get("ownerUID")
         g.owner_uid = company.get("ownerUID")
         g.sandbox_mode = request.headers.get('X-Sandbox-Mode', 'true').lower() == 'true'
+
+        _blocked = _production_api_blocked()
+        if _blocked:
+            return _blocked
 
         return f(*args, **kwargs)
     return decorated_function
@@ -197,6 +221,10 @@ def require_api_module(module_key, required_permission=None):
             g.company_id = company.get("id") or company.get("ownerUID")
             g.owner_uid = company.get("ownerUID")
             g.sandbox_mode = request.headers.get('X-Sandbox-Mode', 'true').lower() == 'true'
+
+            _blocked = _production_api_blocked()
+            if _blocked:
+                return _blocked
 
             return f(*args, **kwargs)
         return decorated_function
@@ -309,6 +337,10 @@ def require_crm_auth(required_permission="canCRM"):
             g.sandbox_mode = request.headers.get('X-Sandbox-Mode', request.args.get('sandbox', 'true')).lower() in ('true', '1')
             g.branch_id = request.headers.get('X-Branch-ID') or request.args.get('branch_id') or None
             g.project_id = request.headers.get('X-Project-ID') or request.args.get('project_id') or None
+
+            _blocked = _production_api_blocked()
+            if _blocked:
+                return _blocked
 
             return f(*args, **kwargs)
         return decorated_function
