@@ -111,6 +111,46 @@ def _pos_parse_quantity(value):
     return qty
 
 
+def _pos_apply_available_stock(items, inventory_stock, warehouse_id):
+    """Agrega `availableStock` por artículo usando el almacén activo del POS.
+
+    - Servicios y artículos demo usan `totalStock` (no descuentan inventario).
+    - Si hay registros de inventario, un artículo sin registro en el almacén
+      activo se considera agotado (0).
+    - Si no hay registros de inventario (empresas legacy) o no hay almacén
+      resuelto, se usa `totalStock` como respaldo.
+    """
+    rows = inventory_stock or []
+    has_inventory = bool(rows) and bool(warehouse_id)
+    stock_by_item = {}
+    for row in rows:
+        if str(row.get("warehouseId") or "") != str(warehouse_id or ""):
+            continue
+        item_id = str(row.get("itemId") or "")
+        if not item_id:
+            continue
+        try:
+            stock_by_item[item_id] = float(row.get("quantity") or 0.0)
+        except (TypeError, ValueError):
+            stock_by_item[item_id] = 0.0
+
+    result = []
+    for item in items or []:
+        entry = dict(item)
+        item_id = str(entry.get("id") or "")
+        total_stock = float(entry.get("totalStock", entry.get("stock", 0.0)) or 0.0)
+        item_type = str(entry.get("type") or "").strip().lower()
+        if item_type in ("servicio", "service") or entry.get("isDemo"):
+            available = total_stock
+        elif has_inventory:
+            available = stock_by_item.get(item_id, 0.0)
+        else:
+            available = total_stock
+        entry["availableStock"] = available
+        result.append(entry)
+    return result
+
+
 def _pos_build_items(payload_items, catalog, sandbox):
     """Construye partidas confiables: precios e impuestos salen del catálogo, no del JS."""
     if not isinstance(payload_items, list) or not payload_items:
@@ -247,6 +287,53 @@ def _pos_normalize_payments(data, total, is_consumer_final):
         "credit_amount": credit_amount,
         "paid_amount": DGIIService.dgii_round(total - credit_amount, 2),
     }
+
+
+def _pos_register_credit_client(owner_uid, company_id, sandbox, rnc, name, email="", phone="", address=""):
+    """Registra (o reutiliza) el cliente de una venta POS a crédito."""
+    existing = DatabaseService.get_client_by_rnc(owner_uid, rnc, company_id=company_id, sandbox=sandbox)
+    if existing:
+        return existing
+
+    from app.services.contact_service import ContactService
+    contact = ContactService.get_contact_by_rnc(owner_uid=owner_uid, rnc=rnc, sandbox=sandbox, company_id=company_id)
+    if contact:
+        types = list(contact.get("types") or [])
+        if "cliente" not in types:
+            contact["types"] = types + ["cliente"]
+            ContactService.save_contact(
+                owner_uid=owner_uid, contact_id=contact["id"], contact_dict=contact,
+                sandbox=sandbox, company_id=company_id
+            )
+        saved = DatabaseService.get_client(owner_uid, contact["id"], company_id=company_id, sandbox=sandbox)
+        if saved:
+            return saved
+        return {
+            "id": contact["id"],
+            "razonSocial": contact.get("razonSocial") or name,
+            "rnc": rnc,
+            "email": contact.get("email") or email,
+        }
+
+    client_id, _ = ContactService.get_or_create_contact(
+        owner_uid=owner_uid,
+        rnc=rnc,
+        razonSocial=name,
+        direccion=address,
+        sandbox=sandbox,
+        company_id=company_id,
+        types=["cliente"],
+        extra={
+            "email": email,
+            "telefono": phone,
+            "pipelineStage": "Cliente Activo",
+            "crmNotes": "Registrado automáticamente desde POS (venta a crédito)",
+        },
+    )
+    saved = DatabaseService.get_client(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
+    if saved:
+        return saved
+    return {"id": client_id, "razonSocial": name, "rnc": rnc, "email": email}
 
 
 def _pos_itbis_breakdown(calculated_items):
@@ -953,10 +1040,13 @@ def pos_terminal():
     )
     current_warehouse = next((w for w in warehouses if w['id'] == default_wh_id), None)
 
+    inventory_stock = DatabaseService.get_inventory_stock(owner_uid, company_id=company_id, sandbox=sandbox) or []
+    items_for_pos = _pos_apply_available_stock(active_items, inventory_stock, default_wh_id)
+
     return render_template(
         'pos/terminal.html',
         active_page='pos',
-        items=active_items,
+        items=items_for_pos,
         categories=categories,
         branches=branches,
         company=company,
@@ -1136,13 +1226,26 @@ def create_pos_sale():
     if float(calcs.get('total') or 0.0) <= 0:
         return jsonify({"success": False, "error": "El total de la venta debe ser mayor a cero."}), 400
 
-    # Cliente: nombre y RNC se toman del registro, nunca del navegador.
-    client_id = data.get('clientId') or 'default'
+    # Cliente: datos del registro local o del lookup DGII (cliente temporal).
+    client_id = str(data.get('clientId') or '').strip()
     client_name = 'Consumidor Final'
     client_rnc = '000000000'
     client_email = ''
+    client_phone = ''
+    client_address = ''
     client_project_id = None
-    if client_id and client_id != 'default':
+    is_ephemeral_client = False
+
+    if client_id == 'dgii-lookup':
+        is_ephemeral_client = True
+        client_rnc = re.sub(r'\D', '', str(data.get('clientRnc') or ''))
+        client_name = str(data.get('clientName') or '').strip() or 'Cliente'
+        client_email = str(data.get('clientEmail') or '').strip()
+        client_phone = str(data.get('clientPhone') or '').strip()
+        client_address = str(data.get('clientAddress') or '').strip()
+        if len(client_rnc) not in (9, 11) or client_rnc == '000000000':
+            return jsonify({"success": False, "error": "El RNC/Cédula del cliente no es válido."}), 400
+    elif client_id and client_id != 'default':
         client = DatabaseService.get_client(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
         if not client:
             return jsonify({"success": False, "error": "El cliente seleccionado no existe."}), 400
@@ -1150,10 +1253,13 @@ def create_pos_sale():
         client_rnc = re.sub(r'\D', '', str(client.get('rnc') or client.get('identification') or ''))
         client_email = (client.get('email') or '').strip()
         client_project_id = client.get('projectId')
+    else:
+        client_id = 'default'
 
-    is_consumer_final = (
-        client_id == 'default' or not client_rnc or client_rnc == '000000000'
-    )
+    if is_ephemeral_client:
+        client_id = ''
+
+    is_consumer_final = not client_rnc or client_rnc == '000000000'
     if ecf_type == 'Factura de Crédito Fiscal (E31)' and (is_consumer_final or len(client_rnc) < 9):
         return jsonify({
             "success": False,
@@ -1164,6 +1270,28 @@ def create_pos_sale():
         payment_info = _pos_normalize_payments(data, calcs['total'], is_consumer_final)
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
+
+    client_registered = False
+    if is_ephemeral_client and payment_info['credit_amount'] > 0:
+        try:
+            credit_client = _pos_register_credit_client(
+                owner_uid, company_id, sandbox, client_rnc, client_name,
+                email=client_email, phone=client_phone, address=client_address
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "No se pudo registrar el cliente temporal de la venta a crédito POS"
+            )
+            return jsonify({
+                "success": False,
+                "error": "No se pudo registrar el cliente para la venta a crédito. Intenta de nuevo."
+            }), 500
+        client_id = credit_client.get('id') or ''
+        client_name = credit_client.get('razonSocial') or client_name
+        client_email = (credit_client.get('email') or client_email).strip()
+        client_project_id = credit_client.get('projectId') or None
+        client_registered = True
 
     invoice_id = str(uuid.uuid4())
     invoice_number = f"POS-{datetime.now(timezone.utc).strftime('%y%m%d%H%M%S')}"
@@ -1337,7 +1465,9 @@ def create_pos_sale():
             "invoiceNumber": invoice_number,
             "total": calcs["total"],
             "encf": "(Consolidado al Cierre)",
-            "consolidated": True
+            "consolidated": True,
+            "clientId": client_id,
+            "clientRegistered": client_registered
         }
         if idempotency_key:
             DatabaseService.save_idempotency_record(owner_uid, idempotency_key, {
@@ -1475,7 +1605,9 @@ def create_pos_sale():
         "invoiceId": invoice_id,
         "invoiceNumber": invoice_number,
         "total": calcs["total"],
-        "encf": invoice_dict.get("encf", "Contingencia")
+        "encf": invoice_dict.get("encf", "Contingencia"),
+        "clientId": client_id,
+        "clientRegistered": client_registered
     }
     if idempotency_key:
         DatabaseService.save_idempotency_record(owner_uid, idempotency_key, {

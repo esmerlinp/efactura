@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pos.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pos.css') }}?v={{ static_hash('css/pos.css') }}">
 </head>
 <body class="pos-body">
 <div class="pos-app" id="pos-app">
@@ -363,6 +363,19 @@
                     </div>
                 </div>
 
+                <div class="pos-pay-condition" id="pay-condition">
+                    <div class="pos-condition-state">
+                        <span>Condición de pago</span>
+                        <strong id="pay-condition-badge" data-state="contado">Contado</strong>
+                        <small id="pay-condition-detail">Sin monto a crédito</small>
+                    </div>
+                    <div class="pos-condition-actions">
+                        <button type="button" class="pos-btn pos-btn-ghost" id="btn-all-cash" title="Reinicia el cobro como contado por el total">Todo contado</button>
+                        <button type="button" class="pos-btn pos-btn-ghost" id="btn-add-credit" title="Toma el saldo restante como crédito">Agregar crédito (restante)</button>
+                        <button type="button" class="pos-btn pos-btn-ghost" id="btn-all-credit" title="Financia el total de la venta a crédito">Todo crédito</button>
+                    </div>
+                </div>
+
                 <div class="pos-pay-quick">
                     <button type="button" class="pos-btn pos-btn-ghost" id="btn-pay-exact">
                         <i class="fa-solid fa-equals"></i> Pago exacto
@@ -468,6 +481,7 @@
             "unit": {{ (item.unit or 'Unidad')|tojson }},
             "imageUrl": {{ (item.imageUrl or item.image_url or '')|tojson }},
             "totalStock": {{ (item.get('totalStock', item.get('stock', 0)) or 0)|tojson }},
+            "availableStock": {{ (item.get('availableStock', item.get('totalStock', item.get('stock', 0))) or 0)|tojson }},
             "isDemo": {{ (item.get('isDemo', false))|tojson }}
         }{% if not loop.last %},{% endif %}
         {% endfor %}
@@ -502,6 +516,6 @@
     }
 }
 </script>
-<script src="{{ url_for('static', filename='js/pos.js') }}?v=20261104-1518"></script>
+<script src="{{ url_for('static', filename='js/pos.js') }}?v={{ static_hash('js/pos.js') }}"></script>
 </body>
 </html>
