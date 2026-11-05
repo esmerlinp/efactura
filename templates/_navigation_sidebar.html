@@ -1,0 +1,73 @@
+{% macro section_dom_id(item) -%}
+{{ item.dom_id or ('sidebar-section-' ~ item.id|replace('.', '-')) }}
+{%- endmacro %}
+
+{% macro badge_for(item) -%}
+{% if item.id == 'rrhh.authorizations' and rrhh_pending_authorizations %}
+<span class="badge badge-warning" style="font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:auto;">{{ rrhh_pending_authorizations }}</span>
+{% elif item.id == 'rrhh.personal.incidences' and rrhh_incidences %}
+<span class="badge badge-warning" style="font-size:0.65rem; padding:1px 6px; border-radius:9px; margin-left:6px;">{{ rrhh_incidences }}</span>
+{% endif %}
+{%- endmacro %}
+
+{% macro render_items(items, level=0) -%}
+{% for item in items %}
+    {% if item.type == 'dynamic' and item.id == 'global.quick_access' %}
+    <div class="sidebar-section" id="sidebar-section-quick" data-company-id="{{ session.get('selected_company_id', '') }}" style="display:none;">
+        <div class="sidebar-section-header" style="cursor:default;font-size:0.78rem;color:var(--text-muted);border-top:none !important;padding-top:0;">
+            <span>{{ item.label }}</span>
+        </div>
+        <ul class="sidebar-section-content" id="quick-access-list"></ul>
+    </div>
+    <div class="sidebar-divider"></div>
+    {% elif item.type == 'group' and level == 0 %}
+    <div class="sidebar-section{% if not item.active_parent %} collapsed{% endif %}{% if item.active_parent %} active-parent{% endif %}" id="{{ section_dom_id(item) }}">
+        <div class="sidebar-section-header">
+            <div class="header-left">
+                <i class="{{ item.icon or 'fa-solid fa-folder' }} section-icon"></i>
+                <span>{{ item.label }}</span>
+                {{ badge_for(item) }}
+            </div>
+            <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+        </div>
+        <ul class="sidebar-section-content">
+            {{ render_items(item.children, level + 1) }}
+        </ul>
+    </div>
+    {% elif item.type == 'group' %}
+    <li class="nav-subgroup">
+        <div class="nav-subgroup-header">
+            {% if item.icon %}<i class="{{ item.icon }}"></i>{% endif %}
+            <span>{{ item.label }}</span>
+        </div>
+        <ul class="nav-subgroup-content">
+            {{ render_items(item.children, level + 1) }}
+        </ul>
+    </li>
+    {% elif item.type == 'workspace' %}
+    <div class="sidebar-section{% if item.active_parent %} active-parent{% endif %}" id="{{ section_dom_id(item) }}">
+        <a href="{{ url_for(item.route) if item.route else 'javascript:void(0)' }}" class="sidebar-section-header" style="text-decoration: none;">
+            <div class="header-left">
+                <i class="{{ item.icon or 'fa-solid fa-circle' }} section-icon"></i>
+                <span>{{ item.label }}</span>
+                {{ badge_for(item) }}
+            </div>
+        </a>
+    </div>
+    {% else %}
+    <li class="nav-item{% if item.active %} active{% endif %}" data-navigation-id="{{ item.id }}" data-tooltip="{{ item.label }}">
+        {% if item.id == 'global.settings.export' %}
+        <a href="javascript:void(0)" onclick="document.getElementById('global-export-modal').style.display='flex'">
+        {% else %}
+        <a href="{{ url_for(item.route, **item.route_params) if item.route else 'javascript:void(0)' }}">
+        {% endif %}
+            {% if item.icon %}<i class="{{ item.icon }}"></i>{% endif %}
+            <span>{{ item.label }}</span>
+            {{ badge_for(item) }}
+        </a>
+    </li>
+    {% endif %}
+{% endfor %}
+{%- endmacro %}
+
+{{ render_items(navigation_items) }}

@@ -18,6 +18,16 @@ WARNING_THRESHOLD_HOURS = 48
 class ContingencySyncService:
 
     @classmethod
+    def _production_contract_blocked(cls, owner_uid):
+        """True si la operación de producción de este owner debe omitirse por contrato."""
+        from app.services.production_agreement_access_service import ProductionAgreementAccessService
+        try:
+            return ProductionAgreementAccessService.requires_job_contract_access_for_owner(owner_uid)
+        except Exception as e:
+            logger.error(f"Error verificando contrato de producción para {owner_uid}: {e}")
+            return True
+
+    @classmethod
     def sync_all_companies(cls, app_instance=None, company_id=None):
         logger.info("Iniciando sync de contingencia para todas las empresas...")
         owner_uids = cls._discover_all_owner_uids(company_id=company_id)
@@ -26,6 +36,9 @@ class ContingencySyncService:
 
         for owner_uid in owner_uids:
             for sandbox in (False, True):
+                if not sandbox and cls._production_contract_blocked(owner_uid):
+                    logger.info(f"⏭️ Contrato de producción no aceptado — omitiendo sync de {owner_uid}")
+                    continue
                 try:
                     synced, failed = cls.sync_company_pending(owner_uid, sandbox=sandbox, company_id=company_id)
                     total_synced += synced
@@ -355,6 +368,9 @@ class ContingencySyncService:
         total_synced = total_rejected = total_pending = 0
         for owner_uid in owner_uids:
             for sandbox in (False, True):
+                if not sandbox and cls._production_contract_blocked(owner_uid):
+                    logger.info(f"⏭️ Contrato de producción no aceptado — omitiendo reconciliación de {owner_uid}")
+                    continue
                 try:
                     synced, rejected, pending = cls.reconcile_pending_api(
                         owner_uid, sandbox=sandbox, company_id=company_id

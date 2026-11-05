@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contrato de Suscripción y Uso - {{ product_name }}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}">
+    <style>
+        :root {
+            --pa-ink: #20252b;
+            --pa-ink-soft: #44505c;
+            --pa-muted: #66717c;
+            --pa-line: #e5e7eb;
+            --pa-surface: #ffffff;
+            --pa-canvas: #f4f6f8;
+            --pa-accent: var(--accent-emerald, #10b981);
+            --pa-accent-strong: #059669;
+        }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            background: var(--pa-canvas);
+            color: var(--pa-ink);
+            font-family: 'Fira Sans', system-ui, -apple-system, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .pa-page {
+            max-width: 1160px;
+            margin: 0 auto;
+            padding: 0 24px 72px;
+        }
+
+        /* ── Encabezado ── */
+        .pa-topbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 16px 0;
+            background: rgba(244, 246, 248, 0.92);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--pa-line);
+        }
+        .pa-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .pa-brand img { height: 40px; }
+        .pa-brand .pa-brand-meta .pa-brand-name {
+            font-size: 1.05rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            color: var(--pa-ink);
+        }
+        .pa-brand .pa-brand-meta .pa-brand-sub {
+            font-size: 0.76rem;
+            color: var(--pa-muted);
+        }
+        .pa-topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .pa-env-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+        .pa-env-badge.sandbox { background: rgba(139, 92, 246, 0.12); color: #7c3aed; }
+        .pa-env-badge.production { background: rgba(16, 185, 129, 0.12); color: #059669; }
+
+        /* ── Barra de progreso de lectura ── */
+        .pa-progress-track {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: transparent;
+            z-index: 40;
+            pointer-events: none;
+        }
+        .pa-progress-fill {
+            height: 100%;
+            width: 0;
+            background: var(--pa-accent);
+            transition: width 0.1s linear;
+        }
+
+        /* ── Encabezado del documento ── */
+        .pa-hero {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 24px;
+            flex-wrap: wrap;
+            padding: 40px 0 24px;
+        }
+        .pa-hero-title {
+            font-size: 1.7rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            margin: 0 0 6px;
+            color: var(--pa-ink);
+        }
+        .pa-hero-sub {
+            font-size: 0.95rem;
+            color: var(--pa-muted);
+            margin: 0;
+        }
+        .pa-meta-grid {
+            display: flex;
+            gap: 32px;
+            flex-wrap: wrap;
+        }
+        .pa-meta-item { min-width: 120px; }
+        .pa-meta-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--pa-muted);
+            margin-bottom: 3px;
+        }
+        .pa-meta-value {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--pa-ink);
+        }
+
+        /* ── Documento contractual ── */
+        .pa-document {
+            background: var(--pa-surface);
+            border: 1px solid var(--pa-line);
+            border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+        }
+        .pa-document-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 24px;
+            border-bottom: 1px solid var(--pa-line);
+            color: var(--pa-muted);
+            font-size: 0.8rem;
+        }
+        .pa-reading {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 48px 56px 56px;
+            color: var(--pa-ink);
+            font-size: 1rem;
+            line-height: 1.7;
+        }
+        /* Tipografía controlada por VykOne para el contenido contractual */
+        .pa-reading h1 {
+            font-size: 1.7rem;
+            line-height: 1.25;
+            font-weight: 700;
+            margin: 0 0 24px;
+            color: var(--pa-ink);
+        }
+        .pa-reading h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            text-transform: uppercase;
+            margin: 36px 0 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--pa-line);
+            color: var(--pa-ink);
+        }
+        .pa-reading h3 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin: 24px 0 10px;
+            color: var(--pa-ink);
+        }
+        .pa-reading p { margin: 0 0 14px; color: var(--pa-ink-soft); }
+        .pa-reading ul, .pa-reading ol { margin: 0 0 16px; padding-left: 22px; color: var(--pa-ink-soft); }
+        .pa-reading li { margin-bottom: 8px; }
+        .pa-reading strong { color: var(--pa-ink); font-weight: 700; }
+        .pa-reading a { color: var(--pa-accent-strong); text-decoration: underline; }
+        .pa-reading blockquote {
+            margin: 18px 0;
+            padding: 12px 16px;
+            border-left: 4px solid var(--pa-accent);
+            background: #f8fafc;
+            color: var(--pa-ink-soft);
+        }
+        .pa-reading table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.92rem;
+        }
+        .pa-reading th, .pa-reading td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--pa-line);
+            text-align: left;
+            vertical-align: top;
+        }
+        .pa-reading th {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--pa-muted);
+            font-weight: 700;
+            background: #fafbfc;
+        }
+        .pa-reading code {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85em;
+            background: #f1f5f9;
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+        .pa-reading hr {
+            border: none;
+            border-top: 1px solid var(--pa-line);
+            margin: 24px 0;
+        }
+
+        /* ── Zona de aceptación ── */
+        .pa-acceptance {
+            border-top: 1px solid var(--pa-line);
+            background: #fbfcfd;
+            padding: 32px 56px 40px;
+        }
+        .pa-acceptance-inner {
+            max-width: 820px;
+            margin: 0 auto;
+        }
+        .pa-acceptance-heading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 0 6px;
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--pa-ink);
+        }
+        .pa-acceptance-heading i { color: var(--pa-accent); }
+        .pa-acceptance-desc {
+            margin: 0 0 20px;
+            font-size: 0.88rem;
+            color: var(--pa-muted);
+            line-height: 1.6;
+        }
+        .pa-declaration-box {
+            border: 1px solid var(--pa-line);
+            border-radius: 10px;
+            padding: 16px 18px;
+            background: #ffffff;
+            margin-bottom: 20px;
+        }
+        .pa-declaration-box .pa-decl-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-size: 0.82rem;
+            padding: 5px 0;
+        }
+        .pa-declaration-box .pa-decl-row .pa-decl-label { color: var(--pa-muted); }
+        .pa-declaration-box .pa-decl-row .pa-decl-value { color: var(--pa-ink); font-weight: 600; }
+        .pa-check-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 16px;
+            border: 1px solid var(--pa-line);
+            border-radius: 10px;
+            background: #ffffff;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .pa-check-row:hover { border-color: var(--pa-accent); }
+        .pa-check-row input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-top: 1px;
+            flex-shrink: 0;
+            accent-color: var(--pa-accent);
+            cursor: pointer;
+        }
+        .pa-check-row label {
+            font-size: 0.9rem;
+            line-height: 1.55;
+            color: var(--pa-ink-soft);
+            cursor: pointer;
+        }
+        .pa-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .pa-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 13px 26px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.92rem;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            transition: all 0.18s ease;
+            font-family: inherit;
+        }
+        .pa-btn-primary {
+            background: var(--pa-accent);
+            color: #ffffff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+        }
+        .pa-btn-primary:hover:not(:disabled) { background: var(--pa-accent-strong); }
+        .pa-btn-primary:disabled {
+            background: #cbd5e1;
+            color: #ffffff;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .pa-btn-ghost {
+            background: #ffffff;
+            color: var(--pa-ink-soft);
+            border: 1px solid var(--pa-line);
+        }
+        .pa-btn-ghost:hover { border-color: #cbd5e1; background: #f8fafc; }
+        .pa-hint {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 14px;
+            font-size: 0.78rem;
+            color: var(--pa-muted);
+        }
+        .pa-notice {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            margin-bottom: 16px;
+        }
+        .pa-notice.info { background: rgba(59, 130, 246, 0.08); color: #1d4ed8; }
+        .pa-notice.warn { background: rgba(245, 158, 11, 0.1); color: #b45309; }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .pa-reading { padding: 40px 32px 48px; }
+            .pa-acceptance { padding: 28px 32px 36px; }
+        }
+        @media (max-width: 650px) {
+            .pa-page { padding: 0 16px 48px; }
+            .pa-hero { padding-top: 28px; }
+            .pa-hero-title { font-size: 1.4rem; }
+            .pa-reading { padding: 28px 20px 36px; font-size: 0.95rem; }
+            .pa-acceptance { padding: 24px 20px 32px; }
+            .pa-actions { flex-direction: column; align-items: stretch; }
+            .pa-btn { width: 100%; }
+            .pa-topbar { flex-wrap: wrap; }
+        }
+
+        /* ── Impresión ── */
+        @media print {
+            .pa-topbar,
+            .pa-topbar-actions,
+            .pa-actions,
+            .pa-hint,
+            .pa-progress-track,
+            .pa-notice,
+            .pa-check-row input[type="checkbox"] { display: none !important; }
+            body { background: #ffffff; }
+            .pa-page { max-width: none; padding: 0; }
+            .pa-document { border: none; border-radius: 0; box-shadow: none; }
+            .pa-reading { max-width: none; padding: 0; font-size: 11pt; line-height: 1.5; }
+            .pa-reading h2 { break-after: avoid; }
+            .pa-acceptance { break-inside: avoid; padding: 24px 0; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="pa-progress-track"><div class="pa-progress-fill" id="reading-progress"></div></div>
+
+    <div class="pa-page">
+        <header class="pa-topbar">
+            <div class="pa-brand">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="{{ product_name }}">
+                <div class="pa-brand-meta">
+                    <div class="pa-brand-name">{{ product_name }}</div>
+                    <div class="pa-brand-sub">Documento contractual vigente</div>
+                </div>
+            </div>
+            <div class="pa-topbar-actions">
+                <span class="pa-env-badge {{ 'sandbox' if sandbox else 'production' }}">
+                    {{ 'Sandbox · pruebas' if sandbox else 'Producción' }}
+                </span>
+                <button type="button" class="pa-btn pa-btn-ghost" onclick="window.print()" style="padding: 9px 16px; font-size: 0.82rem;">
+                    <i class="fa-solid fa-print"></i> Imprimir
+                </button>
+            </div>
+        </header>
+
+        <section class="pa-hero">
+            <div>
+                <h1 class="pa-hero-title">Acuerdo de suscripción</h1>
+                <p class="pa-hero-sub">Revisión y aceptación de las condiciones de uso de la plataforma.</p>
+            </div>
+            <div class="pa-meta-grid">
+                <div class="pa-meta-item">
+                    <div class="pa-meta-label">Empresa</div>
+                    <div class="pa-meta-value">{{ company_name or '—' }}</div>
+                </div>
+                {% if company_rnc %}
+                <div class="pa-meta-item">
+                    <div class="pa-meta-label">RNC</div>
+                    <div class="pa-meta-value">{{ company_rnc }}</div>
+                </div>
+                {% endif %}
+                <div class="pa-meta-item">
+                    <div class="pa-meta-label">Versión</div>
+                    <div class="pa-meta-value">{{ version }}</div>
+                </div>
+                {% if published_at %}
+                <div class="pa-meta-item">
+                    <div class="pa-meta-label">Vigencia</div>
+                    <div class="pa-meta-value">{{ published_at[:10] if published_at|length >= 10 else published_at }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <article class="pa-document">
+            <div class="pa-document-header">
+                <span><i class="fa-solid fa-file-lines" style="margin-right: 6px;"></i>Documento contractual · Versión {{ version }}</span>
+                <span style="font-family: monospace;">HTML</span>
+            </div>
+
+            <div class="pa-reading">
+                {{ content | safe }}
+            </div>
+
+            <section class="pa-acceptance">
+                <div class="pa-acceptance-inner">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="pa-notice {{ 'warn' if category == 'error' else 'info' }}">
+                        <i class="fa-solid {{ 'fa-circle-exclamation' if category == 'error' else 'fa-circle-info' }}"></i>
+                        <span>{{ message }}</span>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                    {% endwith %}
+
+                    {% if requires_company_agreement and is_owner %}
+                    <h2 class="pa-acceptance-heading">
+                        <i class="fa-solid fa-building"></i> Aceptación empresarial
+                    </h2>
+                    <p class="pa-acceptance-desc">
+                        Actúas como propietario o representante autorizado y aceptas estas condiciones
+                        en representación de la entidad registrada.
+                    </p>
+                    <div class="pa-declaration-box">
+                        <div class="pa-decl-row">
+                            <span class="pa-decl-label">Empresa</span>
+                            <span class="pa-decl-value">{{ company_name or '—' }}</span>
+                        </div>
+                        {% if company_rnc %}
+                        <div class="pa-decl-row">
+                            <span class="pa-decl-label">RNC</span>
+                            <span class="pa-decl-value">{{ company_rnc }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="pa-decl-row">
+                            <span class="pa-decl-label">Representante</span>
+                            <span class="pa-decl-value">{{ user_name or user_email or '—' }}</span>
+                        </div>
+                    </div>
+
+                    <form method="POST" action="{{ url_for('web_production_agreement.accept_company') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                        <label class="pa-check-row">
+                            <input type="checkbox" id="accept-company" name="accept" value="1">
+                            <span>
+                                He leído y acepto las condiciones del contrato de suscripción y uso de VykOne
+                                en nombre de <strong>{{ company_name or 'la empresa' }}</strong>.
+                            </span>
+                        </label>
+                        <div class="pa-actions">
+                            <button type="submit" class="pa-btn pa-btn-primary" id="btn-accept-company" disabled>
+                                <i class="fa-solid fa-check"></i> Aceptar contrato
+                            </button>
+                            <a href="{{ url_for('web_auth.logout') }}" class="pa-btn pa-btn-ghost">
+                                <i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión
+                            </a>
+                        </div>
+                        <div class="pa-hint">
+                            <i class="fa-solid fa-lock"></i>
+                            <span>La aceptación quedará registrada electrónicamente con la versión, fecha e IP.</span>
+                        </div>
+                    </form>
+
+                    {% elif requires_user_acknowledgement and not requires_company_agreement %}
+                    <h2 class="pa-acceptance-heading">
+                        <i class="fa-solid fa-user-check"></i> Reconocimiento individual
+                    </h2>
+                    <p class="pa-acceptance-desc">
+                        Confirmas que has leído y aceptas las condiciones aplicables a tu uso personal de VykOne.
+                    </p>
+                    <div class="pa-declaration-box">
+                        <div class="pa-decl-row">
+                            <span class="pa-decl-label">Usuario</span>
+                            <span class="pa-decl-value">{{ user_name or '—' }}</span>
+                        </div>
+                        <div class="pa-decl-row">
+                            <span class="pa-decl-label">Correo</span>
+                            <span class="pa-decl-value">{{ user_email or '—' }}</span>
+                        </div>
+                        <div class="pa-decl-row">
+                            <span class="pa-decl-label">Empresa</span>
+                            <span class="pa-decl-value">{{ company_name or '—' }}</span>
+                        </div>
+                    </div>
+
+                    <form method="POST" action="{{ url_for('web_production_agreement.acknowledge') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                        <label class="pa-check-row">
+                            <input type="checkbox" id="accept-user" name="accept" value="1">
+                            <span>
+                                He leído y acepto las condiciones de uso y seguridad de VykOne aplicables a mi cuenta.
+                            </span>
+                        </label>
+                        <div class="pa-actions">
+                            <button type="submit" class="pa-btn pa-btn-primary" id="btn-acknowledge" disabled>
+                                <i class="fa-solid fa-check"></i> Reconocer y continuar
+                            </button>
+                            <a href="{{ url_for('web_auth.logout') }}" class="pa-btn pa-btn-ghost">
+                                <i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión
+                            </a>
+                        </div>
+                        <div class="pa-hint">
+                            <i class="fa-solid fa-lock"></i>
+                            <span>Tu reconocimiento quedará registrado electrónicamente.</span>
+                        </div>
+                    </form>
+
+                    {% elif requires_company_agreement and not is_owner %}
+                    <div class="pa-notice warn">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                        <span>
+                            El propietario de la compañía aún no ha aceptado el contrato.
+                            Comunícate con el administrador para completar la aceptación antes de continuar.
+                        </span>
+                    </div>
+                    <div class="pa-actions">
+                        <a href="{{ url_for('web_auth.logout') }}" class="pa-btn pa-btn-ghost">
+                            <i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión
+                        </a>
+                    </div>
+
+                    {% else %}
+                    <div class="pa-notice warn">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                        <span>No puedes continuar hasta completar la aceptación contractual.</span>
+                    </div>
+                    <div class="pa-actions">
+                        <a href="{{ url_for('web_auth.logout') }}" class="pa-btn pa-btn-ghost">
+                            <i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+        </article>
+    </div>
+
+    <script>
+        (function () {
+            function syncButtons() {
+                var companyCheck = document.getElementById('accept-company');
+                var companyBtn = document.getElementById('btn-accept-company');
+                if (companyCheck && companyBtn) {
+                    companyBtn.disabled = !companyCheck.checked;
+                }
+                var userCheck = document.getElementById('accept-user');
+                var userBtn = document.getElementById('btn-acknowledge');
+                if (userCheck && userBtn) {
+                    userBtn.disabled = !userCheck.checked;
+                }
+            }
+
+            document.querySelectorAll('input[type="checkbox"][name="accept"]').forEach(function (el) {
+                el.addEventListener('change', syncButtons);
+            });
+
+            var progress = document.getElementById('reading-progress');
+            function updateProgress() {
+                var doc = document.documentElement;
+                var scrollable = doc.scrollHeight - window.innerHeight;
+                var scrolled = window.scrollY || doc.scrollTop || 0;
+                var pct = scrollable > 0 ? Math.min(100, Math.max(0, (scrolled / scrollable) * 100)) : 0;
+                progress.style.width = pct + '%';
+            }
+            window.addEventListener('scroll', updateProgress, { passive: true });
+            window.addEventListener('resize', updateProgress);
+            updateProgress();
+        })();
+    </script>
+</body>
+
+</html>

@@ -394,6 +394,43 @@ def create_app():
                         if request.endpoint not in allowed_endpoints:
                             return render_template('auth/restricted.html', feature_name="Acceso Completo", required_permission="productionAndSandboxDisabled", custom_message="Tu cuenta no cuenta con ningún entorno habilitado en el sistema (Producción y Sandbox están desactivados o su período de prueba ha concluido).", force_logout=True)
 
+                # ── Contrato de Producción: bloqueo contractual (producción y sandbox) ──
+                from app.services.production_agreement_guard import ProductionAgreementGuard
+                _pa_user_id = session.get('user', {}).get('uid', '')
+                _pa_result = ProductionAgreementGuard.evaluate(
+                    request.endpoint, company_id, _pa_user_id, is_sandbox=is_sandbox
+                )
+                if _pa_result.blocked:
+                    from app.services.audit_service import (
+                        AuditService, MODULE_PRODUCTION_AGREEMENT,
+                        ACTION_AGREEMENT_ACCESS_BLOCKED,
+                    )
+                    try:
+                        AuditService.log_from_request(
+                            owner_uid=session.get('selected_owner_uid') or session.get('user', {}).get('ownerUID', ''),
+                            action=ACTION_AGREEMENT_ACCESS_BLOCKED,
+                            module=MODULE_PRODUCTION_AGREEMENT,
+                            entity_id=company_id,
+                            entity_label=f"Acceso bloqueado por contrato ({_pa_result.reason})",
+                            user_session=session.get('user', {}),
+                            sandbox=is_sandbox,
+                            company_id=company_id,
+                        )
+                    except Exception:
+                        pass
+                    _is_ajax = (
+                        request.is_json or
+                        request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                        request.headers.get('Accept') == 'application/json'
+                    )
+                    if _is_ajax:
+                        return jsonify({
+                            "success": False,
+                            "code": "PRODUCTION_AGREEMENT_REQUIRED",
+                            "error": "Debes completar la aceptación contractual para continuar.",
+                        }), 403
+                    return redirect(flask_url_for('web_production_agreement.view', next=request.full_path))
+
                 if is_sandbox:
                     # Entorno Sandbox
                     if not sandbox_enabled:
@@ -1094,6 +1131,7 @@ def create_app():
     from app.web.certificacion import web_certificacion_bp
     from app.web.api_portal import web_api_portal_bp
     from app.web.internal_service_documents import web_internal_service_documents_bp
+    from app.web.production_agreement import web_production_agreement_bp
 
     # Registra las rutas del asistente de importación de artículos sobre web_invoices_bp
     # antes de registrar el blueprint (las rutas se adjuntan al importar el módulo).
@@ -1139,6 +1177,7 @@ def create_app():
     app.register_blueprint(web_certificacion_bp)
     app.register_blueprint(web_api_portal_bp)
     app.register_blueprint(web_internal_service_documents_bp)
+    app.register_blueprint(web_production_agreement_bp)
 
     # Eximir rutas /api/ de validación CSRF (los blueprints de API se registraron arriba)
     for rule in app.url_map.iter_rules():
