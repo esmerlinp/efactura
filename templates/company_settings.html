@@ -563,50 +563,6 @@
                     </div>
                 </div>
 
-                <!-- SECCIÓN 6: CONSOLIDACIÓN DE COMPROBANTES -->
-                <div class="accordion-item">
-                    <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
-                        <div class="accordion-title">
-                            <i class="fa-solid fa-compress"></i>
-                            <span>Consolidación de Comprobantes (Ley 32-23)</span>
-                        </div>
-                        <i class="fa-solid fa-chevron-down accordion-chevron"></i>
-                    </button>
-                    <div class="accordion-content">
-                        <div class="accordion-body">
-                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
-                                <div class="form-group" style="margin-bottom: 0;">
-                                    <label for="consolidationEnabled"
-                                        style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px; font-weight: 500; color: var(--text-main);">
-                                        <input type="checkbox" id="consolidationEnabled" name="consolidationEnabled"
-                                            value="true"
-                                            style="width: 18px; height: 18px; accent-color: var(--accent-emerald); cursor: pointer;"
-                                            {% if profile.consolidationEnabled %}checked{% endif %}>
-                                        <span>Habilitar Consolidación de Facturas de Consumo (E32)</span>
-                                    </label>
-                                    <small
-                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
-                                        Las ventas individuales del POS a Consumidor Final menores al monto umbral no
-                                        emitirán comprobantes individuales, sino que se consolidarán al final del
-                                        día/cierre del turno.
-                                    </small>
-                                </div>
-                                <div class="form-group" style="margin-bottom: 0;">
-                                    <label for="consolidationThreshold">Monto Máximo de Consolidación (RD$)</label>
-                                    <input type="number" id="consolidationThreshold" name="consolidationThreshold"
-                                        class="form-input" placeholder="Ej: 250000" min="0" step="0.01"
-                                        value="{{ profile.consolidationThreshold | default(250000.0) }}">
-                                    <small
-                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
-                                        Límite por transacción. La norma de la DGII establece un máximo de RD$
-                                        250,000.00.
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 {% if false %}
                 <!-- SECCIÓN 7: REGISTRO ÚNICO DE INGRESOS (RUI) -->
                 <div class="accordion-item">
@@ -971,40 +927,6 @@
                     <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 2px; display: block;">
                         Sube el XML de solicitud de postulación y recíbelo firmado digitalmente.
                     </small>
-                </div>
-
-                <h5
-                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 24px 0 8px 0; font-weight: 500; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-compress" style="color: var(--accent-emerald);"></i>
-                    <span>Consolidación de Comprobantes (Ley 32-23)</span>
-                </h5>
-                <div class="form-grid"
-                    style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; display: grid;">
-                    <div class="form-group">
-                        <label for="consolidationEnabled"
-                            style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px; font-weight: 500; color: var(--text-main);">
-                            <input type="checkbox" id="consolidationEnabled" name="consolidationEnabled" value="true"
-                                style="width: 18px; height: 18px; accent-color: var(--accent-emerald); cursor: pointer;"
-                                {% if profile.consolidationEnabled %}checked{% endif %}>
-                            <span>Habilitar Consolidación de Facturas de Consumo (E32)</span>
-                        </label>
-                        <small
-                            style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
-                            Las ventas individuales del POS a Consumidor Final menores al monto umbral no emitirán
-                            comprobantes individuales, sino que se consolidarán al final del día/cierre del turno.
-                        </small>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="consolidationThreshold">Monto Máximo de Consolidación (RD$)</label>
-                        <input type="number" id="consolidationThreshold" name="consolidationThreshold"
-                            class="form-input" placeholder="Ej: 250000" min="0" step="0.01"
-                            value="{{ profile.consolidationThreshold | default(250000.0) }}">
-                        <small
-                            style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
-                            Límite por transacción. La norma de la DGII establece un máximo de RD$ 250,000.00.
-                        </small>
-                    </div>
                 </div>
 
                 <h5

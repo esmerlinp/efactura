@@ -1983,7 +1983,8 @@ def create_pos_sale():
     # --- Determinar si aplica modo consolidado ---
     # Condiciones DGII: E32, Consumidor Final (RNC 000000000), total < monto configurable de la empresa
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
-    consolidation_enabled = bool(company.get('consolidationEnabled', False))
+    # Consolidación E32 deshabilitada por decisión DGII (hasta nuevo aviso).
+    consolidation_enabled = False
     consolidation_threshold = float(company.get('consolidationThreshold') or 250000.0)
     qualifies_for_consolidation = (
         consolidation_enabled
@@ -2908,22 +2909,8 @@ def audit_shift(shift_id):
 @web_pos_bp.route('/pos/register/<register_id>/toggle-consolidation', methods=['POST'])
 @require_permission('canManagePOS', 'Administración de Caja')
 def toggle_consolidation_mode(register_id):
-    """Activa o desactiva el modo comprobante consolidado para una caja registradora."""
-    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
-        return jsonify({"success": False, "error": "Solo el propietario o supervisor puede cambiar esta configuración."}), 403
-
-    owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
-    sandbox = session.get('is_sandbox_mode', True)
-
-    data = request.json or {}
-    enabled = bool(data.get('enabled', False))
-
-    DatabaseService.update_cash_register_settings(
-        owner_uid, register_id, {"consolidationMode": enabled}, company_id=company_id, sandbox=sandbox
-    )
-    mode_str = "activado" if enabled else "desactivado"
-    return jsonify({"success": True, "consolidationMode": enabled, "message": f"Modo consolidado {mode_str}."})
+    """Consolidación de comprobantes deshabilitada por decisión DGII (hasta nuevo aviso)."""
+    return jsonify({"success": False, "error": "La consolidación de comprobantes está deshabilitada."}), 403
 
 
 @web_pos_bp.route('/pos/supervisor/authorize', methods=['POST'])
