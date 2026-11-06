@@ -6,6 +6,7 @@ from app import create_app
 from app.services.dgii import DGIIService
 from app.services.db_service import CashShiftLockError
 from app.web.pos import _pos_apply_available_stock, _pos_build_items, _pos_normalize_payments
+from app.services.dgii_direct import DgiiDirectService
 
 
 CATALOG = [
@@ -480,6 +481,183 @@ def test_sale_reverts_invoice_when_cash_registration_blocked(app):
     # No se emite e-CF a DGII antes de confirmar la caja.
     assert emitted == []
     assert len(failed) == 1
+
+
+def test_sale_reverts_invoice_when_cash_registration_returns_false(app):
+    saved_states = []
+    emitted = []
+    mock_shift = {"id": "shift-1", "registerId": "reg-1", "status": "OPEN"}
+
+    def fake_save(o, i, data, **kwargs):
+        saved_states.append(data.get("status"))
+
+    with patch("app.web.pos.check_permission", return_value=True), \
+         patch("app.web.pos.DatabaseService.get_open_shift", return_value=mock_shift), \
+         patch("app.web.pos.DatabaseService.get_idempotency_record", return_value=None), \
+         patch("app.web.pos.DatabaseService.get_cash_registers", return_value=[]), \
+         patch("app.web.pos.DatabaseService.get_company_profile", return_value={"consolidationEnabled": False}), \
+         patch("app.web.pos.DatabaseService.get_items", return_value=CATALOG), \
+         patch("app.web.pos.DatabaseService.consume_next_sequence", return_value=("E320000000043", "log-43")), \
+         patch("app.web.pos.DatabaseService.save_invoice", side_effect=fake_save), \
+         patch("app.web.pos.DatabaseService.register_sale_cash_transactions", return_value=False), \
+         patch("app.web.pos.EcfEmissionService.emit_electronic_comprobante", side_effect=lambda *a, **k: emitted.append(1)), \
+         patch("app.services.audit_service.AuditService.log_from_request"):
+        with app.test_request_context("/pos/invoice/new", method="POST", json={
+            "clientId": "default",
+            "ecfType": "Factura de Consumo (E32)",
+            "items": [{"id": "prod-1", "quantity": 1}],
+            "payments": [{"method": "Efectivo", "amount": 118.0}],
+        }):
+            _session(app)
+            response = app.view_functions["web_pos.create_pos_sale"]()
+
+    body, status = response if isinstance(response, tuple) else (response, 200)
+    data = body.get_json()
+    assert status == 409
+    assert data["success"] is False
+    assert "transacciones del turno" in data["error"]
+    assert saved_states == ["Cobrada", "Anulada"]
+    assert emitted == []
+
+
+def test_sale_returns_dgii_rejection_instead_of_success(app):
+    saved = {}
+    failed = []
+    mock_shift = {"id": "shift-1", "registerId": "reg-1", "status": "OPEN"}
+
+    with patch("app.web.pos.check_permission", return_value=True), \
+         patch("app.web.pos.DatabaseService.get_open_shift", return_value=mock_shift), \
+         patch("app.web.pos.DatabaseService.get_idempotency_record", return_value=None), \
+         patch("app.web.pos.DatabaseService.reserve_idempotency_key", return_value={"status": "RESERVED", "record": {"leaseOwner": "L1"}}), \
+         patch("app.web.pos.DatabaseService.get_cash_registers", return_value=[]), \
+         patch("app.web.pos.DatabaseService.get_company_profile", return_value={"consolidationEnabled": False}), \
+         patch("app.web.pos.DatabaseService.get_items", return_value=CATALOG), \
+         patch("app.web.pos.DatabaseService.save_invoice", side_effect=lambda o, i, d, **k: saved.update(d)), \
+         patch("app.web.pos.DatabaseService.register_sale_cash_transactions"), \
+         patch("app.web.pos.DatabaseService.fail_idempotency_key", side_effect=lambda *a, **k: failed.append(a)), \
+         patch("app.web.pos.EcfEmissionService.emit_electronic_comprobante", return_value={
+             "success": False,
+             "error": "XML rechazado por DGII",
+             "dgiiStatus": "REJECTED",
+         }), \
+         patch("app.services.audit_service.AuditService.log_from_request"):
+        with app.test_request_context("/pos/invoice/new", method="POST", json={
+            "clientId": "default",
+            "ecfType": "Factura de Consumo (E32)",
+            "items": [{"id": "prod-1", "quantity": 1}],
+            "payments": [{"method": "Efectivo", "amount": 118.0}],
+        }, headers={"Idempotency-Key": "sale-rejected"}):
+            _session(app)
+            response = app.view_functions["web_pos.create_pos_sale"]()
+
+    body, status = response if isinstance(response, tuple) else (response, 200)
+    data = body.get_json()
+    assert status == 422
+    assert data["success"] is False
+    assert data["error"] == "XML rechazado por DGII"
+    assert data["dgiiStatus"] == "REJECTED"
+    assert saved["status"] == "Rechazado DGII"
+    assert saved["dgiiError"] == "XML rechazado por DGII"
+    assert failed
+
+
+def test_sale_preserves_rfce_rejection_details(app):
+    saved = {}
+    mock_shift = {"id": "shift-1", "registerId": "reg-1", "status": "OPEN"}
+    rfce_response = {"codigo": 2, "estado": "Rechazado", "mensaje": "XML inválido"}
+
+    with patch("app.web.pos.check_permission", return_value=True), \
+         patch("app.web.pos.DatabaseService.get_open_shift", return_value=mock_shift), \
+         patch("app.web.pos.DatabaseService.get_idempotency_record", return_value=None), \
+         patch("app.web.pos.DatabaseService.get_cash_registers", return_value=[]), \
+         patch("app.web.pos.DatabaseService.get_company_profile", return_value={"consolidationEnabled": False}), \
+         patch("app.web.pos.DatabaseService.get_items", return_value=CATALOG), \
+         patch("app.web.pos.DatabaseService.save_invoice", side_effect=lambda o, i, d, **k: saved.update(d)), \
+         patch("app.web.pos.DatabaseService.register_sale_cash_transactions"), \
+         patch("app.web.pos.EcfEmissionService.emit_electronic_comprobante", return_value={
+             "success": False,
+             "error": "XML inválido",
+             "message": "XML inválido",
+             "dgiiStatus": "REJECTED",
+             "responseBody": rfce_response,
+             "codigoRFCE": 2,
+             "estadoRFCE": "Rechazado",
+         }), \
+         patch("app.services.audit_service.AuditService.log_from_request"):
+        with app.test_request_context("/pos/invoice/new", method="POST", json={
+            "clientId": "default",
+            "ecfType": "Factura de Consumo (E32)",
+            "items": [{"id": "prod-1", "quantity": 1}],
+            "payments": [{"method": "Efectivo", "amount": 118.0}],
+        }):
+            _session(app)
+            response = app.view_functions["web_pos.create_pos_sale"]()
+
+    body, status = response if isinstance(response, tuple) else (response, 200)
+    data = body.get_json()
+    assert status == 422
+    assert data["responseBody"] == rfce_response
+    assert data["rfceCode"] == 2
+    assert saved["dgiiResponse"] == rfce_response
+
+
+def test_rfce_duplicate_is_recovered_without_resubmitting():
+    invoice = {
+        "encf": "E320000000001",
+        "clientRNC": "000000000",
+        "total": 118.0,
+    }
+    response = {
+        "codigo": 2,
+        "estado": "Rechazado",
+        "mensaje": "La combinación e-NCF y código de seguridad ya han sido utilizados previamente.",
+    }
+    with patch.object(DgiiDirectService, "consultar_estado_ecf", return_value={
+        "success": True,
+        "responseBody": {"estado": "Aceptado", "trackId": "TRACK-1"},
+        "statusCode": 200,
+    }) as query:
+        assert DgiiDirectService._is_rfce_duplicate(response, "")
+        recovered = DgiiDirectService._recover_rfce_duplicate(
+            {"companyRNC": "131880681"}, invoice, "ABC123", sandbox=True,
+        )
+
+    query.assert_called_once()
+    assert recovered["success"] is True
+    assert recovered["recoveredDuplicate"] is True
+    assert recovered["trackId"] == "TRACK-1"
+
+
+def test_pos_reserves_sequence_before_emission(app):
+    captured = {}
+    mock_shift = {"id": "shift-1", "registerId": "reg-1", "status": "OPEN"}
+
+    with patch("app.web.pos.check_permission", return_value=True), \
+         patch("app.web.pos.DatabaseService.get_open_shift", return_value=mock_shift), \
+         patch("app.web.pos.DatabaseService.get_idempotency_record", return_value=None), \
+         patch("app.web.pos.DatabaseService.reserve_idempotency_key", return_value={"status": "RESERVED", "record": {"leaseOwner": "L1"}}), \
+         patch("app.web.pos.DatabaseService.get_cash_registers", return_value=[]), \
+         patch("app.web.pos.DatabaseService.get_company_profile", return_value={"consolidationEnabled": False}), \
+         patch("app.web.pos.DatabaseService.get_items", return_value=CATALOG), \
+         patch("app.web.pos.DatabaseService.consume_next_sequence", return_value=("E320000000042", "log-42")) as consume, \
+         patch("app.web.pos.DatabaseService.save_invoice", side_effect=lambda o, i, d, **k: captured.update(d)), \
+         patch("app.web.pos.DatabaseService.register_sale_cash_transactions"), \
+         patch("app.web.pos.EcfEmissionService.emit_electronic_comprobante", return_value=None) as emit, \
+         patch("app.services.audit_service.AuditService.log_from_request"):
+        with app.test_request_context("/pos/invoice/new", method="POST", json={
+            "clientId": "default",
+            "ecfType": "Factura de Consumo (E32)",
+            "items": [{"id": "prod-1", "quantity": 1}],
+            "payments": [{"method": "Efectivo", "amount": 118.0}],
+        }):
+            _session(app)
+            app.view_functions["web_pos.create_pos_sale"]()
+
+    consume.assert_called_once()
+    assert consume.call_args.args[1] == "E32"
+    assert captured["encf"] == "E320000000042"
+    assert captured["sequenceLogId"] == "log-42"
+    assert emit.call_args.args[1]["encf"] == "E320000000042"
 
 
 def test_terminal_renders_standalone_shell(app):

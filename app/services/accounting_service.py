@@ -305,7 +305,10 @@ class AccountingService:
             entry["reversalOfEntryId"] = entry_data["reversalOfEntryId"]
         DatabaseService.save_accounting_entry(company_id, entry_id, entry, sandbox=sandbox, company_id=company_id)
         from app.services.ledger_audit_service import LedgerAuditService
-        LedgerAuditService.log_entry_creation(entry, company_id, performed_by=entry_data.get("createdBy", ""))
+        LedgerAuditService.log_entry_creation(
+            entry, company_id, performed_by=entry_data.get("createdBy", ""),
+            company_id=company_id,
+        )
         return entry
 
     @classmethod

@@ -41,6 +41,29 @@ class CreditNoteInventoryService:
     """Servicio para procesar movimientos de inventario asociados a Notas de Crédito E34."""
 
     @classmethod
+    def _is_fiscally_accepted(cls, doc_dict: Dict[str, Any]) -> bool:
+        """True solo ante aceptación fiscal explícita y verificable.
+
+        El fallback legacy se restringe a los estados explícitos `Emitida` y
+        `Cobrada`; cualquier otro estado desconocido bloquea el reingreso.
+        """
+        nc_status = str(doc_dict.get("ncStatus") or "").upper()
+        if nc_status == "NC_ACCEPTED":
+            return True
+        if nc_status in ("NC_REJECTED", "NC_PENDING_DGII", "NC_RECONCILING"):
+            return False
+        if bool(doc_dict.get("isSyncedWithDGII", False)):
+            return True
+        dgii = str(doc_dict.get("dgiiStatus") or "").upper()
+        if dgii in ("ACCEPTED", "ACEPTADO", "APPROVED", "APROBADO"):
+            return True
+        if dgii in ("REJECTED", "RECHAZADO", "ERROR", "RECHAZADA"):
+            return False
+        status = str(doc_dict.get("status", "")).strip()
+        # Fallback legacy: solo estados explícitos Emitida/Cobrada.
+        return status in ("Emitida", "Cobrada")
+
+    @classmethod
     def is_credit_note_e34(cls, doc_dict: Dict[str, Any]) -> bool:
         """Determina si el comprobante corresponde a una Nota de Crédito (E34 / 34)."""
         if not doc_dict:
@@ -197,8 +220,9 @@ class CreditNoteInventoryService:
         if credit_note_dict.get("stockReentered"):
             return []
 
-        status = credit_note_dict.get("status", "Borrador")
-        if status in ("Borrador", "Anulada"):
+        # R5 (Fase 3): solo reingresar inventario si la NC tiene estado fiscal
+        # aceptado de forma concluyente. `status="Emitida"` por sí solo NO basta.
+        if not cls._is_fiscally_accepted(credit_note_dict):
             return []
 
         credit_note_id = credit_note_dict.get("id", "")

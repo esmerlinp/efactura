@@ -727,7 +727,10 @@ class DgiiXmlBuilder:
         # ── IdDoc ──
         id_doc = ET.SubElement(enc, "IdDoc")
         ET.SubElement(id_doc, "TipoeCF").text = "32"
-        ET.SubElement(id_doc, "eNCF").text = invoice_data.get("encf", "E320000000001")
+        encf = invoice_data.get("encf")
+        if not encf:
+            raise ValueError("No se puede construir el XML sin un e-NCF reservado.")
+        ET.SubElement(id_doc, "eNCF").text = encf
         ET.SubElement(id_doc, "TipoIngresos").text = cls._income_code(invoice_data)
         pay_method = invoice_data.get("paymentMethod", "Efectivo")
         tipo_pago = "2" if "crédito" in pay_method.lower() or "credito" in pay_method.lower() else "1"

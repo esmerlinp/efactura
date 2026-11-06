@@ -638,6 +638,8 @@ document.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 setPinnedNavigationIds(getPinnedNavigationIds().filter(id => id !== navigationId));
+                renderQuickAccess();
+                updatePinIcons();
             });
 
             item.style.position = 'relative';
@@ -688,7 +690,11 @@ document.addEventListener('click', function (e) {
                 } else {
                     btn.style.color = 'var(--danger)';
                     setTimeout(() => btn.style.color = '', 800);
+                    return;
                 }
+
+                renderQuickAccess();
+                updatePinIcons();
             });
 
             item.style.position = 'relative';
@@ -698,8 +704,9 @@ document.addEventListener('click', function (e) {
         updatePinIcons();
     }
 
-    renderQuickAccess();
     addPinButtons();
+    renderQuickAccess();
+    updatePinIcons();
 });
 
 // =========================================================================

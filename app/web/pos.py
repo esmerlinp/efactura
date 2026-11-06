@@ -26,6 +26,7 @@ from app.utils.decorators import require_permission, check_permission
 from app.brand import get_product_name
 from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
 from app.utils.module_gate import module_enabled
+from app.utils.ecf_utils import get_ecf_type_short_code
 
 web_pos_bp = Blueprint('web_pos', __name__)
 
@@ -1992,6 +1993,9 @@ def create_pos_sale():
         and is_consumer_final
         and calcs['total'] < consolidation_threshold
     )
+
+    encf = ""
+    sequence_log_id = ""
     # --- Determinar si aplica para RUI ---
     # Elegible para RUI = consumidor final, E32, no tiene RNC de cliente
     include_in_rui = (
@@ -2044,6 +2048,8 @@ def create_pos_sale():
         "clientRNC": client_rnc,
         "status": "PENDING_CONSOLIDATION" if qualifies_for_consolidation else settlement_status,
         "ecfType": ecf_type,
+        "encf": encf,
+        "sequenceLogId": sequence_log_id,
         "currency": "DOP",
         "paymentType": payment_info['payment_type'],
         "paymentMethod": payment_info['primary_method'],
@@ -2092,6 +2098,28 @@ def create_pos_sale():
             return jsonify({"success": False, "error": "La operación ya está en curso."}), 409
         if reservation.get("status") == "RESERVED":
             lease_owner = (reservation.get("record") or {}).get("leaseOwner")
+
+    # Reservar el e-NCF después de resolver la idempotencia evita consumir un
+    # segundo consecutivo cuando el navegador reintenta la misma venta.
+    if not qualifies_for_consolidation:
+        try:
+            ecf_short = get_ecf_type_short_code(ecf_type)
+            encf, sequence_log_id = DatabaseService.consume_next_sequence(
+                owner_uid, ecf_short, session['user'].get('email', ''),
+                company_id=company_id, sandbox=sandbox,
+            )
+            invoice_dict["encf"] = encf
+            invoice_dict["sequenceLogId"] = sequence_log_id
+        except Exception as exc:
+            if idempotency_key:
+                DatabaseService.fail_idempotency_key(
+                    owner_uid, idempotency_key, str(exc), company_id=company_id,
+                    sandbox=sandbox, lease_owner=lease_owner,
+                )
+            return jsonify({
+                "success": False,
+                "error": f"No se pudo reservar el e-NCF para la venta POS: {exc}",
+            }), 400
 
     # 1. Guardar factura en base de datos con manejo controlado de stock.
     #    La caja se registra DESPUÉS para que una factura fallida no deje movimientos huérfanos.
@@ -2145,7 +2173,7 @@ def create_pos_sale():
 
     if cash_txs:
         try:
-            DatabaseService.register_sale_cash_transactions(
+            cash_registered = DatabaseService.register_sale_cash_transactions(
                 owner_uid,
                 open_shift.get('registerId'),
                 open_shift['id'],
@@ -2153,6 +2181,11 @@ def create_pos_sale():
                 company_id=company_id,
                 sandbox=sandbox,
             )
+            if not cash_registered:
+                raise CashShiftLockError(
+                    "No se pudieron registrar las transacciones del turno. "
+                    f"Caja={open_shift.get('registerId')}, turno={open_shift.get('id')}."
+                )
         except CashShiftLockError as lock_err:
             logging.getLogger(__name__).warning("Caja no activa al registrar venta POS %s: %s", invoice_id, lock_err)
             # La caja se cerró entre el guardado de la factura y el registro de
@@ -2213,6 +2246,7 @@ def create_pos_sale():
             invoice_dict["emisionMode"] = res.get("mode", "API")
             invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             invoice_dict["trackId"] = res.get("trackId", "")
+            invoice_dict["recoveredDuplicate"] = bool(res.get("recoveredDuplicate"))
             invoice_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice_dict["status"] = "Pendiente DGII" if pending_dgii else settlement_status
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
@@ -2251,13 +2285,38 @@ def create_pos_sale():
             error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
             invoice_dict["status"] = "Rechazado DGII"
             invoice_dict["dgiiError"] = str(error_msg)[:200]
+            invoice_dict["dgiiResponse"] = res.get("responseBody")
+            invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or "REJECTED"
+            invoice_dict["rfceCode"] = res.get("codigoRFCE")
+            invoice_dict["rfceStatus"] = res.get("estadoRFCE")
             invoice_dict["enviadoADGII"] = True
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
+            if idempotency_key:
+                DatabaseService.fail_idempotency_key(
+                    owner_uid, idempotency_key, str(error_msg),
+                    company_id=company_id, sandbox=sandbox,
+                    lease_owner=lease_owner,
+                )
+            return jsonify({
+                "success": False,
+                "invoiceId": invoice_id,
+                "invoiceNumber": invoice_number,
+                "error": str(error_msg),
+                "dgiiStatus": invoice_dict["dgiiStatus"],
+                "responseBody": res.get("responseBody"),
+                "rfceCode": res.get("codigoRFCE"),
+                "rfceStatus": res.get("estadoRFCE"),
+            }), 422
     except Exception as e:
-        # Si falla, operamos en contingencia local
-        print(f"⚠️ Error al emitir e-CF en POS: {e}")
+        # La contingencia solo aplica si el motor devuelve explícitamente un
+        # resultado de contingencia. Un error inesperado no debe presentarse
+        # como una emisión exitosa al cajero.
+        import logging
+        logging.getLogger(__name__).exception("Error al emitir e-CF en POS %s", invoice_id)
         invoice_dict["emisionMode"] = "FALLBACK"
         invoice_dict["isSyncedWithDGII"] = False
+        invoice_dict["dgiiStatus"] = "PENDING"
+        invoice_dict["dgiiError"] = str(e)[:200]
         DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
 
         # Generar asiento contable incluso en contingencia
@@ -2268,7 +2327,7 @@ def create_pos_sale():
             import logging
             logging.getLogger(__name__).warning(f"Asiento contable POS (contingencia) no generado: {exc}")
 
-        # Event Bus: notificar emisión en contingencia
+        # Event Bus: notificar la venta guardada en contingencia.
         try:
             from app.events import get_event_bus, InvoiceEmitted
             get_event_bus().publish(InvoiceEmitted(
@@ -2331,6 +2390,14 @@ def create_pos_sale():
         "clientId": client_id,
         "clientRegistered": client_registered
     }
+    if invoice_dict.get("recoveredDuplicate"):
+        response_body["recoveredDuplicate"] = True
+        response_body["message"] = "El comprobante ya estaba recibido por DGII y fue recuperado correctamente."
+    if invoice_dict.get("emisionMode") == "FALLBACK":
+        response_body["contingency"] = True
+        response_body["message"] = (
+            "La venta fue guardada en contingencia y queda pendiente de sincronización con la DGII."
+        )
     if idempotency_key:
         DatabaseService.complete_idempotency_key(owner_uid, idempotency_key, {
             "response": response_body,

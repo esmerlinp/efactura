@@ -857,7 +857,7 @@ def _cached_crm_contacts(owner_uid, sandbox):
             contact = c.copy()
             contact['total_cxc'] = total_cxc
             crm_contacts.append(contact)
-            
+
     return crm_contacts
 
 
@@ -5601,7 +5601,7 @@ class DatabaseService:
         try:
             if lease_owner:
                 def _run(txn):
-                    snap = txn.get(ref)
+                    snap = cls._transaction_snapshot(txn.get(ref))
                     if not snap.exists:
                         return False
                     existing = snap.to_dict()
@@ -5632,7 +5632,7 @@ class DatabaseService:
         try:
             if lease_owner:
                 def _run(txn):
-                    snap = txn.get(ref)
+                    snap = cls._transaction_snapshot(txn.get(ref))
                     if not snap.exists:
                         return False
                     if snap.to_dict().get("leaseOwner") != lease_owner:
@@ -6335,8 +6335,23 @@ class DatabaseService:
         except (ImportError, AttributeError):
             is_mock = False
         if firestore and callable(getattr(firestore, "transactional", None)) and not is_mock:
-            return firestore.transactional(fn)(transaction)
+            result = firestore.transactional(fn)(transaction)
+            # Algunas versiones/wrappers de Firestore devuelven el resultado
+            # de la transacción como generator. Consumirlo aquí garantiza que
+            # el callback termine y que el valor devuelto sea su resultado.
+            if hasattr(result, "__next__"):
+                return next(result, False)
+            return result
         return fn(transaction)
+
+    @staticmethod
+    def _transaction_snapshot(value):
+        """Normaliza txn.get() de Firestore según la versión del SDK."""
+        if hasattr(value, "exists"):
+            return value
+        if hasattr(value, "__next__"):
+            return next(value, None)
+        return value
 
     @classmethod
     def get_cash_register_lock(cls, owner_uid, register_id, sandbox=True, company_id=None):
@@ -6544,7 +6559,7 @@ class DatabaseService:
             # 2. Lock existente → ocupado, salvo lease vencido (toma de control atómica).
             try:
                 def _takeover(txn):
-                    snap = txn.get(lock_ref)
+                    snap = cls._transaction_snapshot(txn.get(lock_ref))
                     if not snap.exists:
                         txn.create(lock_ref, lock_data)
                         return True
@@ -6593,7 +6608,7 @@ class DatabaseService:
         now = datetime.now(timezone.utc).isoformat()
 
         def _run(txn):
-            snap = txn.get(lock_ref)
+            snap = cls._transaction_snapshot(txn.get(lock_ref))
             if not snap.exists:
                 return
             lock = snap.to_dict()
@@ -6632,7 +6647,7 @@ class DatabaseService:
                 except Exception:
                     pass
             if lock_ref is not None:
-                snap = txn.get(lock_ref)
+                snap = cls._transaction_snapshot(txn.get(lock_ref))
                 if snap.exists:
                     txn.delete(lock_ref)
 
@@ -7167,11 +7182,43 @@ class DatabaseService:
         )
         if locks_coll is None or txs_coll is None:
             return False
+        # Los turnos creados antes de activar los locks pueden seguir abiertos.
+        # Repare el lock solo cuando no existe y el turno coincide; nunca se
+        # debe tomar control de una caja perteneciente a otro turno.
         lock_ref = locks_coll.document(register_id)
+        try:
+            lock_snap = lock_ref.get()
+            if not lock_snap.exists:
+                shift_coll = _company_coll(
+                    company_id=company_id, owner_uid=owner_uid,
+                    coll_name="sandbox_cash_shifts" if sandbox else "cash_shifts",
+                )
+                shift_snap = shift_coll.document(shift_id).get() if shift_coll is not None else None
+                if shift_snap is not None and shift_snap.exists:
+                    shift_data = shift_snap.to_dict()
+                    if shift_data.get("registerId") == register_id and shift_data.get("status") in ("OPEN", "REOPENED"):
+                        now = datetime.now(timezone.utc)
+                        lock_ref.set({
+                            "registerId": register_id,
+                            "shiftId": shift_id,
+                            "openedByUserId": shift_data.get("openedByUserId", ""),
+                            "status": CASH_LOCK_ACTIVE,
+                            "leaseOwner": shift_id,
+                            "leaseExpiresAt": (now + timedelta(seconds=CASH_LOCK_LEASE_TTL)).isoformat(),
+                            "createdAt": now,
+                            "updatedAt": now,
+                        })
+
+        except Exception as repair_err:
+            import logging
+            logging.getLogger(__name__).warning(
+                "No se pudo reparar lock de caja register=%s shift=%s: %s",
+                register_id, shift_id, repair_err,
+            )
         now = datetime.now(timezone.utc).isoformat()
 
         def _run(txn):
-            snap = txn.get(lock_ref)
+            snap = cls._transaction_snapshot(txn.get(lock_ref))
             if not snap.exists:
                 # Una vez activado el mecanismo de locks, la ausencia del lock
                 # es un error (no una autorización implícita). Los turnos legacy
@@ -7215,7 +7262,12 @@ class DatabaseService:
         except (CashShiftLockError, CashAuthorizationError):
             raise
         except Exception as e:
-            print(f"⚠️ Error al registrar movimientos de caja con lock: {e}")
+            import logging
+            logging.getLogger(__name__).exception(
+                "Error al registrar movimientos de caja con lock "
+                "(owner=%s company=%s sandbox=%s register=%s shift=%s): %s",
+                owner_uid, company_id, sandbox, register_id, shift_id, e,
+            )
             return False
 
     @classmethod

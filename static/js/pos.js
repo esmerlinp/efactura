@@ -1060,6 +1060,9 @@
         }
 
         const hasCredit = state.payments.some((payment) => payment.method === "Crédito");
+        $("btn-all-cash").classList.toggle("is-selected", !hasCredit && Math.abs(credit) <= 0.01);
+        $("btn-add-credit").classList.toggle("is-selected", hasCredit && credit < total - 0.01);
+        $("btn-all-credit").classList.toggle("is-selected", hasCredit && Math.abs(credit - total) <= 0.01);
         const creditValid = !hasCredit || hasValidRnc(state.client);
         const amountsValid = state.payments.length > 0 && state.payments.every((payment) => Number(payment.amount) > 0);
         const canConfirm = amountsValid && Math.abs(remaining) <= 0.01 && creditValid && !state.isSubmitting;
@@ -1136,16 +1139,29 @@
             openClientModal();
             return;
         }
+        const checkoutButton = $("btn-checkout");
+        checkoutButton.disabled = true;
+        checkoutButton.classList.add("is-loading");
+        checkoutButton.setAttribute("aria-busy", "true");
+        const checkoutLabel = checkoutButton.querySelector(".pos-checkout-label");
+        checkoutLabel.textContent = "Preparando cobro...";
         hideCheckoutError();
         state.isSubmitting = false;
-        await refreshQuote(true);
-        const totals = totalsForCheckout();
-        if (!totals || Number(totals.total) <= 0) {
-            toast("No se pudo calcular el total de la venta.", "error");
-            return;
+        try {
+            await refreshQuote(true);
+            const totals = totalsForCheckout();
+            if (!totals || Number(totals.total) <= 0) {
+                toast("No se pudo calcular el total de la venta.", "error");
+                return;
+            }
+            renderCheckout();
+            openModal("checkout-modal");
+        } finally {
+            checkoutButton.classList.remove("is-loading");
+            checkoutButton.removeAttribute("aria-busy");
+            checkoutLabel.textContent = "Cobrar";
+            renderTotals();
         }
-        renderCheckout();
-        openModal("checkout-modal");
     }
 
     function addPayment() {
@@ -1175,6 +1191,7 @@
             }
         }
         renderPaymentRows();
+        $("btn-pay-exact").classList.add("is-selected");
     }
 
     function syncPaymentRow(index) {
@@ -1265,6 +1282,8 @@
 
         const key = ensureCheckoutKey(payload);
         state.isSubmitting = true;
+        $("checkout-modal").classList.add("is-processing");
+        $("checkout-modal").setAttribute("aria-busy", "true");
         $("btn-confirm-sale").disabled = true;
         $("btn-confirm-sale").innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando…';
         hideCheckoutError();
@@ -1275,7 +1294,7 @@
                 headers: { "Idempotency-Key": key },
                 body: payload,
             });
-            if (!result.success) throw new Error(result.error || "No se pudo registrar la venta.");
+            if (!result.success) throw new Error(result.error || "No se pudo emitir la factura electrónica.");
             if (result.clientRegistered) {
                 state.clientCache = null;
                 toast("Cliente registrado para la venta a crédito.", "success");
@@ -1291,6 +1310,8 @@
             toast(error.message || "No se pudo registrar la venta.", "error");
         } finally {
             state.isSubmitting = false;
+            $("checkout-modal").classList.remove("is-processing");
+            $("checkout-modal").removeAttribute("aria-busy");
             const button = $("btn-confirm-sale");
             if (button) {
                 button.innerHTML = '<i class="fa-solid fa-lock"></i> Confirmar venta';
@@ -1301,8 +1322,16 @@
 
     function showSuccess(result, totals) {
         const consolidated = Boolean(result.consolidated);
-        $("success-title").textContent = consolidated ? "Venta en consolidado" : "Venta registrada";
-        $("success-message").textContent = consolidated
+        $("success-title").textContent = result.recoveredDuplicate
+            ? "Comprobante recuperado"
+            : result.contingency
+            ? "Venta en contingencia"
+            : consolidated ? "Venta en consolidado" : "Venta registrada";
+        $("success-message").textContent = result.recoveredDuplicate
+            ? (result.message || "El comprobante ya estaba recibido por DGII y fue recuperado correctamente.")
+            : result.contingency
+            ? (result.message || "La venta fue guardada en contingencia y queda pendiente de sincronización con la DGII.")
+            : consolidated
             ? "La venta se incluirá en el comprobante consolidado al cerrar el turno."
             : `Comprobante ${result.encf || "emitido"} generado correctamente.`;
 
@@ -1334,8 +1363,21 @@
     }
 
     function newSale() {
+        // El modal de éxito puede estar apilado sobre checkout-modal si la
+        // emisión terminó mientras el modal de cobro seguía visible.
+        closeCheckoutForNewSale();
         closeModal("success-modal");
         state.lastInvoice = null;
+        state.checkoutKey = null;
+        state.checkoutKeyHash = null;
+        state.cart = [];
+        state.quote = null;
+        state.payments = [];
+        state.globalDiscount = 0;
+        state.selectedLineId = null;
+        state.client = { ...DEFAULT_CLIENT };
+        state.ecfCode = "E32";
+        removeStorage(DRAFT_KEY);
         updateClientUI();
         renderProducts();
         renderCart();
@@ -1509,11 +1551,22 @@
     function closeModal(id) {
         const modal = $(id);
         if (!modal) return;
+        if (id === "checkout-modal" && state.isSubmitting) return;
         modal.hidden = true;
         if (!anyModalOpen()) document.body.classList.remove("pos-modal-open");
         if (!anyModalOpen() && state.modalReturnFocus && typeof state.modalReturnFocus.focus === "function") {
             state.modalReturnFocus.focus();
             state.modalReturnFocus = null;
+        }
+    }
+
+    function closeCheckoutForNewSale() {
+        state.isSubmitting = false;
+        const checkout = $("checkout-modal");
+        if (checkout) {
+            checkout.classList.remove("is-processing");
+            checkout.removeAttribute("aria-busy");
+            checkout.hidden = true;
         }
     }
 
@@ -1822,6 +1875,7 @@
             if (event.key === "Escape") {
                 if (anyModalOpen()) {
                     event.preventDefault();
+                    if (state.isSubmitting) return;
                     closeTopModal();
                 } else {
                     $("pos-app").classList.remove("is-menu-open");
