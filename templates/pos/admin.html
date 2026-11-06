@@ -59,7 +59,6 @@
                         <th>Nombre de la Caja</th>
                         <th>Almacén</th>
                         <th>Estado de Operación</th>
-                        <th>Modo Consolidado</th>
                         <th>Fecha de Registro</th>
                         <th>ID de Caja (Sistema)</th>
                     </tr>
@@ -82,33 +81,6 @@
                             <span class="badge badge-draft" style="font-size: 0.72rem; padding: 4px 8px;">Cerrada
                                 (Disponible)</span>
                             {% endif %}
-                        </td>
-                        <td>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <label class="toggle-switch"
-                                    style="position: relative; display: inline-block; width: 42px; height: 22px; cursor: pointer;"
-                                    title="Agrupar ventas de Consumidor Final en un solo comprobante E32 al cierre del turno (DGII Norma 02-2023)">
-                                    <input type="checkbox" id="cons-toggle-{{ reg.id }}" {{ 'checked' if
-                                        reg.consolidationMode else '' }}
-                                        onchange="toggleConsolidationMode('{{ reg.id }}', this.checked)"
-                                        style="opacity: 0; width: 0; height: 0;">
-                                    <span class="slider" style="
-                                        position: absolute; cursor: pointer; top:0; left:0; right:0; bottom:0;
-                                        background-color: {{ 'var(--accent-emerald)' if reg.consolidationMode else 'var(--border-color)' }};
-                                        transition: .3s; border-radius: 34px;
-                                    "></span>
-                                    <span style="
-                                        position: absolute; content: ''; height: 16px; width: 16px;
-                                        left: {{ '22px' if reg.consolidationMode else '3px' }}; bottom: 3px;
-                                        background-color: white; transition: .3s; border-radius: 50%;
-                                        display: block;
-                                    "></span>
-                                </label>
-                                <span
-                                    style="font-size: 0.78rem; color: {% if reg.consolidationMode %}var(--accent-emerald){% else %}var(--text-muted){% endif %}; font-weight: 500;">
-                                    {{ 'Activo' if reg.consolidationMode else 'Inactivo' }}
-                                </span>
-                            </div>
                         </td>
                         <td>{{ reg.createdAt | format_date }} {{ reg.createdAt[11:16] }}</td>
                         <td style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">{{ reg.id }}
@@ -293,34 +265,6 @@
         if (modal) {
             modal.style.display = 'none';
             document.body.style.overflow = 'auto';
-        }
-    }
-
-    async function toggleConsolidationMode(registerId, enabled) {
-        try {
-            const res = await fetch(`/pos/register/${registerId}/toggle-consolidation`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled })
-            });
-            const data = await res.json();
-            if (data.success) {
-                // Visual feedback instantáneo
-                const label = document.querySelector(`#cons-toggle-${registerId}`);
-                const slider = label ? label.nextElementSibling : null;
-                const dot = slider ? slider.nextElementSibling : null;
-                const statusText = dot ? dot.parentElement.nextElementSibling : null;
-                if (slider) slider.style.backgroundColor = enabled ? 'var(--accent-emerald)' : 'var(--border-color)';
-                if (dot) dot.style.left = enabled ? '22px' : '3px';
-                if (statusText) {
-                    statusText.textContent = enabled ? 'Activo' : 'Inactivo';
-                    statusText.style.color = enabled ? 'var(--accent-emerald)' : 'var(--text-muted)';
-                }
-            } else {
-                alert('Error al cambiar el modo consolidado: ' + (data.error || 'Error desconocido'));
-            }
-        } catch (e) {
-            alert('Error de red al cambiar el modo consolidado.');
         }
     }
 </script>

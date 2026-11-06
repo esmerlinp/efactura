@@ -9216,8 +9216,6 @@ def company_settings():
 
             "theme": request.form.get('theme', existing_profile.get('theme', 'moderno')),
 
-            "consolidationEnabled": request.form.get('consolidationEnabled') == 'true',
-            "consolidationThreshold": float(request.form.get('consolidationThreshold') or 250000.0),
             "ruiEnabled": request.form.get('ruiEnabled') == 'true',
             "ruiAuthorizationNumber": request.form.get('ruiAuthorizationNumber', '').strip(),
             "ruiAutoGenerate": request.form.get('ruiAutoGenerate') == 'true',
@@ -9424,8 +9422,6 @@ def onboarding_wizard():
             "certificateContent": cert_content if not use_simulation else '',
             "certificatePassword": cert_password if not use_simulation else '',
             "regimenFiscal": regimen_normalized,
-            "consolidationEnabled": request.form.get('consolidationEnabled') == 'true',
-            "consolidationThreshold": float(request.form.get('consolidationThreshold') or 250000.0),
             "contribuyenteTipo": request.form.get('contribuyenteTipo', 'empresa'),
             "useSimulation": use_simulation,
             "configured": True,

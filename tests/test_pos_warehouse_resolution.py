@@ -106,8 +106,9 @@ def test_create_pos_sale_sets_warehouse_id_on_invoice():
          patch("app.web.pos.DatabaseService.get_open_shift", return_value=mock_shift), \
          patch("app.web.pos.DatabaseService.get_idempotency_record", return_value=None), \
          patch("app.web.pos.DatabaseService.get_cash_registers", return_value=[{"id": "reg-1", "warehouseId": "default-almacen-principal"}]), \
-         patch("app.web.pos.DatabaseService.get_company_profile", return_value={"consolidationEnabled": True}), \
+         patch("app.web.pos.DatabaseService.get_company_profile", return_value={"consolidationEnabled": False}), \
          patch("app.web.pos.DatabaseService.register_cash_transaction", return_value=True), \
+         patch("app.web.pos.EcfEmissionService.emit_electronic_comprobante", return_value=None), \
          patch("app.web.pos.DatabaseService.save_invoice", side_effect=fake_save_invoice):
         
         with app.test_request_context("/pos/invoice/new", method="POST", json={
