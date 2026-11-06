@@ -2,9 +2,21 @@
 import re
 import uuid
 import html
+import hashlib
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 from app.services.db_service import DatabaseService, _resolve_company_id
+from app.services.db_service import (
+    CashRegisterOccupiedError, CashShiftLockError, CashIdempotencyConflictError,
+    CashAuthorizationError, CashTransferError,
+    normalize_cash_type, CASH_MANUAL_TYPES,
+)
+from app.services.cash_authorization_service import CashAuthorizationService
+from app.services.cash_transfer_service import CashTransferService
+from app.services.cash_refund_service import CashRefundService, CashRefundError
+from app.services.cash_delivery_service import CashDeliveryService, CashDeliveryError
+from app.services.cash_reconciliation_service import CashReconciliationService, CashReconciliationError
+from app.services.cash_report_service import CashReportService
 from app.services.contingency_sync_service import ContingencySyncService
 from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
@@ -430,6 +442,25 @@ def pos_dashboard():
             pending = DatabaseService.get_pending_consolidation_invoices(owner_uid, open_shift['id'], company_id=company_id, sandbox=sandbox)
             pending_consolidation_count = len(pending)
 
+    # Supervisores disponibles para autorizar movimientos (excluyendo al cajero).
+    supervisors = []
+    owner_prof = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
+    if owner_prof:
+        supervisors.append({
+            "uid": owner_uid,
+            "name": owner_prof.get("name", "Propietario"),
+            "email": owner_prof.get("email", ""),
+            "role": "owner",
+        })
+    for member in (DatabaseService.get_team_members(owner_uid, company_id=company_id) or []):
+        if member.get("permissions", {}).get("isPosSupervisor", False):
+            supervisors.append({
+                "uid": member.get("uid"),
+                "name": member.get("name", ""),
+                "email": member.get("email", ""),
+                "role": member.get("role", "collaborator"),
+            })
+
     return render_template(
         'pos/dashboard.html',
         active_page='pos',
@@ -437,7 +468,8 @@ def pos_dashboard():
         open_shift=open_shift,
         current_register=current_register,
         transactions=transactions,
-        pending_consolidation_count=pending_consolidation_count
+        pending_consolidation_count=pending_consolidation_count,
+        supervisors=supervisors
     )
 
 
@@ -473,7 +505,15 @@ def open_shift():
         "openingAmount": opening_amount
     }
     
-    res = DatabaseService.open_cash_shift(owner_uid, shift_dict, company_id=company_id, sandbox=sandbox)
+    res = None
+    try:
+        res = DatabaseService.open_cash_shift(owner_uid, shift_dict, company_id=company_id, sandbox=sandbox)
+    except CashRegisterOccupiedError as occupied:
+        msg = str(occupied) or "La caja registradora ya está ocupada por otra sesión."
+        if request.is_json:
+            return jsonify({"success": False, "error": msg}), 409
+        flash(msg, 'error')
+        return redirect(url_for('web_pos.pos_dashboard'))
     if res:
         from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_POS
         AuditService.log_from_request(
@@ -743,36 +783,673 @@ def add_manual_transaction():
     company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
-    
+
     open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
     if not open_shift:
         return jsonify({"success": False, "error": "No hay un turno de caja abierto."}), 400
-        
-    tx_type = request.form.get('type')  # IN o OUT
+
+    payload = request.json if request.is_json else request.form
+    def _get(key, default=""):
+        if isinstance(payload, dict):
+            return payload.get(key) or default
+        return payload.get(key, default)
+
+    tx_type = normalize_cash_type(_get('type'))
+    if tx_type not in CASH_MANUAL_TYPES:
+        return jsonify({"success": False, "error": "Tipo de movimiento inválido."}), 400
+
     try:
-        amount = float(request.form.get('amount', 0.0))
-    except ValueError:
-        amount = 0.0
-    notes = request.form.get('notes', '')
-    
+        amount = float(_get('amount', 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "Monto inválido."}), 400
     if amount <= 0:
         return jsonify({"success": False, "error": "El monto debe ser mayor a cero."}), 400
-        
+
+    currency = str(_get('currency') or 'DOP').upper()
+    if currency not in ('DOP', 'USD'):
+        currency = 'DOP'
+    reason = str(_get('reason', '')).strip()[:200]
+    notes = str(_get('notes', '')).strip()[:500]
+    reference_id = str(_get('referenceId', '')).strip()[:100]
+    idempotency_key = _get('idempotencyKey') or _get('idempotency_key')
+
+    # Autorización según tipo y límite (por moneda).
+    limits = CashAuthorizationService.get_limits(owner_uid, company_id, sandbox=sandbox)
+    requires, _auth_reason = CashAuthorizationService.movement_requires_supervisor(tx_type, amount, currency, limits)
+    auth_request_id = None
+    if requires:
+        try:
+            auth = CashAuthorizationService.authorize(
+                owner_uid, company_id, sandbox,
+                performer_uid=user_uid,
+                supervisor_uid=_get('supervisorUid'),
+                pin=_get('supervisorPin'),
+                auth_request_id=_get('authRequestId'),
+                movement_type=tx_type, amount=amount, currency=currency,
+                register_id=open_shift.get('registerId'), shift_id=open_shift['id'],
+            )
+        except CashAuthorizationError as e:
+            return jsonify({"success": False, "error": str(e)}), 403
+        auth_request_id = _get('authRequestId')
+
     tx_dict = {
         "shiftId": open_shift['id'],
+        "registerId": open_shift.get('registerId'),
         "type": tx_type,
         "amount": amount,
+        "currency": currency,
         "paymentMethod": "Efectivo",
-        "notes": notes
+        "reason": reason,
+        "notes": notes,
+        "referenceId": reference_id,
+        "performedBy": session['user'].get('name', session['user']['email']),
+        "performedByUid": user_uid,
     }
-    
-    res = DatabaseService.register_cash_transaction(owner_uid, tx_dict, company_id=company_id, sandbox=sandbox)
-    if res:
-        flash('Movimiento de caja registrado.', 'success')
-        return redirect(url_for('web_pos.pos_dashboard'))
-    else:
+
+    try:
+        res = DatabaseService.register_cash_transaction(
+            owner_uid, tx_dict, company_id=company_id, sandbox=sandbox,
+            idempotency_key=idempotency_key,
+            register_id=open_shift.get('registerId'),
+            shift_id=open_shift['id'],
+            auth_request_id=auth_request_id,
+            performer_uid=user_uid,
+        )
+    except CashShiftLockError as lock_err:
+        return jsonify({"success": False, "error": str(lock_err)}), 409
+    except CashAuthorizationError as auth_err:
+        return jsonify({"success": False, "error": str(auth_err)}), 403
+
+    if not res:
+        if request.is_json:
+            return jsonify({"success": False, "error": "Fallo al registrar el movimiento de caja."}), 500
         flash('Fallo al registrar el movimiento de caja.', 'error')
         return redirect(url_for('web_pos.pos_dashboard'))
+
+    try:
+        from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_CREATE, module=MODULE_POS,
+            entity_id=res["id"],
+            entity_label=f"Movimiento de caja {tx_type} {currency} {amount:,.2f}",
+            user_session=session.get('user', {}), after=tx_dict, sandbox=sandbox,
+        )
+    except Exception:
+        pass
+
+    if request.is_json:
+        return jsonify({"success": True, "id": res["id"]})
+    flash('Movimiento de caja registrado.', 'success')
+    return redirect(url_for('web_pos.pos_dashboard'))
+
+
+@web_pos_bp.route('/pos/shift/transfer', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def transfer_between_cash_registers():
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    user_uid = session['user']['uid']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
+    if not open_shift:
+        return jsonify({"success": False, "error": "No hay un turno de caja abierto."}), 400
+
+    payload = request.json if request.is_json else request.form
+    def _get(key, default=""):
+        if isinstance(payload, dict):
+            return payload.get(key) or default
+        return payload.get(key, default)
+
+    target_register_id = str(_get('targetRegisterId')).strip()
+    if not target_register_id:
+        return jsonify({"success": False, "error": "Caja destino requerida."}), 400
+    try:
+        amount = float(_get('amount', 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "Monto inválido."}), 400
+    if amount <= 0:
+        return jsonify({"success": False, "error": "El monto debe ser mayor a cero."}), 400
+    currency = str(_get('currency') or 'DOP').upper()
+    if currency not in ('DOP', 'USD'):
+        currency = 'DOP'
+    reason = str(_get('reason', '')).strip()[:200]
+
+    # Autorización: transferencias SIEMPRE requieren supervisor.
+    auth_request_id = _get('authRequestId')
+    try:
+        CashAuthorizationService.authorize(
+            owner_uid, company_id, sandbox,
+            performer_uid=user_uid,
+            supervisor_uid=_get('supervisorUid'),
+            pin=_get('supervisorPin'),
+            auth_request_id=auth_request_id,
+            movement_type='TRANSFER_OUT', amount=amount, currency=currency,
+            register_id=open_shift.get('registerId'), shift_id=open_shift['id'],
+        )
+    except CashAuthorizationError as e:
+        return jsonify({"success": False, "error": str(e)}), 403
+
+    target_shift = DatabaseService.get_open_shift_by_register(
+        owner_uid, target_register_id, company_id=company_id, sandbox=sandbox
+    )
+    if not target_shift:
+        return jsonify({"success": False, "error": "La caja destino no está abierta."}), 409
+
+    try:
+        result = CashTransferService.register_transfer(
+            owner_uid, company_id, sandbox,
+            source_shift=open_shift, target_shift=target_shift,
+            amount=amount, currency=currency, reason=reason,
+            performed_by=session['user'].get('name', session['user']['email']),
+            idempotency_key=_get('idempotencyKey') or None,
+            auth_request_id=auth_request_id,
+            performer_uid=user_uid,
+        )
+    except (CashTransferError, CashShiftLockError) as e:
+        return jsonify({"success": False, "error": str(e)}), 409
+    except CashAuthorizationError as e:
+        return jsonify({"success": False, "error": str(e)}), 403
+
+    try:
+        from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_CREATE, module=MODULE_POS,
+            entity_id=result["transferId"],
+            entity_label=f"Transferencia entre cajas {currency} {amount:,.2f}",
+            user_session=session.get('user', {}), after=result, sandbox=sandbox,
+        )
+    except Exception:
+        pass
+
+    return jsonify({"success": True, "transferId": result["transferId"]})
+
+
+@web_pos_bp.route('/pos/refund', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def pos_refund():
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    user_uid = session['user']['uid']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
+    if not open_shift:
+        return jsonify({"success": False, "error": "No hay un turno de caja abierto."}), 400
+
+    data = request.get_json(silent=True) or {}
+    invoice_id = str(data.get('invoiceId') or '').strip()
+    items = data.get('items')
+    refund_method = str(data.get('refundMethod') or 'Efectivo').strip()
+    currency = str(data.get('currency') or 'DOP').upper()
+    idempotency_key = data.get('idempotencyKey') or data.get('idempotency_key')
+
+    if not invoice_id:
+        return jsonify({"success": False, "error": "Factura original requerida."}), 400
+    if not isinstance(items, list) or not items:
+        return jsonify({"success": False, "error": "Debe indicar las líneas a devolver."}), 400
+    if refund_method not in ('Efectivo', 'Tarjeta', 'Transferencia'):
+        return jsonify({"success": False, "error": "Método de reembolso inválido."}), 400
+    if currency not in ('DOP', 'USD'):
+        currency = 'DOP'
+
+    try:
+        preview = CashRefundService.preview_refund(owner_uid, company_id, sandbox, invoice_id, items)
+    except CashRefundError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    refund_amount = preview["total"]
+
+    # REFUND siempre requiere autorización de supervisor.
+    auth_request_id = data.get('authRequestId')
+    try:
+        auth = CashAuthorizationService.authorize(
+            owner_uid, company_id, sandbox,
+            performer_uid=user_uid,
+            supervisor_uid=data.get('supervisorUid'),
+            pin=data.get('supervisorPin'),
+            auth_request_id=auth_request_id,
+            movement_type='REFUND', amount=refund_amount, currency=currency,
+            register_id=open_shift.get('registerId'), shift_id=open_shift['id'],
+        )
+    except CashAuthorizationError as e:
+        return jsonify({"success": False, "error": str(e)}), 403
+
+    try:
+        # La política de contingencia se lee de la config de la empresa (NO del request).
+        policy = DatabaseService.get_pos_refund_policy(owner_uid, company_id=company_id)
+        refund = CashRefundService.process_refund(
+            owner_uid, company_id, sandbox,
+            invoice_id=invoice_id, items=items, refund_method=refund_method,
+            open_shift=open_shift,
+            performed_by=session['user'].get('name', session['user']['email']),
+            performed_by_uid=user_uid,
+            authorized_by=auth["name"], authorized_by_uid=auth["uid"],
+            authorized_at=datetime.now(timezone.utc).isoformat(),
+            currency=currency, refund_amount=refund_amount,
+            idempotency_key=idempotency_key,
+            auth_request_id=auth_request_id, performer_uid=user_uid,
+            allow_pending_refund=policy.get("allowPendingRefund", False),
+        )
+    except CashRefundError as e:
+        return jsonify({"success": False, "error": str(e)}), 409
+    except CashShiftLockError as e:
+        return jsonify({"success": False, "error": str(e)}), 409
+    except CashAuthorizationError as e:
+        return jsonify({"success": False, "error": str(e)}), 403
+
+    try:
+        from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_CREATE, module=MODULE_POS,
+            entity_id=refund.get("id"),
+            entity_label=f"Devolución factura {refund.get('invoiceNumber', '')} ({refund_method})",
+            user_session=session.get('user', {}), after=refund, sandbox=sandbox,
+        )
+    except Exception:
+        pass
+
+    return jsonify({"success": True, "refundId": refund.get("id"), "status": refund.get("status")})
+
+
+@web_pos_bp.route('/pos/refund/preview', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def pos_refund_preview():
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.get_json(silent=True) or {}
+    invoice_id = str(data.get('invoiceId') or '').strip()
+    items = data.get('items')
+    if not invoice_id or not isinstance(items, list) or not items:
+        return jsonify({"success": False, "error": "Datos inválidos."}), 400
+    try:
+        preview = CashRefundService.preview_refund(owner_uid, company_id, sandbox, invoice_id, items)
+    except CashRefundError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    return jsonify({"success": True, **preview})
+
+
+@web_pos_bp.route('/pos/refund/policy', methods=['GET', 'POST'])
+@require_permission('canManagePOS', 'Administración de Caja')
+def pos_refund_policy():
+    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
+        return jsonify({"success": False, "error": "No autorizado"}), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+
+    if request.method == 'GET':
+        return jsonify({"success": True, "policy": DatabaseService.get_pos_refund_policy(owner_uid, company_id=company_id)})
+
+    payload = request.json or {}
+    allow = bool(payload.get('allowPendingRefund', False))
+    policy = {"allowPendingRefund": allow}
+    DatabaseService.save_pos_refund_policy(owner_uid, policy, company_id=company_id)
+
+    from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
+    try:
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_POS,
+            entity_id=company_id,
+            entity_label=f"Política de reembolso en contingencia: {'activada' if allow else 'desactivada'}",
+            user_session=session.get('user', {}), after=policy, sandbox=session.get('is_sandbox_mode', True),
+        )
+    except Exception:
+        pass
+    return jsonify({"success": True, "policy": policy})
+
+
+@web_pos_bp.route('/pos/refund/resolve', methods=['POST'])
+@require_permission('canManagePOS', 'Administración de Caja')
+def pos_refund_resolve():
+    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
+        return jsonify({"success": False, "error": "No autorizado"}), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    data = request.json or {}
+    refund_id = str(data.get('refundId') or '').strip()
+    resolution = data.get('resolution')
+    reason = str(data.get('reason') or '').strip()[:200]
+    resolution_key = data.get('resolutionKey')
+
+    if not refund_id or resolution not in ('reemit', 'abandon'):
+        return jsonify({"success": False, "error": "Datos inválidos."}), 400
+
+    try:
+        refund = CashRefundService.resolve_reconciling(
+            owner_uid, company_id, sandbox, refund_id, resolution, reason,
+            resolved_by=session['user'].get('name', session['user']['email']),
+            resolution_key=resolution_key,
+        )
+    except CashRefundError as e:
+        return jsonify({"success": False, "error": str(e)}), 409
+
+    from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
+    try:
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_POS,
+            entity_id=refund_id,
+            entity_label=f"Resolución de devolución {resolution} ({reason})",
+            user_session=session.get('user', {}), after=refund, sandbox=sandbox,
+        )
+    except Exception:
+        pass
+    return jsonify({"success": True, "status": refund.get("status"), "ncStatus": refund.get("ncStatus")})
+
+
+@web_pos_bp.route('/pos/delivery', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def pos_delivery():
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    user_uid = session['user']['uid']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
+    if not open_shift:
+        return jsonify({"success": False, "error": "No hay un turno de caja abierto."}), 400
+
+    data = request.get_json(silent=True) or {}
+    idempotency_key = data.get('idempotencyKey') or data.get('idempotency_key')
+    amounts = data.get('amounts') or {}
+    usd_rate = data.get('usdRate', 0.0)
+    denominations = data.get('denominations') or {}
+    notes = str(data.get('notes') or '').strip()[:500]
+
+    if not idempotency_key:
+        return jsonify({"success": False, "error": "Falta la clave de idempotencia."}), 400
+
+    try:
+        result = CashDeliveryService.register_delivery(
+            owner_uid, company_id, sandbox,
+            shift_id=open_shift['id'], register_id=open_shift.get('registerId'),
+            amounts=amounts, usd_rate=usd_rate, denominations=denominations,
+            delivered_by_uid=user_uid,
+            delivered_by_name=session['user'].get('name', session['user']['email']),
+            notes=notes, idempotency_key=idempotency_key,
+        )
+    except (CashDeliveryError, CashShiftLockError) as e:
+        return jsonify({"success": False, "error": str(e)}), 409
+
+    delivery = result["delivery"]
+    try:
+        from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_CREATE, module=MODULE_POS,
+            entity_id=delivery["id"],
+            entity_label=f"Entrega de efectivo (DOP {delivery['amounts'].get('dop', 0):,.2f} / USD {delivery['amounts'].get('usd', 0):,.2f})",
+            user_session=session.get('user', {}), after=delivery, sandbox=sandbox,
+        )
+    except Exception:
+        pass
+
+    return jsonify({"success": True, "deliveryId": delivery["id"], "status": delivery["status"]})
+
+
+@web_pos_bp.route('/pos/delivery/<delivery_id>/receipt-auth', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def pos_delivery_receipt_auth(delivery_id):
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    user_uid = session['user']['uid']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    try:
+        auth = CashDeliveryService.create_receipt_authorization(
+            owner_uid, company_id, sandbox, delivery_id, receiver_uid=user_uid)
+    except CashDeliveryError as e:
+        return jsonify({"success": False, "error": str(e)}), 409
+    return jsonify({"success": True, "authorizationId": auth["authorizationId"], "expiresAt": auth["expiresAt"]})
+
+
+@web_pos_bp.route('/pos/delivery/<delivery_id>/receive', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def pos_delivery_receive(delivery_id):
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    user_uid = session['user']['uid']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    data = request.get_json(silent=True) or {}
+    pin = (data.get('pin') or '').strip()
+    notes = str(data.get('notes') or '').strip()[:200]
+    authorization_id = (data.get('authorizationId') or '').strip()
+
+    try:
+        delivery = CashDeliveryService.confirm_receipt(
+            owner_uid, company_id, sandbox, delivery_id,
+            receiver_uid=user_uid,
+            receiver_name=session['user'].get('name', session['user']['email']),
+            pin=pin, notes=notes, authorization_id=authorization_id,
+        )
+    except CashDeliveryError as e:
+        return jsonify({"success": False, "error": str(e)}), 403
+
+    try:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_POS,
+            entity_id=delivery_id,
+            entity_label=f"Recepción de entrega de efectivo confirmada",
+            user_session=session.get('user', {}), after=delivery, sandbox=sandbox,
+        )
+    except Exception:
+        pass
+
+    return jsonify({"success": True, "status": delivery.get("status")})
+
+
+@web_pos_bp.route('/pos/reception-pin', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def pos_set_reception_pin():
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    user_uid = session['user']['uid']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    data = request.get_json(silent=True) or {}
+    pin = (data.get('pin') or '').strip()
+
+    try:
+        CashDeliveryService.set_reception_pin(owner_uid, company_id, sandbox, user_uid, pin)
+    except CashDeliveryError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    return jsonify({"success": True})
+
+
+@web_pos_bp.route('/pos/delivery/<delivery_id>/reconcile', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def pos_delivery_reconcile(delivery_id):
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    user_uid = session['user']['uid']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    data = request.get_json(silent=True) or {}
+    channel = str(data.get('channel') or '').strip()
+    try:
+        received_amount = float(data.get('receivedAmount', 0.0))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "Monto recibido inválido."}), 400
+    reference = str(data.get('reference') or '').strip()[:100]
+    notes = str(data.get('notes') or '').strip()[:200]
+    idempotency_key = data.get('idempotencyKey') or data.get('idempotency_key')
+
+    if channel not in ('CASH_DOP', 'CASH_USD'):
+        return jsonify({"success": False, "error": "Canal de efectivo inválido."}), 400
+    if not idempotency_key:
+        return jsonify({"success": False, "error": "Falta la clave de idempotencia."}), 400
+
+    try:
+        result = CashReconciliationService.reconcile_cash(
+            owner_uid, company_id, sandbox, delivery_id, channel, received_amount, reference,
+            user_uid, session['user'].get('name', session['user']['email']), notes, idempotency_key)
+    except CashReconciliationError as e:
+        return jsonify({"success": False, "error": str(e)}), 409
+
+    rec = result["reconciliation"]
+    return jsonify({"success": True, "reconciliationId": rec["id"], "status": rec["status"], "difference": rec["difference"]})
+
+
+@web_pos_bp.route('/pos/shift/<shift_id>/reconcile', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def pos_shift_reconcile(shift_id):
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    user_uid = session['user']['uid']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    data = request.get_json(silent=True) or {}
+    channel = str(data.get('channel') or '').strip()
+    try:
+        received_amount = float(data.get('receivedAmount', 0.0))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "Monto recibido inválido."}), 400
+    reference = str(data.get('reference') or '').strip()[:100]
+    notes = str(data.get('notes') or '').strip()[:200]
+    idempotency_key = data.get('idempotencyKey') or data.get('idempotency_key')
+
+    if channel not in ('CARD', 'TRANSFER'):
+        return jsonify({"success": False, "error": "Canal inválido."}), 400
+    if not idempotency_key:
+        return jsonify({"success": False, "error": "Falta la clave de idempotencia."}), 400
+
+    try:
+        result = CashReconciliationService.reconcile_channel(
+            owner_uid, company_id, sandbox, shift_id, channel, received_amount, reference,
+            user_uid, session['user'].get('name', session['user']['email']), notes, idempotency_key)
+    except CashReconciliationError as e:
+        return jsonify({"success": False, "error": str(e)}), 409
+
+    rec = result["reconciliation"]
+    return jsonify({"success": True, "reconciliationId": rec["id"], "status": rec["status"], "difference": rec["difference"]})
+
+
+@web_pos_bp.route('/pos/reconciliation/<reconciliation_id>/approve', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def pos_reconciliation_approve(reconciliation_id):
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    user_uid = session['user']['uid']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    data = request.get_json(silent=True) or {}
+    justification = str(data.get('justification') or '').strip()[:200]
+    supervisor_uid = data.get('supervisorUid')
+    pin = (data.get('pin') or '').strip()
+    auth_request_id = data.get('authRequestId')
+
+    rec = CashReconciliationService.get_reconciliation(owner_uid, company_id, sandbox, reconciliation_id)
+    if not rec:
+        return jsonify({"success": False, "error": "Conciliación no encontrada."}), 404
+
+    # Autorización de supervisor (single-use) vinculada a la conciliación.
+    try:
+        CashAuthorizationService.authorize(
+            owner_uid, company_id, sandbox,
+            performer_uid=user_uid,
+            supervisor_uid=supervisor_uid,
+            pin=pin,
+            auth_request_id=auth_request_id,
+            movement_type='RECONCILIATION_APPROVE',
+            amount=abs(float(rec.get('difference', 0))),
+            currency='DOP',
+            register_id=rec.get('deliveryId') or rec.get('shiftId', ''),
+            shift_id=rec.get('shiftId', ''),
+        )
+    except CashAuthorizationError as e:
+        return jsonify({"success": False, "error": str(e)}), 403
+
+    try:
+        updated = CashReconciliationService.approve_difference(
+            owner_uid, company_id, sandbox, reconciliation_id, justification,
+            user_uid, session['user'].get('name', session['user']['email']),
+            auth_request_id, user_uid)
+    except CashReconciliationError as e:
+        return jsonify({"success": False, "error": str(e)}), 409
+    except CashAuthorizationError as e:
+        return jsonify({"success": False, "error": str(e)}), 403
+
+    return jsonify({"success": True, "status": updated["status"]})
+
+
+@web_pos_bp.route('/pos/reports/deliveries')
+@require_permission('canManagePOS', 'Punto de Venta')
+def pos_reports_deliveries():
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    shift_id = request.args.get('shiftId')
+    status = request.args.get('status')
+    deliveries = CashReportService.list_deliveries(
+        owner_uid, company_id, sandbox, shift_id=shift_id, status=status)
+    return jsonify({"success": True, "deliveries": deliveries})
+
+
+@web_pos_bp.route('/pos/reports/reconciliations')
+@require_permission('canManagePOS', 'Punto de Venta')
+def pos_reports_reconciliations():
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    shift_id = request.args.get('shiftId')
+    channel = request.args.get('channel')
+    status = request.args.get('status')
+    reconciliations = CashReportService.list_reconciliations(
+        owner_uid, company_id, sandbox, shift_id=shift_id, channel=channel, status=status)
+    return jsonify({"success": True, "reconciliations": reconciliations})
+
+
+@web_pos_bp.route('/pos/reports/summary')
+@require_permission('canManagePOS', 'Punto de Venta')
+def pos_reports_summary():
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    shift_id = request.args.get('shiftId')
+    if not shift_id:
+        return jsonify({"success": False, "error": "Se requiere shiftId."}), 400
+    summary = CashReportService.shift_summary(owner_uid, company_id, sandbox, shift_id)
+    return jsonify({"success": True, "summary": summary})
+
+
+@web_pos_bp.route('/pos/cash-limits', methods=['GET', 'POST'])
+@require_permission('canManagePOS', 'Administración de Caja')
+def pos_cash_limits():
+    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
+        return jsonify({"success": False, "error": "No autorizado"}), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+
+    if request.method == 'GET':
+        return jsonify({"success": True, "limits": DatabaseService.get_pos_cash_limits(owner_uid, company_id=company_id)})
+
+    payload = request.json or {}
+    limits = payload.get('limits')
+    if not isinstance(limits, dict):
+        return jsonify({"success": False, "error": "Límites inválidos."}), 400
+    # Saneamiento: solo tipos conocidos y monedas DOP/USD, valores numéricos o null.
+    clean = {}
+    for t, per_currency in limits.items():
+        t = normalize_cash_type(t)
+        if not isinstance(per_currency, dict):
+            continue
+        entry = {}
+        for cur in ('DOP', 'USD'):
+            val = per_currency.get(cur)
+            if val is None or val == "":
+                entry[cur] = None
+            else:
+                try:
+                    entry[cur] = float(val)
+                except (TypeError, ValueError):
+                    return jsonify({"success": False, "error": f"Límite inválido para {t} {cur}."}), 400
+        clean[t] = entry
+    ok = DatabaseService.save_pos_cash_limits(owner_uid, clean, company_id=company_id)
+    return jsonify({"success": bool(ok), "limits": clean})
+
 
 # =========================================================================
 # ACCIONES DE SUPERVISIÓN
@@ -1191,9 +1868,13 @@ def create_pos_sale():
     idempotency_key = request.headers.get('Idempotency-Key') or data.get('idempotencyKey') or data.get('idempotency_key')
     if idempotency_key:
         record = DatabaseService.get_idempotency_record(owner_uid, idempotency_key, company_id=company_id, sandbox=sandbox)
-        if record and record.get("response"):
-            status_code = int(record.get("statusCode", 200))
-            return jsonify(record["response"]), status_code
+        if record:
+            st = record.get("status")
+            if (st in ("COMPLETED", None)) and record.get("response"):
+                status_code = int(record.get("statusCode", 200))
+                return jsonify(record["response"]), status_code
+            if st == "FAILED":
+                return jsonify({"success": False, "error": record.get("error", "La operación falló anteriormente.")}), 409
 
     ecf_type = data.get('ecfType', _by_code("E32").label_with_code)
     if ecf_type not in ['Factura de Consumo (E32)', 'Factura de Crédito Fiscal (E31)']:
@@ -1293,7 +1974,10 @@ def create_pos_sale():
         client_project_id = credit_client.get('projectId') or None
         client_registered = True
 
-    invoice_id = str(uuid.uuid4())
+    if idempotency_key:
+        invoice_id = "inv-" + hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()[:28]
+    else:
+        invoice_id = str(uuid.uuid4())
     invoice_number = f"POS-{datetime.now(timezone.utc).strftime('%y%m%d%H%M%S')}"
 
     # --- Determinar si aplica modo consolidado ---
@@ -1394,12 +2078,28 @@ def create_pos_sale():
         invoice_dict["usdAmount"] = usd_amount
         invoice_dict["usdExchangeRate"] = usd_rate
 
+    lease_owner = None
+    if idempotency_key:
+        reservation = DatabaseService.reserve_idempotency_key(owner_uid, idempotency_key, company_id=company_id, sandbox=sandbox)
+        if reservation.get("status") == "COMPLETED":
+            rec = reservation.get("record") or {}
+            return jsonify(rec.get("response", {})), int(rec.get("statusCode", 200))
+        if reservation.get("status") == "FAILED":
+            rec = reservation.get("record") or {}
+            return jsonify({"success": False, "error": rec.get("error", "La operación falló anteriormente.")}), 409
+        if reservation.get("status") == "IN_PROGRESS":
+            return jsonify({"success": False, "error": "La operación ya está en curso."}), 409
+        if reservation.get("status") == "RESERVED":
+            lease_owner = (reservation.get("record") or {}).get("leaseOwner")
+
     # 1. Guardar factura en base de datos con manejo controlado de stock.
     #    La caja se registra DESPUÉS para que una factura fallida no deje movimientos huérfanos.
     from app.services.inventory_transaction_service import InsufficientStockError, InventoryTransactionError
     try:
         DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
     except (InsufficientStockError, InventoryTransactionError) as e:
+        if idempotency_key:
+            DatabaseService.fail_idempotency_key(owner_uid, idempotency_key, str(e), company_id=company_id, sandbox=sandbox, lease_owner=lease_owner)
         return jsonify({
             "success": False,
             "error": str(e)
@@ -1407,14 +2107,17 @@ def create_pos_sale():
     except Exception as e:
         import logging
         logging.getLogger(__name__).exception("Error guardando venta POS %s", invoice_id)
+        if idempotency_key:
+            DatabaseService.fail_idempotency_key(owner_uid, idempotency_key, "No se pudo guardar la venta.", company_id=company_id, sandbox=sandbox, lease_owner=lease_owner)
         return jsonify({
             "success": False,
             "error": "No se pudo guardar la venta. No se registró ningún movimiento de caja."
         }), 500
 
-    # 2. Registrar una transacción de caja por cada pago no-crédito.
+    # 2. Registrar atómicamente las transacciones de caja (una por pago no-crédito).
     #    "Crédito" no genera entrada de efectivo; su saldo se refleja en CxC.
     import logging
+    cash_txs = []
     for idx, pay in enumerate(payment_info['payments']):
         if pay['method'] == 'Crédito':
             continue
@@ -1437,14 +2140,32 @@ def create_pos_sale():
         if float(pay.get('usdAmount') or 0.0) > 0:
             tx_dict["usdAmount"] = pay['usdAmount']
             tx_dict["usdExchangeRate"] = pay.get('usdExchangeRate') or usd_rate
+        cash_txs.append(tx_dict)
+
+    if cash_txs:
         try:
-            DatabaseService.register_cash_transaction(
-                owner_uid, tx_dict, company_id=company_id, sandbox=sandbox
+            DatabaseService.register_sale_cash_transactions(
+                owner_uid,
+                open_shift.get('registerId'),
+                open_shift['id'],
+                cash_txs,
+                company_id=company_id,
+                sandbox=sandbox,
             )
-        except Exception:
-            logging.getLogger(__name__).exception(
-                "No se pudo registrar el pago %s de la factura POS %s", idx + 1, invoice_id
-            )
+        except CashShiftLockError as lock_err:
+            logging.getLogger(__name__).warning("Caja no activa al registrar venta POS %s: %s", invoice_id, lock_err)
+            # La caja se cerró entre el guardado de la factura y el registro de
+            # caja. Revertir la venta (reingreso de stock) dejándola anulada
+            # localmente, para no dejar una factura cobrada sin movimiento de caja.
+            try:
+                invoice_dict["status"] = "Anulada"
+                invoice_dict["cancellationReason"] = str(lock_err)
+                DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
+            except Exception as rev_err:
+                logging.getLogger(__name__).exception("No se pudo revertir la venta POS bloqueada %s: %s", invoice_id, rev_err)
+            if idempotency_key:
+                DatabaseService.fail_idempotency_key(owner_uid, idempotency_key, str(lock_err), company_id=company_id, sandbox=sandbox, lease_owner=lease_owner)
+            return jsonify({"success": False, "error": str(lock_err)}), 409
 
     # 3. Si aplica modo consolidado → no emitir e-CF individual, retornar con indicador
     if qualifies_for_consolidation:
@@ -1470,11 +2191,11 @@ def create_pos_sale():
             "clientRegistered": client_registered
         }
         if idempotency_key:
-            DatabaseService.save_idempotency_record(owner_uid, idempotency_key, {
+            DatabaseService.complete_idempotency_key(owner_uid, idempotency_key, {
                 "response": response_body,
                 "statusCode": 200,
                 "invoiceId": invoice_id
-            }, company_id=company_id, sandbox=sandbox)
+            }, company_id=company_id, sandbox=sandbox, lease_owner=lease_owner)
         return jsonify(response_body)
 
     # 4. Intentar emisión electrónica (e-CF) individual
@@ -1610,11 +2331,11 @@ def create_pos_sale():
         "clientRegistered": client_registered
     }
     if idempotency_key:
-        DatabaseService.save_idempotency_record(owner_uid, idempotency_key, {
+        DatabaseService.complete_idempotency_key(owner_uid, idempotency_key, {
             "response": response_body,
             "statusCode": 200,
             "invoiceId": invoice_id
-        }, company_id=company_id, sandbox=sandbox)
+        }, company_id=company_id, sandbox=sandbox, lease_owner=lease_owner)
     return jsonify(response_body)
 
 

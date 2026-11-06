@@ -4,6 +4,7 @@ import pytest
 
 from app import create_app
 from app.services.dgii import DGIIService
+from app.services.db_service import CashShiftLockError
 from app.web.pos import _pos_apply_available_stock, _pos_build_items, _pos_normalize_payments
 
 
@@ -182,27 +183,41 @@ def test_sale_persists_mixed_payments_and_one_cash_tx_per_non_credit_payment(app
         captured_invoice.clear()
         captured_invoice.update(inv_dict)
 
-    def fake_cash(owner_uid, tx_dict, **kwargs):
-        cash_txs.append(dict(tx_dict))
-        return tx_dict
+    def fake_sale_txs(owner_uid, register_id, shift_id, txs, **kwargs):
+        cash_txs.extend(dict(t) for t in txs)
+        return True
 
     def fake_get_idem(owner_uid, key, **kwargs):
         return idempotency_store.get(key)
 
-    def fake_save_idem(owner_uid, key, record, **kwargs):
-        idempotency_store[key] = record
+    def fake_reserve_idem(owner_uid, key, **kwargs):
+        rec = idempotency_store.get(key)
+        if rec and rec.get("status") == "COMPLETED":
+            return {"status": "COMPLETED", "record": rec}
+        idempotency_store[key] = {"status": "PENDING"}
+        return {"status": "RESERVED", "record": {"status": "PENDING"}}
+
+    def fake_complete_idem(owner_uid, key, payload, **kwargs):
+        idempotency_store[key] = {
+            "status": "COMPLETED",
+            "response": payload.get("response"),
+            "statusCode": payload.get("statusCode", 200),
+            "invoiceId": payload.get("invoiceId"),
+        }
+        return True
 
     mock_shift = {"id": "shift-123", "registerId": "reg-1", "status": "OPEN"}
     with patch("app.web.pos.check_permission", return_value=True), \
          patch("app.web.pos.DatabaseService.get_open_shift", return_value=mock_shift), \
          patch("app.web.pos.DatabaseService.get_idempotency_record", side_effect=fake_get_idem), \
-         patch("app.web.pos.DatabaseService.save_idempotency_record", side_effect=fake_save_idem), \
+         patch("app.web.pos.DatabaseService.reserve_idempotency_key", side_effect=fake_reserve_idem), \
+         patch("app.web.pos.DatabaseService.complete_idempotency_key", side_effect=fake_complete_idem), \
          patch("app.web.pos.DatabaseService.get_cash_registers", return_value=[{"id": "reg-1", "warehouseId": "wh-1"}]), \
          patch("app.web.pos.DatabaseService.get_company_profile", return_value={"consolidationEnabled": True, "consolidationThreshold": 999999}), \
          patch("app.web.pos.DatabaseService.get_items", return_value=CATALOG), \
          patch("app.web.pos.DatabaseService.get_client", return_value={"id": "cli-1", "name": "Cliente", "rnc": "131880681"}), \
          patch("app.web.pos.DatabaseService.save_invoice", side_effect=fake_save), \
-         patch("app.web.pos.DatabaseService.register_cash_transaction", side_effect=fake_cash), \
+         patch("app.web.pos.DatabaseService.register_sale_cash_transactions", side_effect=fake_sale_txs), \
          patch("app.services.audit_service.AuditService.log_from_request"):
 
         payload = {
@@ -253,7 +268,7 @@ def test_ephemeral_dgii_client_can_pay_without_registration(app):
          patch("app.web.pos.DatabaseService.get_company_profile", return_value={"consolidationEnabled": False}), \
          patch("app.web.pos.DatabaseService.get_items", return_value=CATALOG), \
          patch("app.web.pos.DatabaseService.save_invoice", side_effect=lambda o, i, d, **k: captured_invoice.update(d)), \
-         patch("app.web.pos.DatabaseService.register_cash_transaction"), \
+         patch("app.web.pos.DatabaseService.register_sale_cash_transactions"), \
          patch("app.web.pos.EcfEmissionService.emit_electronic_comprobante", return_value=None), \
          patch("app.web.pos._pos_register_credit_client") as register_client, \
          patch("app.services.audit_service.AuditService.log_from_request"):
@@ -292,7 +307,7 @@ def test_ephemeral_dgii_client_is_registered_for_credit_sale(app):
          patch("app.web.pos.DatabaseService.get_company_profile", return_value={"consolidationEnabled": False}), \
          patch("app.web.pos.DatabaseService.get_items", return_value=CATALOG), \
          patch("app.web.pos.DatabaseService.save_invoice", side_effect=lambda o, i, d, **k: captured_invoice.update(d)), \
-         patch("app.web.pos.DatabaseService.register_cash_transaction") as register_cash, \
+         patch("app.web.pos.DatabaseService.register_sale_cash_transactions") as register_cash, \
          patch("app.web.pos.EcfEmissionService.emit_electronic_comprobante", return_value=None), \
          patch("app.web.pos._pos_register_credit_client", return_value=registered_client) as register_client, \
          patch("app.services.audit_service.AuditService.log_from_request"):
@@ -334,7 +349,7 @@ def test_ephemeral_dgii_client_mixed_cash_and_credit_registers_client(app):
          patch("app.web.pos.DatabaseService.get_company_profile", return_value={"consolidationEnabled": False}), \
          patch("app.web.pos.DatabaseService.get_items", return_value=CATALOG), \
          patch("app.web.pos.DatabaseService.save_invoice", side_effect=lambda o, i, d, **k: captured_invoice.update(d)), \
-         patch("app.web.pos.DatabaseService.register_cash_transaction", side_effect=lambda o, t, **k: cash_txs.append(t)), \
+         patch("app.web.pos.DatabaseService.register_sale_cash_transactions", side_effect=lambda o, r, s, txs, **k: cash_txs.extend(txs)), \
          patch("app.web.pos.EcfEmissionService.emit_electronic_comprobante", return_value=None), \
          patch("app.web.pos._pos_register_credit_client", return_value=registered_client) as register_client, \
          patch("app.services.audit_service.AuditService.log_from_request"):
@@ -403,7 +418,7 @@ def test_credit_sale_does_not_register_cash(app):
          patch("app.web.pos.DatabaseService.get_items", return_value=CATALOG), \
          patch("app.web.pos.DatabaseService.get_client", return_value={"id": "cli-1", "name": "Cliente", "rnc": "131880681", "email": ""}), \
          patch("app.web.pos.DatabaseService.save_invoice", side_effect=lambda o, i, d, **k: captured_invoice.update(d)), \
-         patch("app.web.pos.DatabaseService.register_cash_transaction", side_effect=lambda o, t, **k: cash_txs.append(t)), \
+         patch("app.web.pos.DatabaseService.register_sale_cash_transactions", side_effect=lambda o, r, s, txs, **k: cash_txs.extend(txs)), \
          patch("app.web.pos.EcfEmissionService.emit_electronic_comprobante", return_value=None), \
          patch("app.services.audit_service.AuditService.log_from_request"):
 
@@ -422,6 +437,49 @@ def test_credit_sale_does_not_register_cash(app):
         assert captured_invoice["status"] == "Emitida"
         assert captured_invoice["remainingBalance"] == pytest.approx(118.0)
         assert captured_invoice["paymentType"] == "02 - Crédito"
+
+
+def test_sale_reverts_invoice_when_cash_registration_blocked(app):
+    saved_states = []
+    failed = []
+    emitted = []
+
+    def fake_save(o, i, d, **k):
+        saved_states.append((i, d.get("status")))
+
+    mock_shift = {"id": "shift-1", "registerId": "reg-1", "status": "OPEN"}
+    with patch("app.web.pos.check_permission", return_value=True), \
+         patch("app.web.pos.DatabaseService.get_open_shift", return_value=mock_shift), \
+         patch("app.web.pos.DatabaseService.get_idempotency_record", return_value=None), \
+         patch("app.web.pos.DatabaseService.reserve_idempotency_key", return_value={"status": "RESERVED", "record": {"leaseOwner": "L1"}}), \
+         patch("app.web.pos.DatabaseService.get_cash_registers", return_value=[{"id": "reg-1", "warehouseId": "wh-1"}]), \
+         patch("app.web.pos.DatabaseService.get_company_profile", return_value={"consolidationEnabled": False}), \
+         patch("app.web.pos.DatabaseService.get_items", return_value=CATALOG), \
+         patch("app.web.pos.DatabaseService.save_invoice", side_effect=fake_save), \
+         patch("app.web.pos.DatabaseService.register_sale_cash_transactions", side_effect=CashShiftLockError("La caja no está activa para esta sesión.")), \
+         patch("app.web.pos.DatabaseService.fail_idempotency_key", side_effect=lambda *a, **k: failed.append(a)), \
+         patch("app.web.pos.EcfEmissionService.emit_electronic_comprobante", side_effect=lambda *a, **k: emitted.append(1)), \
+         patch("app.services.audit_service.AuditService.log_from_request"):
+
+        with app.test_request_context("/pos/invoice/new", method="POST", json={
+            "clientId": "default",
+            "ecfType": "Factura de Consumo (E32)",
+            "items": [{"id": "prod-1", "quantity": 1}],
+            "payments": [{"method": "Efectivo", "amount": 118.0}],
+        }, headers={"Idempotency-Key": "sale-rev"}):
+            _session(app)
+            resp = app.view_functions["web_pos.create_pos_sale"]()
+            body, status = resp if isinstance(resp, tuple) else (resp, 200)
+            data = body.get_json()
+
+    assert status == 409
+    assert data["success"] is False
+    # Se guarda dos veces: primero como venta, luego revertida a Anulada.
+    assert len(saved_states) == 2
+    assert saved_states[-1][1] == "Anulada"
+    # No se emite e-CF a DGII antes de confirmar la caja.
+    assert emitted == []
+    assert len(failed) == 1
 
 
 def test_terminal_renders_standalone_shell(app):

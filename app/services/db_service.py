@@ -2,9 +2,11 @@ import os
 import json
 import uuid
 import time
+import hashlib
 import requests
 import traceback
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
 from app.utils.security import encrypt_field, decrypt_field, sha256_hash
@@ -1104,6 +1106,114 @@ def _company_coll(*, company_id=None, coll_name=None, owner_uid=None):
     # compania. Los callers legacy deben migrar y proporcionar company_id.
     return None
     return None
+
+
+# =========================================================================
+# CAJA / POS — constantes, excepciones y helpers monetarios
+# =========================================================================
+
+CASH_LOCK_ACTIVE = "ACTIVE"
+CASH_LOCK_CLOSING = "CLOSING"
+CASH_LOCK_CLOSED = "CLOSED"
+
+IDEMPOTENCY_PENDING = "PENDING"
+IDEMPOTENCY_COMPLETED = "COMPLETED"
+IDEMPOTENCY_FAILED = "FAILED"
+
+# TTL (segundos) de los leases. El lock de caja se renueva en cada venta;
+# el de idempotencia permite recuperar operaciones PENDING huérfanas.
+CASH_LOCK_LEASE_TTL = 300
+IDEMPOTENCY_LEASE_TTL = 120
+
+
+class CashRegisterOccupiedError(Exception):
+    """La caja física ya tiene una sesión activa (OPEN/CLOSING)."""
+
+
+class CashShiftLockError(Exception):
+    """La sesión no está en estado ACTIVE; la operación no puede confirmar."""
+
+
+class CashIdempotencyConflictError(Exception):
+    """La clave de idempotencia está en uso por otra operación en curso."""
+
+
+class CashAuthorizationError(Exception):
+    """Falla al autorizar un movimiento (PIN, SoD o límite)."""
+
+
+class CashTransferError(Exception):
+    """Falla al registrar una transferencia entre cajas."""
+
+
+# =========================================================================
+# Taxonomía de movimientos de caja (Fase 2)
+# =========================================================================
+
+CASH_TYPE_SALE = "SALE"
+CASH_TYPE_CASH_IN = "CASH_IN"
+CASH_TYPE_CASH_OUT = "CASH_OUT"
+CASH_TYPE_CASH_DROP = "CASH_DROP"
+CASH_TYPE_EXPENSE = "EXPENSE"
+CASH_TYPE_FUND_IN = "FUND_IN"
+CASH_TYPE_FUND_OUT = "FUND_OUT"
+CASH_TYPE_TRANSFER_IN = "TRANSFER_IN"
+CASH_TYPE_TRANSFER_OUT = "TRANSFER_OUT"
+CASH_TYPE_REFUND = "REFUND"
+
+CASH_MANUAL_TYPES = (
+    CASH_TYPE_CASH_IN, CASH_TYPE_CASH_OUT, CASH_TYPE_CASH_DROP,
+    CASH_TYPE_EXPENSE, CASH_TYPE_FUND_IN, CASH_TYPE_FUND_OUT,
+    CASH_TYPE_TRANSFER_IN, CASH_TYPE_TRANSFER_OUT,
+)
+
+# Tipos que aumentan el efectivo esperado
+CASH_INFLOW_TYPES = (CASH_TYPE_SALE, CASH_TYPE_CASH_IN, CASH_TYPE_FUND_IN, CASH_TYPE_TRANSFER_IN)
+# Tipos que disminuyen el efectivo esperado
+CASH_OUTFLOW_TYPES = (
+    CASH_TYPE_CASH_OUT, CASH_TYPE_CASH_DROP, CASH_TYPE_EXPENSE,
+    CASH_TYPE_FUND_OUT, CASH_TYPE_TRANSFER_OUT, CASH_TYPE_REFUND,
+)
+
+# Tipos que SIEMPRE requieren autorización de supervisor (PIN)
+CASH_SUPERVISOR_TYPES = (
+    CASH_TYPE_CASH_OUT, CASH_TYPE_CASH_DROP, CASH_TYPE_FUND_IN,
+    CASH_TYPE_FUND_OUT, CASH_TYPE_TRANSFER_IN, CASH_TYPE_TRANSFER_OUT,
+    CASH_TYPE_REFUND,
+)
+# Tipos con límite configurable (cajero hasta el límite, supervisor por encima)
+CASH_LIMIT_TYPES = (CASH_TYPE_CASH_IN, CASH_TYPE_EXPENSE)
+
+# Mapeo retrocompatible de tipos legacy
+LEGACY_CASH_TYPE_MAP = {"IN": CASH_TYPE_CASH_IN, "OUT": CASH_TYPE_CASH_OUT}
+
+# Límites monetarios por defecto (por tipo y moneda). `None` = sin límite.
+POS_CASH_LIMITS_DEFAULTS = {
+    CASH_TYPE_CASH_IN: {"DOP": None, "USD": None},
+    CASH_TYPE_EXPENSE: {"DOP": 50000.0, "USD": None},
+    CASH_TYPE_CASH_OUT: {"DOP": None, "USD": None},
+}
+
+POS_CASH_CURRENCIES = ("DOP", "USD")
+
+
+def normalize_cash_type(raw_type):
+    """Normaliza un tipo de movimiento (incluye el mapeo legacy IN/OUT)."""
+    t = str(raw_type or "").strip().upper()
+    return LEGACY_CASH_TYPE_MAP.get(t, t)
+
+
+def _money(value, default="0.00"):
+    """Convierte un valor a Decimal de forma segura (evita float para sumas)."""
+    try:
+        return Decimal(str(value))
+    except (TypeError, ValueError, InvalidOperation):
+        return Decimal(str(default))
+
+
+def _money_round(value):
+    """Redondea a 2 decimales con ROUND_HALF_UP y devuelve float (para Firestore)."""
+    return float(_money(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
 class DatabaseService:
@@ -5412,6 +5522,131 @@ class DatabaseService:
             return False
 
     @classmethod
+    def _idempotency_coll(cls, sandbox, company_id, owner_uid):
+        return _company_coll(
+            company_id=company_id, owner_uid=owner_uid,
+            coll_name="sandbox_idempotency_keys" if sandbox else "idempotency_keys",
+        )
+
+    @classmethod
+    def reserve_idempotency_key(cls, owner_uid, key, sandbox=True, company_id=None, lease_ttl=IDEMPOTENCY_LEASE_TTL):
+        """Reserva atómicamente una clave de idempotencia con lease.
+
+        Retorna dict con `status`:
+          - "RESERVED":  esta ejecución es dueña del PENDING.
+          - "COMPLETED": ya terminó; devolver la respuesta guardada.
+          - "FAILED":    terminó con error; devolver el error guardado.
+          - "IN_PROGRESS": otra ejecución la tiene (lease vivo) → no duplicar.
+        Un PENDING con lease vencido se recupera (toma de control).
+        """
+        if not firebase_initialized:
+            return {"status": "RESERVED", "record": None}
+        coll = cls._idempotency_coll(sandbox, company_id, owner_uid)
+        if coll is None:
+            return {"status": "RESERVED", "record": None}
+        now = datetime.now(timezone.utc)
+        ref = coll.document(key)
+        payload = {
+            "id": key,
+            "status": IDEMPOTENCY_PENDING,
+            "leaseOwner": str(uuid.uuid4()),
+            "leaseExpiresAt": (now + timedelta(seconds=lease_ttl)).isoformat(),
+            "createdAt": now.isoformat(),
+        }
+        try:
+            ref.create(payload)
+            return {"status": "RESERVED", "record": payload}
+        except Exception as e:
+            if not cls._is_already_exists(e):
+                print(f"⚠️ Error al reservar idempotency key: {e}")
+                return {"status": "RESERVED", "record": payload}
+            existing = cls.get_idempotency_record(owner_uid, key, sandbox=sandbox, company_id=company_id) or {}
+            st = existing.get("status")
+            if st == IDEMPOTENCY_COMPLETED:
+                return {"status": "COMPLETED", "record": existing}
+            if st == IDEMPOTENCY_FAILED:
+                return {"status": "FAILED", "record": existing}
+            if cls._lease_expired(existing.get("leaseExpiresAt")):
+                try:
+                    ref.set(payload)
+                    return {"status": "RESERVED", "record": payload}
+                except Exception as e2:
+                    print(f"⚠️ Error al recuperar idempotency key: {e2}")
+            return {"status": "IN_PROGRESS", "record": existing}
+
+    @classmethod
+    def complete_idempotency_key(cls, owner_uid, key, payload, sandbox=True, company_id=None, lease_owner=None):
+        """Marca COMPLETED una clave reservada y guarda la respuesta (aplanada).
+
+        `payload` usa la misma forma que `save_idempotency_record`:
+        {"response": <dict>, "statusCode": int, "invoiceId": str}.
+
+        Si se provee `lease_owner`, la confirmación solo procede si el registro
+        sigue siendo propiedad de ese lease (evita que un proceso viejo confirme
+        una operación ya recuperada por otro tras el vencimiento del lease).
+        """
+        if not firebase_initialized:
+            return False
+        coll = cls._idempotency_coll(sandbox, company_id, owner_uid)
+        if coll is None:
+            return False
+        ref = coll.document(key)
+        update_fields = {
+            "status": IDEMPOTENCY_COMPLETED,
+            "response": payload.get("response"),
+            "statusCode": payload.get("statusCode", 200),
+            "invoiceId": payload.get("invoiceId"),
+            "completedAt": datetime.now(timezone.utc).isoformat(),
+        }
+        try:
+            if lease_owner:
+                def _run(txn):
+                    snap = txn.get(ref)
+                    if not snap.exists:
+                        return False
+                    existing = snap.to_dict()
+                    if existing.get("leaseOwner") != lease_owner:
+                        return False  # dueño distinto: no confirmar
+                    txn.update(ref, update_fields)
+                    return True
+                return bool(cls._run_in_transaction(_run))
+            ref.update(update_fields)
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al completar idempotency key: {e}")
+            return False
+
+    @classmethod
+    def fail_idempotency_key(cls, owner_uid, key, error, sandbox=True, company_id=None, lease_owner=None):
+        if not firebase_initialized:
+            return False
+        coll = cls._idempotency_coll(sandbox, company_id, owner_uid)
+        if coll is None:
+            return False
+        ref = coll.document(key)
+        update_fields = {
+            "status": IDEMPOTENCY_FAILED,
+            "error": error,
+            "failedAt": datetime.now(timezone.utc).isoformat(),
+        }
+        try:
+            if lease_owner:
+                def _run(txn):
+                    snap = txn.get(ref)
+                    if not snap.exists:
+                        return False
+                    if snap.to_dict().get("leaseOwner") != lease_owner:
+                        return False
+                    txn.update(ref, update_fields)
+                    return True
+                return bool(cls._run_in_transaction(_run))
+            ref.update(update_fields)
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al fallar idempotency key: {e}")
+            return False
+
+    @classmethod
     def cleanup_expired_idempotency_keys(cls):
         """Elimina todos los registros de idempotencia expirados (>24h)."""
         if not firebase_initialized:
@@ -6062,39 +6297,370 @@ class DatabaseService:
                 print(f"⚠️ Error al obtener turno abierto: {e}")
         return None
 
+    @staticmethod
+    def _cash_lock_coll_name(sandbox):
+        return "sandbox_cash_register_locks" if sandbox else "cash_register_locks"
+
+    @staticmethod
+    def _lease_expired(expires_at):
+        """True si el lease ya venció (permite toma de control / recuperación)."""
+        if not expires_at:
+            return False
+        try:
+            exp = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            return datetime.now(timezone.utc) > exp
+        except Exception:
+            return False
+
+    @staticmethod
+    def _is_already_exists(exc):
+        """Detecta el error Firestore de documento ya existente (create conflict)."""
+        name = type(exc).__name__
+        code = getattr(exc, "code", None)
+        return "AlreadyExists" in name or "Conflict" in name or code in (409, 6)
+
+    @classmethod
+    def _run_in_transaction(cls, fn):
+        """Ejecuta `fn(txn)` dentro de una transacción Firestore.
+
+        Reproduce el patrón de InventoryTransactionService para que también
+        funcione en entornos de test donde `firestore.transactional` está mockeado.
+        """
+        transaction = db_firestore.transaction()
+        try:
+            from unittest.mock import Mock
+            is_mock = isinstance(firestore.transactional, Mock)
+        except (ImportError, AttributeError):
+            is_mock = False
+        if firestore and callable(getattr(firestore, "transactional", None)) and not is_mock:
+            return firestore.transactional(fn)(transaction)
+        return fn(transaction)
+
+    @classmethod
+    def get_cash_register_lock(cls, owner_uid, register_id, sandbox=True, company_id=None):
+        """Retorna el lock de ocupación de una caja física (o None)."""
+        if not firebase_initialized:
+            return None
+        try:
+            coll = _company_coll(
+                company_id=company_id, owner_uid=owner_uid,
+                coll_name=cls._cash_lock_coll_name(sandbox),
+            )
+            if coll is None:
+                return None
+            doc = coll.document(register_id).get()
+            if doc.exists:
+                return doc.to_dict()
+        except Exception as e:
+            print(f"⚠️ Error al obtener lock de caja: {e}")
+        return None
+
+    @classmethod
+    def get_open_shift_by_register(cls, owner_uid, register_id, sandbox=True, company_id=None):
+        """Retorna la sesión activa sobre una caja física (por lock), o None.
+
+        No requiere índice compuesto: se apoya en el documento de lock cuyo ID
+        es el `registerId`, creado/eliminado atómicamente en apertura/cierre.
+        """
+        lock = cls.get_cash_register_lock(owner_uid, register_id, sandbox=sandbox, company_id=company_id)
+        if not lock:
+            return None
+        status = lock.get("status")
+        if status not in (CASH_LOCK_ACTIVE, CASH_LOCK_CLOSING):
+            return None
+        if cls._lease_expired(lock.get("leaseExpiresAt")):
+            return None
+        return {
+            "id": lock.get("shiftId"),
+            "registerId": register_id,
+            "openedByUserId": lock.get("openedByUserId", ""),
+            "status": "OPEN" if status == CASH_LOCK_ACTIVE else "CLOSING",
+            "locked": True,
+        }
+
+    @classmethod
+    def get_pos_cash_limits(cls, owner_uid, company_id=None, sandbox=True):
+        """Retorna los límites monetarios de caja por tipo y moneda.
+
+        Devuelve un dict {TIPO: {"DOP": float|None, "USD": float|None}} fusionando
+        los valores por defecto con los configurados en la empresa.
+        """
+        limits = {k: dict(v) for k, v in POS_CASH_LIMITS_DEFAULTS.items()}
+        if firebase_initialized:
+            cid = company_id or _resolve_company_id(owner_uid)
+            company = cls.get_company(cid) if cid else None
+            stored = (company or {}).get("pos_cash_limits") or {}
+            if isinstance(stored, dict):
+                for t, per_currency in stored.items():
+                    t = normalize_cash_type(t)
+                    if isinstance(per_currency, dict):
+                        base = limits.setdefault(t, {"DOP": None, "USD": None})
+                        for cur in POS_CASH_CURRENCIES:
+                            if cur in per_currency and per_currency[cur] is not None:
+                                base[cur] = float(per_currency[cur])
+        return limits
+
+    @classmethod
+    def save_pos_cash_limits(cls, owner_uid, limits, company_id=None):
+        """Guarda los límites de caja en el documento de la empresa (merge)."""
+        if not firebase_initialized:
+            return False
+        cid = company_id or _resolve_company_id(owner_uid)
+        if not cid:
+            return False
+        return bool(cls.update_company(cid, {"pos_cash_limits": limits}))
+
+    @classmethod
+    def get_pos_refund_policy(cls, owner_uid, company_id=None):
+        """Retorna la política de reembolso (contingencia) de la empresa.
+
+        Devuelve {"allowPendingRefund": bool}. Por defecto False: un reembolso con
+        la NC pendiente de DGII queda bloqueado salvo autorización explícita.
+        """
+        if firebase_initialized:
+            cid = company_id or _resolve_company_id(owner_uid)
+            company = cls.get_company(cid) if cid else None
+            stored = (company or {}).get("pos_refund_policy") or {}
+            if isinstance(stored, dict):
+                return {"allowPendingRefund": bool(stored.get("allowPendingRefund", False))}
+        return {"allowPendingRefund": False}
+
+    @classmethod
+    def save_pos_refund_policy(cls, owner_uid, policy, company_id=None):
+        """Guarda la política de reembolso en el documento de la empresa (merge)."""
+        if not firebase_initialized:
+            return False
+        cid = company_id or _resolve_company_id(owner_uid)
+        if not cid:
+            return False
+        return bool(cls.update_company(cid, {"pos_refund_policy": policy}))
+
+    @classmethod
+    def get_cash_refund(cls, owner_uid, refund_id, sandbox=True, company_id=None):
+        """Retorna el documento de una devolución (cash_refunds) por ID."""
+        if not firebase_initialized:
+            return None
+        try:
+            coll = _company_coll(
+                company_id=company_id, owner_uid=owner_uid,
+                coll_name="sandbox_cash_refunds" if sandbox else "cash_refunds",
+            )
+            if coll is None:
+                return None
+            doc = coll.document(refund_id).get()
+            return doc.to_dict() if doc.exists else None
+        except Exception as e:
+            print(f"⚠️ Error al obtener devolución {refund_id}: {e}")
+            return None
+
+    @classmethod
+    def validate_pos_supervisor_pin(cls, owner_uid, company_id, supervisor_uid, pin):
+        """Valida el PIN de un supervisor/propietario.
+
+        Retorna dict {valid, name, email} o None si el usuario no es supervisor.
+        """
+        if not supervisor_uid or not pin:
+            return {"valid": False, "name": "", "email": ""}
+        try:
+            # Propietario de la cuenta
+            if supervisor_uid == owner_uid:
+                owner_user = cls.get_user_profile(owner_uid, company_id=company_id)
+                if owner_user and owner_user.get("posSupervisorPin") == pin:
+                    return {
+                        "valid": True,
+                        "name": owner_user.get("name", "Propietario"),
+                        "email": owner_user.get("email", ""),
+                    }
+                return {"valid": False, "name": "Propietario", "email": ""}
+
+            # Colaborador con rol de supervisor de caja
+            team = cls.get_team_members(owner_uid, company_id=company_id) or []
+            member = next((m for m in team if m.get("uid") == supervisor_uid), None)
+            if member and member.get("permissions", {}).get("isPosSupervisor", False):
+                profile = cls.get_user_profile(supervisor_uid)
+                if profile and profile.get("posSupervisorPin") == pin:
+                    return {
+                        "valid": True,
+                        "name": profile.get("name", "Supervisor"),
+                        "email": profile.get("email", ""),
+                    }
+                return {"valid": False, "name": profile.get("name", "Supervisor") if profile else "Supervisor", "email": ""}
+        except Exception as e:
+            print(f"⚠️ Error validando PIN de supervisor: {e}")
+        return {"valid": False, "name": "", "email": ""}
+
     @classmethod
     def open_cash_shift(cls, owner_uid, shift_dict, sandbox=True, company_id=None):
-        """Abre un nuevo turno de caja registradora."""
+        """Abre un nuevo turno de caja registradora con lock atómico de ocupación."""
         shift_id = shift_dict.get("id") or str(uuid.uuid4())
         shift_dict["id"] = shift_id
         shift_dict["status"] = "OPEN"
         shift_dict["openingTime"] = datetime.now(timezone.utc).isoformat()
         shift_dict["openingAmount"] = float(shift_dict.get("openingAmount", 0.0))
-        
-        if firebase_initialized:
-            try:
-                # 1. Guardar turno de caja
-                coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id).set(shift_dict)
-                
-                # 2. Actualizar estado de la caja registradora a OPEN
-                coll_regs = "sandbox_cash_registers" if sandbox else "cash_registers"
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_regs).document(shift_dict["registerId"]).update({
-                    "status": "OPEN"
-                })
-            except Exception as e:
-                print(f"⚠️ Error al abrir turno de caja: {e}")
+        register_id = shift_dict.get("registerId")
+        if not register_id:
+            return None
+
+        if not firebase_initialized:
+            return shift_dict
+
+        locks_coll = _company_coll(
+            company_id=company_id, owner_uid=owner_uid,
+            coll_name=cls._cash_lock_coll_name(sandbox),
+        )
+        shifts_coll = _company_coll(
+            company_id=company_id, owner_uid=owner_uid,
+            coll_name="sandbox_cash_shifts" if sandbox else "cash_shifts",
+        )
+        regs_coll = _company_coll(
+            company_id=company_id, owner_uid=owner_uid,
+            coll_name="sandbox_cash_registers" if sandbox else "cash_registers",
+        )
+        if locks_coll is None:
+            return None
+
+        now = datetime.now(timezone.utc)
+        lock_data = {
+            "registerId": register_id,
+            "shiftId": shift_id,
+            "openedByUserId": shift_dict.get("openedByUserId", ""),
+            "status": CASH_LOCK_ACTIVE,
+            "leaseOwner": shift_id,
+            "leaseExpiresAt": (now + timedelta(seconds=CASH_LOCK_LEASE_TTL)).isoformat(),
+            "createdAt": now.isoformat(),
+            "updatedAt": now.isoformat(),
+        }
+        lock_ref = locks_coll.document(register_id)
+
+        # 1. Vía rápida: `create()` es atómico y falla si el lock ya existe.
+        try:
+            lock_ref.create(lock_data)
+        except Exception as e:
+            if not cls._is_already_exists(e):
+                print(f"⚠️ Error al crear lock de caja: {e}")
                 return None
+            # 2. Lock existente → ocupado, salvo lease vencido (toma de control atómica).
+            try:
+                def _takeover(txn):
+                    snap = txn.get(lock_ref)
+                    if not snap.exists:
+                        txn.create(lock_ref, lock_data)
+                        return True
+                    existing = snap.to_dict()
+                    if cls._lease_expired(existing.get("leaseExpiresAt")):
+                        txn.set(lock_ref, lock_data)
+                        return True
+                    raise CashRegisterOccupiedError(
+                        f"Caja '{register_id}' ocupada por el turno '{existing.get('shiftId')}'."
+                    )
+                cls._run_in_transaction(_takeover)
+            except CashRegisterOccupiedError:
+                raise
+            except Exception as e2:
+                print(f"⚠️ Error al tomar control de lock de caja: {e2}")
+                raise CashRegisterOccupiedError(f"Caja '{register_id}' ocupada.")
+
+        # 3. Persistir el turno; si falla, liberar el lock (sin dejar caja bloqueada).
+        try:
+            shifts_coll.document(shift_id).set(shift_dict)
+        except Exception as e:
+            try:
+                lock_ref.delete()
+            except Exception:
+                pass
+            print(f"⚠️ Error al guardar turno de caja: {e}")
+            return None
+
+        try:
+            regs_coll.document(register_id).update({"status": "OPEN"})
+        except Exception as e:
+            print(f"⚠️ Error al actualizar estado de caja: {e}")
+
         return shift_dict
 
     @classmethod
+    def _lock_shift_closing(cls, owner_uid, register_id, shift_id, sandbox=True, company_id=None):
+        """Transición atómica del lock ACTIVE→CLOSING para bloquear ventas."""
+        locks_coll = _company_coll(
+            company_id=company_id, owner_uid=owner_uid,
+            coll_name=cls._cash_lock_coll_name(sandbox),
+        )
+        if locks_coll is None:
+            return
+        lock_ref = locks_coll.document(register_id)
+        now = datetime.now(timezone.utc).isoformat()
+
+        def _run(txn):
+            snap = txn.get(lock_ref)
+            if not snap.exists:
+                return
+            lock = snap.to_dict()
+            if lock.get("status") == CASH_LOCK_ACTIVE and lock.get("shiftId") == shift_id:
+                txn.update(lock_ref, {"status": CASH_LOCK_CLOSING, "updatedAt": now})
+
+        try:
+            cls._run_in_transaction(_run)
+        except Exception as e:
+            print(f"⚠️ Error al bloquear caja para cierre: {e}")
+
+    @classmethod
+    def _finalize_close(cls, owner_uid, shift_id, register_id, update_data, sandbox=True, company_id=None):
+        """Escribe el cierre y libera el lock de forma atómica."""
+        shifts_coll = _company_coll(
+            company_id=company_id, owner_uid=owner_uid,
+            coll_name="sandbox_cash_shifts" if sandbox else "cash_shifts",
+        )
+        regs_coll = _company_coll(
+            company_id=company_id, owner_uid=owner_uid,
+            coll_name="sandbox_cash_registers" if sandbox else "cash_registers",
+        )
+        locks_coll = _company_coll(
+            company_id=company_id, owner_uid=owner_uid,
+            coll_name=cls._cash_lock_coll_name(sandbox),
+        )
+        shift_ref = shifts_coll.document(shift_id) if shifts_coll else None
+        lock_ref = locks_coll.document(register_id) if locks_coll else None
+
+        def _run(txn):
+            if shift_ref is not None:
+                txn.update(shift_ref, update_data)
+            if regs_coll is not None:
+                try:
+                    txn.update(regs_coll.document(register_id), {"status": "CLOSED"})
+                except Exception:
+                    pass
+            if lock_ref is not None:
+                snap = txn.get(lock_ref)
+                if snap.exists:
+                    txn.delete(lock_ref)
+
+        try:
+            cls._run_in_transaction(_run)
+        except Exception as e:
+            # Fallback no transaccional (compatibilidad con entornos legacy).
+            print(f"⚠️ Error en finalización transaccional del cierre: {e}")
+            if shift_ref is not None:
+                shift_ref.update(update_data)
+            if regs_coll is not None:
+                try:
+                    regs_coll.document(register_id).update({"status": "CLOSED"})
+                except Exception:
+                    pass
+            if lock_ref is not None:
+                try:
+                    lock_ref.delete()
+                except Exception:
+                    pass
+
+    @classmethod
     def close_cash_shift(cls, owner_uid, shift_id, declared_amount, sandbox=True, status="CLOSED", supervisor_uid=None, supervisor_email=None, declared_data=None, company_id=None):
-        """Cierra el turno de caja especificado y calcula descuadres."""
+        """Cierra el turno de caja especificado y calcula descuadres (Decimal + lock)."""
         if not firebase_initialized:
             return None
         try:
             coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
-            coll_regs = "sandbox_cash_registers" if sandbox else "cash_registers"
             coll_txs = "sandbox_cash_transactions" if sandbox else "cash_transactions"
             coll_invoices = "sandbox_invoices" if sandbox else "invoices"
 
@@ -6105,39 +6671,66 @@ class DatabaseService:
                 return None
             shift_data = shift_doc.to_dict()
 
-            opening_amount = float(shift_data.get("openingAmount", 0.0))
+            # Guard de cierre duplicado: si ya está cerrado, no reescribir.
+            existing_status = shift_data.get("status")
+            if existing_status in ("CLOSED", "PENDING_AUDIT", "FORCED_CLOSED", "CLOSED_UNDER_REVIEW") and shift_data.get("closingTime"):
+                return shift_data
+
+            opening_amount = _money(shift_data.get("openingAmount", 0.0))
             register_id = shift_data.get("registerId")
 
-            # 2. Calcular esperado por método de pago
+            # 2. Bloquear ventas (lock ACTIVE→CLOSING) antes de leer movimientos.
+            cls._lock_shift_closing(owner_uid, register_id, shift_id, sandbox=sandbox, company_id=company_id)
+
+            # 3. Calcular esperado por método de pago con Decimal.
             tx_docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_txs)\
                 .where(filter=firestore.FieldFilter("shiftId", "==", shift_id)).get()
-            
+
             expected_cash = opening_amount
-            expected_card = 0.0
-            expected_transfer = 0.0
-            expected_usd = 0.0
+            expected_card = Decimal("0.00")
+            expected_transfer = Decimal("0.00")
+            expected_usd = Decimal("0.00")
 
             for doc in tx_docs:
                 t_data = doc.to_dict()
                 if t_data.get("status") == "VOIDED":
                     continue
-                t_amount = float(t_data.get("amount", 0.0))
-                t_type = t_data.get("type", "SALE")
+                t_amount = _money(t_data.get("amount", 0.0))
+                t_type = normalize_cash_type(t_data.get("type", "SALE"))
                 pm = t_data.get("paymentMethod", "Efectivo")
+                currency = (t_data.get("currency") or "DOP").upper()
 
-                if t_type == "SALE":
+                if t_type == CASH_TYPE_SALE:
                     if "Efectivo USD" in pm:
-                        expected_usd += float(t_data.get("usdAmount", 0.0))
+                        expected_usd += _money(t_data.get("usdAmount", 0.0))
                     elif "Efectivo" in pm:
                         expected_cash += t_amount
                     elif "Tarjeta" in pm:
                         expected_card += t_amount
                     else:
                         expected_transfer += t_amount
-                elif t_type == "IN":
-                    expected_cash += t_amount
-                elif t_type == "OUT":
-                    expected_cash -= t_amount
+                else:
+                    # Movimientos no-venta: el canal lo define paymentMethod + moneda.
+                    # Un reembolso (REFUND) por tarjeta/transferencia NO reduce el
+                    # efectivo esperado: se concilia en su canal correspondiente.
+                    if "Tarjeta" in pm:
+                        channel = "card"
+                    elif "Transferencia" in pm or "Cheque" in pm:
+                        channel = "transfer"
+                    elif "Efectivo USD" in pm or currency == "USD":
+                        channel = "usd"
+                    else:
+                        channel = "cash"
+
+                    sign = 1 if t_type in CASH_INFLOW_TYPES else (-1 if t_type in CASH_OUTFLOW_TYPES else 0)
+                    if channel == "usd":
+                        expected_usd += sign * t_amount
+                    elif channel == "card":
+                        expected_card += sign * t_amount
+                    elif channel == "transfer":
+                        expected_transfer += sign * t_amount
+                    else:
+                        expected_cash += sign * t_amount
 
             # Fallback si no viene declared_data
             if declared_data is None:
@@ -6151,39 +6744,49 @@ class DatabaseService:
                     "cardLoteNumber": ""
                 }
 
-            usd_rate = float(declared_data.get("usdExchangeRate") or 58.50)
+            usd_rate = _money(declared_data.get("usdExchangeRate") or 58.50)
+            declared_cash = _money(declared_data.get("declaredCash", 0.0))
+            declared_card = _money(declared_data.get("declaredCard", 0.0))
+            declared_transfer = _money(declared_data.get("declaredTransfer", 0.0))
+            declared_usd = _money(declared_data.get("declaredUSD", 0.0))
+
             closing_expected = expected_cash + expected_card + expected_transfer + (expected_usd * usd_rate)
-            difference = declared_amount - closing_expected
+            declared_total = _money(declared_amount)
+            difference = declared_total - closing_expected
 
             # Diferencias por canal
-            diff_cash = float(declared_data.get("declaredCash", 0.0)) - expected_cash
-            diff_card = float(declared_data.get("declaredCard", 0.0)) - expected_card
-            diff_transfer = float(declared_data.get("declaredTransfer", 0.0)) - expected_transfer
-            diff_usd = float(declared_data.get("declaredUSD", 0.0)) - expected_usd
+            diff_cash = declared_cash - expected_cash
+            diff_card = declared_card - expected_card
+            diff_transfer = declared_transfer - expected_transfer
+            diff_usd = declared_usd - expected_usd
 
-            # 3. Consultar facturas para generar resumen fiscal (e-CF)
+            # 4. Consultar facturas para generar resumen fiscal (e-CF).
             inv_docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_invoices)\
                 .where(filter=firestore.FieldFilter("posShiftId", "==", shift_id)).get()
-            
+
             fiscal_summary = {
                 "E31": {"count": 0, "total": 0.0, "itbis": 0.0},
                 "E32": {"count": 0, "total": 0.0, "itbis": 0.0},
                 "Otros": {"count": 0, "total": 0.0, "itbis": 0.0},
                 "Anulados": {"count": 0, "total": 0.0}
             }
-            
+
             for doc in inv_docs:
                 inv_data = doc.to_dict()
+                inv_status = inv_data.get("status", "")
+                # En modo consolidado las ventas individuales quedan "Consolidada"
+                # y ya están incluidas en el documento consolidado → no contarlas aquí.
+                if inv_status == "Consolidada":
+                    continue
                 ecf_type = inv_data.get("ecfType", "")
                 total = float(inv_data.get("total", 0.0))
                 itbis = float(inv_data.get("totalITBIS", 0.0))
-                status = inv_data.get("status", "")
-                
-                if status == "ANULADA" or status == "VOIDED":
+
+                if inv_status in ("ANULADA", "VOIDED"):
                     fiscal_summary["Anulados"]["count"] += 1
                     fiscal_summary["Anulados"]["total"] += total
                     continue
-                
+
                 if "E31" in ecf_type or "Crédito Fiscal" in ecf_type:
                     fiscal_summary["E31"]["count"] += 1
                     fiscal_summary["E31"]["total"] += total
@@ -6197,39 +6800,35 @@ class DatabaseService:
                     fiscal_summary["Otros"]["total"] += total
                     fiscal_summary["Otros"]["itbis"] += itbis
 
-            # 4. Guardar cierre
-            # Si hay descuadre de caja (diferencia), el estado del turno debe quedar como PENDING_AUDIT
-            # para obligar a registrar la resolución de auditoría, sin importar quién cierre el turno.
+            # 5. Guardar cierre. Si hay descuadre, PENDING_AUDIT obligatorio.
             final_status = status
-            if abs(difference) > 0.01:
+            if abs(difference) > Decimal("0.01"):
                 final_status = "PENDING_AUDIT"
 
             update_data = {
                 "status": final_status,
                 "closingTime": datetime.now(timezone.utc).isoformat(),
-                "closingAmountExpected": closing_expected,
-                "closingAmountDeclared": declared_amount,
-                "difference": difference,
-                
-                # Detalle de arqueo
-                "declaredCash": float(declared_data.get("declaredCash", 0.0)),
-                "declaredCard": float(declared_data.get("declaredCard", 0.0)),
-                "declaredTransfer": float(declared_data.get("declaredTransfer", 0.0)),
-                "declaredUSD": float(declared_data.get("declaredUSD", 0.0)),
-                "usdExchangeRate": usd_rate,
-                "expectedCash": expected_cash,
-                "expectedCard": expected_card,
-                "expectedTransfer": expected_transfer,
-                "expectedUSD": expected_usd,
-                "differenceCash": diff_cash,
-                "differenceCard": diff_card,
-                "differenceTransfer": diff_transfer,
-                "differenceUSD": diff_usd,
+                "closingAmountExpected": _money_round(closing_expected),
+                "closingAmountDeclared": _money_round(declared_total),
+                "difference": _money_round(difference),
+
+                "declaredCash": _money_round(declared_cash),
+                "declaredCard": _money_round(declared_card),
+                "declaredTransfer": _money_round(declared_transfer),
+                "declaredUSD": _money_round(declared_usd),
+                "usdExchangeRate": _money_round(usd_rate),
+                "expectedCash": _money_round(expected_cash),
+                "expectedCard": _money_round(expected_card),
+                "expectedTransfer": _money_round(expected_transfer),
+                "expectedUSD": _money_round(expected_usd),
+                "differenceCash": _money_round(diff_cash),
+                "differenceCard": _money_round(diff_card),
+                "differenceTransfer": _money_round(diff_transfer),
+                "differenceUSD": _money_round(diff_usd),
                 "cashDenominations": declared_data.get("cashDenominations", {}),
                 "usdDenominations": declared_data.get("usdDenominations", {}),
                 "cardLoteNumber": declared_data.get("cardLoteNumber", ""),
-                
-                # Resumen fiscal
+
                 "fiscalSummary": fiscal_summary
             }
 
@@ -6238,12 +6837,7 @@ class DatabaseService:
                 update_data["auditedByUserEmail"] = supervisor_email
                 update_data["auditedAt"] = datetime.now(timezone.utc).isoformat()
 
-            shift_ref.update(update_data)
-
-            # 5. Cambiar estado de la caja registradora física a CLOSED
-            _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_regs).document(register_id).update({
-                "status": "CLOSED"
-            })
+            cls._finalize_close(owner_uid, shift_id, register_id, update_data, sandbox=sandbox, company_id=company_id)
 
             # Retornar objeto completo actualizado
             result = shift_data.copy()
@@ -6287,11 +6881,16 @@ class DatabaseService:
 
     @classmethod
     def initiate_close_cash_shift(cls, owner_uid, shift_id, sandbox=True, company_id=None):
-        """Cambia el estado de un turno a CLOSING mientras se realiza el arqueo."""
+        """Cambia el estado de un turno a CLOSING (lock ACTIVE→CLOSING) mientras se arquea."""
         if not firebase_initialized: return False
         try:
             coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
             shift_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id)
+            doc = shift_ref.get()
+            if not doc.exists:
+                return False
+            register_id = doc.to_dict().get("registerId")
+            cls._lock_shift_closing(owner_uid, register_id, shift_id, sandbox=sandbox, company_id=company_id)
             shift_ref.update({"status": "CLOSING"})
             return True
         except Exception as e:
@@ -6353,6 +6952,12 @@ class DatabaseService:
             _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_regs).document(register_id).update({
                 "status": "CLOSED"
             })
+            try:
+                locks_coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=cls._cash_lock_coll_name(sandbox))
+                if locks_coll is not None:
+                    locks_coll.document(register_id).delete()
+            except Exception as lock_err:
+                print(f"⚠️ Error al liberar lock en cierre forzado: {lock_err}")
             return True
         except Exception as e:
             print(f"⚠️ Error al forzar cierre de turno: {e}")
@@ -6416,7 +7021,23 @@ class DatabaseService:
             _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_regs).document(register_id).update({
                 "status": "OPEN"
             })
-            
+            try:
+                locks_coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=cls._cash_lock_coll_name(sandbox))
+                if locks_coll is not None:
+                    now = datetime.now(timezone.utc)
+                    locks_coll.document(register_id).set({
+                        "registerId": register_id,
+                        "shiftId": shift_id,
+                        "openedByUserId": shift_data.get("openedByUserId", ""),
+                        "status": CASH_LOCK_ACTIVE,
+                        "leaseOwner": shift_id,
+                        "leaseExpiresAt": (now + timedelta(seconds=CASH_LOCK_LEASE_TTL)).isoformat(),
+                        "createdAt": now.isoformat(),
+                        "updatedAt": now.isoformat(),
+                    })
+            except Exception as lock_err:
+                print(f"⚠️ Error al recrear lock en reapertura: {lock_err}")
+
             return True
         except Exception as e:
             print(f"⚠️ Error al reabrir turno: {e}")
@@ -6522,24 +7143,144 @@ class DatabaseService:
         return txs
 
     @classmethod
-    def register_cash_transaction(cls, owner_uid, tx_dict, sandbox=True, company_id=None):
-        """Registra una transacción manual o de venta en la caja registradora."""
-        tx_id = tx_dict.get("id") or str(uuid.uuid4())
+    def _register_cash_movements_with_lock(cls, owner_uid, register_id, shift_id, txs, sandbox=True, company_id=None, auth_request_id=None, performer_uid=None):
+        """Escribe movimientos de caja en una transacción que valida el lock.
+
+        - El lock debe estar ACTIVE y apuntar al `shift_id`; si no, aborta sin
+          escribir nada (levantando CashShiftLockError).
+        - Si se provee `auth_request_id`, la autorización se valida y consume
+          DENTRO de esta misma transacción (autorización + movimiento atómicos).
+        - 'Toca' el lock (updatedAt) para forzar conflicto de escritura con un
+          cierre concurrente que escribe CLOSING sobre el mismo documento.
+        """
+        if not firebase_initialized:
+            return True
+        if not txs:
+            return True
+        locks_coll = _company_coll(
+            company_id=company_id, owner_uid=owner_uid,
+            coll_name=cls._cash_lock_coll_name(sandbox),
+        )
+        txs_coll = _company_coll(
+            company_id=company_id, owner_uid=owner_uid,
+            coll_name="sandbox_cash_transactions" if sandbox else "cash_transactions",
+        )
+        if locks_coll is None or txs_coll is None:
+            return False
+        lock_ref = locks_coll.document(register_id)
+        now = datetime.now(timezone.utc).isoformat()
+
+        def _run(txn):
+            snap = txn.get(lock_ref)
+            if not snap.exists:
+                # Una vez activado el mecanismo de locks, la ausencia del lock
+                # es un error (no una autorización implícita). Los turnos legacy
+                # deben migrarse con scripts/backfill_cash_register_locks.py.
+                raise CashShiftLockError(
+                    "La caja no tiene lock de ocupación. Ejecute el backfill de locks o reabra la caja."
+                )
+            lock = snap.to_dict()
+            if lock.get("status") != CASH_LOCK_ACTIVE or lock.get("shiftId") != shift_id:
+                raise CashShiftLockError("La caja no está activa para esta sesión.")
+
+            auth = None
+            if auth_request_id:
+                from app.services.cash_authorization_service import CashAuthorizationService
+                first = txs[0]
+                auth = CashAuthorizationService.consume(
+                    txn, owner_uid, company_id, sandbox, auth_request_id,
+                    first.get("type"), first.get("amount"), first.get("currency"),
+                    register_id, shift_id, performer_uid,
+                )
+
+            for tx in txs:
+                tx["ownerUID"] = owner_uid
+                if auth:
+                    tx["authorizedBy"] = auth.get("name", "")
+                    tx["authorizedByUid"] = auth.get("uid", "")
+                    tx["authorizedAt"] = auth.get("authorizedAt", "")
+                if "date" not in tx or not tx["date"]:
+                    tx["date"] = now
+                tx["date"] = serialize_field(tx["date"])
+                tx["amount"] = float(tx.get("amount", 0.0))
+                tx.setdefault("id", str(uuid.uuid4()))
+                txn.set(txs_coll.document(tx["id"]), tx)
+            # 'Toca' el lock para forzar conflicto de escritura con un cierre
+            # concurrente que escribe CLOSING sobre el mismo documento.
+            txn.update(lock_ref, {"updatedAt": now})
+            return True
+
+        try:
+            return bool(cls._run_in_transaction(_run))
+        except (CashShiftLockError, CashAuthorizationError):
+            raise
+        except Exception as e:
+            print(f"⚠️ Error al registrar movimientos de caja con lock: {e}")
+            return False
+
+    @classmethod
+    def register_cash_transaction(cls, owner_uid, tx_dict, sandbox=True, company_id=None, idempotency_key=None, register_id=None, shift_id=None, auth_request_id=None, performer_uid=None):
+        """Registra una transacción manual o de venta en la caja registradora.
+
+        Si se provee `idempotency_key` sin `id`, el ID del documento se deriva de
+        la clave (determinista), de modo que un reintento sobrescribe el mismo
+        documento y no duplica el movimiento.
+
+        Si se proveen `register_id` y `shift_id`, la escritura se protege con el
+        lock de ocupación (levanta CashShiftLockError si la caja no está ACTIVE).
+
+        Si se provee `auth_request_id`, la autorización se valida y consume de
+        forma atómica con la escritura del movimiento.
+
+        Normaliza la taxonomía (`IN`→`CASH_IN`, `OUT`→`CASH_OUT`) y conserva los
+        campos de trazabilidad (`performedBy`, `authorizedBy`, `reason`, ...).
+        """
+        tx_id = tx_dict.get("id")
+        if not tx_id and idempotency_key:
+            tx_id = "tx-" + hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()[:24]
+        if not tx_id:
+            tx_id = str(uuid.uuid4())
         tx_dict["id"] = tx_id
         tx_dict["ownerUID"] = owner_uid
+        tx_dict["type"] = normalize_cash_type(tx_dict.get("type", CASH_TYPE_CASH_IN))
+        if idempotency_key:
+            tx_dict["idempotencyKey"] = idempotency_key
         if "date" not in tx_dict or not tx_dict["date"]:
             tx_dict["date"] = datetime.now(timezone.utc).isoformat()
         tx_dict["date"] = serialize_field(tx_dict["date"])
         tx_dict["amount"] = float(tx_dict["amount"])
+        tx_dict.setdefault("currency", tx_dict.get("currency") or "DOP")
+        tx_dict.setdefault("status", "ACTIVE")
 
         if firebase_initialized:
+            if register_id and shift_id:
+                ok = cls._register_cash_movements_with_lock(
+                    owner_uid, register_id, shift_id, [tx_dict],
+                    sandbox=sandbox, company_id=company_id,
+                    auth_request_id=auth_request_id, performer_uid=performer_uid,
+                )
+                return tx_dict if ok else None
             try:
                 coll_name = "sandbox_cash_transactions" if sandbox else "cash_transactions"
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(tx_id).set(tx_dict)
+                coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
+                if coll is None:
+                    return None
+                coll.document(tx_id).set(tx_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al registrar transacción de caja: {e}")
                 return None
         return tx_dict
+
+    @classmethod
+    def register_sale_cash_transactions(cls, owner_uid, register_id, shift_id, txs, sandbox=True, company_id=None):
+        """Registra atómicamente los movimientos de caja de una venta.
+
+        Ver `_register_cash_movements_with_lock`: ninguna venta puede confirmar
+        movimientos después de que la sesión pase a CLOSING.
+        """
+        return cls._register_cash_movements_with_lock(
+            owner_uid, register_id, shift_id, txs, sandbox=sandbox, company_id=company_id,
+        )
 
     @classmethod
     def get_pending_consolidation_invoices(cls, owner_uid, shift_id, sandbox=True, company_id=None):
