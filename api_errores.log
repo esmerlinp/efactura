@@ -1737,3 +1737,2313 @@ Payload: {"employeeId": "emp_1"}
 Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
 
 ------------------------------------------------------------
+[2026-11-06 08:36:09] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:12] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:12] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:12] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:12] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:15] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:16] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:16] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:16] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:16] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:16] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:16] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:30] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:30] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 08:36:31] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:30] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:32] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:32] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:32] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:32] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:36] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:36] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:36] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:36] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:36] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:36] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:36] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:51] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:51] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:09:52] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:06] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:08] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:08] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:08] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:08] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:11] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:12] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:12] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:12] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:12] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:12] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:12] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:27] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:27] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:16:28] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:17] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:19] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:19] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:19] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:19] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:22] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:23] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:23] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:23] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:23] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:23] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:23] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:39] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:39] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:25:40] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:28] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:30] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:30] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:30] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:30] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:33] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:33] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:34] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:34] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:34] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:34] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:34] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:49] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:49] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:42:50] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:56:41] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:56:43] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:56:43] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:56:43] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:56:43] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:56:46] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:56:46] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:56:47] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:56:47] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:56:47] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:56:47] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:56:47] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:57:02] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:57:02] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 09:57:02] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:23] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:24] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:24] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:24] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:24] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:28] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:28] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:28] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:29] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:29] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:29] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:29] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:43] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:43] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:09:44] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:06] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:08] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:08] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:08] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:08] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:11] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:12] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:12] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:12] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:12] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:12] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:12] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:27] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:27] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:17:28] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:02] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:04] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:04] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:04] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:04] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:07] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:07] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:07] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:08] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:08] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:08] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:08] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:22] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:22] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:24:23] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:08] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:10] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:10] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:10] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:10] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:13] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:14] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:14] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:14] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:14] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:14] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:14] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:29] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:29] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:32:30] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:03] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:04] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:04] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:04] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:04] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:08] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:08] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:08] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:08] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:09] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:09] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:09] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:23] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:23] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:33:24] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:34:55] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:34:56] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:34:56] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:34:56] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:34:56] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:35:00] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:35:00] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:35:00] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:35:00] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:35:01] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:35:01] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:35:01] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:35:15] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:35:15] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:35:16] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:40:42] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:40:43] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:40:43] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:40:43] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:40:43] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:40:47] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:40:47] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:40:47] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:40:47] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:40:47] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:40:47] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:40:48] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:41:02] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:41:02] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:41:03] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:52:53] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:52:55] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:52:55] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:52:55] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:52:55] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:52:58] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:52:59] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:52:59] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:52:59] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:52:59] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:52:59] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:52:59] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:53:14] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:53:14] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 10:53:15] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:33] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:34] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:34] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:34] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:34] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:38] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:38] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:38] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:38] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:39] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:39] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:39] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:53] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:53] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:02:54] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:39:44] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:39:46] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:39:46] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:39:46] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:39:46] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:39:50] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:39:50] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:39:50] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:39:50] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:39:50] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:39:50] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:39:50] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:40:05] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:40:05] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 11:40:06] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:14] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:23] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:23] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:23] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:23] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:27] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:27] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:27] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:27] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:27] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:27] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:27] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:42] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:42] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:32:42] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:11] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:13] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:13] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:13] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:13] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:16] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:17] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:17] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:17] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:17] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:17] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:17] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:31] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:31] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:40:32] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:32] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:34] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:34] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:34] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:34] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:37] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:38] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:38] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:38] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:38] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:38] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:38] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:53] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:53] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 13:52:54] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:04] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:05] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:05] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:05] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:05] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:09] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:09] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:09] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:09] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:09] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:10] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:10] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:24] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:24] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:02:25] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:38] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:39] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:39] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:39] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:39] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:43] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:43] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:43] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:43] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:44] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:44] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:44] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:58] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:58] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 14:07:59] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:24:42] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 400
+Payload: 
+Response: {"error":"El par\u00e1metro 'itemId' es obligatorio.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:24:43] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:24:43] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:24:43] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:24:43] ERROR API:
+Ruta: POST /api/v1/prospects
+HTTP Code: 403
+Payload: {"razonSocial": "Test", "rnc": "123"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:24:47] ERROR API:
+Ruta: POST /api/v1/invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Facturaci\u00f3n Electr\u00f3nica (e-CF)' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:24:47] ERROR API:
+Ruta: GET /api/v1/crm/opportunities
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CRM & Agenda' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:24:47] ERROR API:
+Ruta: GET /api/v1/inventory/kardex
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Inventario & Almacenes' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:24:47] ERROR API:
+Ruta: POST /api/v1/supplier-invoices
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'CxP, Proveedores & Compras' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:24:48] ERROR API:
+Ruta: GET /api/v1/expenses/payments
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Control de Gastos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:24:48] ERROR API:
+Ruta: GET /api/v1/accounting/accounts
+HTTP Code: 403
+Payload: 
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'Contabilidad & Cat\u00e1logo de Cuentas' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:24:48] ERROR API:
+Ruta: POST /api/v1/labor/settlement
+HTTP Code: 403
+Payload: {"employeeId": "emp_1"}
+Response: {"error":{"code":"MODULE_DISABLED","message":"El m\u00f3dulo 'N\u00f3mina y Recursos Humanos' no est\u00e1 contratado en el plan de tu empresa."},"success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:25:02] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:25:02] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-06 15:25:03] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------

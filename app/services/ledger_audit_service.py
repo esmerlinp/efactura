@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from uuid import uuid4
-from flask import current_app as app
+import logging
+
+logger = logging.getLogger(__name__)
 class LedgerAuditService:
     @staticmethod
     def _get_db():
@@ -35,7 +37,7 @@ class LedgerAuditService:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
         except Exception as e:
-            app.logger.warning(f"LedgerAuditService.log_entry_creation error: {e}")
+            logger.warning("LedgerAuditService.log_entry_creation error: %s", e)
 
     @staticmethod
     def log_entry_update(old_entry: dict, new_entry: dict, owner_uid: str, performed_by: str = "", company_id=None):
@@ -62,7 +64,7 @@ class LedgerAuditService:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
         except Exception as e:
-            app.logger.warning(f"LedgerAuditService.log_entry_update error: {e}")
+            logger.warning("LedgerAuditService.log_entry_update error: %s", e)
 
     @staticmethod
     def log_entry_void(entry: dict, owner_uid: str, performed_by: str = "", reason: str = "", company_id=None):
@@ -84,7 +86,7 @@ class LedgerAuditService:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
         except Exception as e:
-            app.logger.warning(f"LedgerAuditService.log_entry_void error: {e}")
+            logger.warning("LedgerAuditService.log_entry_void error: %s", e)
 
     @staticmethod
     def get_entry_audit_log(owner_uid: str, entry_id: str, company_id=None) -> list:
@@ -95,7 +97,7 @@ class LedgerAuditService:
                 .stream()
             return [doc.to_dict() for doc in docs]
         except Exception as e:
-            app.logger.warning(f"LedgerAuditService.get_entry_audit_log error: {e}")
+            logger.warning("LedgerAuditService.get_entry_audit_log error: %s", e)
             return []
 
     @staticmethod

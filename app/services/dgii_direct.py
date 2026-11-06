@@ -14,6 +14,33 @@ from config import Config
 
 
 class DgiiDirectService:
+    @staticmethod
+    def _rfce_error_message(response_data, response_text, codigo=None, estado=None, status_code=None):
+        """Construye un error RFCE útil sin perder el detalle devuelto por DGII."""
+        if isinstance(response_data, dict):
+            for key in ("error", "mensaje", "message", "descripcion", "detail"):
+                value = response_data.get(key)
+                if value:
+                    return str(value)
+            mensajes = response_data.get("mensajes")
+            if isinstance(mensajes, list):
+                values = []
+                for item in mensajes:
+                    if isinstance(item, dict):
+                        value = item.get("valor") or item.get("mensaje") or item.get("descripcion")
+                    else:
+                        value = item
+                    if value:
+                        values.append(str(value))
+                if values:
+                    return "; ".join(values)
+        detail = str(response_text or "").strip()
+        if detail:
+            return f"Error en recepción RFCE (HTTP {status_code}): {detail[:500]}" if status_code else detail[:500]
+        if codigo is not None or estado:
+            return f"RFCE rechazado (codigo={codigo}, estado={estado})"
+        return "Error en recepción RFCE."
+
 
     @classmethod
     def _use_local_simulation(cls, sandbox):
@@ -648,7 +675,13 @@ class DgiiDirectService:
 
             company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
             client_rnc = str(invoice_data.get("clientRNC", "000000000")).replace("-", "").strip() or "000000000"
-            encf = invoice_data.get("encf", "E320000000001")
+            encf = invoice_data.get("encf")
+            if not encf:
+                return {
+                    "success": False,
+                    "error": "No se puede emitir RFCE sin un e-NCF reservado.",
+                    "message": "No se puede emitir RFCE sin un e-NCF reservado.",
+                }
             filename = f"{company_rnc}{encf}.xml"
 
             # Paso 3: Enviar RFCE firmado al endpoint de resúmenes
@@ -683,12 +716,23 @@ class DgiiDirectService:
                         (codigo is not None and codigo != 1) or
                         (estado and str(estado).lower() == "rechazado")
                     ):
+                        duplicate = cls._is_rfce_duplicate(response_data, response_text)
+                        if duplicate:
+                            recovered = cls._recover_rfce_duplicate(
+                                company_profile, invoice_data, codigo_seguridad,
+                                sandbox=sandbox,
+                            )
+                            if recovered:
+                                return recovered
                         print(response_text, flush=True)
                         return {
                             "success": False,
                             "encf": encf,
-                            "error": f"RFCE rechazado (codigo={codigo}, estado={estado})",
-                            "message": f"RFCE rechazado",
+                            "error": cls._rfce_error_message(response_data, response_text, codigo, estado),
+                            "message": cls._rfce_error_message(response_data, response_text, codigo, estado),
+                            "dgiiStatus": "REJECTED",
+                            "codigoRFCE": codigo,
+                            "estadoRFCE": estado,
                             "responseBody": response_data,
                             "statusCode": status_code,
                         }
@@ -713,8 +757,11 @@ class DgiiDirectService:
 
                 return {
                     "success": False,
-                    "error": f"DGII RFCE error HTTP {status_code}",
-                    "message": "Error en recepcion RFCE.",
+                    "error": cls._rfce_error_message(response_data, response_text, codigo, estado, status_code),
+                    "message": cls._rfce_error_message(response_data, response_text, codigo, estado, status_code),
+                    "dgiiStatus": "REJECTED" if status_code >= 400 else "PENDING",
+                    "codigoRFCE": codigo,
+                    "estadoRFCE": estado,
                     "responseBody": response_data or response_text,
                     "statusCode": status_code
                 }
@@ -727,6 +774,50 @@ class DgiiDirectService:
                 "success": False,
                 "error": f"Fallo en RFCE: {str(e)}"
             }
+
+    @staticmethod
+    def _is_rfce_duplicate(response_data, response_text):
+        text = str(response_text or "").lower()
+        if any(token in text for token in ("ya han sido utilizados", "ya fue utilizado", "duplic")):
+            return True
+        if isinstance(response_data, dict):
+            values = [response_data.get(k) for k in ("error", "mensaje", "message", "descripcion")]
+            return any("duplic" in str(value).lower() or "utilizado" in str(value).lower() for value in values if value)
+        return False
+
+    @classmethod
+    def _recover_rfce_duplicate(cls, company_profile, invoice_data, codigo_seguridad, sandbox=True):
+        """Recupera un RFCE ya aceptado sin reenviar el mismo resumen."""
+        company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
+        encf = str(invoice_data.get("encf", "")).strip()
+        if not company_rnc or not encf:
+            return None
+        result = cls.consultar_estado_ecf(
+            company_profile, company_rnc, encf,
+            rnc_comprador=str(invoice_data.get("clientRNC", "") or ""),
+            codigo_seguridad=codigo_seguridad,
+            sandbox=sandbox,
+        )
+        if not result.get("success"):
+            return None
+        body = result.get("responseBody") or {}
+        status = cls._extract_status(body, str(body))
+        if status in ("REJECTED", "RECHAZADO"):
+            return None
+        track_id = cls._extract_track_id(body, str(body)) or f"RFCE-RECOVERED-{encf}"
+        return {
+            "success": True,
+            "encf": encf,
+            "trackId": track_id,
+            "xmlSignature": codigo_seguridad,
+            "codigoSeguridad": codigo_seguridad,
+            "mode": "RFCE_API",
+            "status": status or "ACCEPTED",
+            "dgiiStatus": status or "ACCEPTED",
+            "recoveredDuplicate": True,
+            "responseBody": body,
+            "statusCode": result.get("statusCode"),
+        }
 
     # ═══════════════════════════════════════════════════════════════
     # Consulta de resultado (TrackId)

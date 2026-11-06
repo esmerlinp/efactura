@@ -924,6 +924,8 @@
 .pos-checkout-btn:hover:not(:disabled) { filter: brightness(.97); box-shadow: 0 12px 26px rgba(249, 115, 22, .32); }
 .pos-checkout-btn:active:not(:disabled) { transform: translateY(1px); }
 .pos-checkout-btn:disabled { background: #f3f4f6; color: var(--pos-muted-2); box-shadow: none; cursor: not-allowed; }
+.pos-checkout-btn.is-loading { cursor: wait; opacity: .82; }
+.pos-checkout-btn.is-loading i { animation: posSpin .7s linear infinite; }
 .pos-checkout-label { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; }
 .pos-checkout-total { margin-left: auto; font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .pos-checkout-btn kbd { border-color: rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .16); color: #fff; }
@@ -984,6 +986,20 @@
     font-family: var(--pos-font);
 }
 #checkout-modal .pos-modal-card { letter-spacing: 0; }
+#checkout-modal.is-processing .pos-modal-card { pointer-events: none; }
+#checkout-modal.is-processing .pos-checkout-foot { position: relative; }
+#checkout-modal.is-processing .pos-checkout-foot::after {
+    content: "Procesando venta…";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(245, 246, 244, .92);
+    color: var(--pos-orange-strong);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: .01em;
+}
 #checkout-modal .pos-modal-body,
 #checkout-modal .pos-checkout-foot { color: #3f474f; }
 #checkout-modal .pos-checkout-main { background: #fafaf9; }
@@ -1244,6 +1260,15 @@
 .pos-condition-state > small { color: var(--pos-muted); font-size: 10.5px; }
 .pos-condition-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .pos-condition-actions .pos-btn { min-height: 34px; padding: 0 10px; font-size: 11.5px; }
+.pos-condition-actions .pos-btn.is-selected,
+.pos-pay-quick .pos-btn.is-selected {
+    border-color: var(--pos-orange-strong);
+    background: var(--pos-orange);
+    color: #fff;
+    box-shadow: 0 3px 8px rgba(249, 115, 22, .22);
+}
+.pos-condition-actions .pos-btn.is-selected:hover,
+.pos-pay-quick .pos-btn.is-selected:hover { background: var(--pos-orange-strong); }
 .pos-condition-actions #btn-add-credit { border-color: var(--pos-orange-border); color: var(--pos-orange-strong); background: var(--pos-orange-soft); }
 .pos-condition-actions #btn-add-credit:hover { border-color: var(--pos-orange); background: #ffedd5; }
 .pos-condition-actions #btn-add-credit:disabled { opacity: .45; cursor: not-allowed; }
@@ -1360,7 +1385,13 @@
     box-shadow: 0 0 0 3px rgba(148, 163, 154, .16);
     outline: 0;
 }
-.pos-payment-row .pos-cash-hint span { color: var(--pos-muted); font-size: 10.5px; }
+.pos-payment-row .pos-cash-hint span {
+    color: #166534;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+}
 
 .pos-notes-field { margin-top: 12px; margin-bottom: 0; }
 
@@ -1537,6 +1568,7 @@
 .pos-toast span { flex: 1; }
 
 @keyframes posFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes posSpin { to { transform: rotate(360deg); } }
 @keyframes posPop { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
 @keyframes posToast { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
@@ -1668,14 +1700,37 @@
     .pos-client-dgii-result { grid-template-columns: 1fr 1fr; }
     .pos-client-dgii-copy { grid-column: 1 / -1; }
     .pos-client-dgii-result .pos-btn { width: 100%; }
-    #checkout-modal { align-items: flex-end; padding: 0; }
-    #checkout-modal .pos-modal-card { max-height: 94vh; border-radius: 16px 16px 0 0; }
+    #checkout-modal { align-items: stretch; padding: 0; }
+    #checkout-modal .pos-modal-card {
+        width: 100%;
+        max-width: none;
+        height: 100dvh;
+        max-height: 100dvh;
+        border-radius: 0;
+    }
+    #checkout-modal .pos-modal-head { padding: 12px 14px; }
+    #checkout-modal .pos-modal-head h2 { font-size: 20px; }
+    #checkout-modal .pos-checkout-body {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
     #checkout-modal .pos-checkout-foot { position: sticky; bottom: 0; flex-direction: column; align-items: stretch; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
     #checkout-modal .pos-checkout-secondary { justify-content: space-between; }
     #checkout-modal .pos-checkout-foot-actions { width: 100%; }
     #checkout-modal .pos-checkout-foot-actions .pos-btn { flex: 1; min-height: 46px; }
-    #checkout-modal .pos-checkout-main { padding: 16px; }
-    #checkout-modal .pos-checkout-side { padding: 16px; }
+    #checkout-modal .pos-checkout-main { padding: 14px; }
+    #checkout-modal .pos-checkout-side { padding: 14px; }
+}
+
+@media (max-width: 560px) and (max-height: 700px) {
+    #checkout-modal .pos-checkout-side {
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+    #checkout-modal .pos-checkout-lines { max-height: 120px; }
+    #checkout-modal .pos-checkout-breakdown { padding-top: 8px; }
+    #checkout-modal .pos-checkout-breakdown .pos-total-grand { padding-top: 8px; }
 }
 
 .pos-input-action { display: flex; gap: 6px; }
