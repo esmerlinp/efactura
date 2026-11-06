@@ -401,33 +401,62 @@
     <div style="background:#fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
         <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0 0 14px 0; display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-money-bill-transfer" style="color: var(--accent-purple);"></i>
-            Registrar Entrada / Salida Manual
+            Registrar Movimiento de Caja
         </h4>
-        <form action="{{ url_for('web_pos.add_manual_transaction') }}" method="POST"
+        <form id="cash-move-form"
             style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group" style="margin: 0;">
-                <label for="tx_type">Tipo</label>
+                <label for="tx_type">Tipo de movimiento</label>
                 <select id="tx_type" name="type" class="form-select" required>
-                    <option value="IN">Entrada (Ingreso)</option>
-                    <option value="OUT">Salida (Retiro)</option>
+                    <option value="CASH_IN">Entrada de efectivo</option>
+                    <option value="CASH_OUT">Salida de efectivo (retiro)</option>
+                    <option value="CASH_DROP">Retiro parcial (cash drop)</option>
+                    <option value="EXPENSE">Gasto menor</option>
+                    <option value="FUND_IN">Fondo adicional</option>
+                    <option value="FUND_OUT">Devolución de fondo</option>
                 </select>
             </div>
             <div class="form-group" style="margin: 0;">
-                <label for="tx_amount">Monto (RD$)</label>
+                <label for="tx_currency">Moneda</label>
+                <select id="tx_currency" name="currency" class="form-select">
+                    <option value="DOP">RD$ (DOP)</option>
+                    <option value="USD">US$ (USD)</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin: 0;">
+                <label for="tx_amount">Monto</label>
                 <input type="number" id="tx_amount" name="amount" class="form-input"
-                    placeholder="0.00" step="0.01" min="0.01" required>
+                    placeholder="0.00" step="0.01" min="0.01" required style="width: 160px;">
             </div>
             <div class="form-group" style="margin: 0; grid-column: 1 / -1;">
-                <label for="tx_notes">Motivo / Concepto</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="tx_notes" name="notes" class="form-input" style="flex: 1;"
-                        placeholder="Ej: Retiro para sencillo / Compra de insumos" required>
-                    <button type="submit" class="btn btn-secondary"
-                        style="height: 40px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;">
-                        <i class="fa-solid fa-save"></i> Registrar
-                    </button>
+                <label for="tx_reason">Motivo / Concepto</label>
+                <input type="text" id="tx_reason" name="reason" class="form-input" style="width: 100%;"
+                    placeholder="Ej: Compra de insumos / Fondo para sencillo" required>
+            </div>
+            <div id="supervisor-fields" class="hidden" style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                <div class="form-group" style="margin: 0;">
+                    <label for="tx_supervisor">Autoriza (Supervisor)</label>
+                    <select id="tx_supervisor" name="supervisorUid" class="form-select">
+                        <option value="">Seleccione supervisor</option>
+                        {% for s in supervisors %}
+                        <option value="{{ s.uid }}">{{ s.name or s.email }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
+                <div class="form-group" style="margin: 0;">
+                    <label for="tx_pin">PIN de supervisor</label>
+                    <input type="password" id="tx_pin" name="supervisorPin" class="form-input" autocomplete="off" style="width: 100%;">
+                </div>
+                <p style="margin: 0; font-size: 0.8rem; color: #64748b; grid-column: 1 / -1;">
+                    Este tipo de movimiento requiere autorización de un supervisor.
+                </p>
+            </div>
+            <div class="form-group" style="margin: 0; grid-column: 1 / -1; display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="submit" id="btn-cash-move" class="btn btn-secondary"
+                    style="height: 40px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-save"></i> Registrar
+                </button>
             </div>
         </form>
     </div>
@@ -700,10 +729,72 @@
         }
     });
 
+    /* ── Movimiento de caja manual (Fase 2) ── */
+    const SUPERVISOR_TYPES = new Set(["CASH_OUT", "CASH_DROP", "FUND_IN", "FUND_OUT"]);
+    function generateAuthRequestId() {
+        return 'auth-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    }
+    function toggleSupervisorFields() {
+        const sel = document.getElementById('tx_type');
+        const fields = document.getElementById('supervisor-fields');
+        if (!sel || !fields) return;
+        if (SUPERVISOR_TYPES.has(sel.value)) {
+            fields.style.display = 'grid';
+        } else {
+            fields.style.display = 'none';
+        }
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const typeSel = document.getElementById('tx_type');
+        const form = document.getElementById('cash-move-form');
+        if (typeSel) {
+            typeSel.addEventListener('change', toggleSupervisorFields);
+            toggleSupervisorFields();
+        }
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const payload = {
+                    type: document.getElementById('tx_type').value,
+                    currency: document.getElementById('tx_currency').value,
+                    amount: document.getElementById('tx_amount').value,
+                    reason: document.getElementById('tx_reason').value,
+                    idempotencyKey: 'manual-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+                    authRequestId: generateAuthRequestId(),
+                };
+                const supervisorSel = document.getElementById('tx_supervisor');
+                if (SUPERVISOR_TYPES.has(payload.type)) {
+                    payload.supervisorUid = supervisorSel ? supervisorSel.value : '';
+                    payload.supervisorPin = document.getElementById('tx_pin') ? document.getElementById('tx_pin').value : '';
+                }
+                const btn = document.getElementById('btn-cash-move');
+                if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...'; }
+                try {
+                    const csrf = form.querySelector('input[name="csrf_token"]').value;
+                    const resp = await fetch("{{ url_for('web_pos.add_manual_transaction') }}", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                        body: JSON.stringify(payload),
+                    });
+                    const data = await resp.json();
+                    if (resp.ok && data.success) {
+                        window.location.reload();
+                    } else {
+                        alert(data.error || "Ocurrió un error al registrar el movimiento.");
+                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-save"></i> Registrar'; }
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert("Error de red al registrar el movimiento.");
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-save"></i> Registrar'; }
+                }
+            });
+        }
+    });
+
     /* ── USD Rate ── */
     let cashTotal = 0;
-    let usdCashTotal = 0;
-    let usdExchangeRate = 58.50;
+    let usdCashTotal = 0;    let usdExchangeRate = 58.50;
 
     function fetchUSDRate() {
         fetch('/pos/usd-rate')
