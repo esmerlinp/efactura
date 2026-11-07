@@ -168,6 +168,9 @@ class DgiiXmlBuilder:
 
     @classmethod
     def _detect_tipo_ecf(cls, raw_type):
+        raw_type = str(raw_type or "").strip().upper()
+        if raw_type.startswith("E") and raw_type[1:].isdigit():
+            return raw_type[1:]
         tipo_ecf = "32"
         for key, pattern in [
             ("31", ["31", "crédito fiscal", "credito fiscal"]),

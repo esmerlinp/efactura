@@ -245,22 +245,12 @@ class RecurrenceService:
                 # Guardar la nueva factura
                 DatabaseService.save_invoice(owner_uid, new_id, new_invoice, sandbox=sandbox, company_id=company_id)
 
-                # Auto-notificar e-CF al cliente si fue aceptada por DGII y posee correo
-                try:
-                    from app.web.invoices import auto_notify_invoice_if_accepted
-                    new_invoice["id"] = new_id
-                    auto_notify_invoice_if_accepted(owner_uid, new_invoice, company_id=company_id, sandbox=sandbox)
-                except Exception as auto_email_err:
-                    import logging
-                    logging.getLogger(__name__).warning(f"Error auto enviando email recurrente {new_id}: {auto_email_err}")
-
-                # Generar asiento contable automático para factura recurrente
-                try:
-                    from app.services.accounting_service import AccountingService
-                    AccountingService.auto_generate_invoice_entry(company_id, new_invoice, sandbox=sandbox)
-                except Exception as exc:
-                    import logging
-                    logging.getLogger(__name__).warning(f"Asiento contable recurrente no generado: {exc}")
+                if new_invoice.get("dgiiStatus") == "ACCEPTED":
+                    from app.services.ecf_post_acceptance_service import EcfPostAcceptanceService
+                    EcfPostAcceptanceService.process_accepted_invoice(
+                        owner_uid, new_id, new_invoice,
+                        company_id=company_id, sandbox=sandbox,
+                    )
 
                 # Event Bus: notificar emisión de factura recurrente
                 try:

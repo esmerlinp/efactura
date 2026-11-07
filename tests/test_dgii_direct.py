@@ -123,6 +123,58 @@ class TestDgiiDirectCheckStatus:
         assert result["success"] is True
         assert result["dgiiStatus"] is not None
 
+    def test_poll_status_pending_then_accepted(self, company_profile):
+        from app.services.dgii_direct import DgiiDirectService
+
+        responses = iter([
+            {"success": True, "dgiiStatus": "PENDING"},
+            {"success": True, "dgiiStatus": "ACCEPTED"},
+        ])
+        with patch.object(DgiiDirectService, "check_status", side_effect=lambda *args, **kwargs: next(responses)):
+            result = DgiiDirectService.poll_status_until_terminal(
+                company_profile, "track", min_interval=1, max_attempts=3,
+                max_seconds=10, sleep_fn=lambda _: None,
+            )
+        assert result["dgiiStatus"] == "ACCEPTED"
+        assert result["pollAttempts"] == 2
+
+    def test_poll_status_pending_then_rejected(self, company_profile):
+        from app.services.dgii_direct import DgiiDirectService
+
+        responses = iter([
+            {"success": True, "dgiiStatus": "PENDING"},
+            {"success": True, "dgiiStatus": "REJECTED"},
+        ])
+        with patch.object(DgiiDirectService, "check_status", side_effect=lambda *args, **kwargs: next(responses)):
+            result = DgiiDirectService.poll_status_until_terminal(
+                company_profile, "track", min_interval=1, max_attempts=3,
+                max_seconds=10, sleep_fn=lambda _: None,
+            )
+        assert result["dgiiStatus"] == "REJECTED"
+
+    def test_poll_status_stops_on_query_error(self, company_profile):
+        from app.services.dgii_direct import DgiiDirectService
+
+        with patch.object(DgiiDirectService, "check_status", return_value={"success": False, "statusCode": 503}):
+            result = DgiiDirectService.poll_status_until_terminal(
+                company_profile, "track", min_interval=1, max_attempts=3,
+                max_seconds=10, sleep_fn=lambda _: None,
+            )
+        assert result["pollError"] is True
+        assert result["pollAttempts"] == 1
+
+    def test_poll_status_times_out(self, company_profile):
+        from app.services.dgii_direct import DgiiDirectService
+
+        clock = iter([0.0, 0.0, 2.0])
+        with patch.object(DgiiDirectService, "check_status", return_value={"success": True, "dgiiStatus": "PENDING"}):
+            result = DgiiDirectService.poll_status_until_terminal(
+                company_profile, "track", min_interval=1, max_attempts=5,
+                max_seconds=1, sleep_fn=lambda _: None,
+                monotonic_fn=lambda: next(clock),
+            )
+        assert result["dgiiStatus"] == "TIMEOUT"
+
 
 class TestDgiiGetEcfTypeShortCode:
     """Verify the replacement utility works identically to the old AlanubeService method."""

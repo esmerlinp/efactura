@@ -4638,13 +4638,32 @@ def sign_invoice_route(invoice_id):
             invoice["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
             invoice["emisionMode"] = res.get("mode", "API")
             invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
+            invoice["inventoryStatus"] = "RESERVED" if pending_dgii else "COMMITTED"
+            invoice["accountingStatus"] = "PENDING" if pending_dgii else "POSTED"
             invoice["trackId"] = res.get("trackId") or res.get("track_id") or res.get("TrackId") or invoice.get("trackId", "")
             invoice["codigoSeguridad"] = res.get("codigoSeguridad") or invoice.get("codigoSeguridad", "")
             invoice["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice["date"] = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")
-            
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
-            
+
+            if pending_dgii and res.get("mode") == "API" and invoice.get("trackId"):
+                try:
+                    from app.services.contingency_sync_service import ContingencySyncService
+                    ContingencySyncService.schedule_immediate_api_check(
+                        owner_uid=owner_uid,
+                        invoice_id=invoice_id,
+                        company=company,
+                        sandbox=sandbox,
+                        company_id=company_id,
+                    )
+                except Exception as immediate_check_err:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "No se pudo programar consulta DGII inmediata %s: %s",
+                        invoice_id,
+                        immediate_check_err,
+                    )
+
             _log_dgii_emission_to_audit(owner_uid, invoice, res, session['user']['email'],
                                          performed_by_name=session['user'].get('name', 'Sistema'),
                                          company_id=company_id, sandbox=sandbox)
@@ -4675,12 +4694,13 @@ def sign_invoice_route(invoice_id):
                 msg = f"⚠️ ¡Comprobante firmado en modalidad de contingencia (sin conexión a DGII)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
             flash(msg, "success")
 
-            # Notificación automática por correo si fue aceptado por DGII
+            # Efectos posteriores y notificación solo después de aceptación explícita
             if not pending_dgii:
-                auto_ok, auto_msg = auto_notify_invoice_if_accepted(
-                    owner_uid, invoice, company_id=company_id, sandbox=sandbox
+                from app.services.ecf_post_acceptance_service import EcfPostAcceptanceService
+                post_result = EcfPostAcceptanceService.process_accepted_invoice(
+                    owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox
                 )
-                if auto_ok:
+                if post_result.get("effects", {}).get("email"):
                     flash("📧 Factura enviada automáticamente al cliente por correo.", "info")
         else:
             error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
