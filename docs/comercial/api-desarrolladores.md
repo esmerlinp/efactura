@@ -1,5 +1,9 @@
 # API de Integración para Desarrolladores — VykOne ERP
 
+> La referencia operativa visible para integradores es `/desarrolladores/docs`.
+> Los ejemplos de este documento deben interpretarse junto con el ambiente de la
+> empresa y la configuración vigente de producción.
+
 > Documento técnico · `COM-API-001` · v1.0 · 6 de octubre de 2026
 >
 > VykCore Automation S.R.L. · support@vykcore.com · 809-866-8227
@@ -16,7 +20,9 @@ Para consumir la API necesitas:
 
 - **Una cuenta VykOne activa** con una empresa configurada.
 - **Tu API Key**, generada desde el panel de **Configuración de Empresa**.
-- Acceso a internet hacia la URL base `https://sandbox.one.vykcore.com`.
+- Acceso a internet hacia la base de sandbox `https://sandbox.one.vykcore.com`.
+- Para producción: `https://one.vykcore.com`, una vez completado el acuerdo contractual.
+- Los endpoints de integración usan el prefijo `/api/v1`.
 
 ## 2. Autenticación
 
@@ -28,6 +34,7 @@ tu empresa. Sin esta cabecera, la API responde `401 Unauthorized`.
 | Cabecera | Tipo | Requerido | Descripción |
 | :--- | :--- | :--- | :--- |
 | `X-API-Key` | String | Sí | Clave de API única de tu empresa. |
+| `Authorization` | String | Alternativa | `Bearer <API-Key>`. |
 | `X-Sandbox-Mode` | String | No | `"true"` (por defecto) para pruebas en sandbox o `"false"` para producción. |
 | `Content-Type` | String | Sí | Debe ser `application/json`. |
 | `Idempotency-Key` | String | No | Clave opcional para evitar emisiones duplicadas (solo en `/invoices/emit`). |
@@ -36,6 +43,7 @@ tu empresa. Sin esta cabecera, la API responde `401 Unauthorized`.
 > En modo sandbox (`X-Sandbox-Mode: true`) las facturas se emiten en un entorno de
 > pruebas y no afectan tus secuencias fiscales reales. Usa sandbox durante el
 > desarrollo y cambia a `false` solo cuando tu integración esté validada.
+> Producción responde `403 PRODUCTION_AGREEMENT_REQUIRED` si el acuerdo no está completado.
 
 ## 3. Convenciones
 
@@ -71,7 +79,7 @@ consume el siguiente consecutivo fiscal, firma digitalmente el XML y lo envía a
   "client_id": "cli_9812739",
   "client_rnc": "132109122",
   "client_name": "Cliente de Ejemplo SRL",
-  "ecf_type": "Factura de Crédito Fiscal (E31)",
+  "ecf_type": "E31",
   "payment_method": "Crédito",
   "due_date": "2026-06-30",
   "currency": "DOP",
@@ -116,7 +124,7 @@ consume el siguiente consecutivo fiscal, firma digitalmente el XML y lo envía a
 | `items` | Array | Sí | Lista de artículos del documento (mínimo uno). |
 | `client_rnc` | String | No | RNC o cédula del cliente (obligatorio en E31). |
 | `client_name` | String | No | Razón social del cliente. |
-| `ecf_type` | String | No | Tipo de comprobante (por defecto E32). |
+| `ecf_type` | String | No | Código del comprobante, por ejemplo `E31` o `E32` (por defecto `E32`). |
 | `payment_method` | String | No | Método de pago (Efectivo, Crédito, etc.). |
 | `due_date` | String | No | Fecha de vencimiento (`YYYY-MM-DD`). |
 | `discount_rate` | Number | No | Tasa de descuento global (ej. `0.05`). |
@@ -203,9 +211,17 @@ Retorna el listado de documentos de la empresa. Usa el parámetro
 
 Retorna el listado general de documentos (facturas, cotizaciones y notas).
 
+### `POST /api/v1/invoices/{invoice_id}/payments`
+
+Registra un pago asociado a una factura. El monto debe ser mayor que cero.
+
+### `POST /api/v1/invoices/{invoice_id}/credit-notes`
+
+Crea una nota de crédito relacionada con una factura original existente.
+
 ### Tipos de comprobante (`ecf_type`)
 
-El valor de `ecf_type` es una cadena que identifica el tipo de documento. Los más comunes:
+El valor de `ecf_type` debe ser el código corto del comprobante. El backend también conserva compatibilidad con nombres descriptivos existentes, pero las integraciones nuevas deben enviar únicamente el código:
 
 | Código | Descripción |
 | :--- | :--- |
@@ -304,7 +320,7 @@ curl -X POST https://one.vykcore.com/api/v1/invoices/emit \
   -d '{
     "client_rnc": "132109122",
     "client_name": "Cliente de Ejemplo SRL",
-    "ecf_type": "Factura de Consumo (E32)",
+  "ecf_type": "E32",
     "items": [
       {
         "name": "Licencia SaaS Mensual",

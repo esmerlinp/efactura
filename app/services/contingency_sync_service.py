@@ -18,6 +18,93 @@ WARNING_THRESHOLD_HOURS = 48
 class ContingencySyncService:
 
     @classmethod
+    def schedule_immediate_api_check(cls, owner_uid, invoice_id, company, sandbox=True,
+                                     company_id=None, delay_seconds=3):
+        """Programa una única consulta rápida para una emisión API pendiente.
+
+        El job solo recibe identificadores persistentes para que la consulta y el
+        correo se ejecuten fuera de la petición HTTP que emitió el comprobante.
+        """
+        from app.services.scheduler import schedule_dgii_pending_check
+
+        schedule_dgii_pending_check(
+            owner_uid=owner_uid,
+            invoice_id=invoice_id,
+            company=company,
+            sandbox=sandbox,
+            company_id=company_id,
+            delay_seconds=delay_seconds,
+        )
+
+    @classmethod
+    def check_pending_invoice_now(cls, owner_uid, invoice_id, company, sandbox=True, company_id=None):
+        """Consulta una factura API pendiente y aplica un resultado terminal."""
+        invoice = DatabaseService.get_invoice(
+            owner_uid, invoice_id, sandbox=sandbox, company_id=company_id
+        )
+        if not invoice or invoice.get("status") != "Pendiente DGII":
+            return "skipped"
+
+        if str(invoice.get("emisionMode") or "").upper() != "API":
+            return "skipped"
+
+        track_id = invoice.get("trackId")
+        if not track_id:
+            return "pending"
+
+        res = DgiiDirectService.check_status(company, track_id, sandbox=sandbox)
+        outcome = cls._apply_status_resolution(
+            owner_uid, invoice_id, invoice, res, sandbox=sandbox, company_id=company_id
+        )
+        if outcome == "pending":
+            cls.schedule_immediate_api_check(
+                owner_uid, invoice_id, company, sandbox=sandbox,
+                company_id=company_id,
+                delay_seconds=cls._next_pending_delay(invoice),
+            )
+        return outcome
+
+    @classmethod
+    def poll_pending_invoice_until_terminal(cls, owner_uid, invoice_id, company,
+                                            sandbox=True, company_id=None,
+                                            max_attempts=10, max_seconds=120,
+                                            sleep_fn=None):
+        """Background-safe polling loop for an API invoice with a trackId."""
+        import time
+        import random
+
+        invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
+        if not invoice or invoice.get("status") != "Pendiente DGII":
+            return "skipped"
+        track_id = invoice.get("trackId")
+        if not track_id:
+            return "pending"
+
+        sleeper = sleep_fn or time.sleep
+        started = time.monotonic()
+        for attempt in range(max_attempts):
+            if attempt:
+                delay = max(1.0, min(30.0, 2 ** min(attempt, 5))) + random.uniform(0, 0.2)
+                if time.monotonic() - started + delay > max_seconds:
+                    break
+                sleeper(delay)
+            res = DgiiDirectService.check_status(company, track_id, sandbox=sandbox)
+            outcome = cls._apply_status_resolution(
+                owner_uid, invoice_id, invoice, res, sandbox=sandbox, company_id=company_id
+            )
+            if outcome in ("accepted", "rejected"):
+                return outcome
+            if not res or not res.get("success"):
+                return "error"
+        return "timeout"
+
+    @classmethod
+    def _next_pending_delay(cls, invoice):
+        attempt = int(invoice.get("pendingSyncAttempts", 0) or 0)
+        delays = [3, 30, 60, 120, 300, 600, 1200, 2400, 3600, 7200, 14400, 28800, 86400]
+        return delays[min(attempt, len(delays) - 1)]
+
+    @classmethod
     def _production_contract_blocked(cls, owner_uid):
         """True si la operación de producción de este owner debe omitirse por contrato."""
         from app.services.production_agreement_access_service import ProductionAgreementAccessService
@@ -270,11 +357,12 @@ class ContingencySyncService:
                 resp=response_body, sandbox=sandbox, company_id=company_id,
             )
             try:
-                from app.web.invoices import auto_notify_invoice_if_accepted
-                invoice["id"] = inv_id
-                auto_notify_invoice_if_accepted(owner_uid, invoice, company_id=company_id, sandbox=sandbox)
+                from app.services.ecf_post_acceptance_service import EcfPostAcceptanceService
+                EcfPostAcceptanceService.process_accepted_invoice(
+                    owner_uid, inv_id, invoice, company_id=company_id, sandbox=sandbox
+                )
             except Exception as auto_err:
-                logger.warning(f"Error auto enviando email post-status-resolution factura {inv_id}: {auto_err}")
+                logger.warning(f"Error aplicando efectos post-aceptación factura {inv_id}: {auto_err}")
             return "accepted"
 
         if dgii_status == "REJECTED":
@@ -291,6 +379,9 @@ class ContingencySyncService:
                 f"DGII rechazó: {msgs or 'Rechazado'}",
                 resp=response_body, sandbox=sandbox, company_id=company_id,
             )
+            invoice["inventoryStatus"] = "RELEASED"
+            invoice["accountingStatus"] = "NOT_APPLIED"
+            DatabaseService.save_invoice(owner_uid, inv_id, invoice, sandbox=sandbox, company_id=company_id)
             return "rejected"
 
         return "pending"

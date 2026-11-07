@@ -133,7 +133,10 @@ def emit_invoice():
         client_rnc = data.get('client_rnc', '')
         client_name = data.get('client_name', 'Consumidor Final')
         
-        ecf_type = data.get('ecf_type', 'Factura de Consumo (E32)')
+        # Las integraciones nuevas deben enviar el código corto (E31, E32, etc.).
+        # Los nombres descriptivos existentes siguen siendo compatibles mediante
+        # get_ecf_type_short_code al consumir la secuencia fiscal.
+        ecf_type = str(data.get('ecf_type', 'E32') or 'E32').strip().upper()
         payment_method = data.get('payment_method', 'Efectivo')
         due_date = data.get('due_date', datetime.now(timezone.utc).strftime("%Y-%m-%d"))
         
@@ -256,41 +259,42 @@ def emit_invoice():
             invoice_dict["emisionMode"] = res.get("mode", "API")
             invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             invoice_dict["trackId"] = res.get("trackId", "")
-            
+            invoice_dict["inventoryStatus"] = "RESERVED" if pending_dgii else "COMMITTED"
+            invoice_dict["accountingStatus"] = "PENDING" if pending_dgii else "POSTED"
             # Guardamos con el estado final actualizado
             DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
 
-            # Auto-notificar e-CF al cliente si fue aceptada por DGII y posee correo
-            try:
-                from app.web.invoices import auto_notify_invoice_if_accepted
-                invoice_dict["id"] = invoice_id
-                auto_notify_invoice_if_accepted(g.owner_uid, invoice_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
-            except Exception as auto_email_err:
-                import logging
-                logging.getLogger(__name__).warning(f"Error auto enviando email API factura {invoice_id}: {auto_email_err}")
+            if pending_dgii and res.get("mode") == "API" and res.get("trackId"):
+                try:
+                    from app.services.contingency_sync_service import ContingencySyncService
+                    ContingencySyncService.schedule_immediate_api_check(
+                        owner_uid=g.owner_uid,
+                        invoice_id=invoice_id,
+                        company=company,
+                        sandbox=g.sandbox_mode,
+                        company_id=g.company_id,
+                    )
+                except Exception as immediate_check_err:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "No se pudo programar consulta DGII inmediata %s: %s",
+                        invoice_id,
+                        immediate_check_err,
+                    )
 
-            # Generar asiento contable automático
-            try:
-                from app.services.accounting_service import AccountingService
-                AccountingService.auto_generate_invoice_entry(g.company_id, invoice_dict, sandbox=g.sandbox_mode)
-            except Exception as exc:
-                import logging
-                logging.getLogger(__name__).warning(f"Asiento contable API no generado: {exc}")
+            # El correo se envía al confirmar ACCEPTED, no mientras está pendiente.
+            if not pending_dgii:
+                try:
+                    from app.services.ecf_post_acceptance_service import EcfPostAcceptanceService
+                    EcfPostAcceptanceService.process_accepted_invoice(
+                        g.owner_uid, invoice_id, invoice_dict,
+                        company_id=g.company_id, sandbox=g.sandbox_mode,
+                    )
+                except Exception as auto_email_err:
+                    import logging
+                    logging.getLogger(__name__).warning(f"Error aplicando efectos post-aceptación API {invoice_id}: {auto_email_err}")
 
-            # Event Bus: notificar emisión de factura vía API
-            try:
-                from app.events import get_event_bus, InvoiceEmitted
-                country = g.company.get("country", "DO") if g.company else "DO"
-                get_event_bus().publish(InvoiceEmitted(
-                    owner_uid=g.owner_uid,
-                    invoice_id=invoice_id,
-                    invoice_number=invoice_dict.get("invoiceNumber", ""),
-                    invoice_data=invoice_dict,
-                    sandbox=g.sandbox_mode,
-                    country=country,
-                ))
-            except Exception:
-                pass
+             # Los efectos contables se aplican dentro del procesador de aceptación.
             
             response_body = {
                 "success": True,
@@ -414,8 +418,11 @@ def get_invoice_status(invoice_id):
             "encf": invoice.get("encf"),
             "track_id": invoice.get("trackId"),
             "is_synced_dgii": invoice.get("isSyncedWithDGII", False),
-            "dgii_status": invoice.get("dgiiStatus", ""),
-            "error_detail": invoice.get("errorDetail")
+             "dgii_status": invoice.get("dgiiStatus", ""),
+             "pos_operation_status": invoice.get("posOperationStatus", ""),
+             "inventory_status": invoice.get("inventoryStatus", ""),
+             "accounting_status": invoice.get("accountingStatus", ""),
+             "error_detail": invoice.get("errorDetail")
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

@@ -1933,7 +1933,9 @@ def create_pos_sale():
             return jsonify({"success": False, "error": "El cliente seleccionado no existe."}), 400
         client_name = client.get('razonSocial') or client.get('name') or 'Cliente'
         client_rnc = re.sub(r'\D', '', str(client.get('rnc') or client.get('identification') or ''))
-        client_email = (client.get('email') or '').strip()
+        client_email = str(
+            client.get('email') or client.get('clientEmail') or client.get('correo') or ''
+        ).strip()
         client_project_id = client.get('projectId')
     else:
         client_id = 'default'
@@ -2046,6 +2048,7 @@ def create_pos_sale():
         "clientId": client_id,
         "clientName": client_name,
         "clientRNC": client_rnc,
+        "clientEmail": client_email,
         "status": "PENDING_CONSOLIDATION" if qualifies_for_consolidation else settlement_status,
         "ecfType": ecf_type,
         "encf": encf,
@@ -2121,8 +2124,7 @@ def create_pos_sale():
                 "error": f"No se pudo reservar el e-NCF para la venta POS: {exc}",
             }), 400
 
-    # 1. Guardar factura en base de datos con manejo controlado de stock.
-    #    La caja se registra DESPUÉS para que una factura fallida no deje movimientos huérfanos.
+    # 1. Guardar la operación fiscalmente pendiente sin aplicar salida física.
     from app.services.inventory_transaction_service import InsufficientStockError, InventoryTransactionError
     try:
         DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
@@ -2143,6 +2145,9 @@ def create_pos_sale():
             "error": "No se pudo guardar la venta. No se registró ningún movimiento de caja."
         }), 500
 
+    # La caja se registra solo después de ACCEPTED. Los pagos permanecen en la
+    # factura pendiente y se aplican al completar la emisión.
+    """
     # 2. Registrar atómicamente las transacciones de caja (una por pago no-crédito).
     #    "Crédito" no genera entrada de efectivo; su saldo se refleja en CxC.
     import logging
@@ -2201,7 +2206,9 @@ def create_pos_sale():
                 DatabaseService.fail_idempotency_key(owner_uid, idempotency_key, str(lock_err), company_id=company_id, sandbox=sandbox, lease_owner=lease_owner)
             return jsonify({"success": False, "error": str(lock_err)}), 409
 
-    # 3. Si aplica modo consolidado → no emitir e-CF individual, retornar con indicador
+    """
+
+    # 2. Si aplica modo consolidado → no emitir e-CF individual, retornar con indicador
     if qualifies_for_consolidation:
         from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_POS
         AuditService.log_from_request(
@@ -2232,41 +2239,80 @@ def create_pos_sale():
             }, company_id=company_id, sandbox=sandbox, lease_owner=lease_owner)
         return jsonify(response_body)
 
-    # 4. Intentar emisión electrónica (e-CF) individual
+    # 3. Intentar emisión electrónica (e-CF) individual
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     try:
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice_dict, sandbox=sandbox)
         if res and res.get('success'):
+            poll_res = None
+            if res.get("status") == "PENDING" and res.get("trackId") and res.get("mode") == "API":
+                from app.services.dgii_direct import DgiiDirectService
+                from config import Config
+                poll_res = DgiiDirectService.poll_status_until_terminal(
+                    company,
+                    res["trackId"],
+                    sandbox=sandbox,
+                    max_attempts=Config.POS_DGII_POLL_MAX_ATTEMPTS,
+                    max_seconds=Config.POS_DGII_POLL_MAX_SECONDS,
+                )
+            if poll_res and poll_res.get("dgiiStatus") in ("ACCEPTED", "REJECTED"):
+                res.update(poll_res)
+            elif poll_res:
+                    invoice_dict["status"] = "DGII_PENDING"
+                    invoice_dict["posOperationStatus"] = "DGII_PENDING"
+                    invoice_dict["dgiiStatus"] = "PENDING"
+                    invoice_dict["trackId"] = res.get("trackId", "")
+                    invoice_dict["dgiiPollAttempts"] = poll_res.get("pollAttempts", 0)
+                    invoice_dict["dgiiLastPollError"] = poll_res.get("message", "")
+                    DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
+                    if idempotency_key:
+                        DatabaseService.complete_idempotency_key(
+                            owner_uid, idempotency_key,
+                            {"response": {"invoiceId": invoice_id, "dgiiStatus": "PENDING"}, "statusCode": 202, "invoiceId": invoice_id},
+                            company_id=company_id, sandbox=sandbox, lease_owner=lease_owner,
+                        )
+                    return jsonify({
+                        "success": True,
+                        "processing": True,
+                        "invoiceId": invoice_id,
+                        "invoiceNumber": invoice_number,
+                        "dgiiStatus": "PENDING",
+                        "trackId": invoice_dict["trackId"],
+                        "message": "La venta continúa procesándose hasta obtener respuesta de la DGII.",
+                    }), 202
+
             # Actualizar campos de e-CF
             invoice_dict["encf"] = res.get('encf', '')
             invoice_dict["xmlSignature"] = res.get('xmlSignature', '')
             invoice_dict["qrCodeURL"] = res.get('qrCodeURL', '')
-            pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
-            invoice_dict["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
+            dgii_status = str(res.get("dgiiStatus") or "").upper()
+            pending_dgii = dgii_status not in ("ACCEPTED", "ACCEPTED_PREVIOUSLY", "REJECTED") or res.get("mode") == "FALLBACK"
+            invoice_dict["isSyncedWithDGII"] = (
+                res.get("mode") in ("API", "RFCE_API")
+                and dgii_status in ("ACCEPTED", "ACCEPTED_PREVIOUSLY")
+            )
             invoice_dict["emisionMode"] = res.get("mode", "API")
-            invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
+            invoice_dict["dgiiStatus"] = dgii_status or ("PENDING" if pending_dgii else "ACCEPTED")
             invoice_dict["trackId"] = res.get("trackId", "")
+            invoice_dict["inventoryStatus"] = "RESERVED" if pending_dgii else "COMMITTED"
+            invoice_dict["accountingStatus"] = "PENDING" if pending_dgii else "POSTED"
             invoice_dict["recoveredDuplicate"] = bool(res.get("recoveredDuplicate"))
             invoice_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice_dict["status"] = "Pendiente DGII" if pending_dgii else settlement_status
+            invoice_dict["posOperationStatus"] = "REJECTED" if dgii_status == "REJECTED" else ("COMPLETED" if not pending_dgii else "DGII_PENDING")
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
 
-            # Auto-notificar e-CF al cliente si fue aceptada por DGII y posee correo
-            try:
-                from app.web.invoices import auto_notify_invoice_if_accepted
-                invoice_dict["id"] = invoice_id
-                auto_notify_invoice_if_accepted(owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox)
-            except Exception as auto_email_err:
-                import logging
-                logging.getLogger(__name__).warning(f"Error auto enviando email POS {invoice_id}: {auto_email_err}")
-
-            # Generar asiento contable automático para POS
-            try:
-                from app.services.accounting_service import AccountingService
-                AccountingService.auto_generate_invoice_entry(company_id, invoice_dict, sandbox=sandbox)
-            except Exception as exc:
-                import logging
-                logging.getLogger(__name__).warning(f"Asiento contable POS no generado: {exc}")
+            if not pending_dgii:
+                from app.services.ecf_post_acceptance_service import EcfPostAcceptanceService
+                EcfPostAcceptanceService.process_accepted_invoice(
+                    owner_uid, invoice_id, invoice_dict,
+                    company_id=company_id, sandbox=sandbox,
+                )
+                if cash_txs:
+                    DatabaseService.register_sale_cash_transactions(
+                        owner_uid, open_shift.get('registerId'), open_shift['id'],
+                        cash_txs, company_id=company_id, sandbox=sandbox,
+                    )
 
             # Event Bus: notificar emisión de factura
             try:
@@ -2319,14 +2365,6 @@ def create_pos_sale():
         invoice_dict["dgiiError"] = str(e)[:200]
         DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
 
-        # Generar asiento contable incluso en contingencia
-        try:
-            from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_invoice_entry(company_id, invoice_dict, sandbox=sandbox)
-        except Exception as exc:
-            import logging
-            logging.getLogger(__name__).warning(f"Asiento contable POS (contingencia) no generado: {exc}")
-
         # Event Bus: notificar la venta guardada en contingencia.
         try:
             from app.events import get_event_bus, InvoiceEmitted
@@ -2352,35 +2390,6 @@ def create_pos_sale():
         after=invoice_dict,
         sandbox=sandbox
     )
-    # 4. Enviar factura y XML por correo SOLO si es Crédito Fiscal (E31) con cliente registrado.
-    #    Las Facturas de Consumo (E32) son para consumidores finales y NO se envían por email.
-    if ecf_type == 'Factura de Crédito Fiscal (E31)' and client_id and client_id != 'default':
-        try:
-            client = DatabaseService.get_client(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
-            if client and client.get('email'):
-                recipient_email = client['email'].strip()
-                if recipient_email:
-                    from flask import current_app
-                    flask_app = current_app._get_current_object()
-                    import threading
-                    
-                    def send_invoice_email_bg(app_instance, o_uid, inv, email_to, sb, base, cid=None):
-                        with app_instance.app_context():
-                            try:
-                                from app.web.invoices import send_invoice_email
-                                send_invoice_email(o_uid, inv, email_to, sandbox=sb, base_url=base, company_id=cid)
-                            except Exception as th_err:
-                                print(f"❌ Error en hilo de envío de correo POS: {th_err}")
-                                
-                    host_url = request.host_url
-                    threading.Thread(
-                        target=send_invoice_email_bg,
-                        args=(flask_app, owner_uid, invoice_dict, recipient_email, sandbox, host_url, company_id)
-                    ).start()
-                    print(f"📧 [POS] Correo de e-CF programado para {recipient_email} para factura {invoice_number}", flush=True)
-        except Exception as email_err:
-            print(f"⚠️ Error al iniciar hilo de envío de correo en POS: {email_err}")
-            
     response_body = {
         "success": True,
         "invoiceId": invoice_id,

@@ -422,7 +422,7 @@
 
                 <h3>Base URL</h3>
                 <div class="code-container">
-                    <div class="code-body">https://api.vykcore.com/v1</div>
+                    <div class="code-body">https://one.vykcore.com</div>
                 </div>
 
                 <h3>Formatos</h3>
@@ -435,10 +435,9 @@
             <div class="endpoint-pane" id="pane-auth">
                 <div class="endpoint-header">
                     <span class="badge post">POST</span>
-                    <span class="endpoint-url">/auth/token</span>
+                    <span class="endpoint-url">/auth/login</span>
                 </div>
-                <p class="description">Obtén un token Bearer temporal utilizando tus credenciales de API Key. Este token
-                    expira en 24 horas y es requerido para todas las operaciones posteriores.</p>
+                <p class="description">Este endpoint es para usuarios de la aplicación y no es necesario para integradores que ya poseen una API Key. La API Key se usa directamente en las operaciones posteriores.</p>
 
                 <h3>Request Body</h3>
                 <table>
@@ -451,9 +450,9 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="param-name">api_key</td>
+                            <td class="param-name">email / password</td>
                             <td class="param-type">string</td>
-                            <td>Tu clave secreta de API proveída en el panel de control.</td>
+                            <td>Credenciales de usuario para obtener la API Key de la compañía.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -461,9 +460,9 @@
                 <h3>Ejemplo cURL</h3>
                 <div class="code-container">
                     <div class="code-header"><span class="code-lang">BASH</span></div>
-                    <div class="code-body">curl -X POST https://api.vykcore.com/v1/auth/token \
+                    <div class="code-body">curl -X POST https://one.vykcore.com/api/v1/auth/login \
                         -H <span class="string">"Content-Type: application/json"</span> \
-                        -d <span class="string">'{"api_key": "sk_test_123456789"}'</span></div>
+                        -d <span class="string">'{"email": "usuario@ejemplo.com", "password": "TU_PASSWORD"}'</span></div>
                 </div>
             </div>
 
@@ -481,7 +480,7 @@
                     <tbody>
                         <tr>
                             <td class="param-name">Authorization</td>
-                            <td><code>Bearer TU_TOKEN_JWT</code></td>
+                        <td><code>X-API-Key: TU_API_KEY</code></td>
                         </tr>
                     </tbody>
                 </table>
@@ -515,7 +514,7 @@
             <div class="endpoint-pane" id="pane-status">
                 <div class="endpoint-header">
                     <span class="badge get">GET</span>
-                    <span class="endpoint-url">/invoices/{trackId}</span>
+                    <span class="endpoint-url">/invoices/{invoice_id}/status</span>
                 </div>
                 <p class="description">Consulta el estado de procesamiento de un e-CF enviado previamente mediante el
                     <code>trackId</code> retornado en la creación.</p>
@@ -530,7 +529,7 @@
                         <span class="string">"qrURL"</span>: <span
                             class="string">"https://dgii.gov.do/consultas/qr?id=..."</span>,
                         <span class="string">"xmlURL"</span>: <span
-                            class="string">"https://api.vykcore.com/v1/invoices/xml/cf6f2648"</span>
+                            class="string">"https://one.vykcore.com/api/v1/invoices/xml/cf6f2648"</span>
                         }
                     </div>
                 </div>
@@ -550,7 +549,7 @@
                     <div class="code-header"><span class="code-lang">PYTHON</span></div>
                     <div class="code-body"><span class="keyword">import</span> requests
 
-                        url = <span class="string">"https://api.vykcore.com/v1/invoices/E310000002001"</span>
+                        url = <span class="string">"https://one.vykcore.com/api/v1/invoices/E310000002001"</span>
                         headers = {<span class="string">"Authorization"</span>: <span class="string">"Bearer
                             TU_TOKEN"</span>}
                         payload = {<span class="string">"motivo"</span>: <span class="string">"Error en digitación de

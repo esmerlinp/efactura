@@ -2,6 +2,7 @@ import hashlib
 import os
 import re
 import tempfile
+import time
 import uuid
 from urllib.parse import urlencode, quote
 from xml.sax.saxutils import escape
@@ -892,6 +893,44 @@ class DgiiDirectService:
             }
         finally:
             cls._cleanup_tls_cert(cert_path)
+
+    @classmethod
+    def poll_status_until_terminal(cls, company_profile, track_id, sandbox=True,
+                                   min_interval=None, max_attempts=None,
+                                   max_seconds=None, sleep_fn=time.sleep,
+                                   monotonic_fn=time.monotonic):
+        """Poll DGII until ACCEPTED/REJECTED or a bounded error/timeout."""
+        interval = max(1.0, float(min_interval if min_interval is not None else Config.DGII_POLL_MIN_INTERVAL_SECONDS))
+        attempts_limit = int(max_attempts if max_attempts is not None else Config.DGII_POLL_MAX_ATTEMPTS)
+        seconds_limit = float(max_seconds if max_seconds is not None else Config.DGII_POLL_MAX_SECONDS)
+        started = monotonic_fn()
+        last_result = None
+
+        for attempt in range(attempts_limit):
+            if attempt:
+                elapsed = monotonic_fn() - started
+                remaining = seconds_limit - elapsed
+                if remaining <= 0:
+                    break
+                sleep_fn(min(interval, remaining))
+
+            last_result = cls.check_status(company_profile, track_id, sandbox=sandbox)
+            status = str(last_result.get("dgiiStatus") or "").upper()
+            if status in ("ACCEPTED", "REJECTED"):
+                last_result["pollAttempts"] = attempt + 1
+                return last_result
+            if not last_result.get("success"):
+                last_result["pollAttempts"] = attempt + 1
+                last_result["pollError"] = True
+                return last_result
+
+        return {
+            **(last_result or {"success": False}),
+            "success": False,
+            "dgiiStatus": "TIMEOUT",
+            "pollAttempts": attempts_limit,
+            "message": "DGII no devolvió un estado terminal dentro del tiempo permitido.",
+        }
 
     # ═══════════════════════════════════════════════════════════════
     # Health check

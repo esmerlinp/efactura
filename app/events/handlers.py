@@ -31,18 +31,21 @@ def handle_invoice_emitted(event: DomainEvent) -> None:
     if not isinstance(event, InvoiceEmitted):
         return
 
-    from app.services.accounting_service import AccountingService
-
     try:
         invoice_data = event.invoice_data or {}
+        if str(invoice_data.get("dgiiStatus") or "").upper() != "ACCEPTED":
+            logger.debug("Factura %s aún no aceptada por DGII; se difiere contabilidad", event.invoice_number)
+            return
         # Asegurar que el ID viaje en los datos
         if "id" not in invoice_data and event.invoice_id:
             invoice_data["id"] = event.invoice_id
         if "invoiceNumber" not in invoice_data and event.invoice_number:
             invoice_data["invoiceNumber"] = event.invoice_number
 
-        result = AccountingService.auto_generate_invoice_entry(
-            event.owner_uid, invoice_data, sandbox=event.sandbox, country=event.country
+        from app.services.ecf_post_acceptance_service import EcfPostAcceptanceService
+        result = EcfPostAcceptanceService.process_accepted_invoice(
+            event.owner_uid, event.invoice_id, invoice_data,
+            company_id=invoice_data.get("companyId"), sandbox=event.sandbox,
         )
         if result:
             logger.info(

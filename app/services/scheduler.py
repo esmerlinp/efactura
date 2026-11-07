@@ -4,6 +4,8 @@ Se inicializa una sola vez dentro del proceso Flask con BackgroundScheduler.
 """
 import logging
 import atexit
+import uuid
+from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from app.utils.timezone import SANTO_DOMINGO, today_santo_domingo
@@ -184,6 +186,51 @@ def run_dgii_pending_reconciliation():
         f"✅ APScheduler — Reconciliación PENDING: {synced} aceptadas, "
         f"{rejected} rechazadas, {pending} aún pendientes"
     )
+
+
+def run_immediate_dgii_pending_check(owner_uid, invoice_id, company, sandbox=True, company_id=None):
+    """Consulta y reprograma una emisión API mientras permanezca pendiente."""
+    from app.services.contingency_sync_service import ContingencySyncService
+
+    try:
+        outcome = ContingencySyncService.poll_pending_invoice_until_terminal(
+            owner_uid=owner_uid,
+            invoice_id=invoice_id,
+            company=company,
+            sandbox=sandbox,
+            company_id=company_id,
+            max_attempts=20,
+            max_seconds=600,
+        )
+        logger.info(
+            "Consulta DGII inmediata para factura %s finalizada: %s",
+            invoice_id,
+            outcome,
+        )
+        return outcome
+    except Exception:
+        logger.exception("Error en consulta DGII inmediata para factura %s", invoice_id)
+        return "pending"
+
+
+def schedule_dgii_pending_check(owner_uid, invoice_id, company, sandbox=True,
+                                company_id=None, delay_seconds=3):
+    """Agenda una consulta única sin bloquear la respuesta de emisión."""
+    if _scheduler is None:
+        logger.warning("Scheduler no inicializado; no se agenda consulta DGII inmediata")
+        return None
+
+    job_id = f"dgii_pending_check_{invoice_id}_{uuid.uuid4().hex[:8]}"
+    _scheduler.add_job(
+        func=run_immediate_dgii_pending_check,
+        trigger="date",
+        run_date=datetime.now(timezone.utc) + timedelta(seconds=delay_seconds),
+        args=[owner_uid, invoice_id, company, sandbox, company_id],
+        id=job_id,
+        replace_existing=False,
+        max_instances=1,
+    )
+    return job_id
 
 
 def run_daily_rui_generation(company_id=None):

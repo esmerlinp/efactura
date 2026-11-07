@@ -1,19 +1,31 @@
 # Documentación de la API de VykOne v1
 
+> Fuente oficial para integradores: la documentación operativa se mantiene en
+> `/desarrolladores/docs`. Este archivo debe mantenerse sincronizado con esa
+> sección y no describe la API interna de recepción DGII.
+
+Bases oficiales: `https://sandbox.one.vykcore.com` para pruebas y
+`https://one.vykcore.com` para producción. Los endpoints usan el prefijo
+`/api/v1`.
+
 Bienvenido a la API REST de **VykOne**. Esta API permite a integradores de terceros, sistemas ERP y aplicaciones móviles emitir e-CFs (Comprobantes Fiscales Electrónicos) válidos ante la DGII en República Dominicana, consultar RNCs de clientes, anular facturas y sincronizar catálogos.
 
 ---
 
 ## 1. Autenticación
 
-Todas las solicitudes HTTP dirigidas a la API deben incluir el encabezado `X-API-Key` con la clave secreta generada en tu panel de **Configuración de Empresa**.
+Todas las solicitudes HTTP dirigidas a la API deben incluir la API Key generada en **Configuración de Empresa**, usando `X-API-Key` o `Authorization: Bearer <API-Key>`.
 
 ### Cabeceras Globales
 | Cabecera | Tipo | Requerido | Descripción |
 | :--- | :--- | :--- | :--- |
-| `X-API-Key` | String | **Sí** | Tu clave de API única (`ef_...`). |
+| `X-API-Key` | String | **Sí*** | Tu clave de API única. |
+| `Authorization` | String | **Sí*** | Alternativa: `Bearer <API-Key>`. |
 | `X-Sandbox-Mode` | String | No | `"true"` (por defecto) para pruebas en sandbox o `"false"` para producción. |
 | `Content-Type` | String | **Sí** | Debe ser `application/json`. |
+
+`*` Debe enviarse una de las dos formas de autenticación. `X-Sandbox-Mode: false`
+requiere que la empresa haya completado el acuerdo contractual de producción.
 
 ---
 
@@ -30,7 +42,7 @@ Recibe la información de la factura y emite el Comprobante Fiscal Electrónico 
   "client_id": "cli_9812739",
   "client_rnc": "101012345",
   "client_name": "Cliente de Ejemplo SRL",
-  "ecf_type": "Factura de Crédito Fiscal Electrónica (E31)",
+  "ecf_type": "E31",
   "payment_method": "Crédito",
   "due_date": "2026-06-30",
   "currency": "DOP",
@@ -86,7 +98,7 @@ Verifica el estado actual de sincronización, el código e-CF (ENFC) y los posib
 ### 2.3 Anulación de e-CF
 `POST /api/v1/invoices/<invoice_id>/cancel`
 
-Solicita la anulación formal de un comprobante ante la DGII/Alanube.
+Solicita la anulación formal de un comprobante ante la DGII.
 
 #### Payload de Ejemplo
 ```json
@@ -229,7 +241,7 @@ curl -X POST http://127.0.0.1:5000/api/v1/invoices/emit \
   -d '{
     "client_rnc": "132109122",
     "client_name": "Cliente de Ejemplo SRL",
-    "ecf_type": "Factura de Consumo Electrónica (E32)",
+  "ecf_type": "E32",
     "items": [
       {
         "name": "Licencia SaaS Mensual",

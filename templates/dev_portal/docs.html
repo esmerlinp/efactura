@@ -16,7 +16,8 @@
         <a href="#status">Consultar estado</a>
         <a href="#cancel">Anular</a>
         <a href="#list">Listar / detalle</a>
-        <a href="#draft">Crear borrador</a>
+            <a href="#draft">Crear borrador</a>
+            <a href="#actions">Pagos y notas</a>
         <span class="group">Catálogos</span>
         <a href="#items">Ítems</a>
         <a href="#clients">Clientes</a>
@@ -26,20 +27,24 @@
         <a href="#audit">Auditoría</a>
         <a href="#metadata">Catálogos de referencia</a>
         <span class="group">Recepción</span>
-        <a href="#reception">Recepción e-CF</a>
+            <a href="#reception">Recepción e-CF</a>
+            <span class="group">Referencia</span>
+            <a href="#errors">Errores</a>
     </aside>
 
     <div>
         <section id="auth" class="card mb-4">
             <h2 class="h2 mb-4">Autenticación</h2>
-            <p class="muted mb-4">Todas las peticiones (excepto recepción DGII) requieren la cabecera <code>X-API-Key</code> con la API Key de tu empresa. Para operar en el entorno de pruebas usa <code>X-Sandbox-Mode: true</code>; para producción <code>X-Sandbox-Mode: false</code>.</p>
+            <p class="muted mb-4">Todas las peticiones de esta API requieren la API Key de tu empresa. Puedes enviarla como <code>X-API-Key</code> o como <code>Authorization: Bearer &lt;API-Key&gt;</code>. Para pruebas usa <code>X-Sandbox-Mode: true</code>; para producción <code>X-Sandbox-Mode: false</code>. El acceso productivo requiere completar previamente el acuerdo contractual.</p>
             <pre><code>X-API-Key: ef_xxxxxxxxxxxxxxxx
-X-Sandbox-Mode: true   # true = sandbox, false = producción</code></pre>
+X-Sandbox-Mode: true   # true = sandbox, false = producción
+Content-Type: application/json</code></pre>
+            <p class="muted">Bases oficiales: sandbox <code>https://sandbox.one.vykcore.com</code> y producción <code>https://one.vykcore.com</code>. Los endpoints de la API agregan el prefijo <code>/api/v1</code>, por ejemplo <code>https://sandbox.one.vykcore.com/api/v1/invoices/emit</code>. Una solicitud productiva sin acuerdo devuelve <code>403 PRODUCTION_AGREEMENT_REQUIRED</code>.</p>
         </section>
 
         <section id="emit" class="card mb-4">
             <h2 class="h2 mb-4"><span class="method post">POST</span><code>/invoices/emit</code></h2>
-            <p class="muted mb-4">Emite un comprobante fiscal electrónico. Calcula impuestos (ITBIS, ISC, retenciones), consume la secuencia NCF, firma y envía a la DGII.</p>
+            <p class="muted mb-4">Emite un comprobante fiscal electrónico. Calcula impuestos (ITBIS, ISC y retenciones), consume una secuencia autorizada, firma el XML y lo envía directamente a la DGII. La API puede responder con estado pendiente; consulta luego el estado del documento.</p>
             <h3 class="h3 mb-2">Cabecera opcional</h3>
             <table class="mb-4">
                 <tbody>
@@ -49,14 +54,15 @@ X-Sandbox-Mode: true   # true = sandbox, false = producción</code></pre>
             <h3 class="h3 mb-2">Cuerpo (principales campos)</h3>
             <table class="mb-4">
                 <tbody>
-                    <tr><td class="param">items</td><td class="req">requerido</td><td class="muted">Lista de artículos: <code>name</code>, <code>price</code>, <code>quantity</code>, <code>itbis_rate</code>, <code>type</code>, <code>unit</code>.</td></tr>
+                    <tr><td class="param">items</td><td class="req">requerido</td><td class="muted">Array con al menos un artículo. Campos principales: <code>name</code>, <code>price</code>, <code>quantity</code>, <code>itbis_rate</code>, <code>type</code> y <code>unit</code>.</td></tr>
                     <tr><td class="param">client_rnc</td><td></td><td class="muted">RNC/Cédula del cliente.</td></tr>
                     <tr><td class="param">client_name</td><td></td><td class="muted">Razón social del cliente.</td></tr>
-                    <tr><td class="param">ecf_type</td><td></td><td class="muted">Tipo de comprobante, ej. <code>Factura de Consumo (E32)</code>, <code>Crédito Fiscal (E31)</code>.</td></tr>
+                    <tr><td class="param">ecf_type</td><td></td><td class="muted">Tipo de comprobante. Usa el nombre configurado o el código: <code>E31</code>, <code>E32</code>, <code>E33</code>, <code>E34</code>, <code>E41</code>, <code>E43</code>, <code>E44</code>, <code>E45</code>, <code>E46</code> o <code>E47</code>. Por defecto: E32.</td></tr>
                     <tr><td class="param">payment_method</td><td></td><td class="muted">Efectivo, Cheque / Transferencia, Tarjeta…</td></tr>
                     <tr><td class="param">due_date</td><td></td><td class="muted">Fecha de vencimiento (YYYY-MM-DD).</td></tr>
                     <tr><td class="param">discount_rate</td><td></td><td class="muted">Descuento global (0.0–1.0).</td></tr>
-                    <tr><td class="param">retained_isr_rate / retained_itbis_rate</td><td></td><td class="muted">Tasas de retención.</td></tr>
+                    <tr><td class="param">retained_isr_rate / retained_itbis_rate</td><td></td><td class="muted">Tasas de retención como decimal, por ejemplo <code>0.10</code>.</td></tr>
+                    <tr><td class="param">idempotency_key</td><td></td><td class="muted">También se acepta en el cuerpo, aunque se recomienda usar la cabecera <code>Idempotency-Key</code>.</td></tr>
                     <tr><td class="param">income_type</td><td></td><td class="muted">Tipo de ingreso DGII (ej. <code>01 - Ingresos por operaciones</code>).</td></tr>
                 </tbody>
             </table>
@@ -66,12 +72,14 @@ X-Sandbox-Mode: true   # true = sandbox, false = producción</code></pre>
   -d '{
     "client_rnc": "131880681",
     "client_name": "CLIENTE DE EJEMPLO",
-    "ecf_type": "Factura de Consumo (E32)",
+    "ecf_type": "E32",
     "items": [
       {"name": "Servicio de consultoría", "price": 1000.00, "quantity": 1, "itbis_rate": 0.18}
     ]
   }'</code></pre>
-            <p class="muted">Respuesta: <code>success</code>, <code>invoice_id</code>, <code>encf</code>, <code>track_id</code>, <code>xmlSignature</code>, <code>qrCodeURL</code>, <code>pdfUrl</code>, <code>xmlUrl</code>.</p>
+            <p class="muted">Respuesta exitosa: <code>success</code>, <code>invoice_id</code>, <code>encf</code>, <code>track_id</code>, <code>xmlSignature</code>, <code>qrCodeURL</code>, <code>pdfUrl</code>, <code>xmlUrl</code> y <code>total</code>. En caso de rechazo se devuelve HTTP <code>422</code> con <code>details</code>.</p>
+            <h3 class="h3 mb-2">Reglas fiscales</h3>
+            <p class="muted">E31 requiere identificar al comprador con RNC o cédula. E32 puede usar consumidor final; para comprobantes de consumo menores de RD$250,000 puede aplicar el flujo RFCE de la DGII. Las notas E33/E34 requieren la referencia del comprobante original. Usa <code>GET /metadata/catalogs</code> para consultar valores de referencia.</p>
         </section>
 
         <section id="calculate" class="card mb-4">
@@ -85,14 +93,14 @@ X-Sandbox-Mode: true   # true = sandbox, false = producción</code></pre>
 
         <section id="status" class="card mb-4">
             <h2 class="h2 mb-4"><span class="method get">GET</span><code>/invoices/{invoice_id}/status</code></h2>
-            <p class="muted mb-4">Consulta el estado, NCF, track ID y sincronización con la DGII de un comprobante.</p>
+            <p class="muted mb-4">Consulta el estado, eNCF, Track ID y sincronización con la DGII de un comprobante. El identificador de la ruta es el <code>invoice_id</code> interno devuelto por la emisión, no el Track ID.</p>
             <pre><code>curl {{ base_url }}/invoices/ID_DEL_DOCUMENTO/status \
   -H "X-API-Key: TU_API_KEY"</code></pre>
         </section>
 
         <section id="cancel" class="card mb-4">
             <h2 class="h2 mb-4"><span class="method post">POST</span><code>/invoices/{invoice_id}/cancel</code></h2>
-            <p class="muted mb-4">Anula un e-CF emitido enviando la solicitud de anulación al proveedor autorizado.</p>
+            <p class="muted mb-4">Anula un e-CF emitido enviando la solicitud de anulación a la DGII. El campo <code>reason</code> es opcional y se usa un motivo predeterminado si se omite.</p>
             <pre><code>curl -X POST {{ base_url }}/invoices/ID_DEL_DOCUMENTO/cancel \
   -H "Content-Type: application/json" \
   -H "X-API-Key: TU_API_KEY" \
@@ -109,6 +117,13 @@ curl {{ base_url }}/invoices/ID_DEL_DOCUMENTO -H "X-API-Key: TU_API_KEY"</code><
         <section id="draft" class="card mb-4">
             <h2 class="h2 mb-4"><span class="method post">POST</span><code>/invoices</code></h2>
             <p class="muted mb-4">Crea un borrador de factura o cotización (<code>is_quotation: true</code>) sin emitirlo. Los totales se calculan automáticamente.</p>
+        </section>
+
+        <section id="actions" class="card mb-4">
+            <h2 class="h2 mb-4">Acciones posteriores</h2>
+            <p class="muted mb-2"><span class="method post">POST</span><code>/invoices/{invoice_id}/payments</code> registra un pago asociado a una factura.</p>
+            <p class="muted mb-2"><span class="method post">POST</span><code>/invoices/{invoice_id}/credit-notes</code> crea una nota de crédito relacionada con una factura original.</p>
+            <p class="muted">Ambos endpoints requieren la API Key y devuelven un objeto JSON con <code>success</code> o un error. El pago debe tener un monto mayor que cero; la nota de crédito debe referenciar una factura existente.</p>
         </section>
 
         <section id="items" class="card mb-4">
@@ -144,7 +159,7 @@ curl {{ base_url }}/invoices/ID_DEL_DOCUMENTO -H "X-API-Key: TU_API_KEY"</code><
 
         <section id="reception" class="card mb-4">
             <h2 class="h2 mb-4">Recepción de e-CF (DGII)</h2>
-            <p class="muted mb-4">Endpoints de recepción de comprobantes de proveedores, registrados ante la DGII. Usan token Bearer emitido por el flujo de autenticación DGII (no <code>X-API-Key</code>).</p>
+            <p class="muted mb-4">Estos endpoints son para recibir comprobantes de terceros en una instalación registrada ante la DGII. No forman parte del flujo de emisión para integradores y usan el token Bearer del flujo de autenticación DGII, no la API Key de VykOne.</p>
             <table class="mb-4">
                 <tbody>
                     <tr><td class="param">GET /fe/autenticacion/api/semilla</td><td class="muted">Devuelve el XML de semilla de autenticación.</td></tr>
@@ -153,6 +168,21 @@ curl {{ base_url }}/invoices/ID_DEL_DOCUMENTO -H "X-API-Key: TU_API_KEY"</code><
                     <tr><td class="param">POST /fe/aprobacioncomercial/api/ecf</td><td class="muted">Recibe la aprobación comercial.</td></tr>
                 </tbody>
             </table>
+        </section>
+
+        <section id="errors" class="card mb-4">
+            <h2 class="h2 mb-4">Errores y estados HTTP</h2>
+            <table class="mb-4">
+                <tbody>
+                    <tr><td class="param">400</td><td class="muted">Payload inválido o faltan datos requeridos.</td></tr>
+                    <tr><td class="param">401</td><td class="muted">Falta la credencial (<code>AUTH_REQUIRED</code>) o es inválida (<code>AUTH_INVALID</code>).</td></tr>
+                    <tr><td class="param">403</td><td class="muted">Módulo no contratado o producción no habilitada (<code>PRODUCTION_AGREEMENT_REQUIRED</code>).</td></tr>
+                    <tr><td class="param">404</td><td class="muted">Factura, cliente o recurso no encontrado.</td></tr>
+                    <tr><td class="param">422</td><td class="muted">La DGII o el proveedor rechazó la operación.</td></tr>
+                    <tr><td class="param">500/503</td><td class="muted">Error interno o servicio externo no configurado.</td></tr>
+                </tbody>
+            </table>
+            <pre><code>{"success": false, "error": {"code": "AUTH_INVALID", "message": "La API Key provista es inválida o ha expirado."}}</code></pre>
         </section>
     </div>
 </div>

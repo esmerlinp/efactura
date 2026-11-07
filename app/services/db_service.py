@@ -4240,7 +4240,7 @@ class DatabaseService:
                 print(f"⚠️ Error al verificar stock reducido en factura {invoice_id}: {e}")
 
         # Caso 1: Factura de Venta regular -> Descontar stock (SALIDA / VENTA)
-        valid_sale_statuses = ["Emitida", "Cobrada", "Pagada", "Vencida", "Pendiente DGII", "Parcialmente Cobrada", "Revisión de Pago"]
+        valid_sale_statuses = ["Emitida", "Cobrada", "Pagada", "Vencida", "Parcialmente Cobrada", "Revisión de Pago"]
         if not is_quotation and not is_note and (is_synced or status in valid_sale_statuses) and status not in ("Borrador", "Anulada", "Rechazada", "Rechazado DGII") and not inv_dict.get("stockReduced") and not existing_stock_reduced:
             wh_id = inv_dict.get("warehouseId")
             if not wh_id:
