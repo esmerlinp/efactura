@@ -700,10 +700,18 @@ def create_app():
 
     @app.context_processor
     def inject_crm_commitments():
-        """Inyecta los compromisos CRM agendados para hoy y las notificaciones del usuario para todos los templates."""
+        """Inyecta los compromisos CRM agendados para hoy, las notificaciones del usuario y
+        el badge del Centro de Notificaciones (contadores separados por categoría)."""
         from flask import has_request_context
         crm_contacts = []
         user_notifications = []
+        notification_badge = {
+            "mentions_unread": 0,
+            "commitments_pending": 0,
+            "fiscal_overdue": 0,
+            "fiscal_upcoming": 0,
+            "total": 0,
+        }
         if has_request_context() and 'user' in session:
             user_uid = session['user'].get('uid')
             company = get_current_company()
@@ -711,14 +719,51 @@ def create_app():
                 try:
                     from app.services.db_service import DatabaseService
                     sandbox = session.get('is_sandbox_mode', False)
-                    
+                    company_id = company.company_id
+
                     if user_uid:
                         user_notifications = DatabaseService.get_user_notifications(user_uid, limit=10, sandbox=sandbox)
-                        
-                    crm_contacts = DatabaseService.get_crm_contacts(company.owner_uid, sandbox=sandbox, company_id=company.company_id)
+
+                    crm_contacts = DatabaseService.get_crm_contacts(company.owner_uid, sandbox=sandbox, company_id=company_id)
+
+                    # Badge del centro de notificaciones (contadores separados, sin duplicar)
+                    from app.services.notification_center import (
+                        NotificationStateService, can_view_fiscal,
+                    )
+                    from app.services.company_authorization import get_company_access
+
+                    mentions_unread = sum(1 for n in user_notifications if not n.get("read"))
+
+                    read_ids = NotificationStateService.get_read_item_ids(user_uid, company_id)
+                    commitments_pending = 0
+                    for c in crm_contacts:
+                        cid = f"commitment:{c.get('activityId') or c.get('id') or c.get('razonSocial', '')}"
+                        if cid not in read_ids:
+                            commitments_pending += 1
+
+                    fiscal_overdue = 0
+                    fiscal_upcoming = 0
+                    access = get_company_access(user_uid, company_id) if user_uid else None
+                    if can_view_fiscal(access):
+                        from app.services.notification_center import NotificationAggregator
+                        fc = NotificationAggregator._fiscal_counts_cached(access.owner_uid, company_id)
+                        fiscal_overdue = fc["fiscal_overdue"]
+                        fiscal_upcoming = fc["fiscal_upcoming"]
+
+                    notification_badge = {
+                        "mentions_unread": mentions_unread,
+                        "commitments_pending": commitments_pending,
+                        "fiscal_overdue": fiscal_overdue,
+                        "fiscal_upcoming": fiscal_upcoming,
+                        "total": mentions_unread + commitments_pending + fiscal_overdue + fiscal_upcoming,
+                    }
                 except Exception as e:
                     print(f"⚠️ Error al inyectar compromisos CRM o notificaciones en el contexto global: {e}")
-        return dict(crm_contacts=crm_contacts, user_notifications=user_notifications)
+        return dict(
+            crm_contacts=crm_contacts,
+            user_notifications=user_notifications,
+            notification_badge=notification_badge,
+        )
 
     # Inyectar helper de verificación de permisos globales
     @app.context_processor

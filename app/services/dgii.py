@@ -23,11 +23,8 @@ class DGIIService:
     def is_rst_regimen(cls, regimen, country="DO"):
         client = cls._resolve_client(country)
         normalized = cls.normalize_regimen(regimen, country=country)
-        rst_income = client.get("rst_income")
-        rst_purchases = client.get("rst_purchases")
-        if rst_income and rst_purchases:
-            return normalized in (rst_income, rst_purchases)
-        return False
+        rst_keys = {client.get("rst_income"), client.get("rst_purchases"), client.get("rst_agropecuario")}
+        return normalized in {k for k in rst_keys if k}
 
     @classmethod
     def get_regimen_rules(cls, regimen, country="DO"):
@@ -137,6 +134,8 @@ class DGIIService:
             return "rst_income"
         if value in ("RST COMPRAS", "RST POR COMPRAS", "RST - COMPRAS"):
             return "rst_purchases"
+        if value in ("RST AGROPECUARIO", "RST - AGROPECUARIO", "AGROPECUARIO"):
+            return "rst_agropecuario"
         if value.startswith("RST"):
             return "rst_income"
         if value in ("EXENTO", "EXENTA"):

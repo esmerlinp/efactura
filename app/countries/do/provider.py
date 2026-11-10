@@ -33,6 +33,7 @@ class DOProvider(BaseCountryProvider):
         from app.countries.do.dgii_client import (
             REGIMEN_RULES, REGIMEN_DEFAULT, REGIMEN_LEGACY_MAP,
             REGIMEN_ORDINARY, REGIMEN_RST_INCOME, REGIMEN_RST_PURCHASES,
+            REGIMEN_RST_AGROPECUARIO,
         )
         return {
             "default": REGIMEN_DEFAULT,
@@ -40,6 +41,7 @@ class DOProvider(BaseCountryProvider):
             "legacy_map": REGIMEN_LEGACY_MAP,
             "rst_income": REGIMEN_RST_INCOME,
             "rst_purchases": REGIMEN_RST_PURCHASES,
+            "rst_agropecuario": REGIMEN_RST_AGROPECUARIO,
             "regimes": REGIMEN_RULES,
         }
 
