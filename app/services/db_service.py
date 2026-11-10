@@ -525,6 +525,20 @@ def _cached_sequences(owner_uid, sandbox, company_id=None):
     return seqs
 
 
+def _resolve_document_type(data: dict) -> str:
+    """Resuelve el tipo documental persistido o lo infiere de campos heredados."""
+    doc_type = data.get("documentType")
+    if doc_type in ("invoice", "quotation", "proforma"):
+        return doc_type
+    is_quotation = bool(data.get("isQuotation", False))
+    if is_quotation:
+        num = str(data.get("invoiceNumber", "") or "")
+        if num.startswith("PRO-"):
+            return "proforma"
+        return "quotation"
+    return "invoice"
+
+
 @cache.memoize(timeout=30)
 def _cached_invoices(owner_uid, sandbox, quotations_only, include_all, company_id=None):
     invoices = []
@@ -654,6 +668,7 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all, company_i
                     "totalITBIS": float(data.get("totalITBIS", 0.0)),
                     "total": float(data.get("total", 0.0)),
                     "isQuotation": bool(data.get("isQuotation", False)),
+                    "documentType": _resolve_document_type(data),
                     "isConvertedToInvoice": bool(data.get("isConvertedToInvoice", False)),
                     "notes": data.get("notes", ""),
                     "comentario": data.get("comentario", ""),
@@ -3990,6 +4005,7 @@ class DatabaseService:
                         "totalITBIS": float(data.get("totalITBIS", 0.0)),
                         "total": float(data.get("total", 0.0)),
                         "isQuotation": bool(data.get("isQuotation", False)),
+                        "documentType": _resolve_document_type(data),
                         "isConvertedToInvoice": bool(data.get("isConvertedToInvoice", False)),
                         "notes": data.get("notes", ""),
                         "comentario": data.get("comentario", ""),
@@ -4131,6 +4147,7 @@ class DatabaseService:
         """Guarda o actualiza una factura y sus partidas en Firestore."""
         inv_dict["id"] = invoice_id
         inv_dict["ownerUID"] = owner_uid
+        inv_dict["documentType"] = _resolve_document_type(inv_dict)
 
         if inv_dict.get("status") not in ("Borrador", "Anulada"):
             try:
@@ -4217,6 +4234,7 @@ class DatabaseService:
         # Descontar o reingresar inventario automáticamente
         status = inv_dict.get("status", "Borrador")
         is_quotation = inv_dict.get("isQuotation", False)
+        is_preliminary = is_quotation or inv_dict.get("documentType") in ("quotation", "proforma")
         ecf_type = inv_dict.get("ecfType", "")
         from app.services.credit_note_inventory_service import CreditNoteInventoryService
         is_e34 = CreditNoteInventoryService.is_credit_note_e34(inv_dict)
@@ -4241,7 +4259,7 @@ class DatabaseService:
 
         # Caso 1: Factura de Venta regular -> Descontar stock (SALIDA / VENTA)
         valid_sale_statuses = ["Emitida", "Cobrada", "Pagada", "Vencida", "Parcialmente Cobrada", "Revisión de Pago"]
-        if not is_quotation and not is_note and (is_synced or status in valid_sale_statuses) and status not in ("Borrador", "Anulada", "Rechazada", "Rechazado DGII") and not inv_dict.get("stockReduced") and not existing_stock_reduced:
+        if not is_preliminary and not is_note and (is_synced or status in valid_sale_statuses) and status not in ("Borrador", "Anulada", "Rechazada", "Rechazado DGII") and not inv_dict.get("stockReduced") and not existing_stock_reduced:
             wh_id = inv_dict.get("warehouseId")
             if not wh_id:
                 wh_id = cls.get_default_warehouse(
@@ -4413,7 +4431,7 @@ class DatabaseService:
                 except Exception as e:
                     print(f"⚠️ Error al marcar como anulada la transacción de caja asociada: {e}")
 
-        if not is_quotation and status in ["Emitida", "Cobrada", "Pagada", "Vencida"]:
+        if not is_preliminary and status in ["Emitida", "Cobrada", "Pagada", "Vencida"]:
             client_id = inv_dict.get("clientId")
             if client_id:
                 try:
@@ -4444,7 +4462,7 @@ class DatabaseService:
                 except Exception as e:
                     print(f"⚠️ Error al actualizar automáticamente el pipelineStage del cliente {client_id}: {e}")
 
-        if is_quotation:
+        if is_preliminary:
             try:
                 from app.services.crm_service import CRMService
                 opp_id = inv_dict.get("opportunityId")

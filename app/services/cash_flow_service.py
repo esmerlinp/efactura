@@ -120,7 +120,7 @@ class CashFlowService:
         # ── CxC: Facturas pendientes de cobro ──
         invoices = invoices if invoices is not None else (DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or [])
         for inv in invoices:
-            if inv.get("isQuotation") or inv.get("status") in ("Anulada", "Borrador", "Pagado", "Consolidada"):
+            if inv.get("isQuotation") or inv.get("documentType") in ("quotation", "proforma") or inv.get("status") in ("Anulada", "Borrador", "Pagado", "Consolidada"):
                 continue
             remaining = float(inv.get("remainingBalance", 0.0))
             if remaining <= 0:
@@ -353,7 +353,7 @@ class CashFlowService:
         # ── CxC ──
         invoices = invoices if invoices is not None else (DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or [])
         for inv in invoices:
-            if inv.get("isQuotation") or inv.get("status") in ("Anulada", "Borrador", "Pagado", "Consolidada"):
+            if inv.get("isQuotation") or inv.get("documentType") in ("quotation", "proforma") or inv.get("status") in ("Anulada", "Borrador", "Pagado", "Consolidada"):
                 continue
             remaining = float(inv.get("remainingBalance", 0.0))
             if remaining <= 0:

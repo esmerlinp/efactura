@@ -9,7 +9,7 @@ Las notas fiscales te permiten ajustar el valor de una factura ya emitida:
 
 1. En el menú lateral, abre **Ventas** y haz clic en **"Notas de
    Crédito/Débito"**.
-2. Haz clic en **"Nueva Nota de Crédito"** o **"Nueva Nota de Débito"**.
+2. Abre el detalle de la factura original y haz clic en **"Emitir Nota de Crédito (E34)"** o **"Emitir Nota de Débito (E33)"**.
 3. Completa el formulario:
    - **Factura de Referencia**: busca y selecciona la factura emitida que
      quieres ajustar.

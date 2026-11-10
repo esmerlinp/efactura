@@ -511,7 +511,7 @@ La siguiente tabla refleja la evolución de existencias, capas FIFO y saldos val
 - **Pantalla en la Interfaz:** Menú Lateral > `Ventas` > `Notas de Crédito/Débito`.
 - **Procedimiento Paso a Paso:**
   1. En el menú lateral, haz clic en **Ventas** > **Notas de Crédito/Débito**.
-  2. Haz clic en el botón superior **"+ Nueva Nota de Crédito"**.
+  2. Abre el detalle de la factura original y haz clic en **"Emitir Nota de Crédito (E34)"**.
   3. Selecciona la factura original afectada.
   4. Marca obligatoriamente la casilla de verificación: **"Reingresar mercancía al inventario"**.
   5. Haz clic en **"Emitir Nota de Crédito"**.
@@ -861,7 +861,7 @@ La siguiente tabla refleja la evolución de existencias, capas FIFO y saldos val
 | **Venta y Descargo e-CF** | `Ventas > Facturación Electrónica > + Nueva Factura` | INV-014, INV-015 | Descuento automático FIFO solo al emitir factura | Evasión de costo de venta / descuadre | Detalle de factura y movimiento |
 | **Bloqueo Stock Negativo** | `Ventas > Facturación Electrónica > + Nueva Factura` | INV-016 | Bloqueo en pantalla ante falta de existencias físicas | Ventas con saldos negativos | Mensaje de error en pantalla |
 | **Reversión por Anulación** | `Ventas > Facturación Electrónica > Detalle > Anular Factura` | INV-017 | Reingreso automático de unidades al almacén | Pérdida de inventario anulado | Movimiento de reingreso |
-| **Devoluciones Clientes E34** | `Ventas > Notas de Crédito/Débito > + Nueva Nota de Crédito` | INV-018 | Reingreso físico al costo histórico original | Distorsión del costo de ventas | Kardex y nota de crédito |
+| **Devoluciones Clientes E34** | `Detalle de la factura original > Emitir Nota de Crédito (E34)` | INV-018 | Reingreso físico al costo histórico original | Distorsión del costo de ventas | Kardex y nota de crédito |
 | **Transferencias de Almacén** | `Productos e Inventario > Transferencias > + Nueva Transferencia` | INV-020, INV-021, INV-022 | Traslado atómico, conservación del inventario total | Pérdida de mercancía en traslado | Saldos en ambos almacenes |
 | **Conteo Físico y Auditoría** | `Productos e Inventario > Conteos Físicos > + Iniciar Conteo` | INV-024, INV-025, INV-026 | Snapshot teórica y ajustes automáticos FIFO | Mermas ocultas / desajustes físicos | Detalle de conteo y asiento |
 | **Anti-duplicidad en Conteos**| `Productos e Inventario > Conteos Físicos > Detalle de Sesión` | INV-027 | Bloqueo de re-finalización en sesiones cerradas | Doble contabilización de ajustes | Alerta al reintentar finalizar |

@@ -1,8 +1,8 @@
 {% extends "layout.html" %}
 
-{% block title %}{% if active_page == 'quotations' %}Nueva Cotización{% else %}Nuevo Documento{% endif %}{% endblock %}
+{% block title %}{% if active_page == 'quotations' %}Nueva Cotización{% elif active_page == 'proformas' %}Nueva Proforma{% else %}Nuevo Documento{% endif %}{% endblock %}
 
-{% block page_header %}{% if active_page == 'quotations' %}Creación de Cotización Comercial{% else %}Generación de Documento Electrónico{% endif %}{% endblock %}
+{% block page_header %}{% if active_page == 'quotations' %}Creación de Cotización Comercial{% elif active_page == 'proformas' %}Creación de Proforma{% else %}Generación de Documento Electrónico{% endif %}{% endblock %}
 
 {% block content %}
 {% set is_referencing = invoice and invoice.informationReference is defined and invoice.informationReference %}
@@ -71,7 +71,7 @@
 <input type="hidden" name="warehouseId" value="{% if invoice %}{{ invoice.warehouseId }}{% else %}{% if warehouses %}{{ warehouses[0].id }}{% endif %}{% endif %}">
 <input type="hidden" name="currency" value="{% if is_referencing %}{{ invoice.currency }}{% elif invoice %}{{ invoice.currency or 'DOP' }}{% else %}DOP{% endif %}">
 <input type="hidden" name="exchangeRate" value="{% if invoice %}{{ invoice.exchangeRate or 1.0 }}{% else %}1.0{% endif %}">
-{% if active_page == 'quotations' %}<input type="hidden" name="ecfType" value="Cotización">{% endif %}
+{% if active_page == 'quotations' %}<input type="hidden" name="ecfType" value="Cotización">{% elif active_page == 'proformas' %}<input type="hidden" name="ecfType" value="Proforma">{% endif %}
 <input type="hidden" name="costCenterId" value="{% if invoice %}{{ invoice.costCenterId or '' }}{% endif %}">
 <input type="hidden" name="priceListId" value="{% if invoice %}{{ invoice.priceListId or '' }}{% elif not invoice and default_price_list_id %}{{ default_price_list_id }}{% endif %}">
 
@@ -81,12 +81,12 @@
   <div class="section-card" style="display:flex;align-items:center;gap:16px;padding-top:18px;padding-bottom:18px;">
     <i class="fa-solid fa-file-invoice" style="color:var(--accent-emerald);font-size:1.2rem;"></i>
     <h2 style="font-size:1.2rem;font-weight:800;color:var(--text-primary);margin:0;white-space:nowrap;">
-      {% if is_referencing %}{% if invoice.ecfType and ('E34' in invoice.ecfType or 'Nota de Crédito' in invoice.ecfType) %}Nueva Nota de Crédito{% else %}Nueva Nota de Débito{% endif %}{% elif active_page == 'quotations' %}Nueva Cotización{% elif invoice %}Editar {{ invoice.invoiceNumber }}{% else %}Nuevo Documento{% endif %}
+      {% if is_referencing %}{% if invoice.ecfType and ('E34' in invoice.ecfType or 'Nota de Crédito' in invoice.ecfType) %}Nueva Nota de Crédito{% else %}Nueva Nota de Débito{% endif %}{% elif active_page == 'quotations' %}Nueva Cotización{% elif active_page == 'proformas' %}Nueva Proforma{% elif invoice %}Editar {{ invoice.invoiceNumber }}{% else %}Nuevo Documento{% endif %}
     </h2>
     {% if invoice and invoice.encf %}
     <span style="font-family:monospace;font-size:0.85rem;color:var(--accent-purple);font-weight:700;">{{ invoice.encf }}</span>
     {% endif %}
-    {% if active_page != 'quotations' %}
+    {% if active_page not in ('quotations', 'proformas') %}
 <select id="ecf-type-select" name="{% if is_referencing %}ecfTypeDisabled{% else %}ecfType{% endif %}" class="form-select" style="max-width:220px;" {% if is_referencing %}disabled style="opacity:0.75;"{% endif %}>
   {% for t in ecf_types %}
   <option value="{{ t.label_with_code }}" data-code="{{ t.code }}" {% if invoice and (invoice.ecfType == t.label_with_code or invoice.ecfType == t.code) %}selected{% endif %}>{{ t.code }} — {{ t.short_label }}</option>
@@ -282,22 +282,24 @@
         <div class="t-label">TOTAL</div>
         <span id="lbl-total" class="t-value">RD$ 0.00</span>
         <span id="lbl-net-payable" class="t-net">RD$ 0.00</span>
-        <div style="font-size:0.68rem;color:var(--text-muted);">Neto a recibir</div>
+        <div style="font-size:0.68rem;color:var(--text-muted);">{% if active_page in ('quotations', 'proformas') %}Total del documento{% else %}Neto a recibir{% endif %}</div>
       </div>
     </div>
   </div>
 
   <!-- BARRA DE ACCIONES -->
   <div class="actions-bar">
-    <a href="{% if active_page == 'quotations' %}/quotations{% else %}{{ url_for('web_invoices.list_invoices') }}{% endif %}" class="btn-link">Cancelar</a>
+    <a href="{% if active_page == 'quotations' %}/quotations{% elif active_page == 'proformas' %}/proformas{% else %}{{ url_for('web_invoices.list_invoices') }}{% endif %}" class="btn-link">Cancelar</a>
     <button type="submit" formaction="/invoices/preview" formtarget="_blank" id="preview-invoice-btn" class="btn-subtle"><i class="fa-solid fa-eye"></i> Vista Previa</button>
-    <button type="submit" name="action" value="guardar" id="submit-invoice-btn" class="btn btn-secondary" style="padding:9px 20px;font-size:0.85rem;"><i class="fa-solid fa-floppy-disk"></i> Guardar Borrador</button>
+    <button type="submit" name="action" value="guardar" id="submit-invoice-btn" class="btn btn-secondary" style="padding:9px 20px;font-size:0.85rem;"><i class="fa-solid fa-floppy-disk"></i> {% if active_page == 'proformas' %}Guardar Proforma{% elif active_page == 'quotations' %}Guardar Cotización{% else %}Guardar Borrador{% endif %}</button>
+    {% if active_page not in ('quotations', 'proformas') %}
     <button type="submit" id="submit-invoice-cobrar-btn" name="action" value="emitir_credito" class="btn btn-primary" style="padding:10px 28px;font-size:0.9rem;"><i class="fa-solid fa-paper-plane"></i> Emitir Documento</button>
+    {% endif %}
   </div>
   <div id="payment-helper-container" style="text-align:right;font-size:0.72rem;color:var(--text-muted);margin-top:0;"></div>
 
 </div><!-- /doc-main-col -->
-<div id="emitting-overlay"><div class="spinner"></div><div class="emit-text">Emitiendo documento...</div></div>
+{% if active_page not in ('quotations', 'proformas') %}<div id="emitting-overlay"><div class="spinner"></div><div class="emit-text">Emitiendo documento...</div></div>{% endif %}
 </form>
 
 <!-- MODAL: RETENCIONES Y RECURRENCIA -->

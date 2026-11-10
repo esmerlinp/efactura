@@ -1343,7 +1343,6 @@
             ${result.encf ? `<div class="pos-total-row"><span>e-NCF</span><strong>${escapeHtml(result.encf)}</strong></div>` : ""}
         `;
         $("btn-print-receipt").dataset.invoiceId = result.invoiceId || "";
-        $("btn-return-sale").hidden = !result.invoiceId || consolidated;
         openModal("success-modal");
     }
 
@@ -1819,10 +1818,6 @@
             }
             await navigator.clipboard?.writeText(text);
             toast("Resumen copiado para compartir.", "success");
-        });
-        $("btn-return-sale").addEventListener("click", () => {
-            const id = $("btn-print-receipt").dataset.invoiceId;
-            if (id) window.open(`/fiscal-notes/create?type=E34&reference_invoice_id=${encodeURIComponent(id)}`, "_blank");
         });
         $("btn-new-sale").addEventListener("click", newSale);
 

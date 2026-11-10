@@ -5,6 +5,8 @@
 {% block page_header %}Detalle del Documento{% endblock %}
 
 {% block content %}
+{% set is_proforma = invoice.get('documentType') == 'proforma' %}
+{% set document_label = 'Proforma' if is_proforma else ('Cotización' if invoice.isQuotation else 'Factura') %}
 <style>
     /* Estilos dinámicos para diferenciar Cotizaciones de Facturas en la vista de detalle */
     .document-card-sheet {
@@ -192,7 +194,7 @@
                         invoice.invoiceNumber }}</h3>
                     {% if invoice.isQuotation %}
                     <span class="badge"
-                        style="{% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg,#7c3aed,#a78bfa);{% else %}background: var(--accent-purple);{% endif %} color:white; margin-bottom: 10px;">Cotización
+                        style="{% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg,#7c3aed,#a78bfa);{% else %}background: var(--accent-purple);{% endif %} color:white; margin-bottom: 10px;">{{ 'Proforma' if is_proforma else 'Cotización' }}
                         Comercial</span>
                     {% if invoice.get('isProfessional') %}
                     <span class="badge" style="background: linear-gradient(135deg,#7c3aed,#a78bfa); color:white; margin-bottom: 10px; margin-left: 4px;">Profesional</span>
@@ -601,7 +603,7 @@
             {% if invoice.get('isProfessional') and pd %}
             <div style="margin-top: 30px; border-top: 2px solid #ede9fe; padding-top: 24px;">
                 <span style="font-size: 0.78rem; text-transform: uppercase; color: #7c3aed; font-weight: 700; display: block; margin-bottom: 10px;">
-                    <i class="fa-solid fa-star" style="margin-right: 4px;"></i>Datos de Cotización
+                    <i class="fa-solid fa-star" style="margin-right: 4px;"></i>Datos de {{ document_label }}
                 </span>
                 {% if pd.get('subject') %}
                 <p style="font-size: 0.9rem; font-weight: 600; color: #1e293b; margin-bottom: 8px;">{{ pd.subject }}</p>
@@ -1054,7 +1056,7 @@
             </div>
             <h4
                 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--accent-emerald);">
-                Cotización Facturada</h4>
+                 {% if is_proforma %}Proforma Facturada{% else %}Cotización Facturada{% endif %}</h4>
             <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
                 Esta propuesta ya ha sido convertida a factura fiscal.
             </p>
@@ -1073,9 +1075,21 @@
                 <i class="fa-solid fa-circle-xmark" style="font-size: 1.2rem;"></i>
             </div>
             <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--accent-red);">
-                Cotización Rechazada</h4>
+                 {% if is_proforma %}Proforma Rechazada{% else %}Cotización Rechazada{% endif %}</h4>
             <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
                 El cliente ha rechazado esta propuesta comercial. Puedes contactarlo para revisar los detalles o aprobarla manualmente si se llegó a un acuerdo offline.
+            </p>
+        {% elif invoice.status == 'Pendiente Aut. Cliente' and invoice.quotationExpired %}
+        <div class="card-table-wrapper"
+            style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-red); background: rgba(239, 68, 68, 0.03);">
+            <div
+                style="width: 52px; height: 52px; border-radius: 50%; background: var(--accent-red); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: white;">
+                <i class="fa-solid fa-clock" style="font-size: 1.2rem;"></i>
+            </div>
+            <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--accent-red);">
+                 {% if is_proforma %}Proforma Vencida{% else %}Cotización Vencida{% endif %}</h4>
+            <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
+                La vigencia de esta propuesta expiró el <strong>{{ invoice.quotationExpiryDate }}</strong>. Ya no puede ser autorizada por el cliente ni aprobada manualmente. Emite una nueva cotización o extiende su vigencia para continuar.
             </p>
         {% elif invoice.status == 'Pendiente Aut. Cliente' %}
         <div class="card-table-wrapper"
@@ -1097,13 +1111,14 @@
                 <i class="fa-solid fa-file-pen" style="font-size: 1.2rem;"></i>
             </div>
             <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--text-muted);">
-                Cotización en Borrador</h4>
+                 {% if is_proforma %}Proforma en Borrador{% else %}Cotización en Borrador{% endif %}</h4>
             <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
                 Esta propuesta comercial se encuentra en estado Borrador. Edítala o envíala al cliente para habilitar su firma y autorización electrónica.
             </p>
         {% endif %}
 
             <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% if not invoice.quotationExpired %}
                 <form id="manual-approve-form" action="/quotations/{{ invoice.id }}/approve" method="POST" style="margin: 0;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="button" onclick="confirmManualApprove()" class="btn btn-primary"
@@ -1112,6 +1127,7 @@
                         <span>Aprobar Manualmente</span>
                     </button>
                 </form>
+                {% endif %}
 
                 {% if invoice.clientId %}
                 {% if module_enabled('portal_cliente') %}
@@ -1144,7 +1160,7 @@
                 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--accent-purple);">
                 Convertir a Factura Fiscal</h4>
             <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
-                Esta cotización está aprobada. Conviértela en un Comprobante Fiscal Electrónico (e-CF) para emitirla a
+                Esta {{ document_label|lower }} está aprobada. Conviértela en un Comprobante Fiscal Electrónico (e-CF) para emitirla a
                 la DGII y registrarla en tus ingresos.
             </p>
 
@@ -1201,6 +1217,18 @@
                     <span>Emitir como Zona Franca (E49)</span>
                 </button>
             </form>
+
+            {% if is_proforma %}
+            <form action="/proformas/{{ invoice.id }}/convert-to-quotation" method="POST" style="margin-top:10px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-secondary" style="width:100%;">Convertir a Cotización</button>
+            </form>
+            {% else %}
+            <form action="/quotations/{{ invoice.id }}/convert-to-proforma" method="POST" style="margin-top:10px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-secondary" style="width:100%;">Convertir a Proforma</button>
+            </form>
+            {% endif %}
 
             <div
                 style="margin-top: 16px; padding: 10px 14px; background: rgba(124,58,237,0.06); border-radius: var(--radius-sm); border-left: 3px solid var(--accent-purple);">
@@ -1429,16 +1457,16 @@
                 <button type="submit" class="btn btn-danger"
                     style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
                     <i class="fa-solid fa-trash-can"></i>
-                    <span>Eliminar {% if invoice.isQuotation %}Cotización{% else %}Borrador{% endif %}</span>
+                    <span>Eliminar {% if invoice.isQuotation %}{{ document_label }}{% else %}Borrador{% endif %}</span>
                 </button>
             </form>
             {% endif %}
 
             {% if invoice.status == 'Borrador' %}
-            <a href="{% if invoice.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?edit={{ invoice.id }}{% else %}{{ url_for('web_invoices.new_invoice_route', invoice_id=invoice.id) }}{% endif %}" class="btn btn-primary"
+            <a href="{% if invoice.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?edit={{ invoice.id }}{% elif is_proforma %}{{ url_for('web_invoices.new_proforma_route', invoice_id=invoice.id) }}{% else %}{{ url_for('web_invoices.new_invoice_route', invoice_id=invoice.id) }}{% endif %}" class="btn btn-primary"
                 style="width: 100%; {% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-hover));{% else %}background: var(--accent-purple);{% endif %} border: none; color: white;">
                 <i class="fa-solid fa-pen-to-square"></i>
-                <span>Editar {% if invoice.isQuotation %}Cotización{% else %}Borrador{% endif %}</span>
+                <span>Editar {% if invoice.isQuotation %}{{ document_label }}{% else %}Borrador{% endif %}</span>
             </a>
             {% endif %}
 
@@ -1483,11 +1511,11 @@
             <a href="{% if invoice.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?clone={{ invoice.id }}{% else %}{{ url_for('web_invoices.new_quotation_route') }}?clone={{ invoice.id }}{% endif %}"
                 class="btn btn-secondary" style="width: 100%; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
                 <i class="fa-solid fa-copy"></i>
-                <span>Crear Copia de esta Cotización</span>
+                <span>Crear Copia de esta {{ document_label }}</span>
             </a>
-            <a href="{{ url_for('web_invoices.list_quotations') }}" class="btn btn-secondary" style="width: 100%;">
+            <a href="{{ url_for('web_invoices.list_proformas' if is_proforma else 'web_invoices.list_quotations') }}" class="btn btn-secondary" style="width: 100%;">
                 <i class="fa-solid fa-arrow-rotate-left"></i>
-                <span>Volver a Cotizaciones</span>
+                <span>Volver a {{ 'Proformas' if is_proforma else 'Cotizaciones' }}</span>
             </a>
             {% else %}
             <a href="{{ url_for('web_invoices.list_invoices') }}" class="btn btn-secondary" style="width: 100%;">
@@ -2066,7 +2094,7 @@ function closeDraftPaymentModal() {
                     <h3
                         style="font-size: 1.1rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 800; margin: 0;">
                         <i class="fa-solid fa-paper-plane" style="color: var(--accent-purple);"></i>
-                        <span>Enviar Cotización al Cliente</span>
+                        <span>Enviar {{ document_label }} al Cliente</span>
                     </h3>
                     <button type="button" onclick="closeSendQuotationModal()"
                         style="cursor: pointer; font-size: 1.25rem; opacity: 0.7; background: transparent; border: none; color: var(--text-primary);"><i
@@ -2082,7 +2110,7 @@ function closeDraftPaymentModal() {
                             Se enviará un correo electrónico formal con el enlace de acceso al portal del cliente para
                             que pueda revisar, firmar y aprobar electrónicamente la propuesta.
                             {% else %}
-                            Se enviará un correo electrónico con la cotización en formato PDF adjunto para que el cliente pueda revisarla.
+                            Se enviará un correo electrónico con la {{ document_label|lower }} en formato PDF adjunto para que el cliente pueda revisarla.
                             {% endif %}
                         </div>
 
@@ -2130,7 +2158,7 @@ function closeDraftPaymentModal() {
 
                 <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; margin: 12px 0 24px;">
                     El cliente <strong id="pin-missing-client-name" style="color: var(--text-primary);"></strong>
-                    no tiene una clave de acceso asignada. Para enviarle la cotización,
+                    no tiene una clave de acceso asignada. Para enviarle la {{ document_label|lower }},
                     primero debe asignarle una clave de 6 dígitos en la ficha del cliente.
                 </p>
 
@@ -2842,8 +2870,8 @@ function closeDraftPaymentModal() {
 
         function confirmManualApprove() {
             showPremiumConfirm({
-                title: 'Aprobar Cotización',
-                message: '¿Está seguro de que desea aprobar esta cotización manualmente? Esta acción cambiará el estado de la propuesta a <strong>Aprobada</strong>.',
+                title: 'Aprobar {{ document_label }}',
+                message: '¿Está seguro de que desea aprobar esta {{ document_label|lower }} manualmente? Esta acción cambiará el estado de la propuesta a <strong>Aprobada</strong>.',
                 iconClass: 'fa-solid fa-check-circle',
                 iconColor: 'var(--accent-emerald)',
                 confirmBtnText: 'Sí, Aprobar',
@@ -2856,8 +2884,8 @@ function closeDraftPaymentModal() {
         function confirmConvert(ecfType) {
             document.getElementById('convert-ecf-type').value = ecfType;
             showPremiumConfirm({
-                title: 'Convertir Cotización',
-                message: `¿Está seguro de que desea convertir esta cotización en una factura de tipo <strong>${ecfType}</strong>?`,
+                title: 'Convertir {{ document_label }}',
+                message: `¿Está seguro de que desea convertir esta {{ document_label|lower }} en una factura de tipo <strong>${ecfType}</strong>?`,
                 iconClass: 'fa-solid fa-wand-magic-sparkles',
                 iconColor: 'var(--accent-purple)',
                 confirmBtnText: 'Sí, Convertir',

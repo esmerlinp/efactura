@@ -34,7 +34,7 @@ def build_dashboard_metrics(invoices, expenses, selected_date, kpi_period):
     """Build values that depend only on invoice and expense snapshots."""
     real_invoices = [
         invoice for invoice in invoices
-        if not invoice.get("isQuotation")
+        if not invoice.get("isQuotation") and invoice.get("documentType") not in ("quotation", "proforma")
         and invoice.get("status") not in ("Anulada", "Borrador")
     ]
     kpi_invoices = [

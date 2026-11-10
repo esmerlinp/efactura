@@ -60,7 +60,7 @@ class AggregationService:
         expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id)
 
         real_invoices = [inv for inv in invoices
-                        if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
+                        if not inv.get('isQuotation') and inv.get('documentType') not in ('quotation', 'proforma') and inv.get('status') not in ['Anulada', 'Borrador']]
 
         monthly_data = {}
 

@@ -835,7 +835,12 @@
 
             <!-- Action depending on state -->
             {% if invoice.isQuotation %}
-                {% if invoice.status == 'Pendiente Aut. Cliente' %}
+                {% if invoice.status == 'Pendiente Aut. Cliente' and invoice.quotationExpired %}
+                    <button class="btn btn-danger" disabled style="cursor: not-allowed; opacity: 0.8;">
+                        <i class="fa-solid fa-clock"></i>
+                        <span>Cotización Vencida</span>
+                    </button>
+                {% elif invoice.status == 'Pendiente Aut. Cliente' %}
                     <button class="btn btn-success" onclick="openAcceptModal()">
                         <i class="fa-solid fa-circle-check"></i>
                         <span>Aceptar Cotización</span>
@@ -884,8 +889,8 @@
                     <div style="margin-bottom: 8px;">
                         {% if invoice.status in ['Cobrada', 'Aprobada'] %}
                         <span class="badge badge-success">{{ invoice.status }}</span>
-                        {% elif invoice.status in ['Rechazada', 'Anulada'] %}
-                        <span class="badge badge-danger">{{ invoice.status }}</span>
+                        {% elif invoice.status in ['Rechazada', 'Anulada'] or invoice.quotationExpired %}
+                        <span class="badge badge-danger">{{ 'Vencida' if invoice.quotationExpired else invoice.status }}</span>
                         {% elif invoice.status == 'Revisión de Pago' %}
                         <span class="badge badge-info" style="background-color: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.2);">{{ invoice.status }}</span>
                         {% else %}
@@ -1160,8 +1165,12 @@
             {% endif %}
 
             {% if pd.get('validityDays') %}
-            <div style="margin-top:12px;font-size:13px;color:#475569;padding:10px 14px;background:#fefce8;border-left:3px solid #f59e0b;border-radius:4px;">
+            <div style="margin-top:12px;font-size:13px;color:#475569;padding:10px 14px;{% if invoice.quotationExpired %}background:#fef2f2;border-left:3px solid #dc2626;{% else %}background:#fefce8;border-left:3px solid #f59e0b;{% endif %}border-radius:4px;">
+                {% if invoice.quotationExpired %}
+                <strong>Vigencia vencida:</strong> Esta cotización expiró el <strong>{{ invoice.quotationExpiryDate | format_date }}</strong> y ya no puede ser aceptada.
+                {% else %}
                 <strong>Vigencia:</strong> Esta cotización tiene una validez de <strong>{{ pd.validityDays }} días calendario</strong> a partir de su fecha de emisión.
+                {% endif %}
             </div>
             {% endif %}
 

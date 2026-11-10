@@ -157,17 +157,15 @@ class ProductionAgreementAccessService:
 
         try:
             from app.services.cache_service import CacheService
-            from app.cache import cache as _cache
-            cache_key = CacheService.domain_key(
-                "production_agreement", company_id, bool(sandbox),
-                "web_access", user_id, active_id,
+            cache_key = CacheService.make_key(
+                "pa_web_access", company_id, bool(sandbox), user_id, active_id
             )
-            cached = _cache.get(cache_key)
-            if cached is not None:
-                return cls._decision_from_dict(cached)
-            decision = cls._evaluate_uncached(company_id, user_id, active, sandbox=sandbox)
-            _cache.set(cache_key, cls._decision_to_dict(decision), timeout=30)
-            return decision
+            return CacheService.get_or_set_request(
+                cache_key,
+                lambda: cls._evaluate_uncached(
+                    company_id, user_id, active, sandbox=sandbox
+                ),
+            )
         except Exception as e:
             print(f"⚠️ [ProductionAgreement] Error al cachear decisión: {e}")
             return cls._evaluate_uncached(company_id, user_id, active, sandbox=sandbox)

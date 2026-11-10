@@ -1,8 +1,8 @@
 {% extends "layout.html" %}
 
-{% block title %}{% if active_page == 'quotations' %}Cotizaciones{% else %}Documentos{% endif %}{% endblock %}
+{% block title %}{% if active_page == 'quotations' %}Cotizaciones{% elif active_page == 'proformas' %}Proformas{% else %}Documentos{% endif %}{% endblock %}
 
-{% block page_header %}{% if active_page == 'quotations' %}Cotizaciones y Presupuestos{% else %}Documentos{% endif %}{%
+{% block page_header %}{% if active_page == 'quotations' %}Cotizaciones y Presupuestos{% elif active_page == 'proformas' %}Proformas{% else %}Documentos{% endif %}{%
 endblock %}
 
 {% block content %}
@@ -44,7 +44,7 @@ endblock %}
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
     <h1 class="page-title"
         style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
-        {% if active_page == 'quotations' %}Cotizaciones y Presupuestos{% else %}Documentos{% endif %}
+        {% if active_page == 'quotations' %}Cotizaciones y Presupuestos{% elif active_page == 'proformas' %}Proformas{% else %}Documentos{% endif %}
     </h1>
 </div>
 
@@ -81,11 +81,13 @@ endblock %}
     <div class="table-header-row">
         <div>
             <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">
-                {% if active_page == 'quotations' %}Cotizaciones Realizadas{% else %}Facturas Emitidas{% endif %}
+                {% if active_page == 'quotations' %}Cotizaciones Realizadas{% elif active_page == 'proformas' %}Proformas{% else %}Facturas Emitidas{% endif %}
             </h3>
             <p style="color: var(--text-secondary); font-size: 0.88rem;">
                 {% if active_page == 'quotations' %}
                 Registro y seguimiento de propuestas comerciales y presupuestos para clientes.
+                {% elif active_page == 'proformas' %}
+                Documentos preliminares sin emisión fiscal.
                 {% else %}
                 Registro de documentos electrónicos emitidos (Ley 32-23).
                 {% endif %}
@@ -131,6 +133,13 @@ endblock %}
             }
         }
         </script>
+        {% elif active_page == 'proformas' %}
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <a href="/proformas/new" class="btn btn-primary" style="display: inline-flex; align-items: center;">
+                <i class="fa-solid fa-file-invoice"></i>
+                <span>Nueva Proforma</span>
+            </a>
+        </div>
         {% else %}
         <div style="display: flex; gap: 12px; align-items: center;">
             <button class="btn btn-secondary" onclick="openHistoricalImportModal()"
@@ -149,7 +158,7 @@ endblock %}
     <!-- Filtros Minimalistas en una sola línea -->
     <div
         style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
-        <form method="GET" action="{% if active_page == 'quotations' %}/quotations{% else %}/invoices{% endif %}"
+        <form method="GET" action="{% if active_page == 'quotations' %}/quotations{% elif active_page == 'proformas' %}/proformas{% else %}/invoices{% endif %}"
             id="filters-form"
             style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap; margin: 0;">
 
@@ -174,6 +183,7 @@ endblock %}
                     {% if active_page == 'quotations' %}
                     <option value="Borrador" {% if status=='Borrador' %}selected{% endif %}>Borrador</option>
                     <option value="Pendiente Aut. Cliente" {% if status=='Pendiente Aut. Cliente' %}selected{% endif %}>Pendiente Aut. Cliente</option>
+                    <option value="Vencida" {% if status=='Vencida' %}selected{% endif %}>Vencida</option>
                     <option value="Aprobada" {% if status=='Aprobada' %}selected{% endif %}>Aprobada</option>
                     <option value="Facturada" {% if status=='Facturada' %}selected{% endif %}>Facturada</option>
                     <option value="Rechazada" {% if status=='Rechazada' %}selected{% endif %}>Rechazada</option>
@@ -254,7 +264,7 @@ endblock %}
                     <th>{{ sort_link('total', 'Total', 'desc') }}</th>
                     <th>{{ sort_link('remainingBalance', 'Por cobrar', 'desc') }}</th>
                     <th>{{ sort_link('status', 'Estado', 'asc') }}</th>
-                    {% if active_page != 'quotations' %}
+                    {% if active_page not in ('quotations', 'proformas') %}
                     <th>{{ sort_link('dgiiStatus', 'Estado DGII', 'asc') }}</th>
                     {% endif %}
                     <th style="text-align: right; width: 50px;"></th>
@@ -268,7 +278,7 @@ endblock %}
                         <input type="checkbox" class="invoice-checkbox" value="{{ inv.id }}" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-purple);">
                     </td>
                     <td>
-                        {% if active_page == 'quotations' %}
+                        {% if active_page == 'quotations' or active_page == 'proformas' %}
                         <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="invoice-link" style="color: var(--accent-purple);">
                             {{ inv.invoiceNumber }}
                         </a>
@@ -306,16 +316,18 @@ endblock %}
                         RD$ {{ "{:,.2f}".format(inv.total) }}
                     </td>
                     <td>
-                        {% if active_page == 'quotations' %}
+                        {% if active_page == 'quotations' or active_page == 'proformas' %}
                         RD$ 0.00
                         {% else %}
                         RD$ {{ "{:,.2f}".format(inv.remainingBalance) }}
                         {% endif %}
                     </td>
                     <td>
-                        {% if active_page == 'quotations' %}
+                        {% if active_page == 'quotations' or active_page == 'proformas' %}
                             {% if inv.status == 'Borrador' or not inv.status %}
                             <span class="badge badge-secondary" style="font-size: 0.65rem;">Borrador</span>
+                            {% elif inv.status == 'Pendiente Aut. Cliente' and inv.quotationExpired %}
+                            <span class="badge badge-danger" style="font-size: 0.65rem; background-color: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Vencida</span>
                             {% elif inv.status == 'Pendiente Aut. Cliente' %}
                             <span class="badge badge-warning" style="font-size: 0.65rem; background-color: rgba(245, 158, 11, 0.15); color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Pendiente Aut. Cliente</span>
                             {% elif inv.status == 'Facturada' %}
@@ -345,7 +357,7 @@ endblock %}
                             {% endif %}
                         {% endif %}
                     </td>
-                    {% if active_page != 'quotations' %}
+                    {% if active_page not in ('quotations', 'proformas') %}
                     <td>
                         {% if inv.isSyncedWithDGII or inv.dgiiStatus in ['ACCEPTED', 'ACEPTADO', 'ACCEPTED_PREVIOUSLY'] %}
                         <span class="badge badge-success" style="font-size: 0.65rem; background-color: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
@@ -434,7 +446,7 @@ endblock %}
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="{% if active_page == 'quotations' %}8{% else %}9{% endif %}" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                    <td colspan="{% if active_page in ('quotations', 'proformas') %}8{% else %}9{% endif %}" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
                         <i class="fa-solid fa-file-invoice-dollar"
                             style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                         <span>No hay documentos que coincidan con los filtros aplicados.</span>

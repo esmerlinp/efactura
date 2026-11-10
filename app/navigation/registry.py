@@ -49,6 +49,7 @@ NAVIGATION_ITEMS = (
     _link("global.sales.invoices", "Facturación Electrónica", "web_invoices.list_invoices", WORKSPACE_GLOBAL, 20, parent="global.sales", module_key="e_cf", permission="canInvoice", active_pages=("invoices",)),
     _link("global.sales.fiscal_notes", "Notas de Crédito/Débito", "web_fiscal_notes.list_fiscal_notes", WORKSPACE_GLOBAL, 30, parent="global.sales", module_key="e_cf", permission="canManageFiscalNotes", active_pages=("fiscal_notes",)),
     _link("global.sales.quotations", "Cotizaciones", "web_invoices.list_quotations", WORKSPACE_GLOBAL, 40, parent="global.sales", module_key="cotizaciones", permission="canManageQuotations", active_pages=("quotations",)),
+    _link("global.sales.proformas", "Proformas", "web_invoices.list_proformas", WORKSPACE_GLOBAL, 45, parent="global.sales", module_key="cotizaciones", permission="canManageQuotations", active_pages=("proformas",)),
     _link("global.sales.pos", "Punto de Venta (POS)", "web_pos.pos_dashboard", WORKSPACE_GLOBAL, 50, parent="global.sales", module_key="pos", permission="canManagePOS", active_pages=("pos", "pos_admin"), company_flag="company_profile_pos_enabled"),
     _group("global.customers", "Clientes", "", WORKSPACE_GLOBAL, 20, parent="global.sales_customers"),
     _link("global.customers.clients", "Clientes", "web_contacts.list_contacts", WORKSPACE_GLOBAL, 10, parent="global.customers", permission_any=("canClients", "canCRMContacts"), active_pages=("contacts", "clients")),
