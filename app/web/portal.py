@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session, make_response, g, abort
 from firebase_admin import firestore
 from app.services.db_service import db_firestore, DatabaseService
+from app.services.quotation_expiry_service import quotation_expiry
 from app.services.dgii_direct import DgiiDirectService
 from app.services.azul_service import AzulService
 from app.services.paypal_service import PayPalService, PAYPAL_SUPPORTED_CURRENCIES
@@ -215,6 +216,12 @@ class PortalDbService:
                     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                     if due_date_clean < today_str:
                         status = "Vencida"
+
+                if data.get("isQuotation") and status == "Pendiente Aut. Cliente":
+                    expiry = quotation_expiry(data)
+                    if expiry.get("expired"):
+                        status = "Vencida"
+
                 data['status'] = status
                 
                 # Normalizar montos
@@ -559,6 +566,13 @@ def sign_quotation(invoice_id):
         
     if invoice.get('status') != 'Pendiente Aut. Cliente':
         return jsonify({"success": False, "error": "La cotización no se encuentra en estado pendiente de autorización por el cliente."}), 400
+
+    expiry = quotation_expiry(invoice)
+    if expiry.get("expired"):
+        return jsonify({
+            "success": False,
+            "error": "La cotización ha vencido y ya no puede ser aceptada. Solicite una nueva cotización al proveedor."
+        }), 400
 
     cert_file = request.files.get('certificate')
     password = request.form.get('password', '')
@@ -1933,6 +1947,11 @@ def portal_document_detail(invoice_id):
         
     from app.web.invoices import _enrich_invoice_totals
     invoice = _enrich_invoice_totals(invoice)
+
+    if invoice.get('isQuotation'):
+        expiry = quotation_expiry(invoice)
+        invoice['quotationExpired'] = bool(expiry.get('expired'))
+        invoice['quotationExpiryDate'] = expiry.get('expiry_date') or ''
     
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)

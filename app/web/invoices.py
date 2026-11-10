@@ -36,6 +36,7 @@ except Exception as e:
 import random
 from config import Config
 from app.services.db_service import DatabaseService
+from app.services.quotation_expiry_service import quotation_expiry
 from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
 from app.utils.currency import CurrencyService
@@ -1984,6 +1985,9 @@ def list_quotations():
     # Filtrar
     filtered = []
     for inv in quotations:
+        expiry = quotation_expiry(inv)
+        inv['quotationExpired'] = bool(expiry.get('expired'))
+        inv['quotationExpiryDate'] = expiry.get('expiry_date') or ''
         if q:
             q_lower = q.lower()
             if (q_lower not in inv.get('invoiceNumber', '').lower() and 
@@ -1992,7 +1996,10 @@ def list_quotations():
                 q_lower not in inv.get('encf', '').lower()):
                 continue
         if status:
-            if inv.get('status') != status:
+            if status == 'Vencida':
+                if not inv.get('quotationExpired'):
+                    continue
+            elif inv.get('status') != status:
                 continue
         inv_date = inv.get('date', '')[:10]
         if start_date and inv_date < start_date:
@@ -2016,7 +2023,7 @@ def list_quotations():
                 inv.get("date", "")[:10],
                 f"{inv.get('subtotal', 0.0):.2f}",
                 f"{inv.get('total', 0.0):.2f}",
-                inv.get("status", "")
+                "Vencida" if inv.get("quotationExpired") else inv.get("status", "")
             ])
         dest = io.BytesIO()
         dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
@@ -2071,6 +2078,29 @@ def list_quotations():
         end_date=end_date
     )
 
+@web_invoices_bp.route('/proformas')
+def list_proformas():
+    """Lista documentos preliminares que no son cotizaciones ni facturas fiscales."""
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageQuotations'):
+        return render_template('auth/restricted.html', feature_name="Proformas", required_permission="canManageQuotations"), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    q = request.args.get('q', '').strip().lower()
+    status = request.args.get('status', '').strip()
+    documents = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox,
+                                             branch_id=g.get('branch_id'), project_id=g.get('project_id'),
+                                             quotations_only=True, include_all=True)
+    proformas = [d for d in documents if d.get('documentType') == 'proforma']
+    filtered = [d for d in proformas if (not q or any(q in str(d.get(k, '')).lower() for k in ('invoiceNumber', 'clientName', 'clientRNC'))) and (not status or d.get('status') == status)]
+    return render_template('invoices/list.html', active_page='proformas', invoices=filtered,
+                           page=1, total_pages=1, total_items=len(filtered), pages_range=range(1, 2),
+                           has_prev=False, has_next=False, start_count=1 if filtered else 0,
+                           end_count=len(filtered), per_page='all', q=q, status=status,
+                           start_date='', end_date='')
+
 @web_invoices_bp.route('/invoices/new', methods=['GET', 'POST'])
 @web_invoices_bp.route('/invoices/<invoice_id>/edit', methods=['GET', 'POST'])
 def new_invoice_route(invoice_id=None):
@@ -2096,6 +2126,11 @@ def new_quotation_route(invoice_id=None):
             return redirect(url_for('web_invoices.professional_quotation_route', edit=invoice_id))
     return _new_document_helper(invoice_id=invoice_id, is_quotation=True)
 
+@web_invoices_bp.route('/proformas/new', methods=['GET', 'POST'])
+@web_invoices_bp.route('/proformas/<invoice_id>/edit', methods=['GET', 'POST'])
+def new_proforma_route(invoice_id=None):
+    return _new_document_helper(invoice_id=invoice_id, document_type='proforma')
+
 @web_invoices_bp.route('/invoices/<invoice_id>/update_status', methods=['POST'])
 def update_invoice_status_ajax(invoice_id):
     if 'user' not in session: return jsonify({'success': False, 'error': 'No autorizado'}), 401
@@ -2114,7 +2149,7 @@ def update_invoice_status_ajax(invoice_id):
     DatabaseService.update_invoice_status_simple(owner_uid, invoice_id, new_status, company_id=company_id, sandbox=sandbox)
     return jsonify({'success': True})
 
-def _new_document_helper(invoice_id=None, is_quotation=False):
+def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     # Redirect professional quotations to the professional wizard
     if invoice_id:
@@ -2124,9 +2159,10 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         source = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         if source and source.get('isProfessional'):
             return redirect(url_for('web_invoices.professional_quotation_route', edit=invoice_id))
-    required_perm = 'canManageQuotations' if is_quotation else 'canInvoice'
+    is_preliminary = is_quotation or document_type == 'proforma'
+    required_perm = 'canManageQuotations' if is_preliminary else 'canInvoice'
     if not check_permission(required_perm):
-        feature_name = "Cotizaciones" if is_quotation else "Emisión de Documentos"
+        feature_name = "Cotizaciones y Proformas" if is_preliminary else "Emisión de Documentos"
         return render_template('auth/restricted.html', feature_name=feature_name, required_permission=required_perm), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -2189,10 +2225,12 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
  
     if existing_invoice:
         is_quotation_route = existing_invoice.get('isQuotation', False)
+        document_type = existing_invoice.get('documentType') or ('quotation' if is_quotation_route else 'invoice')
     else:
         is_quotation_route = is_quotation
+        document_type = document_type or ('quotation' if is_quotation else 'invoice')
         
-    active_page = 'quotations' if is_quotation_route else 'invoices'
+    active_page = 'proformas' if document_type == 'proforma' else ('quotations' if is_quotation_route else 'invoices')
     
     if request.method == 'POST':
         idempotency_key = request.headers.get('Idempotency-Key') or request.form.get('idempotency_key')
@@ -2219,8 +2257,10 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         # 1. Obtener campos principales
         client_id = request.form.get('clientId')
         ecf_type = ecf_code_from_form
-        if is_quotation_route:
+        if document_type == 'quotation':
             ecf_type = "Cotización"
+        elif document_type == 'proforma':
+            ecf_type = "Proforma"
         elif regimen_rules.get("allowed_ecf_types"):
             ecf_code = ecf_type.split("(")[-1].replace(")", "").strip() if "(" in ecf_type else ecf_type
             if ecf_code not in regimen_rules["allowed_ecf_types"]:
@@ -2408,11 +2448,12 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         )
         
         # Determinar si es Cotización o Factura Real
-        is_quotation = "cotizacion" in request.path or ecf_type == "Cotización"
+        is_quotation = document_type == 'quotation' or "cotizacion" in request.path or ecf_type == "Cotización"
+        is_proforma = document_type == 'proforma' or "proforma" in request.path or ecf_type == "Proforma"
         
         # Generar acuerdo de pagos y cuotas
         agreement = {
-            "enabled": agreement_enabled if (not is_quotation and ecf_type != "Cotización") else False,
+            "enabled": agreement_enabled if (not is_quotation and not is_proforma and ecf_type not in ("Cotización", "Proforma")) else False,
             "installmentsCount": installments_count if agreement_enabled else 1,
             "frequency": agreement_frequency,
             "lateFeePercentage": late_fee_percentage
@@ -2480,7 +2521,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             invoice_dict["totalISCEspecifico"] = calcs["total_isc_especifico"]
             invoice_dict["totalISCAdValorem"] = calcs["total_isc_advalorem"]
             invoice_dict["totalOtrosImpuestos"] = calcs["total_otros_impuestos"]
-            invoice_dict["isQuotation"] = is_quotation
+            invoice_dict["isQuotation"] = is_quotation or is_proforma
+            invoice_dict["documentType"] = document_type
             invoice_dict["notes"] = request.form.get('notes', '')
             invoice_dict["comentario"] = comentario
             invoice_dict["footer"] = request.form.get('footer', '')
@@ -2505,7 +2547,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             invoice_dict["descuentosRecargos"] = descuentos_recargos
         else:
             random_num = f"{random.randint(1, 999999):06d}"
-            inv_number = f"COT-{random_num}" if is_quotation else f"FAC-{random_num}"
+            inv_number = f"COT-{random_num}" if is_quotation else (f"PRO-{random_num}" if is_proforma else f"FAC-{random_num}")
             target_invoice_id = str(uuid.uuid4())
             form_date = request.form.get('date')
             if form_date:
@@ -2537,7 +2579,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 "totalISCEspecifico": calcs["total_isc_especifico"],
                 "totalISCAdValorem": calcs["total_isc_advalorem"],
                 "totalOtrosImpuestos": calcs["total_otros_impuestos"],
-                "isQuotation": is_quotation,
+                "isQuotation": is_quotation or is_proforma,
+                "documentType": document_type,
                 "isConvertedToInvoice": False,
                 "notes": request.form.get('notes', ''),
                 "comentario": comentario,
@@ -2629,8 +2672,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         
         from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDATE, MODULE_FACTURAS, MODULE_COTIZACIONES
         audit_action = ACTION_UPDATE if existing_invoice else ACTION_CREATE
-        audit_module = MODULE_COTIZACIONES if is_quotation else MODULE_FACTURAS
-        label_prefix = "Cotización" if is_quotation else f"Documento ({invoice_dict.get('ecfType') or 'Factura'})"
+        audit_module = MODULE_COTIZACIONES if is_preliminary else MODULE_FACTURAS
+        label_prefix = "Cotización" if is_quotation else ("Proforma" if is_proforma else f"Documento ({invoice_dict.get('ecfType') or 'Factura'})")
         verb = "modificada" if existing_invoice else "creada"
         AuditService.log_from_request(
             owner_uid=owner_uid,
@@ -2644,15 +2687,16 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             sandbox=sandbox
         )
 
-        if not existing_invoice and not is_quotation:
+        if not existing_invoice and not is_preliminary:
             from app.utils.decorators import record_sod_from_session
             record_sod_from_session('canInvoice', target_invoice_id, 'invoice')
 
         action = request.form.get('action')
         
-        if is_quotation:
-            flash('Cotización creada exitosamente como borrador.', 'success')
-            return redirect(url_for('web_invoices.list_quotations'))
+        if is_preliminary:
+            label = 'Proforma' if is_proforma else 'Cotización'
+            flash(f'{label} creada exitosamente como borrador.', 'success')
+            return redirect(url_for('web_invoices.list_proformas' if is_proforma else 'web_invoices.list_quotations'))
         elif action in ['emitir_cobrar', 'emitir_credito']:
             exceeded, limit_msg = check_document_limit_exceeded(owner_uid, company_id=company_id, sandbox=sandbox)
             if exceeded:
@@ -2944,6 +2988,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     return render_template(
         'invoices/new.html',
         active_page=active_page,
+        document_type=document_type,
         clients=clients,
         catalog_json=catalog_json,
         clients_json=clients_json,
@@ -3271,7 +3316,13 @@ def invoice_detail(invoice_id):
 
     invoice = _enrich_invoice_totals(invoice)
 
-    return render_template('invoices/detail.html', active_page='quotations' if invoice.get('isQuotation') else 'invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox=sandbox, company_id=company_id), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs, bank_accounts=bank_accounts, projects=projects)
+    if invoice.get('isQuotation'):
+        expiry = quotation_expiry(invoice)
+        invoice['quotationExpired'] = bool(expiry.get('expired'))
+        invoice['quotationExpiryDate'] = expiry.get('expiry_date') or ''
+
+    detail_page = 'proformas' if invoice.get('documentType') == 'proforma' else ('quotations' if invoice.get('isQuotation') else 'invoices')
+    return render_template('invoices/detail.html', active_page=detail_page, invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox=sandbox, company_id=company_id), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs, bank_accounts=bank_accounts, projects=projects)
 
 @web_invoices_bp.route('/invoices/<invoice_id>/comments/new', methods=['POST'])
 def add_invoice_comment(invoice_id):
@@ -4809,8 +4860,9 @@ def reemit_invoice_route(invoice_id):
 
 @web_invoices_bp.route('/invoices/<invoice_id>/convert', methods=['POST'])
 @web_invoices_bp.route('/quotations/<invoice_id>/convert', methods=['POST'])
+@web_invoices_bp.route('/proformas/<invoice_id>/convert', methods=['POST'])
 def convert_quotation_route(invoice_id):
-    """Convierte una Cotización (COT-) en un Comprobante Fiscal Electrónico real (FAC-)."""
+    """Convierte una cotización o proforma en un comprobante fiscal."""
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Convertir Cotización", required_permission="canInvoice"), 403
@@ -4823,7 +4875,8 @@ def convert_quotation_route(invoice_id):
         flash('Cotización no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_quotations'))
 
-    if not invoice.get('isQuotation'):
+    document_type = invoice.get('documentType') or ('quotation' if invoice.get('isQuotation') else 'invoice')
+    if document_type not in ('quotation', 'proforma'):
         flash('Este documento ya es una factura real. No necesita conversión.', 'info')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
@@ -4870,9 +4923,12 @@ def convert_quotation_route(invoice_id):
     new_invoice['isQuotation'] = False
     new_invoice['isConvertedToInvoice'] = True
     new_invoice['status'] = 'Borrador'  # Queda como borrador hasta firmarse
-    new_invoice['quotationId'] = invoice_id
-    new_invoice['convertedFromQuotationId'] = invoice_id
-    new_invoice['convertedFromQuotationNumber'] = invoice.get('invoiceNumber', '')
+    new_invoice['quotationId'] = invoice_id if document_type == 'quotation' else new_invoice.get('quotationId', '')
+    new_invoice['convertedFromDocumentId'] = invoice_id
+    new_invoice['convertedFromDocumentNumber'] = invoice.get('invoiceNumber', '')
+    if document_type == 'quotation':
+        new_invoice['convertedFromQuotationId'] = invoice_id
+        new_invoice['convertedFromQuotationNumber'] = invoice.get('invoiceNumber', '')
     new_invoice['date'] = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")
     new_invoice['createdAt'] = datetime.now(timezone.utc).isoformat()
     new_invoice['updatedAt'] = datetime.now(timezone.utc).isoformat()
@@ -4968,8 +5024,56 @@ def convert_quotation_route(invoice_id):
         except Exception as ae_adv:
             print(f"⚠️ Error al aplicar anticipos en conversión: {ae_adv}")
 
-    flash(f'¡Cotización convertida exitosamente a {target_ecf_type}! El número de documento es {new_invoice["invoiceNumber"]}.{applied_msg} Procede a firmar digitalmente el comprobante.', 'success')
+    source_label = 'proforma' if document_type == 'proforma' else 'cotización'
+    flash(f'¡{source_label.capitalize()} convertida exitosamente a {target_ecf_type}! El número de documento es {new_invoice["invoiceNumber"]}.{applied_msg} Procede a firmar digitalmente el comprobante.', 'success')
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=new_invoice_id))
+
+@web_invoices_bp.route('/quotations/<invoice_id>/convert-to-proforma', methods=['POST'])
+@web_invoices_bp.route('/proformas/<invoice_id>/convert-to-quotation', methods=['POST'])
+def convert_preliminary_document_route(invoice_id):
+    """Convierte entre cotización y proforma conservando el documento origen."""
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageQuotations'):
+        return render_template('auth/restricted.html', feature_name="Convertir documento", required_permission="canManageQuotations"), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    source = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
+    if not source:
+        flash('Documento no encontrado.', 'error')
+        return redirect(url_for('web_invoices.list_quotations'))
+    source_type = source.get('documentType') or ('quotation' if source.get('isQuotation') else 'invoice')
+    target_type = 'proforma' if request.path.endswith('convert-to-proforma') else 'quotation'
+    if source_type not in ('quotation', 'proforma') or source_type == target_type:
+        flash('La conversión solicitada no es válida para este documento.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+    import copy
+    import uuid
+    converted = copy.deepcopy(source)
+    new_id = str(uuid.uuid4())
+    random_num = f"{random.randint(1, 999999):06d}"
+    converted['id'] = new_id
+    converted['documentType'] = target_type
+    converted['isQuotation'] = True
+    converted['invoiceNumber'] = f"PRO-{random_num}" if target_type == 'proforma' else f"COT-{random_num}"
+    converted['ecfType'] = 'Proforma' if target_type == 'proforma' else 'Cotización'
+    converted['status'] = 'Borrador'
+    converted['convertedFromDocumentId'] = invoice_id
+    converted['convertedFromDocumentNumber'] = source.get('invoiceNumber', '')
+    converted.pop('convertedToInvoiceId', None)
+    converted.pop('convertedInvoiceNumber', None)
+    converted.pop('encf', None)
+    converted['encf'] = ''
+    converted['xmlSignature'] = ''
+    converted['isSyncedWithDGII'] = False
+    DatabaseService.save_invoice(owner_uid, new_id, converted, company_id=company_id, sandbox=sandbox)
+    source['status'] = 'Convertida'
+    source['convertedToDocumentId'] = new_id
+    source['convertedToDocumentNumber'] = converted['invoiceNumber']
+    DatabaseService.save_invoice(owner_uid, invoice_id, source, company_id=company_id, sandbox=sandbox)
+    flash(f"Documento convertido exitosamente a {converted['ecfType']}.", 'success')
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=new_id))
 
 
 @web_invoices_bp.route('/quotations/<invoice_id>/approve', methods=['POST'])
@@ -4983,9 +5087,14 @@ def approve_quotation_route(invoice_id):
     sandbox = session.get('is_sandbox_mode', True)
     
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
-    if not invoice or not invoice.get('isQuotation'):
+    if not invoice or (not invoice.get('isQuotation') and invoice.get('documentType') != 'proforma'):
         flash('Cotización no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_quotations'))
+
+    expiry = quotation_expiry(invoice)
+    if expiry.get('expired'):
+        flash('No se puede aprobar una cotización vencida. Emita una nueva cotización o extienda su vigencia.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     before_invoice = invoice.copy()
     invoice['status'] = 'Aprobada'

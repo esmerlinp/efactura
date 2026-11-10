@@ -77,6 +77,7 @@ class Invoice(BaseModel):
     totalITBIS: float = 0.0
     total: float = 0.0
     isQuotation: bool = False
+    documentType: str = "invoice"
     isConvertedToInvoice: bool = False
     appliedAdvances: list[dict] = Field(default_factory=list)
     notes: str = ""

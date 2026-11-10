@@ -11,7 +11,7 @@ class FinancialRatiosService:
         invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
         expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id)
 
-        real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
+        real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('documentType') not in ('quotation', 'proforma') and inv.get('status') not in ['Anulada', 'Borrador']]
 
         def acc_balance(code_prefix: str) -> float:
             bal = 0.0

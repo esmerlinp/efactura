@@ -3,6 +3,8 @@
 {% set company_color_marca = brand_color %}
 {% set current_color = brand_color %}
 {% set current_light_color = brand_color if apply_brand else '#E2E8F0' %}
+{% set is_proforma = invoice.get('documentType') == 'proforma' %}
+{% set document_label = 'Proforma' if is_proforma else ('Cotización' if invoice.isQuotation else 'Factura') %}
 {% set has_additional_taxes = namespace(value=false) %}
 {% for item in invoice['items'] %}
 {% set item_isc = (item.isc_especifico_amount or 0) + (item.isc_advalorem_amount or 0) + (item.otros_impuestos_amount or
@@ -17,7 +19,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if invoice.isQuotation %}Cotización{% else %}Factura{% endif %} {{ invoice.invoiceNumber }} - {{
+    <title>{% if invoice.isQuotation %}{{ document_label }}{% else %}Factura{% endif %} {{ invoice.invoiceNumber }} - {{
         company.companyName }}</title>
     {% if auto_print %}
     <script>
@@ -599,7 +601,7 @@
                 {% endif %}
                 {% else %}
                 <div style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
-                    {% if invoice.isQuotation %}Cotización{% else %}Borrador de Factura{% endif %}</div>
+                    {% if invoice.isQuotation %}{{ document_label }}{% else %}Borrador de Factura{% endif %}</div>
                 <div class="doc-number" style="font-size: 13px; font-weight: normal; color: #111827;">Doc. Interno: {{
                     invoice.invoiceNumber }}</div>
                 {% endif %}
@@ -802,7 +804,7 @@
             </div>
             {% endif %}
             <div class="totals-row total-bold">
-                <span class="label">Total {% if invoice.isQuotation %}Cotización{% else %}Factura{% endif %}:</span>
+                <span class="label">Total {{ document_label }}:</span>
                 <span class="value">RD$ {{ "{:,.2f}".format(invoice.total) }}</span>
             </div>
             {% if (invoice.retainedISR | default(0)) > 0 %}
@@ -996,7 +998,7 @@
 
     {% if pd.get('validityDays') %}
     <div style="margin-top: 12px; font-size: 11px; color: #475569; padding: 8px 12px; background: #fefce8; border-left: 3px solid #f59e0b; border-radius: 2px;">
-        <strong>Vigencia:</strong> Esta cotización tiene una validez de <strong>{{ pd.validityDays }} días calendario</strong> a partir de su fecha de emisión.
+        <strong>Vigencia:</strong> Esta {{ document_label|lower }} tiene una validez de <strong>{{ pd.validityDays }} días calendario</strong> a partir de su fecha de emisión.
     </div>
     {% endif %}
 
@@ -1031,7 +1033,7 @@
 
     <!-- ========== BLOQUE DE FIRMA ========== -->
     <div class="prof-section" style="margin-top: 28px; border-top: 2px solid #e2e8f0; padding-top: 20px;">
-        <div class="prof-section-title" style="margin-bottom: 12px;">Aceptación de la Cotización</div>
+        <div class="prof-section-title" style="margin-bottom: 12px;">Aceptación de la {{ document_label }}</div>
         {% if invoice.get('signatureInfo') %}
         <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 16px;">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
@@ -1039,7 +1041,7 @@
                 <div>
                     <div style="font-weight: 700; color: #166534; font-size: 13px;">
                         {% if invoice.get('signatureInfo', {}).get('method') == 'confirmacion_portal' %}
-                        Cotización Aprobada por el Cliente
+                        {{ document_label }} Aprobada por el Cliente
                         {% else %}
                         Documento Firmado Electrónicamente
                         {% endif %}
@@ -1126,7 +1128,7 @@
             {% endif %}
             {% if invoice.isQuotation %}
             {% if pd and pd.get('validityDays') %}Válido por {{ pd.validityDays }} días desde su emisión.{% endif %}
-            {% if invoice.get('isProfessional') %}Cotización profesional generada en {{ product_name }}.{% endif %}
+            {% if invoice.get('isProfessional') %}{{ document_label }} profesional generada en {{ product_name }}.{% endif %}
             {% else %}
             *Este modelo de RI cumple con la Ley 32-23 de la República Dominicana.<br>
             {% if invoice.encf %}Valide este documento en: <strong>https://dgii.gov.do/validaecf</strong>{% endif %}

@@ -126,7 +126,7 @@ def resolve_endpoint_module(rule):
             return 'inventario', 'INVENTORY'
         elif path.startswith('/price-lists'):
             return 'price_lists', 'PRICE_LISTS'
-        elif path.startswith('/quotations') or path.startswith('/api/quotations'):
+        elif path.startswith('/quotations') or path.startswith('/proformas') or path.startswith('/api/quotations'):
             return 'cotizaciones', 'COTIZACIONES'
         elif path.startswith('/cxc') or path.startswith('/api/ai/draft-collection'):
             return 'cxc', 'CXC'
