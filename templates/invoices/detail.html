@@ -1079,7 +1079,7 @@
             <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
                 El cliente ha rechazado esta propuesta comercial. Puedes contactarlo para revisar los detalles o aprobarla manualmente si se llegó a un acuerdo offline.
             </p>
-        {% elif invoice.status == 'Pendiente Aut. Cliente' and invoice.quotationExpired %}
+        {% elif invoice.status == 'Vencida' or (invoice.status == 'Pendiente Aut. Cliente' and invoice.quotationExpired) %}
         <div class="card-table-wrapper"
             style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-red); background: rgba(239, 68, 68, 0.03);">
             <div

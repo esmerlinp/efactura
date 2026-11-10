@@ -36,7 +36,11 @@ except Exception as e:
 import random
 from config import Config
 from app.services.db_service import DatabaseService
-from app.services.quotation_expiry_service import quotation_expiry
+from app.services.quotation_expiry_service import (
+    quotation_expiry,
+    apply_expiry_status,
+    persist_quotation_vencida,
+)
 from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
 from app.utils.currency import CurrencyService
@@ -1985,6 +1989,8 @@ def list_quotations():
     # Filtrar
     filtered = []
     for inv in quotations:
+        if inv.get('isQuotation') and apply_expiry_status(inv):
+            persist_quotation_vencida(owner_uid, inv.get('id'), sandbox=sandbox, company_id=company_id)
         expiry = quotation_expiry(inv)
         inv['quotationExpired'] = bool(expiry.get('expired'))
         inv['quotationExpiryDate'] = expiry.get('expiry_date') or ''
@@ -3317,6 +3323,8 @@ def invoice_detail(invoice_id):
     invoice = _enrich_invoice_totals(invoice)
 
     if invoice.get('isQuotation'):
+        if apply_expiry_status(invoice):
+            persist_quotation_vencida(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
         expiry = quotation_expiry(invoice)
         invoice['quotationExpired'] = bool(expiry.get('expired'))
         invoice['quotationExpiryDate'] = expiry.get('expiry_date') or ''
@@ -5091,8 +5099,9 @@ def approve_quotation_route(invoice_id):
         flash('Cotización no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_quotations'))
 
-    expiry = quotation_expiry(invoice)
-    if expiry.get('expired'):
+    if apply_expiry_status(invoice):
+        persist_quotation_vencida(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
+    if invoice.get('status') == 'Vencida':
         flash('No se puede aprobar una cotización vencida. Emita una nueva cotización o extienda su vigencia.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         

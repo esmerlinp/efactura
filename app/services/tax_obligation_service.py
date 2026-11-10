@@ -20,6 +20,38 @@ from datetime import datetime, date, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
+# ── Email helpers ────────────────────────────────────────────────────────────
+
+_EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
+
+
+def normalize_email(raw) -> str:
+    """Normaliza un email (strip + lowercase). Vacío/None se conserva como ''. """
+    if raw is None:
+        return ""
+    return str(raw).strip().lower()
+
+
+def is_valid_email(raw) -> bool:
+    """Valida el formato de una dirección de email (no vacío)."""
+    if not raw:
+        return False
+    return bool(_EMAIL_RE.match(normalize_email(raw)))
+
+
+def _coerce_bool(value) -> bool:
+    """
+    Convierte de forma segura a booleano. A diferencia de ``bool(value)``,
+    una cadena ``"false"``/``"0"``/``"off"`` NO se interpreta como True.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    return bool(value)
+
 # ── Reglas centralizadas ─────────────────────────────────────────────────────
 from app.countries.do.tax_obligation_rules import (
     OBLIGATION_CATALOG as DGII_OBLIGATIONS,
@@ -484,6 +516,8 @@ class TaxObligationService:
                     "last_notified_at": "",
                     "last_notified_period": "",
                     "is_custom": False,
+                    "notify_email": True,
+                    "notify_email_to": "",
                 }
                 doc_ref.set(payload)
                 obligations.append(payload)
@@ -492,6 +526,13 @@ class TaxObligationService:
                 dirty = False
                 if "is_custom" not in data:
                     data["is_custom"] = False
+                    dirty = True
+                # Backfill de preferencias de email sin sobrescribir lo ya configurado.
+                if "notify_email" not in data:
+                    data["notify_email"] = True
+                    dirty = True
+                if "notify_email_to" not in data:
+                    data["notify_email_to"] = ""
                     dirty = True
                 if dirty:
                     doc_ref.set(data, merge=True)
@@ -571,7 +612,15 @@ class TaxObligationService:
             if field in obligation_data:
                 payload[field] = obligation_data[field]
         if "enabled" in obligation_data:
-            payload["enabled"] = bool(obligation_data["enabled"])
+            payload["enabled"] = _coerce_bool(obligation_data["enabled"])
+        if "notify_email" in obligation_data:
+            payload["notify_email"] = _coerce_bool(obligation_data["notify_email"])
+        if "notify_email_to" in obligation_data:
+            raw_to = obligation_data.get("notify_email_to")
+            email_to = normalize_email(raw_to)
+            if email_to and not is_valid_email(email_to):
+                return False
+            payload["notify_email_to"] = email_to
 
         if key not in OBLIGATIONS_DICT and "is_custom" not in payload:
             payload["is_custom"] = True
@@ -956,13 +1005,15 @@ class TaxObligationService:
 
         today = date.today()
         status_list = cls.get_status(owner_uid, today, company_id=company_id)
-        obligations = {o.get("key"): o for o in cls.get_all(owner_uid, company_id=company_id)}
+        # La clave de lookup debe coincidir con la que usa get_status() para
+        # evitar asociaciones incorrectas (especialmente en alertas personalizadas).
+        obligations = {
+            (o.get("obligation_key") or o.get("key") or o.get("id")): o
+            for o in cls.get_all(owner_uid, company_id=company_id)
+        }
         profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
-        company_email = profile.get("companyEmail", "")
+        company_email = normalize_email(profile.get("companyEmail", ""))
         company_name = profile.get("tradeName") or profile.get("companyName") or "Empresa"
-
-        if not company_email:
-            return 0, 0
 
         sent = 0
         errors = 0
@@ -973,6 +1024,14 @@ class TaxObligationService:
             key = s["key"]
             ob = obligations.get(key)
             if not ob:
+                continue
+
+            # Preferencia por alerta: False desactiva el envío; ausente = activo.
+            if ob.get("notify_email", True) is False:
+                continue
+
+            recipient = normalize_email(ob.get("notify_email_to")) or company_email
+            if not recipient:
                 continue
 
             period_key = s.get("period_key") or s["next_due_date"][:7]
@@ -1016,7 +1075,7 @@ class TaxObligationService:
                 """
                 success = Mailer.send(
                     app=current_app._get_current_object(),
-                    to_email=company_email,
+                    to_email=recipient,
                     subject=subject,
                     html_body=html_body,
                     from_name=company_name,

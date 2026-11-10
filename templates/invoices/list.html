@@ -326,7 +326,7 @@ endblock %}
                         {% if active_page == 'quotations' or active_page == 'proformas' %}
                             {% if inv.status == 'Borrador' or not inv.status %}
                             <span class="badge badge-secondary" style="font-size: 0.65rem;">Borrador</span>
-                            {% elif inv.status == 'Pendiente Aut. Cliente' and inv.quotationExpired %}
+                            {% elif inv.status == 'Vencida' or (inv.status == 'Pendiente Aut. Cliente' and inv.quotationExpired) %}
                             <span class="badge badge-danger" style="font-size: 0.65rem; background-color: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Vencida</span>
                             {% elif inv.status == 'Pendiente Aut. Cliente' %}
                             <span class="badge badge-warning" style="font-size: 0.65rem; background-color: rgba(245, 158, 11, 0.15); color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Pendiente Aut. Cliente</span>
