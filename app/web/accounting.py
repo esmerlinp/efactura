@@ -2353,12 +2353,67 @@ def tax_obligations():
     status_list = TaxObligationService.get_status(owner_uid, company_id=company_id)
     status_map = {s["key"]: s for s in status_list}
     tax_profile = TaxObligationService.detect_tax_profile(owner_uid, company_id=company_id)
+    from app.services.db_service import DatabaseService
+    company_profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    company_email = (company_profile.get("companyEmail") or "").strip()
     return render_template('accounting/tax_obligations.html',
                            active_page='tax_obligations',
                            obligations=obligations,
                            status_map=status_map,
                            tax_profile=tax_profile,
-                           regime_presets=REGIME_PRESETS)
+                           regime_presets=REGIME_PRESETS,
+                           company_email=company_email)
+
+
+@web_accounting_bp.route('/accounting/tax-obligations/new')
+@web_accounting_bp.route('/settings/alerts/new')
+def tax_obligations_new():
+    user = _auth()
+    if not user:
+        return redirect(url_for('web_auth.login'))
+    is_owner = session.get('user', {}).get('role') == 'owner'
+    has_perm = is_owner or check_permission('canManageTaxes') or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')
+    if not has_perm:
+        return render_template('auth/restricted.html', required_permission="canManageTaxes"), 403
+
+    owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
+    from app.services.db_service import DatabaseService
+    company_profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    company_email = (company_profile.get("companyEmail") or "").strip()
+    return render_template('accounting/tax_obligation_form.html',
+                           active_page='tax_obligations',
+                           alert_data={},
+                           company_email=company_email)
+
+
+@web_accounting_bp.route('/accounting/tax-obligations/<key>/edit')
+@web_accounting_bp.route('/settings/alerts/<key>/edit')
+def tax_obligations_edit(key):
+    user = _auth()
+    if not user:
+        return redirect(url_for('web_auth.login'))
+    is_owner = session.get('user', {}).get('role') == 'owner'
+    has_perm = is_owner or check_permission('canManageTaxes') or check_permission('canModifySettings') or check_permission('canAccounting') or check_permission('canAccountingSettings')
+    if not has_perm:
+        return render_template('auth/restricted.html', required_permission="canManageTaxes"), 403
+
+    owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
+    from app.services.tax_obligation_service import TaxObligationService
+    TaxObligationService.seed_defaults(owner_uid, company_id=company_id)
+    obligations = TaxObligationService.get_all(owner_uid, company_id=company_id)
+    ob = next((o for o in obligations if (o.get("obligation_key") == key or o.get("key") == key or o.get("id") == key)), None)
+    if not ob:
+        return redirect(url_for('web_accounting.tax_obligations'))
+
+    from app.services.db_service import DatabaseService
+    company_profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    company_email = (company_profile.get("companyEmail") or "").strip()
+    return render_template('accounting/tax_obligation_form.html',
+                           active_page='tax_obligations',
+                           alert_data=ob,
+                           company_email=company_email)
 
 
 @web_accounting_bp.route('/accounting/tax-obligations/save', methods=['POST'])
@@ -2398,6 +2453,17 @@ def tax_obligations_save():
         payload["enabled"] = str(data['enabled']).lower() in ('1', 'true', 'yes', 'on')
     elif is_new:
         payload["enabled"] = True
+
+    if 'notify_email' in data:
+        payload["notify_email"] = str(data['notify_email']).lower() in ('1', 'true', 'yes', 'on')
+
+    if 'notify_email_to' in data:
+        raw_to = data.get('notify_email_to')
+        from app.services.tax_obligation_service import normalize_email, is_valid_email
+        email_to = normalize_email(raw_to)
+        if email_to and not is_valid_email(email_to):
+            return jsonify(success=False, error="El correo de destino especificado no es válido"), 400
+        payload["notify_email_to"] = email_to
 
     from app.services.tax_obligation_service import TaxObligationService
     saved = TaxObligationService.save(owner_uid, payload, company_id=company_id)

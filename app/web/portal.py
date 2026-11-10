@@ -6,7 +6,11 @@ from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session, make_response, g, abort
 from firebase_admin import firestore
 from app.services.db_service import db_firestore, DatabaseService
-from app.services.quotation_expiry_service import quotation_expiry
+from app.services.quotation_expiry_service import (
+    quotation_expiry,
+    apply_expiry_status,
+    persist_quotation_vencida,
+)
 from app.services.dgii_direct import DgiiDirectService
 from app.services.azul_service import AzulService
 from app.services.paypal_service import PayPalService, PAYPAL_SUPPORTED_CURRENCIES
@@ -217,10 +221,10 @@ class PortalDbService:
                     if due_date_clean < today_str:
                         status = "Vencida"
 
-                if data.get("isQuotation") and status == "Pendiente Aut. Cliente":
-                    expiry = quotation_expiry(data)
-                    if expiry.get("expired"):
-                        status = "Vencida"
+                if data.get("isQuotation"):
+                    if apply_expiry_status(data):
+                        persist_quotation_vencida(owner_uid, data.get("id"), sandbox=sandbox, company_id=company_id)
+                    status = data.get("status", status)
 
                 data['status'] = status
                 
@@ -567,8 +571,8 @@ def sign_quotation(invoice_id):
     if invoice.get('status') != 'Pendiente Aut. Cliente':
         return jsonify({"success": False, "error": "La cotización no se encuentra en estado pendiente de autorización por el cliente."}), 400
 
-    expiry = quotation_expiry(invoice)
-    if expiry.get("expired"):
+    if apply_expiry_status(invoice):
+        persist_quotation_vencida(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
         return jsonify({
             "success": False,
             "error": "La cotización ha vencido y ya no puede ser aceptada. Solicite una nueva cotización al proveedor."
@@ -577,7 +581,7 @@ def sign_quotation(invoice_id):
     cert_file = request.files.get('certificate')
     password = request.form.get('password', '')
     now_iso = datetime.now(timezone.utc).isoformat()
-    client_name = client.get('name') or client.get('razonSocial') or invoice.get('clientName') or 'Cliente'
+    client_name = client.get('razonSocial') or client.get('name') or invoice.get('clientName') or 'Cliente'
     client_rnc = client.get('rnc', '')
 
     if cert_file:
@@ -702,7 +706,7 @@ def sign_contract(contract_id):
             module=MODULE_CONTRATOS,
             entity_id=contract_id,
             entity_label=f"Contrato {contract.get('contractNumber')} firmado por el cliente",
-            performed_by_name=f"Cliente: {client.get('name')}",
+            performed_by_name=f"Cliente: {client.get('razonSocial') or client.get('name')}",
             performed_by_uid=client_id,
             performed_by_email=client.get('email', ''),
             before=before_contract,
@@ -757,7 +761,7 @@ def reject_quotation(invoice_id):
     rejected_at = datetime.now(timezone.utc).isoformat()
     invoice['status'] = 'Rechazada'
     invoice['rejectedAt'] = rejected_at
-    invoice['rejectedBy'] = client.get('name', client.get('rnc', 'Cliente'))
+    invoice['rejectedBy'] = client.get('razonSocial') or client.get('name') or client.get('rnc', 'Cliente')
     PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox, company_id=company_id)
 
     # Registrar evento de auditoría
@@ -771,7 +775,7 @@ def reject_quotation(invoice_id):
             module=MODULE_COTIZACIONES,
             entity_id=invoice_id,
             entity_label=f"Cotización {invoice.get('invoiceNumber')} rechazada por el cliente",
-            performed_by_name=f"Cliente: {client.get('name')}",
+            performed_by_name=f"Cliente: {client.get('razonSocial') or client.get('name')}",
             performed_by_uid=client_id,
             performed_by_email=client.get('email', ''),
             before=before_invoice,
@@ -821,7 +825,7 @@ def reject_contract(contract_id):
     rejected_at = datetime.now(timezone.utc).isoformat()
     contract['status'] = 'Rechazado'
     contract['rejectedAt'] = rejected_at
-    contract['rejectedBy'] = client.get('name', client.get('rnc', 'Cliente'))
+    contract['rejectedBy'] = client.get('razonSocial') or client.get('name') or client.get('rnc', 'Cliente')
     PortalDbService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
 
     _notify_portal_action(
@@ -912,7 +916,7 @@ def _notify_portal_action(owner_uid, action, document_type, document_number, cli
             action=action,
             document_type=document_type,
             document_number=document_number,
-            client_name=client.get('name', 'Cliente'),
+            client_name=client.get('razonSocial') or client.get('name') or 'Cliente',
             client_rnc=client.get('rnc', ''),
             signed_at=signed_at,
             recipient_email=responsible_email,
@@ -923,7 +927,7 @@ def _notify_portal_action(owner_uid, action, document_type, document_number, cli
         # 5. Guardar notificación in-app al responsable
         if responsible_uid:
             try:
-                client_name = client.get('name', 'Cliente')
+                client_name = client.get('razonSocial') or client.get('name') or 'Cliente'
                 if action in ('firmada', 'aprobada'):
                     notif_icon = '✅'
                     notif_title = f"{document_type} aprobada por cliente"
@@ -1184,7 +1188,7 @@ def report_invoice_payment(invoice_id):
                 module=MODULE_FACTURAS,
                 entity_id=invoice_id,
                 entity_label=f"Pago reportado por cliente: RD$ {amount:,.2f} ({payment_method} - {bank})",
-                performed_by_name=f"Cliente: {client.get('name')}",
+                performed_by_name=f"Cliente: {client.get('razonSocial') or client.get('name')}",
                 performed_by_uid=client_id,
                 performed_by_email=client.get('email', ''),
                 before=before_invoice,
@@ -1949,6 +1953,8 @@ def portal_document_detail(invoice_id):
     invoice = _enrich_invoice_totals(invoice)
 
     if invoice.get('isQuotation'):
+        if apply_expiry_status(invoice):
+            persist_quotation_vencida(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
         expiry = quotation_expiry(invoice)
         invoice['quotationExpired'] = bool(expiry.get('expired'))
         invoice['quotationExpiryDate'] = expiry.get('expiry_date') or ''

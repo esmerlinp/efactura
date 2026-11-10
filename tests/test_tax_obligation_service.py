@@ -15,6 +15,9 @@ from app.services.tax_obligation_service import (
     REGIME_PRESETS,
     OBLIGATIONS_DICT,
     LEGACY_KEY_ALIASES,
+    normalize_email,
+    is_valid_email,
+    _coerce_bool,
     _next_monthly_day,
     _next_annual_120days,
     _next_annual_90days,
@@ -488,3 +491,228 @@ class TestNotificationDedup:
             # Ya notificado en período 2026 → no debe reenviar
             assert sent == 0
             assert mock_save.call_count == 0
+
+
+class TestCoerceBool:
+    def test_bool_passthrough(self):
+        assert _coerce_bool(True) is True
+        assert _coerce_bool(False) is False
+
+    def test_string_false_values(self):
+        for v in ("false", "False", "FALSE", "0", "off", "no", "  false  "):
+            assert _coerce_bool(v) is False, f"'{v}' debe ser False"
+
+    def test_string_true_values(self):
+        for v in ("true", "True", "1", "yes", "on"):
+            assert _coerce_bool(v) is True, f"'{v}' debe ser True"
+
+    def test_numeric(self):
+        assert _coerce_bool(1) is True
+        assert _coerce_bool(0) is False
+
+
+class TestEmailHelpers:
+    def test_normalize_strips_and_lowercases(self):
+        assert normalize_email("  Factura@MiEmpresa.COM  ") == "factura@miempresa.com"
+        assert normalize_email(None) == ""
+        assert normalize_email("") == ""
+
+    def test_valid_emails(self):
+        assert is_valid_email("factura@miempresa.com.do") is True
+        assert is_valid_email("a.b+c@sub.domain.org") is True
+
+    def test_invalid_emails(self):
+        assert is_valid_email("") is False
+        assert is_valid_email("no-arroba") is False
+        assert is_valid_email("a@b") is False
+        assert is_valid_email("a b@c.com") is False
+
+
+class TestEmailPreferencePersistence:
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    def test_save_persists_email_preferences(self, mock_ref):
+        mock_doc = MagicMock()
+        mock_coll = MagicMock()
+        mock_coll.document.return_value = mock_doc
+        mock_ref.return_value = mock_coll
+
+        ok = TaxObligationService.save(
+            "user_1",
+            {"obligation_key": "custom_x", "notify_email": "false", "notify_email_to": "  Alerta@X.com  "},
+            company_id="comp_1",
+        )
+        assert ok is True
+        payload = mock_doc.set.call_args[0][0]
+        assert payload["notify_email"] is False
+        assert payload["notify_email_to"] == "alerta@x.com"
+
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    def test_save_rejects_invalid_email(self, mock_ref):
+        mock_doc = MagicMock()
+        mock_coll = MagicMock()
+        mock_coll.document.return_value = mock_doc
+        mock_ref.return_value = mock_coll
+
+        ok = TaxObligationService.save(
+            "user_1",
+            {"obligation_key": "custom_x", "notify_email_to": "correo-invalido"},
+            company_id="comp_1",
+        )
+        assert ok is False
+        mock_doc.set.assert_not_called()
+
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    def test_save_allows_empty_email(self, mock_ref):
+        mock_doc = MagicMock()
+        mock_coll = MagicMock()
+        mock_coll.document.return_value = mock_doc
+        mock_ref.return_value = mock_coll
+
+        ok = TaxObligationService.save(
+            "user_1",
+            {"obligation_key": "custom_x", "notify_email_to": "   "},
+            company_id="comp_1",
+        )
+        assert ok is True
+        assert mock_doc.set.call_args[0][0]["notify_email_to"] == ""
+
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    def test_save_uses_scoped_collection_for_company(self, mock_ref):
+        """El guardado debe ir contra la colección de la empresa activa."""
+        mock_doc = MagicMock()
+        mock_coll = MagicMock()
+        mock_coll.document.return_value = mock_doc
+        mock_ref.return_value = mock_coll
+
+        TaxObligationService.save("user_1", {"obligation_key": "custom_x", "notify_email": True}, company_id="comp_9")
+        mock_ref.assert_called_once_with("user_1", company_id="comp_9")
+        mock_coll.document.assert_called_once_with("custom_x")
+
+
+class TestSeedDefaultsBackfill:
+    def _mock_profile_ref_with_docs(self, docs_by_key):
+        mock_coll = MagicMock()
+        doc_map = {}
+        for k, data in docs_by_key.items():
+            d = MagicMock()
+            snap = MagicMock()
+            snap.exists = data is not None
+            snap.to_dict.return_value = data or {}
+            d.get.return_value = snap
+            doc_map[k] = d
+        mock_coll.document.side_effect = lambda key: doc_map.setdefault(key, MagicMock())
+        return mock_coll
+
+    @patch("app.services.tax_obligation_service.TaxObligationService.detect_tax_profile")
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    def test_backfills_missing_email_prefs_without_overwrite(self, mock_ref, mock_detect):
+        mock_detect.return_value = {"recommended_keys": []}
+        docs = {
+            "form_606": {"obligation_key": "form_606", "enabled": True, "is_custom": False},
+        }
+        coll = self._mock_profile_ref_with_docs(docs)
+        mock_ref.return_value = coll
+
+        TaxObligationService.seed_defaults("user_1", company_id="comp_1")
+
+        # El doc de form_606 sí debe haberse marcado dirty para backfill.
+        form_doc = coll.document("form_606")
+        assert form_doc.set.called
+        data = form_doc.set.call_args[0][0]
+        assert data["notify_email"] is True
+        assert data["notify_email_to"] == ""
+
+    @patch("app.services.tax_obligation_service.TaxObligationService.detect_tax_profile")
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    def test_does_not_overwrite_existing_email_prefs(self, mock_ref, mock_detect):
+        mock_detect.return_value = {"recommended_keys": []}
+        docs = {
+            "form_606": {
+                "obligation_key": "form_606", "enabled": True, "is_custom": False,
+                "notify_email": False, "notify_email_to": "otro@x.com",
+            },
+        }
+        coll = self._mock_profile_ref_with_docs(docs)
+        mock_ref.return_value = coll
+
+        TaxObligationService.seed_defaults("user_1", company_id="comp_1")
+
+        form_doc = coll.document("form_606")
+        # Los campos ya existen → no debe reescribirse el documento.
+        assert not form_doc.set.called
+
+
+class TestProcessNotificationsEmailTargeting:
+    def _status(self, key, status="due_soon"):
+        return [{"key": key, "label": key, "status": status, "next_due_date": "2026-11-15",
+                 "period_key": "2026-11", "days_remaining": 2, "description": ""}]
+
+    @staticmethod
+    def _run(company_email="empresa@x.com"):
+        from flask import Flask
+        app = Flask(__name__)
+        with app.app_context():
+            return TaxObligationService.process_notifications("user_1")
+
+    @patch("app.services.mailer.Mailer.send", return_value=True)
+    @patch("app.services.db_service.DatabaseService.get_company_profile")
+    @patch.object(TaxObligationService, "get_all")
+    @patch.object(TaxObligationService, "get_status")
+    def test_skips_when_notify_email_false(self, mock_status, mock_get_all, mock_profile, mock_send):
+        mock_profile.return_value = {"companyEmail": "empresa@x.com", "companyName": "Empresa"}
+        mock_get_all.return_value = [
+            {"obligation_key": "custom_a", "enabled": True, "notify_email": False},
+        ]
+        mock_status.return_value = self._status("custom_a")
+        with patch.object(TaxObligationService, "save") as mock_save:
+            sent, errors = self._run()
+        assert sent == 0
+        mock_send.assert_not_called()
+        mock_save.assert_not_called()
+
+    @patch("app.services.mailer.Mailer.send", return_value=True)
+    @patch("app.services.db_service.DatabaseService.get_company_profile")
+    @patch.object(TaxObligationService, "get_all")
+    @patch.object(TaxObligationService, "get_status")
+    def test_uses_custom_recipient_override(self, mock_status, mock_get_all, mock_profile, mock_send):
+        mock_profile.return_value = {"companyEmail": "empresa@x.com", "companyName": "Empresa"}
+        mock_get_all.return_value = [
+            {"obligation_key": "custom_a", "enabled": True, "notify_email": True, "notify_email_to": "alerta@x.com"},
+        ]
+        mock_status.return_value = self._status("custom_a")
+        with patch.object(TaxObligationService, "save"):
+            sent, errors = self._run()
+        assert sent == 1
+        assert mock_send.call_args[1]["to_email"] == "alerta@x.com"
+
+    @patch("app.services.mailer.Mailer.send", return_value=True)
+    @patch("app.services.db_service.DatabaseService.get_company_profile")
+    @patch.object(TaxObligationService, "get_all")
+    @patch.object(TaxObligationService, "get_status")
+    def test_falls_back_to_company_email(self, mock_status, mock_get_all, mock_profile, mock_send):
+        mock_profile.return_value = {"companyEmail": "empresa@x.com", "companyName": "Empresa"}
+        mock_get_all.return_value = [
+            {"obligation_key": "custom_a", "enabled": True, "notify_email": True, "notify_email_to": ""},
+        ]
+        mock_status.return_value = self._status("custom_a")
+        with patch.object(TaxObligationService, "save"):
+            sent, errors = self._run()
+        assert sent == 1
+        assert mock_send.call_args[1]["to_email"] == "empresa@x.com"
+
+    @patch("app.services.mailer.Mailer.send", return_value=True)
+    @patch("app.services.db_service.DatabaseService.get_company_profile")
+    @patch.object(TaxObligationService, "get_all")
+    @patch.object(TaxObligationService, "get_status")
+    def test_custom_alert_resolved_by_obligation_key(self, mock_status, mock_get_all, mock_profile, mock_send):
+        """Una alerta personalizada (sin 'key') debe resolverse por obligation_key."""
+        mock_profile.return_value = {"companyEmail": "empresa@x.com", "companyName": "Empresa"}
+        # get_all devuelve alerta custom solo con obligation_key (sin 'key' ni 'id').
+        mock_get_all.return_value = [
+            {"obligation_key": "custom_abc", "enabled": True, "notify_email": True, "notify_email_to": "custom@x.com"},
+        ]
+        mock_status.return_value = self._status("custom_abc")
+        with patch.object(TaxObligationService, "save"):
+            sent, errors = self._run()
+        assert sent == 1
+        assert mock_send.call_args[1]["to_email"] == "custom@x.com"
