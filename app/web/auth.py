@@ -1333,6 +1333,16 @@ def user_profile_page():
     pin_success = request.args.get('pin_success')
     pin_error = request.args.get('pin_error')
 
+    production_agreement_available = False
+    production_agreement_version = None
+    try:
+        from app.services.production_agreement_service import ProductionAgreementService
+        active_agreement = ProductionAgreementService.get_active_version()
+        production_agreement_available = bool(active_agreement)
+        production_agreement_version = active_agreement.get('version') if active_agreement else None
+    except Exception:
+        pass
+
     return render_template(
         'user_profile.html',
         active_page='profile',
@@ -1343,6 +1353,8 @@ def user_profile_page():
         pwd_error=pwd_error,
         pin_success=pin_success,
         pin_error=pin_error,
+        production_agreement_available=production_agreement_available,
+        production_agreement_version=production_agreement_version,
     )
 
 

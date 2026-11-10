@@ -94,6 +94,68 @@ class TestDedupAndIds:
         assert [i["id"] for i in items1] == [i["id"] for i in items2]
 
 
+class TestMentionMapping:
+    """Las notificaciones in-app usan dos convenciones de campos:
+    menciones de comentarios (`message`/`link`) y acciones de portal/pagos
+    (`body`/`documentUrl`). El centro debe normalizar ambas."""
+
+    @patch("app.services.tax_obligation_service.TaxObligationService.get_status")
+    @patch("app.services.company_authorization.get_company_access")
+    @patch("app.services.notification_center.NotificationStateService.get_read_item_ids", return_value=set())
+    @patch("app.services.db_service.DatabaseService.get_user_notifications")
+    @patch("app.services.db_service.DatabaseService.get_crm_contacts", return_value=[])
+    def test_portal_notification_uses_body_and_document_url(self, mock_crm, mock_notif, mock_read, mock_access, mock_status):
+        mock_access.return_value = _access(role="member", permissions={})
+        mock_notif.return_value = [
+            {
+                "id": "n1",
+                "type": "portal_firma",
+                "icon": "✅",
+                "title": "Cliente S.A. aprobó la Cotización",
+                "body": "Cliente S.A. autorizó cotización COT-100.",
+                "documentType": "Cotización",
+                "documentNumber": "COT-100",
+                "clientName": "Cliente S.A.",
+                "documentUrl": "/invoices/inv-1",
+                "createdAt": "2026-11-10T00:00:00+00:00",
+                "read": False,
+                "sandbox": False,
+            },
+        ]
+        items, counters = NotificationAggregator.aggregate("u1", "owner_1", "comp_1", sandbox=False)
+        assert counters["mentions_unread"] == 1
+        assert len(items) == 1
+        item = items[0]
+        assert item["description"] == "Cliente S.A. autorizó cotización COT-100."
+        assert item["action_url"] == "/invoices/inv-1"
+        assert item["action_label"] == "Ver"
+
+    @patch("app.services.tax_obligation_service.TaxObligationService.get_status")
+    @patch("app.services.company_authorization.get_company_access")
+    @patch("app.services.notification_center.NotificationStateService.get_read_item_ids", return_value=set())
+    @patch("app.services.db_service.DatabaseService.get_user_notifications")
+    @patch("app.services.db_service.DatabaseService.get_crm_contacts", return_value=[])
+    def test_mention_notification_uses_message_and_link(self, mock_crm, mock_notif, mock_read, mock_access, mock_status):
+        mock_access.return_value = _access(role="member", permissions={})
+        mock_notif.return_value = [
+            {
+                "id": "n2",
+                "type": "mention",
+                "title": "Nueva mención en un comentario",
+                "message": "A te mencionó en un comentario de la factura F-1.",
+                "documentNumber": "F-1",
+                "link": "/invoices/inv-2",
+                "createdAt": "2026-11-10T00:00:00+00:00",
+                "read": False,
+                "sandbox": False,
+            },
+        ]
+        items, counters = NotificationAggregator.aggregate("u1", "owner_1", "comp_1", sandbox=False)
+        assert counters["mentions_unread"] == 1
+        assert items[0]["description"] == "A te mencionó en un comentario de la factura F-1."
+        assert items[0]["action_url"] == "/invoices/inv-2"
+
+
 class TestReadStateIsolation:
     def test_mark_read_does_not_touch_tax_service(self):
         with patch.object(NotificationStateService, "_read_items_ref") as mock_ref:
