@@ -628,6 +628,15 @@ def test_rfce_duplicate_is_recovered_without_resubmitting():
     assert recovered["trackId"] == "TRACK-1"
 
 
+def test_rfce_duplicate_without_recovery_is_terminal_rejection():
+    response = {
+        "codigo": 2,
+        "estado": "Rechazado",
+        "mensaje": "La combinación e-NCF y código de seguridad ya han sido utilizados previamente.",
+    }
+    assert DgiiDirectService._rfce_duplicate_is_terminal_rejection(response, "")
+
+
 def test_pos_reserves_sequence_before_emission(app):
     captured = {}
     mock_shift = {"id": "shift-1", "registerId": "reg-1", "status": "OPEN"}

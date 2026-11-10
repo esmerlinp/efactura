@@ -3293,7 +3293,45 @@ def invoice_detail(invoice_id):
     # Obtener el historial de auditoría
     try:
         from app.services.audit_service import AuditService
-        history_logs = AuditService.get_entity_logs(owner_uid, invoice_id, company_id=company_id)
+        history_logs = AuditService.get_entity_logs(
+            owner_uid, invoice_id, company_id=company_id, sandbox=sandbox
+        )
+
+        # Los eventos fiscales se guardan en sequence_logs, no en audit_logs.
+        # Integrarlos aquí permite mostrar emisión, respuesta DGII y sincronización.
+        sequence_log_id = invoice.get("sequenceLogId") or invoice.get("sequence_log_id")
+        sequence_logs = DatabaseService.get_sequence_logs(
+            owner_uid, company_id=company_id, sandbox=sandbox
+        )
+        sequence_log = next(
+            (
+                log for log in sequence_logs
+                if (sequence_log_id and log.get("id") == sequence_log_id)
+                or (not sequence_log_id and log.get("encf") == invoice.get("encf"))
+            ),
+            None,
+        )
+        if sequence_log:
+            sequence_timestamp = sequence_log.get("fechaRegistro") or ""
+            history_logs.append({
+                "id": f"sequence:{sequence_log.get('id', '')}",
+                "action": sequence_log.get("estado", "SEQUENCE"),
+                "module": "Secuencias Fiscales",
+                "entityId": invoice_id,
+                "entityLabel": f"{sequence_log.get('encf') or invoice.get('encf', '')} — {sequence_log.get('motivo', '')}",
+                "performedBy": sequence_log.get("usuario", "Sistema"),
+                "performedByEmail": sequence_log.get("usuario", ""),
+                "timestamp": sequence_timestamp,
+                "isSandbox": sandbox,
+                "ipAddress": "",
+                "userAgent": "",
+                "before": {},
+                "after": {
+                    "sequenceStatus": sequence_log.get("estado", ""),
+                    "dgiiResponse": sequence_log.get("respuestaDGII", ""),
+                },
+            })
+            history_logs.sort(key=lambda log: log.get("timestamp", ""), reverse=True)
     except Exception as e:
         print(f"⚠️ Error al obtener logs de auditoría: {e}")
         history_logs = []
@@ -6951,7 +6989,18 @@ def sync_single_invoice_route(invoice_id):
             if auto_ok:
                 flash("📧 Factura enviada automáticamente al cliente por correo.", "info")
         else:
-            flash(f"No se pudo sincronizar: {res.get('message') or 'Sigue en modalidad de contingencia (sin conexión a DGII).'}", 'warning')
+            if str(res.get("dgiiStatus") or "").upper() in ("REJECTED", "RECHAZADO"):
+                invoice["isSyncedWithDGII"] = False
+                invoice["dgiiStatus"] = "REJECTED"
+                invoice["status"] = "Rechazado DGII"
+                invoice["emisionMode"] = "API"
+                invoice["dgiiError"] = str(res.get("error") or res.get("message") or "DGII rechazó el comprobante")[:200]
+                invoice["inventoryStatus"] = "RELEASED"
+                invoice["accountingStatus"] = "NOT_APPLIED"
+                DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
+                flash(f"DGII rechazó el comprobante: {invoice['dgiiError']}", 'error')
+            else:
+                flash(f"No se pudo sincronizar: {res.get('message') or 'Sigue en modalidad de contingencia (sin conexión a DGII).'}", 'warning')
     except Exception as e:
         flash(f"Error durante la sincronización: {str(e)}", 'error')
         

@@ -172,7 +172,7 @@ class AuditService:
         return result
 
     @classmethod
-    def get_entity_logs(cls, owner_uid: str, entity_id: str, company_id=None) -> list:
+    def get_entity_logs(cls, owner_uid: str, entity_id: str, company_id=None, sandbox=True) -> list:
         """
         Retorna logs de auditoría para una entidad específica (ej: una factura).
         Ordenados por timestamp descendente.
@@ -180,7 +180,7 @@ class AuditService:
         if not firebase_initialized or not db_firestore:
             return []
         cache = CacheService.get_cache()
-        key = CacheService.domain_key("audit", company_id or owner_uid, False, "entity", entity_id)
+        key = CacheService.domain_key("audit", company_id or owner_uid, sandbox, "entity", entity_id)
         cached = cache.get(key)
         if cached is not None:
             return cached
