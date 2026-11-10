@@ -1,0 +1,275 @@
+{% extends "layout.html" %}
+{% block title %}Centro de Notificaciones — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+    .nc-container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 4px 40px;
+    }
+    .nc-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .nc-title h1 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        margin: 0;
+        font-family: var(--font-heading);
+        color: var(--text-primary);
+    }
+    .nc-title p {
+        margin: 4px 0 0;
+        color: var(--text-secondary, #6b7280);
+        font-size: 0.85rem;
+    }
+    .nc-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .nc-kpi {
+        background: var(--bg-surface, #fff);
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 12px;
+        padding: 16px;
+    }
+    .nc-kpi .num {
+        font-size: 1.7rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+    .nc-kpi .lbl {
+        color: var(--text-secondary, #6b7280);
+        font-size: 0.78rem;
+        margin-top: 6px;
+    }
+    .nc-kpi.red .num { color: #ef4444; }
+    .nc-kpi.amber .num { color: #f59e0b; }
+    .nc-kpi.purple .num { color: #8b5cf6; }
+    .nc-kpi.emerald .num { color: #10b981; }
+
+    .nc-filters {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
+    .nc-filter-chip {
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--border-color, #e5e7eb);
+        background: var(--bg-surface, #fff);
+        color: var(--text-secondary, #6b7280);
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .nc-filter-chip.active {
+        background: var(--accent-purple, #8b5cf6);
+        border-color: var(--accent-purple, #8b5cf6);
+        color: #fff;
+    }
+
+    .nc-timeline {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .nc-item {
+        background: var(--bg-surface, #fff);
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-left: 4px solid var(--accent-purple, #8b5cf6);
+        border-radius: 12px;
+        padding: 14px 16px;
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        transition: background 0.15s;
+    }
+    .nc-item.critical { border-left-color: #ef4444; }
+    .nc-item.warning { border-left-color: #f59e0b; }
+    .nc-item.info { border-left-color: #3b82f6; }
+    .nc-item.read { opacity: 0.62; }
+
+    .nc-item-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 0.95rem;
+    }
+    .nc-item-icon.critical { background: rgba(239,68,68,0.12); color: #ef4444; }
+    .nc-item-icon.warning { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .nc-item-icon.info { background: rgba(59,130,246,0.12); color: #3b82f6; }
+    .nc-item-icon.crm { background: rgba(139,92,246,0.12); color: #8b5cf6; }
+
+    .nc-item-body { flex: 1; min-width: 0; }
+    .nc-item-title { font-weight: 700; font-size: 0.92rem; margin: 0; }
+    .nc-item-desc { color: var(--text-secondary, #6b7280); font-size: 0.8rem; margin: 4px 0 0; }
+    .nc-item-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+    .nc-chip {
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+    .nc-chip.cat-fiscal { background: rgba(16,185,129,0.12); color: #059669; }
+    .nc-chip.cat-crm { background: rgba(139,92,246,0.12); color: #8b5cf6; }
+    .nc-chip.cat-system { background: rgba(156,163,175,0.14); color: #4b5563; }
+    .nc-chip.cat-hr { background: rgba(59,130,246,0.12); color: #2563eb; }
+    .nc-chip.sev-critical { background: rgba(239,68,68,0.14); color: #dc2626; }
+    .nc-chip.sev-warning { background: rgba(245,158,11,0.14); color: #d97706; }
+    .nc-when { font-size: 0.72rem; color: var(--text-muted, #9ca3af); }
+
+    .nc-item-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+    .nc-action {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color, #e5e7eb);
+        background: var(--bg-input, #f9fafb);
+        color: var(--text-primary, #111827);
+        text-decoration: none;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .nc-mark-read {
+        background: transparent;
+        border: none;
+        color: var(--text-muted, #9ca3af);
+        cursor: pointer;
+        font-size: 0.85rem;
+        padding: 6px;
+    }
+    .nc-mark-read:hover { color: var(--accent-emerald, #10b981); }
+
+    .nc-empty {
+        text-align: center;
+        color: var(--text-muted, #9ca3af);
+        padding: 40px 20px;
+        font-size: 0.9rem;
+    }
+
+    @media (max-width: 640px) {
+        .nc-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+        .nc-item { flex-wrap: wrap; }
+        .nc-item-actions { width: 100%; justify-content: flex-end; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="nc-container">
+    <div class="nc-header">
+        <div class="nc-title">
+            <h1><i class="fa-solid fa-bell" style="color: var(--accent-purple, #8b5cf6); margin-right: 8px;"></i>Centro de Notificaciones</h1>
+            <p>Actividad, compromisos y obligaciones pendientes.</p>
+        </div>
+    </div>
+
+    <div class="nc-kpi-grid">
+        <div class="nc-kpi red">
+            <div class="num" id="kpi-overdue">{{ counters.fiscal_overdue }}</div>
+            <div class="lbl">Vencidas</div>
+        </div>
+        <div class="nc-kpi amber">
+            <div class="num" id="kpi-upcoming">{{ counters.fiscal_upcoming }}</div>
+            <div class="lbl">Próximas</div>
+        </div>
+        <div class="nc-kpi purple">
+            <div class="num" id="kpi-mentions">{{ counters.mentions_unread }}</div>
+            <div class="lbl">Menciones no leídas</div>
+        </div>
+        <div class="nc-kpi emerald">
+            <div class="num" id="kpi-commitments">{{ counters.commitments_pending }}</div>
+            <div class="lbl">Compromisos</div>
+        </div>
+    </div>
+
+    <div class="nc-filters" id="nc-filters">
+        <button class="nc-filter-chip active" data-filter="all" onclick="setFilter('all', this)">Todas</button>
+        <button class="nc-filter-chip" data-filter="mention" onclick="setFilter('mention', this)">Menciones</button>
+        <button class="nc-filter-chip" data-filter="commitment" onclick="setFilter('commitment', this)">Compromisos</button>
+        <button class="nc-filter-chip" data-filter="fiscal" onclick="setFilter('fiscal', this)">Alertas Fiscales</button>
+        <button class="nc-filter-chip" data-filter="system" onclick="setFilter('system', this)">Sistema</button>
+        <button class="nc-filter-chip" data-filter="hr" onclick="setFilter('hr', this)">RRHH</button>
+    </div>
+
+    <div class="nc-timeline" id="nc-timeline">
+        {% if items %}
+            {% for it in items %}
+            <div class="nc-item {{ it.severity }} {% if it.is_read %}read{% endif %}" data-filter-key="{{ it.filter_key }}">
+                <div class="nc-item-icon {{ 'crm' if it.category == 'crm' else it.severity }}">
+                    {% if it.type == 'mention' %}<i class="fa-solid fa-at"></i>
+                    {% elif it.type == 'commitment' %}<i class="fa-solid fa-handshake"></i>
+                    {% elif it.type == 'tax_obligation' %}<i class="fa-solid fa-file-invoice-dollar"></i>
+                    {% else %}<i class="fa-solid fa-bell"></i>{% endif %}
+                </div>
+                <div class="nc-item-body">
+                    <p class="nc-item-title">{{ it.title }}</p>
+                    {% if it.description %}<p class="nc-item-desc">{{ it.description }}</p>{% endif %}
+                    <div class="nc-item-meta">
+                        <span class="nc-chip cat-{{ it.category }}">{{ it.category }}</span>
+                        {% if it.severity == 'critical' %}<span class="nc-chip sev-critical">Vencida</span>
+                        {% elif it.severity == 'warning' and it.type == 'tax_obligation' %}<span class="nc-chip sev-warning">Por vencer</span>
+                        {% elif it.severity == 'warning' %}<span class="nc-chip sev-warning">Atención</span>{% endif %}
+                        {% if it.due_date %}<span class="nc-when">Vence: {{ it.due_date }}</span>{% endif %}
+                        {% if it.created_at and not it.due_date %}<span class="nc-when">{{ it.created_at[:10] }}</span>{% endif %}
+                    </div>
+                </div>
+                <div class="nc-item-actions">
+                    {% if it.action_url %}<a class="nc-action" href="{{ it.action_url }}">{{ it.action_label }}</a>{% endif %}
+                    {% if not it.is_read %}<button class="nc-mark-read" title="Marcar como leída" onclick="markRead('{{ it.id }}', this)"><i class="fa-solid fa-circle-check"></i></button>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="nc-empty">No tienes notificaciones pendientes.</div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function setFilter(key, btn) {
+        document.querySelectorAll('.nc-filter-chip').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        const items = document.querySelectorAll('.nc-item');
+        let visible = 0;
+        items.forEach(el => {
+            const k = el.getAttribute('data-filter-key');
+            const show = (key === 'all') || (k === key);
+            el.style.display = show ? 'flex' : 'none';
+            if (show) visible++;
+        });
+        const empty = document.getElementById('nc-timeline').querySelector('.nc-empty');
+        if (empty) empty.style.display = visible ? 'none' : 'block';
+    }
+
+    function markRead(itemId, btn) {
+        fetch('/notifications/center/mark-read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_id: itemId })
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                const item = btn.closest('.nc-item');
+                item.classList.add('read');
+                btn.remove();
+            }
+        }).catch(() => {});
+    }
+</script>
+{% endblock %}

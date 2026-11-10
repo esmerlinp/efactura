@@ -1,192 +1,43 @@
 """
-tax_obligation_service.py — Lógica de obligaciones tributarias DGII (República Dominicana).
-Calcula vencimientos, considera feriados oficiales RD (Ley 139-97), cierres fiscales variables (Art. 300 CT),
-adapta las obligaciones al Régimen Fiscal del contribuyente (Ordinario Jurídico, Ordinario Persona Física,
-RST Ingresos/Compras, Especial/Exento) y expone estado de obligaciones fiscales y laborales.
+tax_obligation_service.py — Lógica de obligaciones tributarias DGII / TSS (República Dominicana).
+
+Calcula vencimientos de forma dinámica (días laborables y feriados RD, Ley 139-97),
+adapta las obligaciones al régimen fiscal del contribuyente y sus modalidades:
+
+  - Régimen Ordinario (persona jurídica / persona física)
+  - RST por ingresos — persona física (RS-1)
+  - RST por ingresos — persona jurídica (RS-2)
+  - RST por compras (RS-3)
+  - RST agropecuario (RS-4)
+  - Régimen Especial / Exento
+  - Consumidor final
+
+Las reglas y fuentes normativas viven en `app.countries.do.tax_obligation_rules.py`.
 """
+import re
 import logging
 from datetime import datetime, date, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
-# ── Catálogo de obligaciones DGII / TSS ──────────────────────────────────────
-DGII_OBLIGATIONS = [
-    {
-        "key": "form_606",
-        "label": "Formato de Compras — 606",
-        "description": "Reporte mensual de compras de bienes y servicios para sustentar costos y gastos.",
-        "recurrence": "monthly_15",
-        "default_enabled": True,
-        "action_url": "/reports-606",
-        "action_label": "Generar 606",
-        "category": "monthly",
-        "applies_to": ["ordinary_juridica", "ordinary_fisica", "exempt"],
-    },
-    {
-        "key": "form_607",
-        "label": "Formato de Ventas — 607",
-        "description": "Reporte mensual de ventas de bienes y servicios y retenciones de ITBIS/ISR.",
-        "recurrence": "monthly_15",
-        "default_enabled": True,
-        "action_url": "/reports-607",
-        "action_label": "Generar 607",
-        "category": "monthly",
-        "applies_to": ["ordinary_juridica", "ordinary_fisica", "exempt"],
-    },
-    {
-        "key": "it1",
-        "label": "Declaración Jurada de ITBIS — IT-1",
-        "description": "Declaración jurada y pago mensual del ITBIS devengado, retenido y deducible.",
-        "recurrence": "monthly_20",
-        "default_enabled": True,
-        "category": "monthly",
-        "applies_to": ["ordinary_juridica", "ordinary_fisica"],
-    },
-    {
-        "key": "ir17",
-        "label": "Retenciones y Retribuciones — IR-17",
-        "description": "Declaración y pago mensual de retenciones de ISR y retribuciones complementarias.",
-        "recurrence": "monthly_10",
-        "default_enabled": True,
-        "category": "monthly",
-        "applies_to": ["ordinary_juridica", "ordinary_fisica", "rst", "exempt"],
-    },
-    {
-        "key": "tss",
-        "label": "Seguridad Social y Laboral — TSS / DGT-3",
-        "description": "Pago mensual de cotizaciones TSS (Salud, Pensión, Riesgos) y novedades laborales.",
-        "recurrence": "monthly_10",
-        "default_enabled": True,
-        "action_url": "/rrhh/tss",
-        "action_label": "Ver TSS",
-        "category": "monthly",
-        "applies_to": ["ordinary_juridica", "ordinary_fisica", "rst", "exempt"],
-    },
-    {
-        "key": "ir3_ret",
-        "label": "Anticipos ISR (Art. 314 CT) — Mensual",
-        "description": "Pago mensual de anticipos del Impuesto Sobre la Renta (12 cuotas del IR-2 / IR-1).",
-        "recurrence": "monthly_15",
-        "default_enabled": True,
-        "category": "monthly",
-        "applies_to": ["ordinary_juridica", "ordinary_fisica"],
-    },
-    {
-        "key": "ir3",
-        "label": "Retenciones de Renta a Empleados — IR-3",
-        "description": "Declaración mensual de retenciones de ISR aplicadas a los salarios de empleados.",
-        "recurrence": "monthly_10",
-        "default_enabled": False,
-        "action_url": "/rrhh",
-        "action_label": "Nómina",
-        "category": "monthly",
-        "applies_to": ["ordinary_juridica", "ordinary_fisica", "exempt"],
-    },
-    {
-        "key": "form_608",
-        "label": "Comprobantes Anulados — 608",
-        "description": "Reporte mensual de NCF y e-CF anulados o cancelados durante el período.",
-        "recurrence": "monthly_15",
-        "default_enabled": False,
-        "action_url": "/reports-608",
-        "action_label": "Generar 608",
-        "category": "monthly",
-        "applies_to": ["ordinary_juridica", "ordinary_fisica", "exempt"],
-    },
-    {
-        "key": "form_623",
-        "label": "Retenciones del Estado — 623",
-        "description": "Reporte mensual de retenciones efectuadas por entidades del Estado (5% ITBIS / ISR).",
-        "recurrence": "monthly_15",
-        "default_enabled": False,
-        "action_url": "/reports-623",
-        "action_label": "Generar 623",
-        "category": "monthly",
-        "applies_to": ["ordinary_juridica", "ordinary_fisica"],
-    },
-    {
-        "key": "ir2",
-        "label": "Impuesto Sobre la Renta Sociedades — IR-2",
-        "description": "Declaración jurada anual del ISR para personas jurídicas (120 días post-cierre fiscal).",
-        "recurrence": "annual_120days",
-        "default_enabled": True,
-        "category": "annual",
-        "applies_to": ["ordinary_juridica", "exempt"],
-    },
-    {
-        "key": "act",
-        "label": "Activos Imponibles — ACT",
-        "description": "Declaración jurada anual del Impuesto sobre los Activos (1% anual en 2 cuotas).",
-        "recurrence": "annual_120days",
-        "default_enabled": True,
-        "category": "annual",
-        "applies_to": ["ordinary_juridica"],
-    },
-    {
-        "key": "ir1",
-        "label": "Impuesto Sobre la Renta Personas Físicas — IR-1",
-        "description": "Declaración jurada anual de personas físicas y negocios de único dueño (90 días post-cierre).",
-        "recurrence": "annual_90days",
-        "default_enabled": False,
-        "category": "annual",
-        "applies_to": ["ordinary_fisica"],
-    },
-    {
-        "key": "rst",
-        "label": "Régimen Simplificado de Tributación — RST",
-        "description": "Declaración jurada anual para contribuyentes acogidos al régimen simplificado RST.",
-        "recurrence": "annual_rst_feb",
-        "default_enabled": False,
-        "category": "annual",
-        "applies_to": ["rst"],
-    },
-]
+# ── Reglas centralizadas ─────────────────────────────────────────────────────
+from app.countries.do.tax_obligation_rules import (
+    OBLIGATION_CATALOG as DGII_OBLIGATIONS,
+    OBLIGATIONS_DICT,
+    REGIMES as REGIME_PRESETS,
+    LEGACY_KEY_ALIASES,
+    PENDING_CONFIRMATIONS,
+)
 
-OBLIGATIONS_DICT = {ob["key"]: ob for ob in DGII_OBLIGATIONS}
-
-
-# ── Presets por Régimen Fiscal DGII ─────────────────────────────────────────
-
-REGIME_PRESETS = {
-    "ordinary_juridica": {
-        "key": "ordinary_juridica",
-        "label": "Régimen Ordinario (Persona Jurídica / Sociedades)",
-        "badge_color": "purple",
-        "description": "Aplica a sociedades comerciales (SRL, SA, SAS, EIRL). Declaraciones mensuales 606, 607, IT-1, IR-17, anticipos y anuales IR-2 y Activos (ACT).",
-        "enabled_keys": ["form_606", "form_607", "it1", "ir17", "tss", "ir3_ret", "ir2", "act"],
-    },
-    "ordinary_fisica": {
-        "key": "ordinary_fisica",
-        "label": "Régimen Ordinario (Persona Física / Servicios Profesionales)",
-        "badge_color": "blue",
-        "description": "Aplica a personas físicas con negocio de único dueño o servicios independientes. Reportes 606, 607, IT-1, IR-17, anticipos y declaración anual IR-1.",
-        "enabled_keys": ["form_606", "form_607", "it1", "ir17", "tss", "ir3_ret", "ir1"],
-    },
-    "rst": {
-        "key": "rst",
-        "label": "Régimen Simplificado de Tributación (RST)",
-        "badge_color": "emerald",
-        "description": "Aplica a contribuyentes acogidos al RST (Compras o Ingresos). No remiten 606/607 mensual ni IT-1 ordinario; presentan declaración jurada anual en febrero.",
-        "enabled_keys": ["rst", "ir17", "tss"],
-    },
-    "exempt": {
-        "key": "exempt",
-        "label": "Régimen Especial / Exento (Zonas Francas, ONGs)",
-        "badge_color": "amber",
-        "description": "Aplica a empresas acogidas a incentivos fiscales (Ley 8-90, Ley de Cine, Proindustria) o instituciones sin fines de lucro. Reportes informativos 606, 607, IR-17 y memoria IR-2.",
-        "enabled_keys": ["form_606", "form_607", "ir17", "tss", "ir2"],
-    },
-    "consumer": {
-        "key": "consumer",
-        "label": "Consumidor Final / No Contribuyente",
-        "badge_color": "gray",
-        "description": "No sujeto a obligaciones tributarias mensuales ante la DGII.",
-        "enabled_keys": [],
-    },
+# Condiciones de auto-gate que dependen de la existencia de trabajadores.
+EMPLOYEE_CONDITIONS = {
+    "employees_with_salary_retention",
+    "registered_workers",
+    "employer",
 }
 
 
-# ── Recurrence & Date Helpers ───────────────────────────────────────────────
+# ── Date Helpers ─────────────────────────────────────────────────────────────
 
 def _last_day_of_month(year: int, month: int) -> date:
     """Devuelve el último día de un mes específico."""
@@ -199,6 +50,8 @@ def _last_day_of_month(year: int, month: int) -> date:
 def _is_weekend_or_holiday(d: date, company_id: str = None) -> bool:
     """
     Verifica si una fecha cae en fin de semana (sábado/domingo) o feriado oficial RD (Ley 139-97).
+    Nota: los plazos DGII/TSS usan feriados NACIONALES; los feriados propios de la empresa
+    no desplazan plazos fiscales, por lo que aquí se usan los feriados RD únicamente.
     """
     if d.weekday() >= 5:
         return True
@@ -217,6 +70,25 @@ def _next_business_day(d: date, company_id: str = None) -> date:
     while _is_weekend_or_holiday(d, company_id):
         d = d + timedelta(days=1)
     return d
+
+
+def _last_business_day(year: int, month: int, company_id: str = None) -> date:
+    """Último día laborable de un mes (retrocede si el fin de mes cae en fin de semana/feriado)."""
+    d = _last_day_of_month(year, month)
+    while _is_weekend_or_holiday(d, company_id):
+        d = d - timedelta(days=1)
+    return d
+
+
+def _third_business_day(year: int, month: int, company_id: str = None) -> date:
+    """Tercer día laborable de un mes (contando hacia adelante)."""
+    d = date(year, month, 1)
+    count = 0
+    while count < 3:
+        if not _is_weekend_or_holiday(d, company_id):
+            count += 1
+        d = d + timedelta(days=1)
+    return d - timedelta(days=1)
 
 
 def _next_monthly_day(first_due: date, day_of_month: int, today: date) -> date:
@@ -254,9 +126,6 @@ def _next_annual_120days(today: date, fiscal_end_month: int = 12, first_due: dat
     """
     Anual: 120 días calendario después del cierre fiscal (Art. 300 / 314 CT).
     Para cierre 31-Dic: vence ~30 de Abril.
-    Para cierre 31-Mar: vence ~29 de Julio.
-    Para cierre 30-Jun: vence ~28 de Octubre.
-    Para cierre 30-Sep: vence ~28 de Enero del año siguiente.
     """
     start_date = first_due if (first_due and first_due > today) else today
     year = start_date.year
@@ -294,26 +163,47 @@ def _next_annual_90days(today: date, fiscal_end_month: int = 12, first_due: date
 
 
 def _next_annual_rst_feb(today: date, first_due: date = None) -> date:
+    """Compatibilidad legacy: último día de febrero (Declaración Jurada anual de RST)."""
+    return _next_last_business_day(today, 2, first_due=first_due)
+
+
+def _next_last_business_day(today: date, month: int, first_due: date = None, company_id: str = None) -> date:
     """
-    Anual: Último día hábil de febrero (Declaración Jurada anual de RST).
+    Próximo 'último día laborable' del mes indicado (p. ej. febrero para las DJ RST,
+    marzo/junio/septiembre/diciembre para las cuotas RS2).
     """
     start_date = first_due if (first_due and first_due > today) else today
-    year = start_date.year
 
-    for y in [year, year + 1, year + 2]:
-        due = _last_day_of_month(y, 2)
+    for y in [start_date.year, start_date.year + 1, start_date.year + 2]:
+        due = _last_business_day(y, month, company_id=company_id)
         if first_due and due < first_due:
             continue
         if due >= start_date:
             return due
 
-    return _last_day_of_month(year + 1, 2)
+    return _last_business_day(start_date.year + 1, month, company_id=company_id)
+
+
+def _next_third_business_day(today: date, first_due: date = None, company_id: str = None) -> date:
+    """
+    Próximo 'tercer día laborable del mes siguiente' (pago TSS, FAQ TSS #34).
+    """
+    start_date = first_due if (first_due and first_due > today) else today
+
+    for y in [start_date.year, start_date.year + 1, start_date.year + 2]:
+        for m in range(1, 13):
+            due = _third_business_day(y, m, company_id=company_id)
+            if first_due and due < first_due:
+                continue
+            if due >= start_date:
+                return due
+
+    return _third_business_day(start_date.year + 1, 1, company_id=company_id)
 
 
 def _next_due_date(first_due_date_str, recurrence, reference_date=None, fiscal_end_month=12, company_id=None):
     """
     Calcula la próxima fecha de vencimiento a partir de la recurrencia y la fecha de referencia.
-    Soporta monthly_15, monthly_20, monthly_10, annual_120days, annual_90days y annual_rst_feb.
     Retorna un objeto date ajustado a día laborable hábil o None.
     """
     today = reference_date or date.today()
@@ -341,8 +231,18 @@ def _next_due_date(first_due_date_str, recurrence, reference_date=None, fiscal_e
         raw_due = _next_annual_120days(today, fiscal_end_month, first)
     elif recurrence == "annual_90days":
         raw_due = _next_annual_90days(today, fiscal_end_month, first)
-    elif recurrence == "annual_rst_feb":
-        raw_due = _next_annual_rst_feb(today, first)
+    elif recurrence in ("annual_rst_feb", "last_business_day_february"):
+        raw_due = _next_last_business_day(today, 2, first_due=first, company_id=company_id)
+    elif recurrence == "last_business_day_march":
+        raw_due = _next_last_business_day(today, 3, first_due=first, company_id=company_id)
+    elif recurrence == "last_business_day_june":
+        raw_due = _next_last_business_day(today, 6, first_due=first, company_id=company_id)
+    elif recurrence == "last_business_day_september":
+        raw_due = _next_last_business_day(today, 9, first_due=first, company_id=company_id)
+    elif recurrence == "last_business_day_december":
+        raw_due = _next_last_business_day(today, 12, first_due=first, company_id=company_id)
+    elif recurrence == "third_business_day_next_month":
+        raw_due = _next_third_business_day(today, first_due=first, company_id=company_id)
     elif recurrence == "annual_date" and first:
         candidate_year = today.year
         try:
@@ -363,16 +263,22 @@ def _next_due_date(first_due_date_str, recurrence, reference_date=None, fiscal_e
     return None
 
 
+def _is_annual_recurrence(recurrence: str) -> bool:
+    if not recurrence:
+        return False
+    return recurrence.startswith("annual") or recurrence == "last_business_day_february"
+
+
 def _get_period_key(next_due: date, recurrence: str) -> str:
     """
     Retorna la clave de período canónica asociada al vencimiento.
-    - Mensuales (monthly_*): 'YYYY-MM'
-    - Anuales (annual_*): 'YYYY'
+    - Mensuales/cuatrimestrales (monthly_*, last_business_day_mar/jun/sep/dic): 'YYYY-MM'
+    - Anuales (annual_*, last_business_day_february): 'YYYY'
     - Fijas / Únicas (fixed_date, one_time): 'YYYY-MM-DD'
     """
     if not next_due:
         return ""
-    if recurrence and recurrence.startswith("annual"):
+    if _is_annual_recurrence(recurrence):
         return str(next_due.year)
     elif recurrence in ("fixed_date", "one_time"):
         return next_due.isoformat()
@@ -415,47 +321,108 @@ class TaxObligationService:
             return None
         return _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=cls.COLLECTION)
 
+    # ── Detección de régimen ────────────────────────────────────────────────
+
+    @staticmethod
+    def _resolve_rst_modality(regimen: str, rst_modality: str, is_physical: bool) -> str:
+        """
+        Resuelve la modalidad RST con prioridad:
+          1. Modalidad explícita (rst_modality / rstModality).
+          2. Régimen base (regimenFiscal).
+          3. Tipo de contribuyente (RNC / taxpayerType) — compatibilidad modalidad↔formulario.
+        """
+        m = (rst_modality or "").strip().lower()
+        if m in ("rs1", "rst_income_fisica", "fisica", "ingresos_fisica"):
+            return "rst_income_fisica"
+        if m in ("rs2", "rst_income_juridica", "juridica", "ingresos_juridica"):
+            return "rst_income_juridica"
+        if m in ("rs3", "rst_purchases", "compras", "por_compras", "compra"):
+            return "rst_purchases"
+        if m in ("rs4", "rst_agropecuario", "agropecuario"):
+            return "rst_agropecuario"
+
+        r = (regimen or "").strip().lower()
+        if r in ("rst_purchases", "compras", "por_compras"):
+            return "rst_purchases"
+        if r in ("rst_agropecuario", "agropecuario"):
+            return "rst_agropecuario"
+        if r in ("rst_income", "rst", "simplificado", "rs1", "rs2"):
+            return "rst_income_fisica" if is_physical else "rst_income_juridica"
+
+        return "rst_income_fisica" if is_physical else "rst_income_juridica"
+
     @classmethod
     def detect_tax_profile(cls, owner_uid, company_id=None):
         """
         Detecta el régimen fiscal y tipo de contribuyente (persona física vs jurídica)
-        según el perfil de la empresa en DatabaseService.
+        según el perfil de la empresa.
+
+        Prioridad de detección:
+          1. Modalidad tributaria explícita (rstModality).
+          2. Régimen configurado (regimenFiscal).
+          3. Tipo de contribuyente (taxpayerType) / validación RNC.
+          4. Compatibilidad modalidad ↔ formulario.
         """
         from app.services.db_service import DatabaseService
         profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
         raw_regimen = profile.get("regimenFiscal") or profile.get("regimen_fiscal") or "ordinary"
+        rst_modality = profile.get("rstModality") or profile.get("rst_modality") or ""
+        taxpayer_type = (profile.get("taxpayerType") or profile.get("taxpayer_type") or "").strip().lower()
         raw_rnc = (profile.get("companyRNC") or profile.get("rnc") or "")
-        rnc_clean = raw_rnc.replace("-", "").replace(" ", "").strip()
+        rnc_clean = re.sub(r"[^0-9]", "", str(raw_rnc))
 
-        # Determinar si es persona física (Cédula 11 dígitos) o jurídica (RNC 9 dígitos)
-        is_physical = len(rnc_clean) == 11 or profile.get("taxpayerType") == "fisica" or profile.get("is_physical_person") is True
+        # 3. Tipo de contribuyente: explícito o por validación RNC.
+        is_physical_explicit = (
+            taxpayer_type in ("fisica", "persona_fisica", "pf", "physical", "física")
+            or profile.get("is_physical_person") is True
+        )
+        is_physical = is_physical_explicit or len(rnc_clean) == 11
 
-        if raw_regimen in ("rst_income", "rst_purchases", "RST", "Simplificado"):
-            regime_key = "rst"
-        elif raw_regimen in ("exempt", "especial"):
-            regime_key = "exempt"
-        elif raw_regimen == "consumer":
-            regime_key = "consumer"
-        else:
-            regime_key = "ordinary_fisica" if is_physical else "ordinary_juridica"
+        regime_key = TaxObligationService._resolve_regime(raw_regimen, rst_modality, is_physical)
 
         preset_info = REGIME_PRESETS.get(regime_key, REGIME_PRESETS["ordinary_juridica"])
-        
+
         return {
             "regime_key": regime_key,
             "label": preset_info["label"],
             "badge_color": preset_info["badge_color"],
             "description": preset_info["description"],
             "raw_regimen": raw_regimen,
+            "rst_modality": rst_modality,
             "rnc": raw_rnc,
             "is_physical_person": is_physical,
             "recommended_keys": preset_info["enabled_keys"],
         }
 
+    @staticmethod
+    def _resolve_regime(raw_regimen, rst_modality, is_physical) -> str:
+        reg = (raw_regimen or "").strip().lower()
+
+        if reg in ("consumer", "consumidor", "consumidor final", "final"):
+            return "consumer"
+        if reg in ("exempt", "exento", "exenta", "especial", "special"):
+            return "exempt"
+
+        rst_tokens = {
+            "rst", "simplificado", "rst_income", "rst_purchases", "rst_agropecuario",
+            "rst_income_fisica", "rst_income_juridica",
+            "rs1", "rs2", "rs3", "rs4",
+        }
+        rst_mod_tokens = {
+            "rs1", "rs2", "rs3", "rs4", "rst_income_fisica", "rst_income_juridica",
+            "rst_purchases", "rst_agropecuario", "compras", "agropecuario",
+        }
+        if reg in rst_tokens or (rst_modality or "").strip().lower() in rst_mod_tokens:
+            return TaxObligationService._resolve_rst_modality(reg, rst_modality, is_physical)
+
+        return "ordinary_fisica" if is_physical else "ordinary_juridica"
+
+    # ── Presets / seed ───────────────────────────────────────────────────────
+
     @classmethod
     def apply_regime_preset(cls, owner_uid, company_id=None, preset_key=None):
         """
-        Aplica un preset de obligaciones (ej. 'ordinary_juridica', 'ordinary_fisica', 'rst', 'exempt').
+        Aplica un preset de obligaciones (ej. 'ordinary_juridica', 'rst_income_juridica', ...).
         Si preset_key es None, detecta automáticamente el del perfil.
         """
         detected = cls.detect_tax_profile(owner_uid, company_id=company_id)
@@ -510,6 +477,10 @@ class TaxObligationService:
                     "action_url": ob.get("action_url", ""),
                     "action_label": ob.get("action_label", ""),
                     "category": ob.get("category", "monthly"),
+                    "conditional": bool(ob.get("conditional")),
+                    "condition": ob.get("condition", ""),
+                    "source": ob.get("source", ""),
+                    "confirmation_status": ob.get("confirmation_status", "confirmed"),
                     "last_notified_at": "",
                     "last_notified_period": "",
                     "is_custom": False,
@@ -518,7 +489,6 @@ class TaxObligationService:
                 obligations.append(payload)
             else:
                 data = doc.to_dict()
-                # Asegurar campos estructurales sin sobreescribir ediciones del usuario
                 dirty = False
                 if "is_custom" not in data:
                     data["is_custom"] = False
@@ -527,6 +497,8 @@ class TaxObligationService:
                     doc_ref.set(data, merge=True)
                 obligations.append(data)
         return obligations
+
+    # ── Lectura / guardado ──────────────────────────────────────────────────
 
     @classmethod
     def get_all(cls, owner_uid, company_id=None):
@@ -544,6 +516,7 @@ class TaxObligationService:
         for doc in docs:
             data = doc.to_dict()
             key = data.get("obligation_key") or doc.id
+            key = LEGACY_KEY_ALIASES.get(key, key)
             data["id"] = doc.id
             data["obligation_key"] = key
             db_map[key] = data
@@ -568,7 +541,6 @@ class TaxObligationService:
                 merged["is_custom"] = False
                 result.append(merged)
 
-        # Añadir alertas personalizadas
         for c_doc in custom_docs:
             if c_doc["obligation_key"] not in OBLIGATIONS_DICT:
                 result.append(c_doc)
@@ -586,11 +558,13 @@ class TaxObligationService:
         key = obligation_data.get("obligation_key") or obligation_data.get("key")
         if not key:
             return False
+        key = LEGACY_KEY_ALIASES.get(key, key)
 
         payload = {"obligation_key": key}
         for field in ("label", "description", "first_due_date", "recurrence",
                       "action_url", "action_label", "category", "is_custom",
-                      "origin", "metadata",
+                      "origin", "metadata", "conditional", "condition", "source",
+                      "confirmation_status",
                       "last_notified_at", "last_notified_period",
                       "last_presented_period", "last_presented_at", "confirmation_number",
                       "completed_periods", "last_completed_period", "last_completed_at", "last_completed_by"):
@@ -599,12 +573,40 @@ class TaxObligationService:
         if "enabled" in obligation_data:
             payload["enabled"] = bool(obligation_data["enabled"])
 
-        # Si no está en las canónicas, marcar como personalizada
         if key not in OBLIGATIONS_DICT and "is_custom" not in payload:
             payload["is_custom"] = True
 
         config_ref.document(key).set(payload, merge=True)
         return True
+
+    # ── Auto-gate por actividad ──────────────────────────────────────────────
+
+    @classmethod
+    def _has_active_employees(cls, owner_uid, company_id=None) -> bool | None:
+        """
+        Determina si la empresa tiene empleados activos (para gatear IR-3/TSS/DGT-3).
+        Retorna True / False / None (None = desconocido → se asume que aplica, no se suprime).
+        """
+        cid = company_id or owner_uid
+        try:
+            from app.services import hr_data_service as hr
+        except Exception:
+            return None
+        active_statuses = ("activo", "vacaciones", "licencia")
+        reached = False
+        for sandbox in (True, False):
+            try:
+                employees = hr.get_employees(cid, sandbox=sandbox)
+                reached = True
+                if employees and any((e.get("status") or "activo") in active_statuses for e in employees):
+                    return True
+            except Exception:
+                continue
+        if reached:
+            return False
+        return None
+
+    # ── DGT-4 auto alert ────────────────────────────────────────────────────
 
     @classmethod
     def ensure_dgt4_alert(
@@ -620,18 +622,14 @@ class TaxObligationService:
         del mes en curso correspondiente a la transacción de entrada (alta) o salida (baja)
         de un empleado.
 
-        Regla de Idempotencia:
-        Si ya existe una alerta para ese período (clave canónica 'dgt4_YYYY_MM'),
-        no la duplica.
+        Idempotencia: si ya existe una alerta para ese período (clave 'dgt4_YYYY_MM'), no duplica.
 
-        Vencimiento:
-        Día 5 del mes siguiente al corte (Reglamento 522-06, Art. 15), ajustado a día laborable
-        hábil oficial en República Dominicana (Ley 139-97).
+        Vencimiento: día 5 del mes siguiente al corte (Reglamento 522-06, Art. 15), ajustado
+        a día laborable hábil oficial RD (Ley 139-97).
         """
         if not company_id and not owner_uid:
             return {"created": False, "reason": "missing_company_or_owner"}
 
-        # 1. Determinar año y mes del movimiento
         target_year = year
         target_month = month
 
@@ -675,7 +673,6 @@ class TaxObligationService:
         except Exception as err:
             logger.warning(f"⚠️ Error verificando existencia de alerta DGT-4 ({key}): {err}")
 
-        # 2. Calcular fecha de vencimiento (día 5 del mes siguiente ajustado a hábil)
         next_month = target_month + 1
         next_year = target_year
         if next_month > 12:
@@ -727,6 +724,8 @@ class TaxObligationService:
             }
         return {"created": False, "key": key, "reason": "save_failed"}
 
+    # ── Estado ───────────────────────────────────────────────────────────────
+
     @classmethod
     def delete(cls, owner_uid, obligation_key, company_id=None):
         """
@@ -749,16 +748,31 @@ class TaxObligationService:
     def get_status(cls, owner_uid, reference_date=None, company_id=None):
         """
         Devuelve una lista con el estado calculado de cada obligación o alerta activa.
+        Las obligaciones condicionadas a empleados (IR-3/TSS/DGT-3) se suprimen si la
+        empresa no tiene empleados activos (auto-gate). IR-17 no se suprime por empleados
+        (depende de operaciones sujetas a retención, no de la nómina).
         """
         today = reference_date or date.today()
         fiscal_end_month = _get_fiscal_end_month(owner_uid, company_id=company_id)
         obligations = cls.get_all(owner_uid, company_id=company_id)
+
+        has_employees = None
+        if any(
+            o.get("conditional") and o.get("condition") in EMPLOYEE_CONDITIONS
+            for o in obligations
+        ):
+            has_employees = cls._has_active_employees(owner_uid, company_id=company_id)
+
         result = []
 
         for ob in obligations:
-            key = ob.get("obligation_key", ob.get("id"))
+            key = ob.get("obligation_key") or ob.get("key") or ob.get("id")
             is_enabled = ob.get("enabled", True)
             if not is_enabled:
+                continue
+
+            condition = ob.get("condition", "")
+            if ob.get("conditional") and condition in EMPLOYEE_CONDITIONS and has_employees is False:
                 continue
 
             first = ob.get("first_due_date", "")
@@ -823,6 +837,10 @@ class TaxObligationService:
                 "completed_at": completed_at,
                 "enabled": True,
                 "is_custom": ob.get("is_custom", False),
+                "conditional": bool(ob.get("conditional", False)),
+                "condition": condition,
+                "source": ob.get("source", ""),
+                "confirmation_status": ob.get("confirmation_status", "confirmed"),
             })
         return result
 
@@ -957,7 +975,7 @@ class TaxObligationService:
             if not ob:
                 continue
 
-            period_key = s["next_due_date"][:7]  # YYYY-MM
+            period_key = s.get("period_key") or s["next_due_date"][:7]
             if ob.get("last_notified_period") == period_key:
                 continue
 

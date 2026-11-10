@@ -491,16 +491,8 @@ def dashboard():
     anticipos_estimated = isr_estimated / 12.0
 
     rst_taxable_base = total_sales_net * 0.60
-    def calc_rst_tax(annual_income):
-        if annual_income <= 416220.0:
-            return 0.0
-        elif annual_income <= 624329.0:
-            return (annual_income - 416220.0) * 0.15
-        elif annual_income <= 867123.0:
-            return 31216.0 + (annual_income - 624329.0) * 0.20
-        else:
-            return 79775.0 + (annual_income - 867123.0) * 0.25
-    rst_isr_estimated = calc_rst_tax(rst_taxable_base)
+    from app.countries.do.tax_rules import calc_rst_isr
+    rst_isr_estimated = calc_rst_isr(rst_taxable_base)
 
     # 9. Smart Insights IA (Predictivo)
     insights = []

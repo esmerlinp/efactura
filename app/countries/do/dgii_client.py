@@ -3,6 +3,7 @@ import re
 REGIMEN_ORDINARY = "ordinary"
 REGIMEN_RST_INCOME = "rst_income"
 REGIMEN_RST_PURCHASES = "rst_purchases"
+REGIMEN_RST_AGROPECUARIO = "rst_agropecuario"
 REGIMEN_CONSUMER = "consumer"
 REGIMEN_EXEMPT = "exempt"
 
@@ -10,6 +11,7 @@ REGIMEN_CHOICES = [
     (REGIMEN_ORDINARY, "Régimen Ordinario (General)"),
     (REGIMEN_RST_INCOME, "RST basado en ingresos"),
     (REGIMEN_RST_PURCHASES, "RST basado en compras"),
+    (REGIMEN_RST_AGROPECUARIO, "RST Agropecuario"),
     (REGIMEN_CONSUMER, "Consumidor Final"),
     (REGIMEN_EXEMPT, "Exento"),
 ]
@@ -20,6 +22,8 @@ REGIMEN_LEGACY_MAP = {
     "General": REGIMEN_ORDINARY,
     "RST": REGIMEN_RST_INCOME,
     "Simplificado": REGIMEN_RST_INCOME,
+    "RST Agropecuario": REGIMEN_RST_AGROPECUARIO,
+    "Agropecuario": REGIMEN_RST_AGROPECUARIO,
 }
 
 REGIMEN_RULES = {
@@ -46,6 +50,14 @@ REGIMEN_RULES = {
         "default_ecf_type": "E32",
         "rst_limit": 12060000,
         "description": "La DGII estima ventas desde compras. Factura con ITBIS.",
+    },
+    REGIMEN_RST_AGROPECUARIO: {
+        "label": "RST Agropecuario",
+        "allowed_ecf_types": ["E31", "E32", "E33", "E34", "E41", "E43"],
+        "itbis_enabled": True,
+        "default_ecf_type": "E32",
+        "rst_limit": 12060000,
+        "description": "Sector agropecuario acogido al RST (RS-4).",
     },
     REGIMEN_CONSUMER: {
         "label": "Consumidor Final",

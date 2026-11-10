@@ -318,6 +318,18 @@
         <span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ 90 días post-cierre</span>
     {% elif rec == 'annual_rst_feb' %}
         <span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ Fin de Febrero</span>
+    {% elif rec == 'last_business_day_february' %}
+        <span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ Último día hábil de Febrero</span>
+    {% elif rec == 'last_business_day_march' %}
+        <span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Último día hábil de Marzo</span>
+    {% elif rec == 'last_business_day_june' %}
+        <span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Último día hábil de Junio</span>
+    {% elif rec == 'last_business_day_september' %}
+        <span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Último día hábil de Septiembre</span>
+    {% elif rec == 'last_business_day_december' %}
+        <span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Último día hábil de Diciembre</span>
+    {% elif rec == 'third_business_day_next_month' %}
+        <span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">🏦 3er día laborable del mes siguiente</span>
     {% elif rec == 'annual_date' %}
         {% if first_due and first_due|length >= 10 %}
             {% set f_parts = first_due[:10].split('-') %}
@@ -408,11 +420,32 @@
                         <span style="font-size:0.7rem; color:var(--text-muted);">606, 607, IT-1, IR-17, Anticipos</span>
                     </div>
                 </button>
-                <button type="button" class="preset-item-btn" onclick="applyPreset('rst')" style="width:100%; text-align:left; background:none; border:none; border-radius:6px; padding:8px 10px; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                <button type="button" class="preset-item-btn" onclick="applyPreset('rst_income_fisica')" style="width:100%; text-align:left; background:none; border:none; border-radius:6px; padding:8px 10px; cursor:pointer; display:flex; align-items:center; gap:8px;">
                     <i class="fa-solid fa-receipt" style="color:#059669;"></i>
                     <div>
-                        <strong style="display:block; font-size:0.78rem; color:var(--text-primary);">Régimen Simplificado (RST)</strong>
-                        <span style="font-size:0.7rem; color:var(--text-muted);">Declaración anual Feb + IR-17</span>
+                        <strong style="display:block; font-size:0.78rem; color:var(--text-primary);">RST Ingresos — Persona Física (RS-1)</strong>
+                        <span style="font-size:0.7rem; color:var(--text-muted);">RS-1 anual Feb + retenciones/TSS condicionales</span>
+                    </div>
+                </button>
+                <button type="button" class="preset-item-btn" onclick="applyPreset('rst_income_juridica')" style="width:100%; text-align:left; background:none; border:none; border-radius:6px; padding:8px 10px; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-receipt" style="color:#059669;"></i>
+                    <div>
+                        <strong style="display:block; font-size:0.78rem; color:var(--text-primary);">RST Ingresos — Persona Jurídica (RS-2)</strong>
+                        <span style="font-size:0.7rem; color:var(--text-muted);">RS-2 Feb + 4 cuotas (mar/jun/sep/dic)</span>
+                    </div>
+                </button>
+                <button type="button" class="preset-item-btn" onclick="applyPreset('rst_purchases')" style="width:100%; text-align:left; background:none; border:none; border-radius:6px; padding:8px 10px; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-receipt" style="color:#059669;"></i>
+                    <div>
+                        <strong style="display:block; font-size:0.78rem; color:var(--text-primary);">RST Compras (RS-3)</strong>
+                        <span style="font-size:0.7rem; color:var(--text-muted);">RS-3 anual Feb + retenciones/TSS condicionales</span>
+                    </div>
+                </button>
+                <button type="button" class="preset-item-btn" onclick="applyPreset('rst_agropecuario')" style="width:100%; text-align:left; background:none; border:none; border-radius:6px; padding:8px 10px; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-receipt" style="color:#059669;"></i>
+                    <div>
+                        <strong style="display:block; font-size:0.78rem; color:var(--text-primary);">RST Agropecuario (RS-4)</strong>
+                        <span style="font-size:0.7rem; color:var(--text-muted);">RS-4 anual Feb + retenciones/TSS condicionales</span>
                     </div>
                 </button>
                 <button type="button" class="preset-item-btn" onclick="applyPreset('exempt')" style="width:100%; text-align:left; background:none; border:none; border-radius:6px; padding:8px 10px; cursor:pointer; display:flex; align-items:center; gap:8px;">
@@ -763,6 +796,7 @@
                     <option value="annual_120days">120 días después del cierre fiscal (IR-2 Sociedades / Activos ACT)</option>
                     <option value="annual_90days">90 días después del cierre fiscal (IR-1 Personas Físicas)</option>
                     <option value="annual_rst_feb">Último día hábil de Febrero (Declaración Anual RST)</option>
+                    <option value="last_business_day_february">Último día hábil de Febrero (RS-1 / RS-2 / RS-3 / RS-4)</option>
                 </select>
                 <p style="font-size:0.74rem; color:var(--text-muted); margin:8px 0 0 0;">
                     El sistema toma el mes de cierre de la empresa (por defecto 31 de Diciembre) y calcula los días hábiles.
@@ -1363,9 +1397,9 @@ function openEditAlertModal(data) {
     const rec = data.recurrence || 'monthly_15';
     const firstDue = data.first_due_date ? data.first_due_date.slice(0, 10) : '';
 
-    if (rec === 'annual_120days' || rec === 'annual_90days' || rec === 'annual_rst_feb') {
+    if (rec === 'annual_120days' || rec === 'annual_90days' || rec === 'annual_rst_feb' || rec === 'last_business_day_february') {
         selectFrequency('annual_fiscal');
-        document.getElementById('fiscal-rule-select').value = rec;
+        document.getElementById('fiscal-rule-select').value = (rec === 'last_business_day_february') ? 'annual_rst_feb' : rec;
     } else if (rec === 'annual_date') {
         selectFrequency('annual_fixed');
         if (firstDue && firstDue.includes('-')) {
@@ -1412,6 +1446,12 @@ function getRecurrenceLabelHtml(rec, firstDue) {
     if (rec === 'annual_120days') return '<span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ 120 días post-cierre</span>';
     if (rec === 'annual_90days') return '<span style="font-size:0.75rem; background:rgba(59,130,246,0.08); color:#2563eb; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ 90 días post-cierre</span>';
     if (rec === 'annual_rst_feb') return '<span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ Fin de Febrero</span>';
+    if (rec === 'last_business_day_february') return '<span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">⚖️ Último día hábil de Febrero</span>';
+    if (rec === 'last_business_day_march') return '<span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Último día hábil de Marzo</span>';
+    if (rec === 'last_business_day_june') return '<span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Último día hábil de Junio</span>';
+    if (rec === 'last_business_day_september') return '<span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Último día hábil de Septiembre</span>';
+    if (rec === 'last_business_day_december') return '<span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">🔁 Último día hábil de Diciembre</span>';
+    if (rec === 'third_business_day_next_month') return '<span style="font-size:0.75rem; background:rgba(16,185,129,0.08); color:#059669; padding:3px 8px; border-radius:6px; font-weight:600;">🏦 3er día laborable del mes siguiente</span>';
     if (rec === 'annual_date') {
         if (firstDue && firstDue.includes('-')) {
             const parts = firstDue.split('-');

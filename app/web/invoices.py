@@ -9341,6 +9341,7 @@ def company_settings():
             "applyColorMarcaReports": existing_profile.get('applyColorMarcaReports', True),
             "logoUrl": existing_profile.get('logoUrl', ''),
             "regimenFiscal": DGIIService.normalize_regimen(request.form.get('regimenFiscal', 'General')),
+            "rstModality": request.form.get('rstModality', existing_profile.get('rstModality', '')).strip(),
             "openaiApiKey": request.form.get('openaiApiKey', ''),
 
             "theme": request.form.get('theme', existing_profile.get('theme', 'moderno')),
@@ -9526,7 +9527,7 @@ def onboarding_wizard():
         use_simulation = request.form.get('useSimulation') == 'true'
 
         # Defaults inteligentes según régimen fiscal
-        if regimen_normalized in ('rst_income', 'rst_purchases'):
+        if regimen_normalized in ('rst_income', 'rst_purchases', 'rst_agropecuario'):
             defaults = {"defaultEcfType": _by_code("E32").label_with_code, "defaultItbisRate": 0.0}
         elif regimen_normalized == 'ordinary':
             defaults = {"defaultEcfType": _by_code("E31").label_with_code, "defaultItbisRate": 0.18}
@@ -9551,6 +9552,7 @@ def onboarding_wizard():
             "certificateContent": cert_content if not use_simulation else '',
             "certificatePassword": cert_password if not use_simulation else '',
             "regimenFiscal": regimen_normalized,
+            "rstModality": request.form.get('rstModality', existing_profile.get('rstModality', '')).strip(),
             "contribuyenteTipo": request.form.get('contribuyenteTipo', 'empresa'),
             "useSimulation": use_simulation,
             "configured": True,
