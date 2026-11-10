@@ -10551,7 +10551,7 @@ def reports_dashboard():
 
 
 def get_report_categories():
-    from app.utils.module_gate import module_enabled
+    from app.utils.module_gate import module_enabled, report_group_enabled
     from flask import url_for
     all_categories = [
         {
@@ -10666,10 +10666,10 @@ def get_report_categories():
             "category_url": url_for('web_invoices.reports_category', category_key='fiscales'),
             "reports": [
                 {"title": "Reporte 606", "url": "web_reports_606.reporte_606",
-                 "enabled": module_enabled('reporte_606'),
+                 "enabled": report_group_enabled('fiscales'),
                  "desc": "Compras y gastos del período para tu declaración DGII."},
                 {"title": "Reporte 607", "url": "web_reports_607.reporte_607",
-                 "enabled": module_enabled('reporte_606'),
+                 "enabled": report_group_enabled('fiscales'),
                  "desc": "Ventas del período para tu declaración DGII."},
                 {"title": "Reporte 608", "url": "web_reports_608.reporte_608",
                  "enabled": True,
@@ -10817,7 +10817,7 @@ def get_report_categories():
 
     # Filtrar según los permisos del usuario activo
     if session.get('user', {}).get('role') == 'owner':
-        return all_categories
+        return [c for c in all_categories if _report_group_allowed(c)]
 
     category_perm_map = {
         "ventas": "canReportsSales",
@@ -10835,8 +10835,18 @@ def get_report_categories():
         if key == "favoritos":
             allowed.append(cat)
         elif check_permission(category_perm_map.get(key, "canReports")):
-            allowed.append(cat)
+            if _report_group_allowed(cat):
+                allowed.append(cat)
     return allowed
+
+
+def _report_group_allowed(cat):
+    """Determina si una categoría de reportes está habilitada según el plan."""
+    from app.utils.module_gate import report_group_enabled
+    key = cat.get("key")
+    if key == "favoritos":
+        return True
+    return report_group_enabled(key)
 
 
 @web_invoices_bp.route('/reports/categoria/<category_key>')

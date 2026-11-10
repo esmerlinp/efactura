@@ -4,7 +4,7 @@ Verifica que:
 1. Un módulo no contratado NO aparezca en el Sidebar.
 2. Un usuario sin permiso NO vea la opción correspondiente.
 3. No existan enlaces duplicados (dedup de Facturación ↔ Facturas de Venta).
-4. Las 25 claves canónicas y el enforcement de entitlement/RBAC permanezcan intactos.
+4. Las 24 claves canónicas y el enforcement de entitlement/RBAC permanezcan intactos.
 """
 from flask import session, render_template
 
@@ -75,7 +75,7 @@ def test_sidebar_nav_no_duplicate_links(app):
         'e_cf', 'dashboard', 'catalogo', 'cotizaciones', 'crm', 'pos',
         'price_lists', 'inventario', 'contratos', 'comisiones', 'cxc',
         'cxp_compras', 'gastos', 'banks', 'contabilidad', 'nomina',
-        'reporte_606', 'certificacion', 'api', 'multi_empresa',
+        'certificacion', 'api', 'multi_empresa',
         'portal_cliente', 'ia_bi', 'auditoria', 'exportacion_contable',
         'pasarela_azul',
     ]}
@@ -100,15 +100,15 @@ def test_sidebar_nav_no_duplicate_links(app):
 
 
 def test_canonical_catalog_intact(app):
-    """Las 25 claves canónicas y su enforcement permanecen intactos."""
+    """Las 24 claves canónicas y su enforcement permanecen intactos."""
     from app.utils.module_gate import MODULE_DEFS, MODULE_MAP
-    assert len(MODULE_DEFS) == 25
-    assert len(MODULE_MAP) == 25
+    assert len(MODULE_DEFS) == 24
+    assert len(MODULE_MAP) == 24
     expected = {
         "e_cf", "dashboard", "catalogo", "cotizaciones", "crm",
         "pos", "price_lists", "inventario", "contratos", "comisiones",
         "cxc", "cxp_compras", "gastos", "banks", "contabilidad",
-        "nomina", "reporte_606", "certificacion", "api", "multi_empresa",
+        "nomina", "certificacion", "api", "multi_empresa",
         "portal_cliente", "ia_bi", "auditoria", "exportacion_contable", "pasarela_azul"
     }
     assert set(MODULE_MAP.keys()) == expected

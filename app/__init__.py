@@ -303,6 +303,7 @@ def create_app():
                             cached_plan_version != actual_plan_version):
                             
                             session['company_modules'] = plan_data.get('modules', {})
+                            session['company_report_groups'] = plan_data.get('reportGroups', {})
                             session['company_plan_version'] = actual_plan_version
                             plan_limits = {}
                             for f in ['documentLimit','userLimit','storageLimitMB',
@@ -531,7 +532,7 @@ def create_app():
                     'web_purchase_orders.manage_purchase_orders': 'cxp_compras',
                     'web_operations.contracts': 'contratos',
                     'web_operations.commissions': 'comisiones',
-                    'web_reports_606.report_606': 'reporte_606',
+                    'web_reports_606.report_606': 'e_cf',
                     'web_audit.audit_view': 'auditoria',
                     'web_dashboard.bi_page': 'ia_bi',
                     'web_clients.client_insights': 'ia_bi',
@@ -795,11 +796,16 @@ def create_app():
             from app.utils.module_gate import clients_module_enabled as _cme
             return _cme()
 
+        def report_group_enabled(group_key):
+            from app.utils.module_gate import report_group_enabled as _rge
+            return _rge(group_key)
+
         return dict(
             check_permission=check_permission,
             static_hash=static_hash,
             module_enabled=module_enabled,
             clients_module_enabled=clients_module_enabled,
+            report_group_enabled=report_group_enabled,
             abs=abs,
             dgii_environment=Config.DGII_ENVIRONMENT
         )

@@ -189,7 +189,6 @@ def test_deep_links_blocked_when_module_disabled(client):
             'contabilidad': {'enabled': False},
             'nomina': {'enabled': False},
             'pos': {'enabled': False},
-            'reporte_606': {'enabled': False},
         }
     )
 
@@ -233,7 +232,6 @@ def test_deep_links_blocked_when_module_disabled(client):
             ('/accounting/chart-of-accounts', 'Catálogo Contable'),
             ('/rrhh/employees', 'RRHH Empleados'),
             ('/rrhh/payroll', 'RRHH Nómina'),
-            ('/reports/606', 'Reporte 606'),
             ('/pos', 'POS'),
         ]
 
@@ -581,17 +579,17 @@ def test_ui_sidebar_renders_only_entitled_modules(app):
 # 6. AUDITORÍA FASE 3: MATRIZ EXHAUSTIVA DE LOS 25 MÓDULOS CANÓNICOS
 # ═══════════════════════════════════════════════════════════════════════════
 
-def test_canonical_catalog_25_modules_integrity():
-    """Valida la integridad del catálogo canónico de 25 módulos de VykOne."""
+def test_canonical_catalog_24_modules_integrity():
+    """Valida la integridad del catálogo canónico de 24 módulos de VykOne."""
     from app.utils.module_gate import MODULE_DEFS, MODULE_MAP
-    assert len(MODULE_DEFS) == 25
-    assert len(MODULE_MAP) == 25
+    assert len(MODULE_DEFS) == 24
+    assert len(MODULE_MAP) == 24
     
     expected_keys = {
         "e_cf", "dashboard", "catalogo", "cotizaciones", "crm",
         "pos", "price_lists", "inventario", "contratos", "comisiones",
         "cxc", "cxp_compras", "gastos", "banks", "contabilidad",
-        "nomina", "reporte_606", "certificacion", "api", "multi_empresa",
+        "nomina", "certificacion", "api", "multi_empresa",
         "portal_cliente", "ia_bi", "auditoria", "exportacion_contable", "pasarela_azul"
     }
     assert set(MODULE_MAP.keys()) == expected_keys
@@ -614,7 +612,6 @@ MODULE_TEST_MATRIX = [
     ("banks", "/banks", None, ["canExpenses"]),
     ("contabilidad", "/accounting", "/api/v1/accounting/accounts", ["canAccounting"]),
     ("nomina", "/rrhh/employees", "/api/v1/labor/settlement", ["canHR"]),
-    ("reporte_606", "/reports/606", None, ["canExpenses"]),
     ("certificacion", "/certificacion/paso/1", None, ["canCertifyDGII"]),
     ("api", "/desarrolladores", None, ["canManageAPI"]),
     ("portal_cliente", "/portal/admin", None, ["canClients"]),
@@ -797,8 +794,8 @@ def test_module_defs_plan_catalog_ui_consistency():
     """
     from app.utils.module_gate import MODULE_DEFS, MODULE_MAP, BLUEPRINT_MODULE_MAP
 
-    # 1. Integridad de los 25 módulos
-    assert len(MODULE_DEFS) == 25
+    # 1. Integridad de los 24 módulos
+    assert len(MODULE_DEFS) == 24
     for mod in MODULE_DEFS:
         assert 'key' in mod
         assert 'label' in mod

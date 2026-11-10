@@ -17,7 +17,6 @@ MODULE_DEFS = [
     {"key": "banks", "label": "Bancos & Conciliación", "category": "finanzas", "perm": "canExpenses"},
     {"key": "contabilidad", "label": "Contabilidad & Catálogo de Cuentas", "category": "finanzas", "perm": "canAccounting"},
     {"key": "nomina", "label": "Nómina y Recursos Humanos", "category": "rrhh", "perm": "canHR"},
-    {"key": "reporte_606", "label": "Reporte 606", "category": "cumplimiento", "perm": "canExpenses"},
     {"key": "certificacion", "label": "Certificación DGII", "category": "cumplimiento", "perm": "canCertifyDGII"},
     {"key": "api", "label": "API REST", "category": "integraciones", "perm": None},
     {"key": "multi_empresa", "label": "Multi-Empresa", "category": "enterprise", "perm": None},
@@ -39,11 +38,36 @@ MAIN_MODULE_KEYS = [
     "cxp_compras",
     "gastos",
     "banks",
-    "reporte_606",
     "cotizaciones",
 ]
 
 MODULE_MAP = {m["key"]: m for m in MODULE_DEFS}
+
+REPORT_GROUP_DEFS = [
+    {"key": "ventas", "label": "Ventas"},
+    {"key": "administrativos", "label": "Administrativos"},
+    {"key": "financieros", "label": "Financieros"},
+    {"key": "contables", "label": "Contables"},
+    {"key": "fiscales", "label": "Fiscales (DGII)"},
+    {"key": "empleados", "label": "Empleados"},
+    {"key": "nomina", "label": "Nómina"},
+    {"key": "para_trabajar", "label": "Para trabajar / Exportaciones"},
+]
+
+REPORT_GROUP_MAP = {g["key"]: g for g in REPORT_GROUP_DEFS}
+
+# Fallback de retrocompatibilidad: si un plan no define `reportGroups`,
+# se derivan los grupos habilitados desde los módulos contratados.
+REPORT_GROUP_MODULE_FALLBACK = {
+    "ventas": ("e_cf",),
+    "administrativos": ("e_cf", "cxc", "cxp_compras", "inventario"),
+    "financieros": ("e_cf", "banks"),
+    "contables": ("contabilidad",),
+    "fiscales": ("e_cf",),
+    "empleados": ("nomina",),
+    "nomina": ("nomina",),
+    "para_trabajar": ("e_cf",),
+}
 
 BLUEPRINT_MODULE_MAP = {
     'api_accounting': 'contabilidad',
@@ -74,7 +98,7 @@ BLUEPRINT_MODULE_MAP = {
     'web_pos': 'pos',
     'web_purchase_orders': 'cxp_compras',
     'web_recepcion': 'e_cf',
-    'web_reports_606': 'reporte_606',
+    'web_reports_606': 'e_cf',
     'web_reports_607': 'e_cf',
     'web_reports_608': 'e_cf',
     'web_reports_623': 'e_cf',
@@ -209,6 +233,41 @@ def module_enabled(module_key):
         return bool(session.get('company_profile_pos_enabled', True))
 
     return True
+
+
+def get_enabled_report_groups():
+    """Retorna el dict de grupos de reportes habilitados desde la sesión."""
+    from flask import session
+    return session.get('company_report_groups') or {}
+
+
+def report_group_enabled(group_key):
+    """Verifica si un grupo de reportes está habilitado para la empresa actual.
+
+    Política de seguridad: FAIL-CLOSED.
+    - Si el plan define `reportGroups`, se respeta esa configuración explícita.
+    - Si el plan NO define `reportGroups` (retrocompatibilidad), se deriva desde
+      los módulos contratados según REPORT_GROUP_MODULE_FALLBACK.
+    - Si el grupo no existe en el catálogo canónico, se DENIEGA siempre.
+    """
+    if not group_key or group_key not in REPORT_GROUP_MAP:
+        return False
+
+    from flask import session
+    groups = get_enabled_report_groups()
+    if isinstance(groups, dict) and groups:
+        info = groups.get(group_key)
+        if isinstance(info, dict):
+            return bool(info.get('enabled', False))
+        if isinstance(info, bool):
+            return info
+        return False
+
+    # Fallback por módulos (planes sin reportGroups)
+    for module_key in REPORT_GROUP_MODULE_FALLBACK.get(group_key, ()):
+        if module_enabled(module_key):
+            return True
+    return False
 
 
 def clients_module_enabled():
