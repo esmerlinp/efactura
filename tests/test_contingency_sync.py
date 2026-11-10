@@ -305,6 +305,23 @@ class TestPendingApiReconciliation:
         outcome = ContingencySyncService._apply_status_resolution("owner01", "inv001", inv, res, sandbox=True)
         assert outcome == "pending"
 
+    def test_terminal_rejection_does_not_remain_in_contingency(self):
+        invoice = {"id": "inv001", "encf": "E320000000001", "status": "Emitida"}
+        result = {
+            "success": False,
+            "dgiiStatus": "REJECTED",
+            "error": "La combinación e-NCF y código de seguridad ya han sido utilizados previamente.",
+            "responseBody": {"codigo": 2},
+        }
+        with patch("app.services.contingency_sync_service.DatabaseService.save_invoice") as save, \
+             patch.object(ContingencySyncService, "_record_sequence_status"):
+            ContingencySyncService._mark_rejected("owner01", "inv001", invoice, result, True)
+
+        assert invoice["status"] == "Rechazado DGII"
+        assert invoice["emisionMode"] == "API"
+        assert invoice["inventoryStatus"] == "RELEASED"
+        save.assert_called_once()
+
     def test_reconcile_pending_api_empty(self):
         with patch("app.services.contingency_sync_service.DatabaseService.get_pending_api_invoices",
                    return_value=[]):
@@ -530,4 +547,3 @@ class TestContingencyRoutes:
             data = resp.get_json()
             assert data.get('success') is True
             assert len(data.get('notifications', [])) == 1
-

@@ -206,6 +206,10 @@ class ContingencySyncService:
                     cls._mark_synced(owner_uid, inv_id, target_invoice, res, sandbox, company_id=company_id)
                     synced_count += 1
                     logger.info(f"e-NCF {encf} sincronizada exitosamente")
+                elif cls._is_terminal_rejection(res):
+                    cls._mark_rejected(owner_uid, inv_id, target_invoice, res, sandbox, company_id=company_id)
+                    failed_count += 1
+                    logger.warning(f"e-NCF {encf} rechazada definitivamente por DGII")
                 else:
                     DatabaseService.save_invoice(owner_uid, inv_id, target_invoice, sandbox=sandbox, company_id=company_id)
                     failed_count += 1
@@ -219,6 +223,27 @@ class ContingencySyncService:
                 failed_count += 1
 
         return synced_count, failed_count
+
+    @staticmethod
+    def _is_terminal_rejection(res):
+        return str(res.get("dgiiStatus") or "").upper() in ("REJECTED", "RECHAZADO")
+
+    @classmethod
+    def _mark_rejected(cls, owner_uid, inv_id, invoice, res, sandbox, company_id=None):
+        invoice["isSyncedWithDGII"] = False
+        invoice["dgiiStatus"] = "REJECTED"
+        invoice["status"] = "Rechazado DGII"
+        invoice["emisionMode"] = "API"
+        invoice["dgiiError"] = str(res.get("error") or res.get("message") or "DGII rechazó el comprobante")[:200]
+        invoice["inventoryStatus"] = "RELEASED"
+        invoice["accountingStatus"] = "NOT_APPLIED"
+        invoice.pop("syncAttempts", None)
+        invoice.pop("lastSyncAttempt", None)
+        DatabaseService.save_invoice(owner_uid, inv_id, invoice, sandbox=sandbox, company_id=company_id)
+        cls._record_sequence_status(
+            owner_uid, invoice, "FAILED", f"DGII rechazó: {invoice['dgiiError']}",
+            resp=res.get("responseBody"), sandbox=sandbox, company_id=company_id,
+        )
 
     @classmethod
     def _should_retry(cls, attempts, last_attempt_str):

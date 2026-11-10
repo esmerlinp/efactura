@@ -725,6 +725,19 @@ class DgiiDirectService:
                             )
                             if recovered:
                                 return recovered
+                            duplicate_error = cls._rfce_error_message(response_data, response_text, codigo, estado)
+                            return {
+                                "success": False,
+                                "encf": encf,
+                                "error": duplicate_error,
+                                "message": duplicate_error,
+                                "dgiiStatus": "REJECTED",
+                                "terminalRejection": True,
+                                "codigoRFCE": codigo,
+                                "estadoRFCE": estado,
+                                "responseBody": response_data,
+                                "statusCode": status_code,
+                            }
                         print(response_text, flush=True)
                         return {
                             "success": False,
