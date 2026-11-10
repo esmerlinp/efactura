@@ -953,6 +953,29 @@
         </div>
     </div>
 
+    {% if production_agreement_available %}
+    <!-- ====== CONTRATO DE SUSCRIPCIÓN ====== -->
+    <div class="profile-section-card">
+        <div class="profile-section-header">
+            <div class="profile-section-icon green"><i class="fa-solid fa-file-signature"></i></div>
+            <div>
+                <h2 class="profile-section-title">Contrato de Suscripción</h2>
+                <p class="profile-section-subtitle">Consulta y descarga la versión contractual vigente de {{ product_name }}.</p>
+            </div>
+        </div>
+        <div class="profile-section-body">
+            <div class="profile-alert" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.22); color: var(--text-secondary); margin-bottom: 20px;">
+                <i class="fa-solid fa-circle-info" style="color: var(--accent-emerald);"></i>
+                <span>Versión vigente: <strong>v{{ production_agreement_version }}</strong>. El PDF incluye la constancia de aceptación registrada.</span>
+            </div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <a href="{{ url_for('web_production_agreement.current') }}" class="profile-save-btn" style="width: auto; min-width: 180px; text-decoration: none;"><i class="fa-solid fa-eye"></i><span>Ver contrato</span></a>
+                <a href="{{ url_for('web_production_agreement.download') }}" class="profile-save-btn" style="width: auto; min-width: 200px; text-decoration: none; background: var(--bg-nav-hover); color: var(--text-primary); border: 1px solid var(--border-color); box-shadow: none;"><i class="fa-solid fa-file-arrow-down"></i><span>Descargar PDF</span></a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Modal Setup 2FA -->
     <div id="mfa-setup-modal" class="mfa-modal-overlay">
         <div class="mfa-modal">

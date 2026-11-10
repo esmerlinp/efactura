@@ -28,6 +28,8 @@ class ProductionAgreementGuard:
     EXEMPT_ENDPOINTS = frozenset({
         # Visualización y aceptación del contrato
         "web_production_agreement.view",
+        "web_production_agreement.current",
+        "web_production_agreement.download",
         "web_production_agreement.accept_company",
         "web_production_agreement.acknowledge",
         "web_production_agreement.reject",

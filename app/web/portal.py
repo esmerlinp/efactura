@@ -661,6 +661,7 @@ def sign_contract(contract_id):
     owner_uid = session.get('portal_owner_uid')
     client_id = session.get('portal_client_id')
     sandbox = session.get('portal_sandbox', True)
+    company_id = session.get('portal_company_id')
     if not owner_uid or not client_id:
         return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
     
@@ -728,7 +729,8 @@ def sign_contract(contract_id):
         signed_at=result['signedAt'],
         invoice_or_contract=contract,
         invoice_id=None,
-        sandbox=sandbox
+        sandbox=sandbox,
+        company_id=company_id
     )
 
     return jsonify({"success": True, "message": "Contrato firmado y activado digitalmente de forma exitosa."})
@@ -796,7 +798,8 @@ def reject_quotation(invoice_id):
         signed_at=rejected_at,
         invoice_or_contract=invoice,
         invoice_id=invoice_id,
-        sandbox=sandbox
+        sandbox=sandbox,
+        company_id=company_id
     )
 
     return jsonify({"success": True, "message": "Cotización rechazada. Hemos notificado al equipo responsable."})
@@ -807,6 +810,7 @@ def reject_contract(contract_id):
     owner_uid = session.get('portal_owner_uid')
     client_id = session.get('portal_client_id')
     sandbox = session.get('portal_sandbox', True)
+    company_id = session.get('portal_company_id')
     if not owner_uid or not client_id:
         return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
 
@@ -837,7 +841,8 @@ def reject_contract(contract_id):
         signed_at=rejected_at,
         invoice_or_contract=contract,
         invoice_id=None,
-        sandbox=sandbox
+        sandbox=sandbox,
+        company_id=company_id
     )
 
     return jsonify({"success": True, "message": "Contrato rechazado. Hemos notificado al equipo responsable."})
@@ -930,12 +935,12 @@ def _notify_portal_action(owner_uid, action, document_type, document_number, cli
                 client_name = client.get('razonSocial') or client.get('name') or 'Cliente'
                 if action in ('firmada', 'aprobada'):
                     notif_icon = '✅'
-                    notif_title = f"{document_type} aprobada por cliente"
+                    notif_title = f"{client_name} aprobó la {document_type}"
                     notif_body = f"{client_name} autorizó {document_type.lower()} {document_number}."
                     notif_type = 'portal_firma'
                 elif action == 'rechazada':
                     notif_icon = '❌'
-                    notif_title = f"{document_type} rechazada por cliente"
+                    notif_title = f"{client_name} rechazó la {document_type}"
                     notif_body = f"{client_name} rechazó {document_type.lower()} {document_number}."
                     notif_type = 'portal_rechazo'
                 elif action == 'cancelada':

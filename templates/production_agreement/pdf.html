@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: A4; margin: 18mm 16mm 18mm; }
+        body { color: #20252b; font-family: sans-serif; font-size: 10.5pt; line-height: 1.5; }
+        h1 { font-size: 19pt; margin: 0 0 5pt; }
+        h2 { font-size: 12pt; margin: 22pt 0 8pt; border-bottom: 1px solid #d9dee5; padding-bottom: 4pt; }
+        p { margin: 0 0 8pt; }
+        ul, ol { margin-top: 4pt; }
+        table { width: 100%; border-collapse: collapse; margin: 10pt 0; }
+        th, td { border: 1px solid #d9dee5; padding: 6pt 7pt; text-align: left; vertical-align: top; }
+        th { background: #f3f5f7; }
+        .header { border-bottom: 2px solid #10b981; padding-bottom: 10pt; margin-bottom: 18pt; }
+        .subtitle { color: #66717c; font-size: 9pt; }
+        .meta td { border: 0; padding: 2pt 8pt 2pt 0; font-size: 9pt; }
+        .label { color: #66717c; width: 28%; }
+        .evidence { page-break-inside: avoid; margin-top: 24pt; padding-top: 12pt; border-top: 1px solid #d9dee5; }
+        .evidence table { font-size: 8.5pt; }
+        .hash { font-family: monospace; font-size: 7.5pt; word-break: break-all; }
+        .footer { margin-top: 20pt; color: #66717c; font-size: 8pt; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="header"><h1>Acuerdo de suscripción y uso</h1><div class="subtitle">{{ product_name }} · Documento contractual vigente</div></div>
+    <table class="meta">
+        <tr><td class="label">Empresa</td><td><strong>{{ company_name or '—' }}</strong></td></tr>
+        {% if company_rnc %}<tr><td class="label">RNC</td><td>{{ company_rnc }}</td></tr>{% endif %}
+        <tr><td class="label">Versión</td><td>{{ version }}</td></tr>
+        {% if published_at %}<tr><td class="label">Publicada</td><td>{{ published_at[:19].replace('T', ' ') }}</td></tr>{% endif %}
+    </table>
+    <div>{{ content | safe }}</div>
+    <div class="evidence">
+        <h2>Constancia de aceptación electrónica</h2>
+        <table>
+            {% if company_acceptance.get('acceptedAt') %}
+            <tr><td class="label">Aceptación empresarial</td><td>{{ company_acceptance.get('acceptedAt')[:19].replace('T', ' ') }}</td></tr>
+            <tr><td class="label">Representante</td><td>{{ company_acceptance.get('acceptedByName') or company_acceptance.get('acceptedByEmail') or '—' }}</td></tr>
+            <tr><td class="label">Correo</td><td>{{ company_acceptance.get('acceptedByEmail') or '—' }}</td></tr>
+            <tr><td class="label">IP registrada</td><td>{{ company_acceptance.get('ipAddress') or '—' }}</td></tr>
+            {% endif %}
+            {% if user_acknowledgement.get('acknowledgedAt') %}
+            <tr><td class="label">Reconocimiento individual</td><td>{{ user_acknowledgement.get('acknowledgedAt')[:19].replace('T', ' ') }}</td></tr>
+            <tr><td class="label">Usuario</td><td>{{ user_name or user_email or '—' }}</td></tr>
+            <tr><td class="label">Correo del usuario</td><td>{{ user_email or '—' }}</td></tr>
+            <tr><td class="label">IP registrada</td><td>{{ user_acknowledgement.get('ipAddress') or '—' }}</td></tr>
+            {% endif %}
+            <tr><td class="label">Huella SHA-256</td><td class="hash">{{ content_hash }}</td></tr>
+        </table>
+        <p class="subtitle">Este documento reproduce el contenido sanitizado de la versión indicada y su huella registrada en el sistema.</p>
+    </div>
+    <div class="footer">Generado por {{ product_name }} · Entorno {{ 'sandbox' if sandbox else 'producción' }}</div>
+</body>
+</html>

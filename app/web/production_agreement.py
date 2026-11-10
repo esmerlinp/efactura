@@ -1,6 +1,10 @@
 """Contrato de Producción — rutas web de aceptación y reconocimiento."""
 
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash, current_app
+import io
+
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, current_app, send_file
+
+from app.utils.pdf import pdf_write_options
 
 from app.services.db_service import DatabaseService
 from app.services.production_agreement_service import ProductionAgreementService
@@ -55,6 +59,36 @@ def _company_label(company_id):
         name = company.get("company_name") or company.get("name", "")
         rnc = company.get("rnc", "")
     return name, rnc
+
+
+def _iso(value):
+    """Normaliza un timestamp de Firestore a una cadena ISO legible."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if hasattr(value, "isoformat"):
+        try:
+            return value.isoformat()
+        except Exception:
+            pass
+    if hasattr(value, "to_datetime"):
+        try:
+            return value.to_datetime().isoformat()
+        except Exception:
+            pass
+    return str(value)
+
+
+def _normalize_evidence(evidence):
+    """Copia la evidencia normalizando sus marcas de tiempo para renderizado."""
+    if not evidence:
+        return {}
+    out = dict(evidence)
+    for key in ("acceptedAt", "acknowledgedAt", "publishedAt", "createdAt"):
+        if key in out:
+            out[key] = _iso(out[key])
+    return out
 
 
 def _audit(action, company_id, user, label="", entity_id="", sandbox=False):
@@ -115,6 +149,114 @@ def view():
         sandbox=sandbox,
         user_name=user.get("name", ""),
         user_email=user.get("email", ""),
+    )
+
+
+@web_production_agreement_bp.route("/production-agreement/current", methods=["GET"])
+def current():
+    """Vista de solo lectura del contrato vigente, accesible tras la aceptación."""
+    if "user" not in session:
+        return redirect(url_for("web_auth.login"))
+
+    sandbox = session.get("is_sandbox_mode", False)
+    company_id, user_id, user = _current_context()
+    if not company_id:
+        return redirect(url_for("web_auth.select_company"))
+
+    active = ProductionAgreementService.get_active_version()
+    if not active:
+        return redirect(url_for("web_dashboard.dashboard"))
+
+    decision = ProductionAgreementAccessService.evaluate_web_access(company_id, user_id, sandbox=sandbox)
+    if not decision.allowed:
+        return redirect(url_for("web_production_agreement.view"))
+
+    company_name, rnc = _company_label(company_id)
+    version_id = active.get("id", "")
+    company_acceptance = _normalize_evidence(ProductionAgreementAcceptanceService.get_company_acceptance(
+        company_id, version_id, sandbox=sandbox
+    ))
+    user_acknowledgement = _normalize_evidence(ProductionAgreementAcceptanceService.get_user_acknowledgement(
+        company_id, user_id, version_id, sandbox=sandbox
+    ))
+
+    return render_template(
+        "production_agreement/view.html",
+        active_page="production_agreement",
+        read_only=True,
+        company_name=company_name,
+        company_rnc=rnc,
+        version=active.get("version", 0),
+        version_id=version_id,
+        published_at=active.get("publishedAt", ""),
+        content=active.get("content", ""),
+        content_hash=active.get("contentHash", ""),
+        company_acceptance=company_acceptance or {},
+        user_acknowledgement=user_acknowledgement or {},
+        sandbox=sandbox,
+        user_name=user.get("name", ""),
+        user_email=user.get("email", ""),
+    )
+
+
+@web_production_agreement_bp.route("/production-agreement/download", methods=["GET"])
+def download():
+    """Genera y descarga un PDF del contrato vigente con la constancia de firma."""
+    if "user" not in session:
+        return redirect(url_for("web_auth.login"))
+
+    sandbox = session.get("is_sandbox_mode", False)
+    company_id, user_id, user = _current_context()
+    if not company_id:
+        return redirect(url_for("web_auth.select_company"))
+
+    active = ProductionAgreementService.get_active_version()
+    if not active:
+        return redirect(url_for("web_dashboard.dashboard"))
+
+    decision = ProductionAgreementAccessService.evaluate_web_access(company_id, user_id, sandbox=sandbox)
+    if not decision.allowed:
+        return redirect(url_for("web_production_agreement.view"))
+
+    company_name, rnc = _company_label(company_id)
+    version_id = active.get("id", "")
+    company_acceptance = _normalize_evidence(ProductionAgreementAcceptanceService.get_company_acceptance(
+        company_id, version_id, sandbox=sandbox
+    ))
+    user_acknowledgement = _normalize_evidence(ProductionAgreementAcceptanceService.get_user_acknowledgement(
+        company_id, user_id, version_id, sandbox=sandbox
+    ))
+
+    html = render_template(
+        "production_agreement/pdf.html",
+        company_name=company_name,
+        company_rnc=rnc,
+        version=active.get("version", 0),
+        version_id=version_id,
+        published_at=active.get("publishedAt", ""),
+        content=active.get("content", ""),
+        content_hash=active.get("contentHash", ""),
+        company_acceptance=company_acceptance,
+        user_acknowledgement=user_acknowledgement,
+        sandbox=sandbox,
+        user_name=user.get("name", ""),
+        user_email=user.get("email", ""),
+    )
+
+    try:
+        from weasyprint import HTML as WeasyprintHTML
+        pdf_bytes = WeasyprintHTML(string=html, base_url=request.host_url).write_pdf(**pdf_write_options())
+    except Exception as e:
+        current_app.logger.warning("No se pudo generar el PDF del contrato: %s", e)
+        flash("No se pudo generar el PDF del contrato. Inténtalo de nuevo.", "error")
+        return redirect(url_for("web_production_agreement.current"))
+
+    version_num = active.get("version", 0)
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"contrato-suscripcion-v{version_num}.pdf",
     )
 
 
