@@ -706,6 +706,7 @@ def employee_new():
                 company_id=company_id,
                 transaction_date=hire_date_val,
                 owner_uid=owner_uid,
+                sandbox=sandbox,
             )
         except Exception as e_dgt:
             print(f"⚠️ Error generando alerta automática DGT-4 en alta de empleado: {e_dgt}")
@@ -907,6 +908,7 @@ def employee_edit(employee_id):
                     company_id=company_id,
                     transaction_date=date.today().isoformat(),
                     owner_uid=owner_uid,
+                    sandbox=sandbox,
                 )
             except Exception as e_dgt:
                 print(f"⚠️ Error generando alerta automática DGT-4 en edición de empleado: {e_dgt}")
