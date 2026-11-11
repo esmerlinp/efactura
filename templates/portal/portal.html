@@ -613,10 +613,10 @@
                 <i class="fa-solid fa-layer-group"></i> Todos <span class="count" id="count-all">{{ invoices|length + contracts|length + internal_service_documents|length }}</span>
             </button>
             <button class="pill" data-type="invoice" onclick="setFilter('invoice')">
-                <i class="fa-solid fa-file-invoice"></i> Facturas <span class="count" id="count-invoice">{{ invoices | selectattr('isQuotation', 'equalto', False) | list | length }}</span>
+                <i class="fa-solid fa-file-invoice"></i> Facturas <span class="count" id="count-invoice">{{ invoices | rejectattr('documentType', 'equalto', 'quotation') | list | length }}</span>
             </button>
             <button class="pill" data-type="quotation" onclick="setFilter('quotation')">
-                <i class="fa-solid fa-file-pen"></i> Cotizaciones <span class="count" id="count-quotation">{{ invoices | selectattr('isQuotation', 'equalto', True) | list | length }}</span>
+                <i class="fa-solid fa-file-pen"></i> Cotizaciones <span class="count" id="count-quotation">{{ invoices | selectattr('documentType', 'equalto', 'quotation') | list | length }}</span>
             </button>
             <button class="pill" data-type="contract" onclick="setFilter('contract')">
                 <i class="fa-solid fa-file-contract"></i> Contratos <span class="count" id="count-contract">{{ contracts|length }}</span>
@@ -679,7 +679,7 @@
                     </thead>
                     <tbody>
                         {% for inv in invoices %}
-                        <tr data-doctype="{% if inv.isQuotation %}quotation{% else %}invoice{% endif %}" data-status="{{ inv.status }}" data-date="{{ inv.date }}">
+                        <tr data-doctype="{% if inv.documentType == 'quotation' %}quotation{% else %}invoice{% endif %}" data-status="{{ inv.status }}" data-date="{{ inv.date }}">
                             <td data-label="Número Documento">
                                 <strong>{{ inv.invoiceNumber }}</strong>
                             </td>
@@ -687,8 +687,10 @@
                                 <span style="font-family: monospace;">{{ inv.date | format_date }}</span>
                             </td>
                             <td data-label="Tipo / e-CF">
-                                {% if inv.isQuotation %}
+                                {% if inv.documentType == 'quotation' %}
                                 <span class="badge badge-info">Cotización</span>
+                                {% elif inv.documentType == 'proforma' %}
+                                <span class="badge badge-info">Proforma</span>
                                 {% else %}
                                 <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">{{
                                     inv.encf or 'Consumo (E32)' }}</span>
@@ -698,7 +700,7 @@
                                 <strong>RD$ {{ "{:,.2f}".format(inv.total) }}</strong>
                             </td>
                             <td data-label="Saldo Pendiente">
-                                {% if inv.isQuotation %}
+                                {% if inv.documentType == 'quotation' %}
                                 <span>-</span>
                                 {% else %}
                                 <strong
