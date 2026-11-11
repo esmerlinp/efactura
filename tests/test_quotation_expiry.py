@@ -279,3 +279,94 @@ def test_approve_quotation_still_allowed_when_valid(app):
     finally:
         for p in DB_PATCHES:
             p.stop()
+
+
+def test_approve_proforma_persists_approved_status(app):
+    for p in DB_PATCHES:
+        p.start()
+    try:
+        proforma_data = {
+            'id': 'proforma-123',
+            'invoiceNumber': 'PRO-001',
+            'isQuotation': True,
+            'documentType': 'proforma',
+            'status': 'Pendiente de pago',
+            'total': 15000.0,
+            'date': _days_ago(3),
+        }
+        with patch('app.web.invoices.check_permission', return_value=True), \
+             patch('app.web.invoices.DatabaseService.get_invoice', return_value=dict(proforma_data)), \
+             patch('app.web.invoices.DatabaseService.save_invoice') as mock_save, \
+             patch('app.web.invoices.persist_quotation_vencida') as mock_persist:
+            client = app.test_client()
+            mock_login(client)
+            response = client.post('/quotations/proforma-123/approve', follow_redirects=False)
+
+            assert response.status_code == 302
+            mock_save.assert_called_once()
+            saved = mock_save.call_args.args[2]
+            assert saved['status'] == 'Aprobada'
+            assert saved['isQuotation'] is True
+            assert saved['documentType'] == 'proforma'
+            mock_persist.assert_not_called()
+    finally:
+        for p in DB_PATCHES:
+            p.stop()
+
+
+def test_legacy_partially_paid_proforma_is_approved_for_conversion(app):
+    for p in DB_PATCHES:
+        p.start()
+    try:
+        proforma_data = {
+            'id': 'proforma-paid',
+            'invoiceNumber': 'PRO-PAID',
+            'isQuotation': True,
+            'documentType': 'proforma',
+            'status': 'Pago parcial',
+            'total': 15000.0,
+            'totalPaid': 5000.0,
+            'remainingBalance': 10000.0,
+            'clientRNC': '131880681',
+            'items': [],
+        }
+        saved = {}
+
+        with patch('app.web.invoices.check_permission', return_value=True), \
+             patch('app.web.invoices.DatabaseService.get_invoice', return_value=dict(proforma_data)), \
+             patch('app.web.invoices.DatabaseService.get_invoice_payments', return_value=[]), \
+             patch('app.web.invoices.DatabaseService.save_invoice', side_effect=lambda owner, doc_id, data, **kwargs: saved.update({doc_id: dict(data)})), \
+             patch('app.web.invoices.DatabaseService.get_client_advances', return_value=[]):
+            client = app.test_client()
+            mock_login(client)
+            response = client.post('/proformas/proforma-paid/convert', data={
+                'targetEcfType': 'Factura de Consumo (E32)'
+            }, follow_redirects=False)
+
+            assert response.status_code == 302
+            assert saved['proforma-paid']['status'] == 'Facturada'
+    finally:
+        for p in DB_PATCHES:
+            p.stop()
+
+
+def test_quotations_list_excludes_proformas(app):
+    for p in DB_PATCHES:
+        p.start()
+    try:
+        documents = [
+            {'id': 'quote-1', 'isQuotation': True, 'documentType': 'quotation', 'status': 'Borrador', 'invoiceNumber': 'COT-1', 'total': 100.0, 'date': '2026-11-11'},
+            {'id': 'proforma-1', 'isQuotation': True, 'documentType': 'proforma', 'status': 'Aprobada', 'invoiceNumber': 'PRO-1', 'total': 100.0, 'date': '2026-11-11'},
+        ]
+        with patch('app.web.invoices.check_permission', return_value=True), \
+             patch('app.web.invoices.DatabaseService.get_invoices', return_value=documents):
+            client = app.test_client()
+            mock_login(client)
+            response = client.get('/quotations?per_page=all')
+            assert response.status_code == 200
+            body = response.get_data(as_text=True)
+            assert 'COT-1' in body
+            assert 'PRO-1' not in body
+    finally:
+        for p in DB_PATCHES:
+            p.stop()

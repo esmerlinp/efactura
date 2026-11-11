@@ -4,7 +4,7 @@
 {% set current_color = brand_color %}
 {% set current_light_color = brand_color if apply_brand else '#E2E8F0' %}
 {% set is_proforma = invoice.get('documentType') == 'proforma' %}
-{% set document_label = 'Proforma' if is_proforma else ('Cotización' if invoice.isQuotation else 'Factura') %}
+{% set document_label = 'Factura Proforma' if is_proforma else ('Cotización' if invoice.isQuotation else 'Factura') %}
 {% set has_additional_taxes = namespace(value=false) %}
 {% for item in invoice['items'] %}
 {% set item_isc = (item.isc_especifico_amount or 0) + (item.isc_advalorem_amount or 0) + (item.otros_impuestos_amount or

@@ -2000,6 +2000,9 @@ def list_quotations():
     # Filtrar
     filtered = []
     for inv in quotations:
+        # Cotizaciones comerciales únicamente; las proformas tienen su listado propio.
+        if inv.get('documentType') == 'proforma':
+            continue
         if inv.get('isQuotation') and apply_expiry_status(inv):
             persist_quotation_vencida(owner_uid, inv.get('id'), sandbox=sandbox, company_id=company_id)
         expiry = quotation_expiry(inv)
@@ -3252,6 +3255,25 @@ def invoice_detail(invoice_id):
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
+
+    # Reparar proformas antiguas que recibieron pagos antes de separar el
+    # estado comercial del estado de cobro. La reparación queda persistida.
+    if (
+        invoice.get('documentType') == 'proforma'
+        and invoice.get('status') in ('Pago parcial', 'Pagada')
+        and not invoice.get('convertedToInvoiceId')
+    ):
+        invoice['paymentStatus'] = invoice.get('status')
+        invoice['status'] = 'Aprobada'
+        DatabaseService.save_invoice(
+            owner_uid, invoice_id, invoice,
+            company_id=company_id, sandbox=sandbox
+        )
+
+    is_proforma = invoice.get('documentType') == 'proforma'
+    if is_proforma and invoice.get('status') not in ('Aprobada', 'Pago parcial', 'Pagada'):
+        flash('La proforma debe estar aprobada antes de registrar pagos.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
     
     invoice = _enrich_invoice_totals(invoice)
         
@@ -4932,6 +4954,10 @@ def convert_quotation_route(invoice_id):
         flash('Este documento ya es una factura real. No necesita conversión.', 'info')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
+    if document_type == 'proforma' and invoice.get('status') in ('Pago parcial', 'Pagada'):
+        invoice['paymentStatus'] = invoice.get('status')
+        invoice['status'] = 'Aprobada'
+
     if invoice.get('convertedToInvoiceId'):
         flash(f'Esta cotización ya fue convertida a la factura {invoice.get("convertedInvoiceNumber", "")}. No se puede convertir nuevamente.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
@@ -4966,6 +4992,16 @@ def convert_quotation_route(invoice_id):
     import uuid
     new_invoice_id = str(uuid.uuid4())
 
+    # Recuperar los pagos antes de persistir la conversión. Así se conserva la
+    # trazabilidad incluso cuando el documento fuente se actualiza después.
+    try:
+        source_payments = DatabaseService.get_invoice_payments(
+            owner_uid, invoice_id, company_id=company_id, sandbox=sandbox
+        ) or []
+    except Exception as payment_err:
+        print(f"⚠️ Error al leer pagos del documento origen: {payment_err}")
+        source_payments = []
+
     # 1. Crear la nueva factura fiscal (FAC-) a partir de los datos de la cotización
     new_invoice = copy.deepcopy(invoice)
     new_invoice['id'] = new_invoice_id
@@ -4984,6 +5020,20 @@ def convert_quotation_route(invoice_id):
     new_invoice['date'] = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")
     new_invoice['createdAt'] = datetime.now(timezone.utc).isoformat()
     new_invoice['updatedAt'] = datetime.now(timezone.utc).isoformat()
+
+    # Los pagos de una proforma son cobros reales ya recibidos. Se heredan en
+    # la factura sin volver a crear movimientos bancarios ni asientos de cobro.
+    source_total_paid = float(invoice.get('totalPaid', 0.0) or 0.0)
+    source_remaining = max(0.0, total - source_total_paid)
+    new_invoice['totalPaid'] = source_total_paid
+    new_invoice['remainingBalance'] = source_remaining
+    new_invoice['paymentStatus'] = (
+        'Cobrada' if source_remaining <= 0.01 and source_total_paid > 0.01
+        else 'Parcialmente Cobrada' if source_total_paid > 0.01
+        else 'Pendiente de pago'
+    )
+    new_invoice['inheritedPaymentIds'] = []
+    new_invoice['inheritedPaidAmount'] = source_total_paid
 
     # Limpiar campos de emisión / firma previa para el nuevo borrador de factura
     for fld in ('xmlSignature', 'qrCodeURL', 'encf', 'ncf', 'trackId', 'codigoSeguridad', 'dgiiError', 'isSyncedWithDGII', 'contingencyEmittedAt', 'enviadoADGII', 'signedXml', 'convertedToInvoiceId', 'convertedInvoiceNumber'):
@@ -5014,9 +5064,18 @@ def convert_quotation_route(invoice_id):
     invoice['convertedToInvoiceId'] = new_invoice_id
     invoice['convertedInvoiceNumber'] = new_invoice['invoiceNumber']
 
-    # Guardar ambos documentos en la base de datos
+    # Guardar primero el documento origen para que la conversión sea observable
+    # aunque la persistencia de la nueva factura falle posteriormente.
     DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
     DatabaseService.save_invoice(owner_uid, new_invoice_id, new_invoice, company_id=company_id, sandbox=sandbox)
+
+    # Mantener trazabilidad de cada pago sin copiarlo ni duplicar caja/banco.
+    if source_payments:
+        new_invoice['inheritedPaymentIds'] = [p['id'] for p in source_payments if p.get('id')]
+        DatabaseService.save_invoice(
+            owner_uid, new_invoice_id, new_invoice,
+            company_id=company_id, sandbox=sandbox
+        )
 
     # Registrar evento de auditoría en la cotización
     try:
@@ -5130,7 +5189,7 @@ def convert_preliminary_document_route(invoice_id):
 
 @web_invoices_bp.route('/quotations/<invoice_id>/approve', methods=['POST'])
 def approve_quotation_route(invoice_id):
-    """Aprueba manualmente una cotización cambiándole el estado a 'Aprobada'."""
+    """Aprueba manualmente una cotización o proforma."""
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageQuotations'):
         return render_template('auth/restricted.html', feature_name="Aprobar Cotización", required_permission="canManageQuotations"), 403
@@ -5139,8 +5198,9 @@ def approve_quotation_route(invoice_id):
     sandbox = session.get('is_sandbox_mode', True)
     
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
-    if not invoice or (not invoice.get('isQuotation') and invoice.get('documentType') != 'proforma'):
-        flash('Cotización no encontrada.', 'error')
+    is_proforma = bool(invoice and invoice.get('documentType') == 'proforma')
+    if not invoice or (not invoice.get('isQuotation') and not is_proforma):
+        flash('Cotización o proforma no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_quotations'))
 
     if apply_expiry_status(invoice):
@@ -5151,6 +5211,9 @@ def approve_quotation_route(invoice_id):
         
     before_invoice = invoice.copy()
     invoice['status'] = 'Aprobada'
+    invoice['isQuotation'] = True
+    if is_proforma:
+        invoice['documentType'] = 'proforma'
     DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
     
     # Registrar evento de auditoría
@@ -5162,7 +5225,11 @@ def approve_quotation_route(invoice_id):
             action="APPROVE_QUOTATION",
             module=MODULE_FACTURAS,
             entity_id=invoice_id,
-            entity_label="Cotización aprobada manualmente por administrador",
+            entity_label=(
+                "Proforma aprobada manualmente por administrador"
+                if is_proforma else
+                "Cotización aprobada manualmente por administrador"
+            ),
             user_session=session.get('user', {}),
             before=before_invoice,
             after=updated_invoice,
@@ -5171,7 +5238,11 @@ def approve_quotation_route(invoice_id):
     except Exception as ae:
         print(f"⚠️ Error al registrar auditoría de aprobación manual de cotización: {ae}")
 
-    flash('Cotización aprobada manualmente con éxito.', 'success')
+    flash(
+        'Proforma aprobada manualmente con éxito.' if is_proforma
+        else 'Cotización aprobada manualmente con éxito.',
+        'success'
+    )
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 @web_invoices_bp.route('/quotations/<invoice_id>/send-to-client', methods=['POST'])

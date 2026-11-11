@@ -801,6 +801,10 @@
                 <i class="fa-solid fa-arrow-left"></i>
                 <span>Volver al Portal</span>
             </a>
+            <a href="{{ url_for('portal.client_portal_logout') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Cerrar sesión</span>
+            </a>
             <h4 style="margin: 0; font-family: var(--font-heading); color: var(--text-secondary);">
                 {% if invoice.isQuotation %}Cotización{% else %}Documento{% endif %} {{ invoice.invoiceNumber }}
             </h4>
@@ -900,7 +904,7 @@
                     </div>
                     
                     <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary);">
-                        {% if invoice.isQuotation %}Cotización Comercial{% if invoice.get('isProfessional') %} Profesional{% endif %}{% else %}Documento Electrónico{% endif %}
+                        {% if invoice.get('documentType') == 'proforma' %}Factura Proforma{% elif invoice.isQuotation %}Cotización Comercial{% if invoice.get('isProfessional') %} Profesional{% endif %}{% else %}Documento Electrónico{% endif %}
                     </div>
                     
                     <div style="font-size: 0.95rem; color: var(--text-primary); margin-top: 4px; font-family: monospace;">

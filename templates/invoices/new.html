@@ -875,8 +875,9 @@ function closeInvoicePriceListModal() { document.getElementById('invoice-pl-moda
 function saveInvoicePriceList() { const n = document.getElementById('ipl-name').value.trim(), t = document.getElementById('ipl-tipo').value.trim(), d = document.getElementById('ipl-description').value.trim(), e = document.getElementById('ipl-error'), b = document.getElementById('ipl-save-btn'); if (!n) { e.textContent = 'El nombre es obligatorio.'; e.style.display = 'block'; return; } if (!t) { e.textContent = 'El tipo es obligatorio.'; e.style.display = 'block'; return; } e.style.display = 'none'; b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; fetch('/price-lists/ajax_create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrf_token]').value }, body: JSON.stringify({ name: n, tipo: t, description: d }) }).then(r => r.json()).then(data => { b.disabled = false; b.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar'; if (data.success) { const s = document.getElementById('price-list-select-side'), l = `${n} (${t})`; s.appendChild(new Option(l, data.id, true, true)); s.value = data.id; s.dispatchEvent(new Event('change')); closeInvoicePriceListModal(); } else { e.textContent = data.error || 'Error.'; e.style.display = 'block'; } }).catch(() => { b.disabled = false; b.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar'; e.textContent = 'Error de conexión.'; e.style.display = 'block'; }); }
 document.getElementById('invoice-pl-modal').addEventListener('click', function(e) { if (e.target === this) closeInvoicePriceListModal(); });
 
-document.getElementById('submit-invoice-cobrar-btn').addEventListener('click', function() {
-    document.getElementById('emitting-overlay').style.display = 'flex';
+document.getElementById('submit-invoice-cobrar-btn')?.addEventListener('click', function() {
+    const overlay = document.getElementById('emitting-overlay');
+    if (overlay) overlay.style.display = 'flex';
 });
 </script>
 {% endblock %}
