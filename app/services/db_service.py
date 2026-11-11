@@ -4548,7 +4548,7 @@ class DatabaseService:
 
     @classmethod
     def register_invoice_payment(cls, owner_uid, invoice_id, payment_dict, sandbox=True, company_id=None):
-        """Registra un nuevo abono para una factura y actualiza los balances del documento."""
+        """Registra un abono para una factura o proforma y actualiza sus balances."""
         if not firebase_initialized:
             return None
         try:
@@ -4564,7 +4564,13 @@ class DatabaseService:
             if inv_data.get("dgiiStatus") in ["REJECTED", "RECHAZADO"]:
                 raise ValueError("No se puede registrar pagos a una factura cuyo comprobante fiscal fue rechazado por la DGII.")
             if inv_data.get("status") == "Anulada":
-                raise ValueError("No se puede registrar pagos a una factura anulada.")
+                raise ValueError("No se puede registrar pagos a un documento anulado.")
+
+            document_type = inv_data.get("documentType") or (
+                "quotation" if inv_data.get("isQuotation") else "invoice"
+            )
+            if document_type == "quotation":
+                raise ValueError("Los pagos solo están disponibles para proformas y facturas.")
 
             net_payable = float(inv_data.get("netPayable", 0.0))
             
@@ -4573,7 +4579,11 @@ class DatabaseService:
             current_total_paid = float(inv_data.get("totalPaid", net_payable if current_status == "Cobrada" else 0.0))
             
             amount = float(payment_dict["amount"])
+            if amount <= 0:
+                raise ValueError("El monto del pago debe ser mayor que cero.")
             new_total_paid = current_total_paid + amount
+            if new_total_paid > net_payable + 0.01:
+                raise ValueError("El pago excede el saldo pendiente del documento.")
             new_remaining_balance = max(0.0, net_payable - new_total_paid)
             
             # Cargar cuotas existentes o generar cuota única retrocompatible
@@ -4633,7 +4643,15 @@ class DatabaseService:
             inv_ref.collection("payments").document(payment_id).set(payment_dict)
             
             # Determinar nuevo estado de factura
-            if current_status in ("Borrador", "Pagado pero no emitido"):
+            if document_type == "proforma":
+                if new_remaining_balance <= 0.01:
+                    payment_status = "Pagada"
+                    new_remaining_balance = 0.0
+                else:
+                    payment_status = "Pago parcial" if new_total_paid > 0.01 else "Pendiente de pago"
+                # La aprobación comercial es independiente del cobro.
+                new_status = current_status if current_status == "Aprobada" else "Aprobada"
+            elif current_status in ("Borrador", "Pagado pero no emitido"):
                 new_status = "Pagado pero no emitido"
             else:
                 if new_remaining_balance <= 0.01:  # tolerancia de centavos
@@ -4655,6 +4673,7 @@ class DatabaseService:
                 "totalPaid": new_total_paid,
                 "remainingBalance": new_remaining_balance,
                 "status": new_status,
+                "paymentStatus": payment_status if document_type == "proforma" else inv_data.get("paymentStatus"),
                 "paymentMethod": payment_dict["paymentMethod"], # Mostrar el último método usado
                 "bank": payment_dict["bank"],
                 "referenceNumber": payment_dict["referenceNumber"],
@@ -4666,7 +4685,7 @@ class DatabaseService:
             try:
                 ecf_type = inv_data.get("ecfType", "")
                 is_note = "Nota de Crédito" in ecf_type or "Nota de Débito" in ecf_type
-                if not inv_data.get("isQuotation", False) and not is_note and inv_data.get("isSyncedWithDGII", False):
+                if document_type != "proforma" and not inv_data.get("isQuotation", False) and not is_note and inv_data.get("isSyncedWithDGII", False):
                     if not inv_data.get("stockReduced") and new_status in ["Cobrada", "Parcialmente Cobrada", "Emitida", "Vencida"]:
                         wh_id = inv_data.get("warehouseId")
                         if not wh_id:
@@ -4732,7 +4751,7 @@ class DatabaseService:
             try:
                 ecf_type = inv_data.get("ecfType", "")
                 is_note = "Nota de Crédito" in ecf_type or "Nota de Débito" in ecf_type
-                if not inv_data.get("isQuotation", False) and not is_note and new_status in ("Cobrada", "Pagado pero no emitido"):
+                if document_type != "proforma" and not inv_data.get("isQuotation", False) and not is_note and new_status in ("Cobrada", "Pagado pero no emitido"):
                     from app.services.accounting_service import AccountingService
                     entry_company_id = company_id or DatabaseService._resolve_company_id(owner_uid)
                     entry = AccountingService.auto_generate_invoice_entry(entry_company_id, inv_data, sandbox=sandbox)

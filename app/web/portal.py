@@ -287,6 +287,8 @@ class PortalDbService:
                 # Excluir solo documentos que el cliente no debe ver
                 if status in ('Borrador', 'Eliminada'):
                     continue
+                if data.get('isQuotation') and data.get('documentType') == 'proforma' and status == 'Borrador':
+                    continue
                 
                 due_date_str = data.get("dueDate")
                 if status in ["Emitida", "Parcialmente Cobrada"] and due_date_str:
@@ -409,9 +411,10 @@ def client_portal_main():
     if not owner_uid or not client_id:
         return "Sesión de autogestión no válida o expirada. Por favor use el enlace oficial enviado a su correo.", 403
         
-    if not company_id:
-        return "El enlace no contiene una compañía válida.", 403
-    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    company = (
+        DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+        if company_id else DatabaseService.get_company_profile(owner_uid)
+    )
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     if not client:
         return "Cliente no encontrado.", 404
@@ -452,7 +455,7 @@ def client_portal_main():
             ):
                 total_cxc += float(inv.get('remainingBalance', inv.get('netPayable', 0.0)))
                 
-    return render_template(
+    response = make_response(render_template(
         'portal/portal.html',
         company=company,
         client=client,
@@ -463,7 +466,24 @@ def client_portal_main():
         total_cxc=total_cxc,
         owner_uid=owner_uid,
         sandbox=sandbox
-    )
+    ))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+@portal_bp.route('/portal/logout', methods=['GET', 'POST'])
+def client_portal_logout():
+    """Cierra únicamente la sesión del portal del cliente."""
+    client_id = session.get('portal_client_id')
+    for key in (
+        'portal_owner_uid', 'portal_client_id', 'portal_sandbox',
+        'portal_company_id', 'portal_next_url',
+    ):
+        session.pop(key, None)
+    if client_id:
+        session.pop(f'verified_client_{client_id}', None)
+    return render_template('portal/logout.html')
 
 @portal_bp.route('/portal/verify', methods=['POST'])
 def client_portal_verify_main():
@@ -1139,24 +1159,17 @@ def pay_invoice(invoice_id):
         return jsonify({"success": False, "error": "Monto de pago no válido."}), 400
         
     invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
-    if not invoice or invoice.get('isQuotation') or invoice.get('clientId') != client_id:
-        return jsonify({"success": False, "error": "Factura no encontrada."}), 404
+    if not invoice or invoice.get('clientId') != client_id:
+        return jsonify({"success": False, "error": "Documento no encontrado."}), 404
+    if invoice.get('isQuotation') and invoice.get('documentType') != 'proforma':
+        return jsonify({"success": False, "error": "Este documento no admite pagos."}), 400
+    if invoice.get('isQuotation') and invoice.get('documentType') == 'proforma' and invoice.get('status') != 'Aprobada':
+        return jsonify({"success": False, "error": "La proforma debe estar aprobada para recibir pagos."}), 400
         
-    # Calcular nuevos balances
-    net_payable = float(invoice.get('netPayable', 0.0))
-    current_status = invoice.get('status')
-    current_total_paid = float(invoice.get('totalPaid', net_payable if current_status == "Cobrada" else 0.0))
-    
-    new_total_paid = current_total_paid + amount
-    new_remaining_balance = max(0.0, net_payable - new_total_paid)
-    
-    if new_remaining_balance <= 0.01:
-        new_status = "Cobrada"
-        new_remaining_balance = 0.0
-    else:
-        new_status = "Parcialmente Cobrada"
-        
-    # Registrar el abono en la subcolección de pagos
+    remaining_balance = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0)))
+    if amount > remaining_balance + 0.01:
+        return jsonify({"success": False, "error": "El monto excede el saldo pendiente."}), 400
+
     payment_id = str(uuid.uuid4())
     payment_dict = {
         "id": payment_id,
@@ -1167,19 +1180,17 @@ def pay_invoice(invoice_id):
         "paymentDate": datetime.now(timezone.utc).isoformat(),
         "registeredBy": "Cliente (Portal Autogestión)"
     }
-    
-    coll_inv = "sandbox_invoices" if sandbox else "invoices"
-    db_firestore.collection("companies").document(company_id).collection(coll_inv).document(invoice_id).collection("payments").document(payment_id).set(payment_dict)
-    
-    # Actualizar la factura principal
-    invoice['status'] = new_status
-    invoice['totalPaid'] = new_total_paid
-    invoice['remainingBalance'] = new_remaining_balance
-    invoice['paymentMethod'] = "Tarjeta en Línea (Portal)"
-    invoice['paymentDate'] = payment_dict['paymentDate']
-    
-    PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox, company_id=company_id)
-    return jsonify({"success": True, "message": "Pago simulado y procesado correctamente."})
+
+    try:
+        DatabaseService.register_invoice_payment(
+            owner_uid, invoice_id, payment_dict,
+            sandbox=sandbox, company_id=company_id
+        )
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"No se pudo registrar el pago: {exc}"}), 500
+    return jsonify({"success": True, "message": "Pago procesado correctamente."})
 
 @portal_bp.route('/portal/pago/<invoice_id>/reportar', methods=['POST'])
 def report_invoice_payment(invoice_id):
@@ -1224,8 +1235,12 @@ def report_invoice_payment(invoice_id):
         return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
         
     invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
-    if not invoice or invoice.get('isQuotation') or invoice.get('clientId') != client_id:
-        return jsonify({"success": False, "error": "Factura no encontrada."}), 404
+    if not invoice or invoice.get('clientId') != client_id:
+        return jsonify({"success": False, "error": "Documento no encontrado."}), 404
+    if invoice.get('isQuotation') and invoice.get('documentType') != 'proforma':
+        return jsonify({"success": False, "error": "Este documento no admite pagos."}), 400
+    if invoice.get('isQuotation') and invoice.get('documentType') == 'proforma' and invoice.get('status') != 'Aprobada':
+        return jsonify({"success": False, "error": "La proforma debe estar aprobada para recibir pagos."}), 400
         
     # Validar que el monto no exceda el balance pendiente
     remaining_balance = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0)))
@@ -1262,6 +1277,32 @@ def report_invoice_payment(invoice_id):
         }
         
         PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox, company_id=company_id)
+
+        comment_id = str(uuid.uuid4())
+        payment_comment = {
+            "id": comment_id,
+            "content": (
+                f"Pago reportado por RD$ {amount:,.2f} mediante {payment_method}. "
+                f"Banco: {bank}. Referencia: {reference_number}. Estado: pendiente de revisión."
+            ),
+            "createdBy": "Cliente",
+            "createdByName": client.get('razonSocial') or client.get('name') or 'Cliente',
+            "createdByUid": client_id,
+            "createdAt": invoice['pendingPaymentProof']['uploadedAt'],
+            "attachmentUrl": file_url,
+            "attachmentName": proof_file.filename,
+            "attachmentType": "payment_proof",
+            "paymentAmount": amount,
+            "paymentMethod": payment_method,
+            "bank": bank,
+            "referenceNumber": reference_number,
+            "edited": False,
+            "visibleToClient": True,
+        }
+        PortalDbService.save_invoice_comment(
+            owner_uid, invoice_id, comment_id, payment_comment,
+            sandbox=sandbox, company_id=company_id
+        )
 
         # Registrar evento de auditoría
         try:
@@ -1364,8 +1405,12 @@ def paypal_create_order(invoice_id):
         return jsonify({"success": False, "error": "Acceso no autorizado."}), 403
 
     invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
-    if not invoice or invoice.get('isQuotation') or invoice.get('clientId') != client_id:
-        return jsonify({"success": False, "error": "Factura no encontrada."}), 404
+    if not invoice or invoice.get('clientId') != client_id:
+        return jsonify({"success": False, "error": "Documento no encontrado."}), 404
+    if invoice.get('isQuotation') and invoice.get('documentType') != 'proforma':
+        return jsonify({"success": False, "error": "Este documento no admite pagos."}), 400
+    if invoice.get('isQuotation') and invoice.get('documentType') == 'proforma' and invoice.get('status') != 'Aprobada':
+        return jsonify({"success": False, "error": "La proforma debe estar aprobada para recibir pagos."}), 400
 
     remaining = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0)))
     if remaining <= 0.01:
@@ -1586,8 +1631,12 @@ def paypal_capture_order(invoice_id):
         return jsonify({"success": False, "error": "orderID requerido."}), 400
 
     invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
-    if not invoice or invoice.get('isQuotation') or invoice.get('clientId') != client_id:
-        return jsonify({"success": False, "error": "Factura no encontrada."}), 404
+    if not invoice or invoice.get('clientId') != client_id:
+        return jsonify({"success": False, "error": "Documento no encontrado."}), 404
+    if invoice.get('isQuotation') and invoice.get('documentType') != 'proforma':
+        return jsonify({"success": False, "error": "Este documento no admite pagos."}), 400
+    if invoice.get('isQuotation') and invoice.get('documentType') == 'proforma' and invoice.get('status') != 'Aprobada':
+        return jsonify({"success": False, "error": "La proforma debe estar aprobada para recibir pagos."}), 400
 
     remaining = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0)))
     if remaining <= 0.01:
@@ -2030,7 +2079,10 @@ def portal_document_detail(invoice_id):
         return "Documento no encontrado o acceso denegado.", 404
         
     # Excluir cotizaciones en borrador y facturas eliminadas
-    if invoice.get('isQuotation') and invoice.get('status') == 'Borrador':
+    if invoice.get('isQuotation') and (
+        invoice.get('status') == 'Borrador'
+        or (invoice.get('documentType') == 'proforma' and invoice.get('status') != 'Aprobada')
+    ):
         return "Documento no disponible.", 404
     if invoice.get('status') == 'Eliminada':
         return "Documento no disponible.", 404
@@ -2197,7 +2249,7 @@ def portal_document_pdf(invoice_id):
         return "Documento no encontrado o acceso denegado.", 404
         
     # Excluir cotizaciones en borrador
-    if invoice.get('isQuotation') and invoice.get('status') == 'Borrador':
+    if invoice.get('isQuotation') and invoice.get('documentType') != 'proforma' and invoice.get('status') == 'Borrador':
         return "Documento no disponible.", 404
         
     from app.web.invoices import _enrich_invoice_totals, WEASYPRINT_AVAILABLE
@@ -2340,7 +2392,13 @@ def payment_page(invoice_id):
     if not invoice or invoice.get('clientId') != client_id:
         return "Documento no encontrado o acceso denegado.", 404
 
-    if invoice.get('isQuotation') or invoice.get('status') in ('Borrador', 'Revisión de Pago') or float(invoice.get('remainingBalance', 0)) <= 0.01:
+    is_payable_document = (
+        not invoice.get('isQuotation')
+        or invoice.get('documentType') == 'proforma'
+    )
+    if not is_payable_document or invoice.get('status') in ('Borrador', 'Revisión de Pago') or (
+        invoice.get('isQuotation') and invoice.get('documentType') == 'proforma' and invoice.get('status') != 'Aprobada'
+    ) or float(invoice.get('remainingBalance', invoice.get('netPayable', 0))) <= 0.01:
         return redirect(url_for('portal.portal_document_detail', invoice_id=invoice_id))
 
     from app.web.invoices import _enrich_invoice_totals

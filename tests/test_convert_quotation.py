@@ -93,9 +93,11 @@ def test_convert_quotation_success(app):
             saved_docs[invoice_id] = dict(data)
             return True
 
-        with patch("app.services.db_service.DatabaseService.get_invoice", side_effect=mock_get_invoice), \
-             patch("app.services.db_service.DatabaseService.save_invoice", side_effect=mock_save_invoice), \
-             patch("app.services.db_service.DatabaseService.get_client_advances", return_value=[]), \
+        with patch("app.web.invoices.DatabaseService.get_invoice", side_effect=mock_get_invoice), \
+             patch("app.web.invoices.DatabaseService.save_invoice", side_effect=mock_save_invoice), \
+             patch("app.web.invoices.db_firestore", None), \
+             patch("app.web.invoices.DatabaseService.get_client_advances", return_value=[]), \
+             patch("app.web.invoices.DatabaseService.get_invoice_payments", return_value=[]), \
              patch("app.web.invoices.check_permission", return_value=True):
 
             client = app.test_client()
@@ -140,9 +142,10 @@ def test_convert_quotation_alias_route(app):
             "items": []
         }
 
-        with patch("app.services.db_service.DatabaseService.get_invoice", return_value=dict(quotation_data)), \
-             patch("app.services.db_service.DatabaseService.save_invoice", return_value=True), \
-             patch("app.services.db_service.DatabaseService.get_client_advances", return_value=[]), \
+        with patch("app.web.invoices.DatabaseService.get_invoice", return_value=dict(quotation_data)), \
+             patch("app.web.invoices.DatabaseService.save_invoice", return_value=True), \
+             patch("app.web.invoices.DatabaseService.get_client_advances", return_value=[]), \
+             patch("app.web.invoices.DatabaseService.get_invoice_payments", return_value=[]), \
              patch("app.web.invoices.check_permission", return_value=True):
 
             client = app.test_client()
@@ -174,8 +177,8 @@ def test_convert_quotation_e31_requires_rnc(app):
             "items": []
         }
 
-        with patch("app.services.db_service.DatabaseService.get_invoice", return_value=dict(quotation_data)), \
-             patch("app.services.db_service.DatabaseService.save_invoice") as mock_save, \
+        with patch("app.web.invoices.DatabaseService.get_invoice", return_value=dict(quotation_data)), \
+             patch("app.web.invoices.DatabaseService.save_invoice") as mock_save, \
              patch("app.web.invoices.check_permission", return_value=True):
 
             client = app.test_client()

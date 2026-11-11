@@ -316,7 +316,9 @@ endblock %}
                         RD$ {{ "{:,.2f}".format(inv.total) }}
                     </td>
                     <td>
-                        {% if active_page == 'quotations' or active_page == 'proformas' %}
+                        {% if active_page == 'proformas' %}
+                        RD$ {{ "{:,.2f}".format(inv.remainingBalance|default(inv.netPayable, true)|float) }}
+                        {% elif active_page == 'quotations' %}
                         RD$ 0.00
                         {% else %}
                         RD$ {{ "{:,.2f}".format(inv.remainingBalance) }}
