@@ -630,11 +630,11 @@
         <!-- Sub-pills para Facturas -->
         <div class="sub-bar" id="sub-invoice" style="display:none;">
             <button class="pill sub active" data-sub="all" onclick="setSubFilter('invoice','all')">Todas</button>
-            <button class="pill sub" data-sub="Emitida" onclick="setSubFilter('invoice','Emitida')">Pendientes</button>
-            <button class="pill sub" data-sub="Cobrada" onclick="setSubFilter('invoice','Cobrada')">Pagadas</button>
+            <button class="pill sub" data-sub="Pendiente de pago" onclick="setSubFilter('invoice','Pendiente de pago')">Pendientes de pago</button>
+            <button class="pill sub" data-sub="Pago parcial" onclick="setSubFilter('invoice','Pago parcial')">Pago parcial</button>
+            <button class="pill sub" data-sub="Cobrada" onclick="setSubFilter('invoice','Cobrada')">Cobradas</button>
             <button class="pill sub" data-sub="Vencida" onclick="setSubFilter('invoice','Vencida')">Vencidas</button>
-            <button class="pill sub" data-sub="Parcialmente Cobrada" onclick="setSubFilter('invoice','Parcialmente Cobrada')">Pago Parcial</button>
-            <button class="pill sub" data-sub="Revision de Pago" onclick="setSubFilter('invoice','Revision de Pago')">En Revisión</button>
+            <button class="pill sub" data-sub="Pago en revisión" onclick="setSubFilter('invoice','Pago en revisión')">En revisión</button>
             <button class="pill sub" data-sub="Anulada" onclick="setSubFilter('invoice','Anulada')">Anuladas</button>
         </div>
 
@@ -679,7 +679,7 @@
                     </thead>
                     <tbody>
                         {% for inv in invoices %}
-                        <tr data-doctype="{% if inv.documentType == 'quotation' %}quotation{% else %}invoice{% endif %}" data-status="{{ inv.status }}" data-date="{{ inv.date }}">
+                        <tr data-doctype="{% if inv.documentType == 'quotation' %}quotation{% else %}invoice{% endif %}" data-status="{{ inv.portalStatus or inv.status }}" data-date="{{ inv.date }}">
                             <td data-label="Número Documento">
                                 <strong>{{ inv.invoiceNumber }}</strong>
                             </td>
@@ -710,16 +710,19 @@
                                 {% endif %}
                             </td>
                             <td data-label="Estado">
-                                {% if inv.status == 'Cobrada' or inv.status == 'Aprobada' %}
-                                <span class="badge badge-success">{{ inv.status }}</span>
-                                {% elif inv.status == 'Anulada' %}
+                                {% set portal_status = inv.portalStatus or inv.status %}
+                                {% if portal_status == 'Cobrada' or portal_status == 'Aprobada' %}
+                                <span class="badge badge-success">{{ portal_status }}</span>
+                                {% elif portal_status == 'Anulada' %}
                                 <span class="badge badge-danger"
-                                    style="background: rgba(0,0,0,0.05); color: var(--text-muted);">{{ inv.status
+                                    style="background: rgba(0,0,0,0.05); color: var(--text-muted);">{{ portal_status
                                     }}</span>
-                                {% elif inv.status == 'Rechazada' or inv.status == 'Vencida' %}
-                                <span class="badge badge-danger">{{ inv.status }}</span>
+                                {% elif portal_status == 'Rechazada' or portal_status == 'Vencida' %}
+                                <span class="badge badge-danger">{{ portal_status }}</span>
+                                {% elif portal_status == 'Pago en revisión' %}
+                                <span class="badge badge-info">{{ portal_status }}</span>
                                 {% else %}
-                                <span class="badge badge-warning">{{ inv.status }}</span>
+                                <span class="badge badge-warning">{{ portal_status }}</span>
                                 {% endif %}
                             </td>
                             <td style="text-align: right;">
@@ -960,7 +963,7 @@
                 <div
                     style="background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 12px; font-size: 0.78rem; color: #0369a1; margin-bottom: 16px;">
                     <i class="fa-solid fa-circle-info"></i> El pago reportado pasará a una fase de validación por parte
-                    del equipo de Cuentas por Cobrar. La factura quedará en estado <strong>Revisión de Pago</strong>
+                    del equipo de Cuentas por Cobrar. La factura quedará en estado <strong>Pago en revisión</strong>
                     hasta ser aprobada.
                 </div>
 

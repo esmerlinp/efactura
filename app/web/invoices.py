@@ -35,7 +35,7 @@ except Exception as e:
     WEASYPRINT_AVAILABLE = False
 import random
 from config import Config
-from app.services.db_service import DatabaseService, _resolve_company_id
+from app.services.db_service import DatabaseService, _resolve_company_id, _company_coll, db_firestore
 from app.services.quotation_expiry_service import (
     quotation_expiry,
     apply_expiry_status,
@@ -62,6 +62,15 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 from app.utils.module_gate import module_enabled, get_module_label
 
 web_invoices_bp = Blueprint('web_invoices', __name__)
+
+
+def _invoice_doc_ref(owner_uid, invoice_id, sandbox=True, company_id=None):
+    """Referencia al documento de factura en el ámbito correcto (empresa o legacy)."""
+    coll_name = "sandbox_invoices" if sandbox else "invoices"
+    coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
+    if coll is None:
+        coll = db_firestore.collection("users").document(owner_uid).collection(coll_name)
+    return coll.document(invoice_id)
 
 
 @web_invoices_bp.before_request
@@ -3567,6 +3576,8 @@ def update_invoice_project(invoice_id):
 @web_invoices_bp.route('/invoices/<invoice_id>/send-receipt', methods=['POST'])
 def send_receipt_email(invoice_id):
     """Envía un Recibo de Ingreso por email al cliente."""
+    from flask import current_app
+
     if 'user' not in session:
         return jsonify({"success": False, "message": "No autenticado."}), 401
     owner_uid = session['user']['ownerUID']
@@ -3595,16 +3606,15 @@ def send_receipt_email(invoice_id):
     # Build receipt number (short suffix of payment id)
     receipt_no = (payment_id[-8:].upper() if payment_id else "N/A")
 
-    if not app.config.get("SMTP_USER") or not app.config.get("SMTP_PASSWORD"):
+    if not current_app.config.get("SMTP_USER") or not current_app.config.get("SMTP_PASSWORD"):
         return jsonify({"success": False, "message": "El servidor de correo no está configurado. Configura SMTP_USER y SMTP_PASSWORD en el servidor."}), 503
 
     company_name    = company.get("tradeName") or company.get("companyName", get_product_name())
     company_rnc     = company.get("companyRNC", "")
     company_address = company.get("companyAddress", "")
     company_phone   = company.get("companyPhone", "")
-    company_email   = company.get("companyEmail", app.config.get("SMTP_USER", ""))
+    company_email   = company.get("companyEmail", current_app.config.get("SMTP_USER", ""))
 
-    company_name    = company.get("tradeName") or company.get("companyName", get_product_name())
     brand_color     = company.get("colorMarca", "#10b981")
 
     html_body = f"""
@@ -3688,7 +3698,7 @@ def send_receipt_email(invoice_id):
     subject = f"Recibo de Pago - Factura {invoice.get('invoiceNumber', '')} | {company_name}"
 
     success = Mailer.send(
-        app=app._get_current_object(),
+        app=current_app._get_current_object(),
         to_email=recipient_email,
         subject=subject,
         html_body=html_body,
@@ -4293,9 +4303,7 @@ def forgive_mora_route(invoice_id):
         flash('No hay mora acumulada para perdonar.', 'info')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
-    from app.services.db_service import db_firestore
-    coll_inv = "sandbox_invoices" if sandbox else "invoices"
-    inv_ref = db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id)
+    inv_ref = _invoice_doc_ref(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
 
     payment_id = str(uuid.uuid4())
     payment_dict = {
@@ -4499,10 +4507,8 @@ def approve_payment_proof(invoice_id):
         DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, company_id=company_id, sandbox=sandbox)
         
         # Eliminar el comprobante pendiente
-        coll_inv = "sandbox_invoices" if sandbox else "invoices"
         from firebase_admin import firestore
-        from app.services.db_service import db_firestore
-        db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).update({
+        _invoice_doc_ref(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id).update({
             "pendingPaymentProof": firestore.DELETE_FIELD
         })
         
@@ -4587,15 +4593,13 @@ def reject_payment_proof(invoice_id):
     rejection_reason = request.form.get('rejectionReason', '').strip()
     
     try:
-        coll_inv = "sandbox_invoices" if sandbox else "invoices"
         from firebase_admin import firestore
-        from app.services.db_service import db_firestore
         
         # Devolver el estado a "Emitida" (o su estado previo) y eliminar pendingPaymentProof
         total_paid = float(invoice.get('totalPaid', 0.0))
         new_status = "Parcialmente Cobrada" if total_paid > 0.01 else "Emitida"
         
-        db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).update({
+        _invoice_doc_ref(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id).update({
             "status": new_status,
             "pendingPaymentProof": firestore.DELETE_FIELD
         })

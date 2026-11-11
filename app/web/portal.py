@@ -74,6 +74,80 @@ def _portal_context():
             session['portal_company_id'] = company_id
     return (owner_uid, client_id, sandbox, company_id)
 
+
+PORTAL_STATUS_PENDING = "Pendiente de pago"
+PORTAL_STATUS_PARTIAL = "Pago parcial"
+PORTAL_STATUS_PAID = "Cobrada"
+PORTAL_STATUS_OVERDUE = "Vencida"
+PORTAL_STATUS_REVIEW = "Pago en revisión"
+PORTAL_STATUS_CANCELLED = "Anulada"
+
+
+def _portal_status_amounts(invoice):
+    try:
+        net = float(invoice.get('netPayable', invoice.get('total', 0.0)) or 0.0)
+    except (TypeError, ValueError):
+        net = 0.0
+    if 'remainingBalance' in invoice:
+        try:
+            remaining = float(invoice.get('remainingBalance') or 0.0)
+        except (TypeError, ValueError):
+            remaining = net
+    else:
+        remaining = net
+    return net, remaining, max(0.0, net - remaining)
+
+
+def _portal_status_is_overdue(invoice, today_str=None):
+    due_date = str(invoice.get('dueDate') or '')[:10]
+    if not due_date:
+        return False
+    today_str = today_str or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return due_date < today_str
+
+
+def resolve_portal_invoice_status(invoice, today_str=None):
+    """Estado comercial visible en el portal del cliente.
+
+    Los estados técnicos de DGII (ACCEPTED, REJECTED, CONTINGENCY, PENDING,
+    Pendiente DGII, etc.) nunca se exponen: se traducen al estado comercial
+    derivado del pago y del vencimiento.
+    """
+    if not invoice:
+        return PORTAL_STATUS_PENDING
+
+    status = str(invoice.get('status') or '').strip()
+
+    if invoice.get('isQuotation'):
+        if status == 'Pendiente Aut. Cliente' and invoice.get('quotationExpired'):
+            return PORTAL_STATUS_OVERDUE
+        return status or 'Pendiente Aut. Cliente'
+
+    if status == 'Eliminada':
+        return status
+    if status == 'Anulada':
+        return PORTAL_STATUS_CANCELLED
+    if status in ('Cobrada', 'Pagada', 'Pagado pero no emitido'):
+        return PORTAL_STATUS_PAID
+    if status == 'Revisión de Pago':
+        return PORTAL_STATUS_REVIEW
+
+    overdue = _portal_status_is_overdue(invoice, today_str=today_str)
+    _, remaining, paid = _portal_status_amounts(invoice)
+
+    if status == 'Parcialmente Cobrada':
+        return PORTAL_STATUS_OVERDUE if overdue else PORTAL_STATUS_PARTIAL
+    if status == 'Vencida':
+        return PORTAL_STATUS_OVERDUE
+
+    if remaining <= 0.01:
+        return PORTAL_STATUS_PAID
+    if paid > 0.01:
+        return PORTAL_STATUS_OVERDUE if overdue else PORTAL_STATUS_PARTIAL
+    if overdue:
+        return PORTAL_STATUS_OVERDUE
+    return PORTAL_STATUS_PENDING
+
 class PortalDbService:
     @classmethod
     def get_client_internal_service_documents(cls, owner_uid, client_id, sandbox=True, company_id=None):
@@ -210,8 +284,8 @@ class PortalDbService:
                 # Evaluar vencimiento de facturas
                 status = data.get("status", "Borrador")
                 
-                # Excluir documentos en estado Borrador, Eliminada o Anulada
-                if status in ('Borrador', 'Eliminada', 'Anulada'):
+                # Excluir solo documentos que el cliente no debe ver
+                if status in ('Borrador', 'Eliminada'):
                     continue
                 
                 due_date_str = data.get("dueDate")
@@ -230,8 +304,9 @@ class PortalDbService:
                 
                 # Normalizar montos
                 data['netPayable'] = float(data.get('netPayable', data.get('total', 0.0)))
-                data['remainingBalance'] = float(data.get('remainingBalance', 0.0 if status == 'Cobrada' else data['netPayable']))
+                data['remainingBalance'] = float(data.get('remainingBalance', 0.0 if status in ('Cobrada', 'Anulada') else data['netPayable']))
                 data['total'] = float(data.get('total', data['netPayable']))
+                data['portalStatus'] = resolve_portal_invoice_status(data)
                 
                 invoices.append(data)
             # Ordenar por fecha de emisión descendente
@@ -252,8 +327,9 @@ class PortalDbService:
                 data['id'] = doc.id
                 data['netPayable'] = float(data.get('netPayable', data.get('total', 0.0)))
                 status = data.get('status', 'Borrador')
-                data['remainingBalance'] = float(data.get('remainingBalance', 0.0 if status == 'Cobrada' else data['netPayable']))
+                data['remainingBalance'] = float(data.get('remainingBalance', 0.0 if status in ('Cobrada', 'Anulada') else data['netPayable']))
                 data['total'] = float(data.get('total', data['netPayable']))
+                data['portalStatus'] = resolve_portal_invoice_status(data)
                 return data
         except Exception as e:
             print(f"Error en PortalDbService.get_invoice: {e}")
@@ -368,7 +444,12 @@ def client_portal_main():
     for inv in invoices:
         if not inv.get('isQuotation') and inv.get('documentType') != 'proforma' and inv.get('status') not in ['Anulada', 'Borrador', 'Eliminada']:
             total_invoiced += float(inv.get('total', 0.0))
-            if inv.get('status') in ['Emitida', 'Vencida', 'Parcialmente Cobrada', 'Revisión de Pago']:
+            if inv.get('portalStatus') in (
+                PORTAL_STATUS_PENDING,
+                PORTAL_STATUS_PARTIAL,
+                PORTAL_STATUS_OVERDUE,
+                PORTAL_STATUS_REVIEW,
+            ):
                 total_cxc += float(inv.get('remainingBalance', inv.get('netPayable', 0.0)))
                 
     return render_template(
@@ -1963,6 +2044,8 @@ def portal_document_detail(invoice_id):
         expiry = quotation_expiry(invoice)
         invoice['quotationExpired'] = bool(expiry.get('expired'))
         invoice['quotationExpiryDate'] = expiry.get('expiry_date') or ''
+
+    invoice['portalStatus'] = resolve_portal_invoice_status(invoice)
     
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
