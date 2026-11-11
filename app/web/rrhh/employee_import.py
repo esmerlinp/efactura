@@ -645,6 +645,7 @@ def employee_import_process():
                             company_id=company_id,
                             transaction_date=_p,
                             owner_uid=user_uid,
+                            sandbox=sandbox,
                         )
                 except Exception as e_dgt:
                     print(f"⚠️ [import] Error generando alertas automáticas DGT-4: {e_dgt}")
@@ -694,5 +695,4 @@ def employee_import_status(job_id):
         except Exception:
             return jsonify({"status": "not_found", "error": "Error al leer el estado del job"}), 500
     return jsonify({"status": "not_found", "error": "Job no encontrado"}), 404
-
 

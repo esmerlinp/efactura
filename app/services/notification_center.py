@@ -134,6 +134,14 @@ class NotificationAggregator:
     _fiscal_cache = {}
 
     @classmethod
+    def invalidate_fiscal_cache(cls, owner_uid=None, company_id=None):
+        """Invalidates fiscal counters after an obligation changes."""
+        if owner_uid is None and company_id is None:
+            cls._fiscal_cache.clear()
+            return
+        cls._fiscal_cache.pop(f"{owner_uid}:{company_id or ''}", None)
+
+    @classmethod
     def _fiscal_counts_cached(cls, owner_uid, company_id):
         key = f"{owner_uid}:{company_id or ''}"
         now = time.time()

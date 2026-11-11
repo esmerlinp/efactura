@@ -100,6 +100,13 @@ class TestRegimeProfileDetection:
         assert "rs1" not in detected["recommended_keys"]
 
     @patch("app.services.db_service.DatabaseService.get_company_profile")
+    def test_rst_income_has_no_ordinary_isr_advance(self, mock_profile):
+        mock_profile.return_value = {"companyRNC": "131880681", "regimenFiscal": "rst_income"}
+        detected = TaxObligationService.detect_tax_profile("test_owner")
+        assert detected["regime_key"] == "rst_income_juridica"
+        assert "anticipos_isr" not in detected["recommended_keys"]
+
+    @patch("app.services.db_service.DatabaseService.get_company_profile")
     def test_detect_rst_purchases(self, mock_profile):
         mock_profile.return_value = {"companyRNC": "131880681", "regimenFiscal": "rst_purchases"}
         detected = TaxObligationService.detect_tax_profile("test_owner")
@@ -289,6 +296,23 @@ class TestTaxObligationStatusCalculation:
             statuses = TaxObligationService.get_status("user_123", reference_date=today)
             assert "tss" in {s["key"] for s in statuses}
 
+    @patch("app.services.tax_obligation_service.TaxObligationService.detect_tax_profile")
+    def test_legacy_isr_advance_is_hidden_for_rst_income(self, mock_profile):
+        today = date(2026, 10, 7)
+        mock_profile.return_value = {"regime_key": "rst_income_juridica"}
+        legacy_advance = {
+            "obligation_key": "anticipos_isr",
+            "label": "Anticipos ISR",
+            "recurrence": "monthly_15",
+            "enabled": True,
+            "first_due_date": "",
+        }
+        with patch.object(TaxObligationService, "get_all", return_value=[legacy_advance]), \
+             patch("app.services.tax_obligation_service._get_fiscal_end_month", return_value=12):
+            statuses = TaxObligationService.get_status("user_123", reference_date=today)
+
+        assert statuses == []
+
 
 class TestRS2Scenario:
     """Una jurídica acogida al RST por ingresos (RS2) recibe RS2 + 4 cuotas + condicionales;
@@ -365,8 +389,10 @@ class TestCustomAlertsAndRecurrences:
 
 
 class TestEnsureDGT4Alert:
+    @patch("app.services.dgt_service.DGTService.get_dgt4_data")
     @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
-    def test_ensure_dgt4_alert_creates_when_not_exists(self, mock_ref):
+    def test_ensure_dgt4_alert_creates_when_not_exists(self, mock_ref, mock_dgt4):
+        mock_dgt4.return_value = {"totalCambios": 1}
         mock_doc = MagicMock()
         mock_doc.get().exists = False
         mock_coll = MagicMock()
@@ -379,7 +405,9 @@ class TestEnsureDGT4Alert:
         mock_coll.document.assert_any_call("dgt4_2026_10")
 
     @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
-    def test_ensure_dgt4_alert_idempotent_no_duplicate(self, mock_ref):
+    @patch("app.services.dgt_service.DGTService.get_dgt4_data")
+    def test_ensure_dgt4_alert_idempotent_no_duplicate(self, mock_dgt4, mock_ref):
+        mock_dgt4.return_value = {"totalCambios": 1}
         mock_doc = MagicMock()
         mock_doc.get().exists = True
         mock_coll = MagicMock()
@@ -391,7 +419,9 @@ class TestEnsureDGT4Alert:
         mock_doc.set.assert_not_called()
 
     @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
-    def test_ensure_dgt4_alert_weekend_shift(self, mock_ref):
+    @patch("app.services.dgt_service.DGTService.get_dgt4_data")
+    def test_ensure_dgt4_alert_weekend_shift(self, mock_dgt4, mock_ref):
+        mock_dgt4.return_value = {"totalCambios": 1}
         mock_doc = MagicMock()
         mock_doc.get().exists = False
         mock_coll = MagicMock()
@@ -400,6 +430,41 @@ class TestEnsureDGT4Alert:
         res = TaxObligationService.ensure_dgt4_alert(company_id="comp_1", transaction_date="2026-08-10")
         assert res["created"] is True
         assert res["due_date"] == "2026-09-07"
+
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    @patch("app.services.dgt_service.DGTService.get_dgt4_data")
+    def test_ensure_dgt4_alert_skips_period_without_changes(self, mock_dgt4, mock_ref):
+        mock_dgt4.return_value = {"totalCambios": 0, "lines": []}
+
+        res = TaxObligationService.ensure_dgt4_alert(
+            company_id="comp_1",
+            transaction_date="2026-10-15",
+            owner_uid="user_1",
+        )
+
+        assert res["created"] is False
+        assert res["reason"] == "no_real_changes"
+        mock_ref.assert_not_called()
+
+    @patch("app.services.tax_obligation_service.TaxObligationService._profile_ref")
+    @patch("app.services.dgt_service.DGTService.get_dgt4_data")
+    def test_ensure_dgt4_alert_disables_existing_stale_alert(self, mock_dgt4, mock_ref):
+        mock_dgt4.return_value = {"totalCambios": 0, "lines": []}
+        existing_ref = MagicMock()
+        existing_ref.get.return_value.exists = True
+        existing_ref.get.return_value.to_dict.return_value = {
+            "origin": "rrhh_auto", "enabled": True,
+        }
+        collection = MagicMock()
+        collection.document.return_value = existing_ref
+        mock_ref.return_value = collection
+
+        res = TaxObligationService.ensure_dgt4_alert(
+            company_id="comp_1", transaction_date="2026-10-15", owner_uid="user_1"
+        )
+
+        assert res["reason"] == "no_real_changes"
+        existing_ref.set.assert_called_once_with({"enabled": False}, merge=True)
 
     def test_ensure_dgt4_alert_missing_company_and_owner(self):
         res = TaxObligationService.ensure_dgt4_alert(company_id=None, owner_uid=None)

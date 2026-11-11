@@ -458,6 +458,7 @@ class RehireService:
             TaxObligationService.ensure_dgt4_alert(
                 company_id=self.company_id,
                 transaction_date=norm_start,
+                sandbox=self.sandbox,
             )
         except Exception as e_dgt:
             print(f"⚠️ Error generando alerta automática DGT-4 en reincorporación: {e_dgt}")

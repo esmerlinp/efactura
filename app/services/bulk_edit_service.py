@@ -355,6 +355,7 @@ def _execute_bulk_edit(company_id: str, job_id: str, user_email: str, sandbox: b
             TaxObligationService.ensure_dgt4_alert(
                 company_id=company_id,
                 transaction_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                sandbox=job.get("sandbox", True),
             )
         except Exception as e_dgt:
             print(f"⚠️ Error generando alerta automática DGT-4 en edición masiva: {e_dgt}")

@@ -102,11 +102,11 @@ def employee_salary_add(employee_id):
                 company_id=company_id,
                 transaction_date=eff_date,
                 owner_uid=owner_uid,
+                sandbox=sandbox,
             )
         except Exception as e_dgt:
             print(f"⚠️ Error generando alerta automática DGT-4 en aumento salarial: {e_dgt}")
 
     flash(f"Salario actualizado a RD$ {new_amount:,.2f} con vigencia {eff_date}.", "success")
     return redirect(url_for("web_rrhh.employee_salary_history", employee_id=employee_id))
-
 

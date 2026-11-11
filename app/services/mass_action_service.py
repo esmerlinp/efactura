@@ -672,6 +672,7 @@ def _apply_action_to_employee(owner_uid: str, emp: dict, action_type: str,
                         company_id=company_id,
                         transaction_date=payload.get("effectiveDate", now[:10]),
                         owner_uid=owner_uid,
+                        sandbox=sandbox,
                     )
                 except Exception as e_dgt:
                     print(f"⚠️ Error generando alerta automática DGT-4 en aumento salarial masivo: {e_dgt}")
@@ -723,8 +724,9 @@ def _apply_action_to_employee(owner_uid: str, emp: dict, action_type: str,
                     from app.services.tax_obligation_service import TaxObligationService
                     TaxObligationService.ensure_dgt4_alert(
                         company_id=company_id,
-                        transaction_date=payload.get("effectiveDate", now[:10]),
-                        owner_uid=owner_uid,
+                            transaction_date=payload.get("effectiveDate", now[:10]),
+                            owner_uid=owner_uid,
+                            sandbox=sandbox,
                     )
                 except Exception as e_dgt:
                     print(f"⚠️ Error generando alerta automática DGT-4 en cambio de puesto masivo: {e_dgt}")

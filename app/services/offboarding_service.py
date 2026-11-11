@@ -310,6 +310,7 @@ class OffboardingService:
                 TaxObligationService.ensure_dgt4_alert(
                     company_id=self.company_id,
                     transaction_date=term_date,
+                    sandbox=self.sandbox,
                 )
             except Exception as e_dgt:
                 print(f"⚠️ Error generando alerta automática DGT-4 en baja de empleado: {e_dgt}")

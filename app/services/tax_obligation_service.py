@@ -524,6 +524,14 @@ class TaxObligationService:
             else:
                 data = doc.to_dict()
                 dirty = False
+                # A regime change must not leave previously seeded obligations
+                # active. Keep the document for audit/history, but synchronize
+                # its enabled state with the current regime recommendation.
+                if not data.get("is_custom", False):
+                    expected_enabled = ob["key"] in recommended_keys
+                    if data.get("enabled", True) != expected_enabled:
+                        data["enabled"] = expected_enabled
+                        dirty = True
                 if "is_custom" not in data:
                     data["is_custom"] = False
                     dirty = True
@@ -665,6 +673,7 @@ class TaxObligationService:
         year: int = None,
         month: int = None,
         owner_uid: str = None,
+        sandbox: bool = True,
     ) -> dict:
         """
         Garantiza que exista una alerta en el Registro de Alertas para el reporte DGT-4
@@ -705,6 +714,42 @@ class TaxObligationService:
         key = f"dgt4_{target_year}_{target_month:02d}"
 
         config_ref = cls._profile_ref(owner_uid, company_id=company_id)
+
+        # The alert is only useful when the DGT-4 period contains a reportable
+        # change. Callers can be triggered by saves that do not affect SIRLA.
+        try:
+            from app.services.dgt_service import DGTService
+            dgt4_data = DGTService.get_dgt4_data(
+                company_id, target_year, target_month, sandbox=sandbox
+            )
+            if not dgt4_data.get("totalCambios", 0):
+                if config_ref:
+                    existing_ref = config_ref.document(key)
+                    existing = existing_ref.get()
+                    if existing.exists:
+                        existing_data = existing.to_dict() or {}
+                        if existing_data.get("origin") == "rrhh_auto" and existing_data.get("enabled", True):
+                            existing_ref.set({"enabled": False}, merge=True)
+                            cls._invalidate_notification_cache(owner_uid, company_id)
+                return {
+                    "created": False,
+                    "key": key,
+                    "reason": "no_real_changes",
+                    "year": target_year,
+                    "month": target_month,
+                }
+        except Exception as err:
+            # Do not create a false-positive alert when the source report
+            # cannot be evaluated. The caller can retry on the next change.
+            logger.warning(f"⚠️ Error verificando cambios DGT-4 ({key}): {err}")
+            return {
+                "created": False,
+                "key": key,
+                "reason": "dgt4_check_failed",
+                "year": target_year,
+                "month": target_month,
+            }
+
         if not config_ref:
             return {"created": False, "key": key, "reason": "database_unavailable"}
 
@@ -773,6 +818,44 @@ class TaxObligationService:
             }
         return {"created": False, "key": key, "reason": "save_failed"}
 
+    @classmethod
+    def _invalidate_notification_cache(cls, owner_uid, company_id=None):
+        try:
+            from app.services.notification_center import NotificationAggregator
+            NotificationAggregator.invalidate_fiscal_cache(owner_uid, company_id)
+        except Exception:
+            pass
+
+    @classmethod
+    def reconcile_dgt4_alerts(cls, owner_uid, company_id=None, sandbox=True):
+        """Disables stale automatic DGT-4 alerts whose period is now empty."""
+        config_ref = cls._profile_ref(owner_uid, company_id=company_id)
+        if not config_ref:
+            return 0
+
+        disabled = 0
+        for doc in config_ref.stream():
+            data = doc.to_dict() or {}
+            if data.get("origin") != "rrhh_auto" or not data.get("enabled", True):
+                continue
+            metadata = data.get("metadata") or {}
+            year = metadata.get("year")
+            month = metadata.get("month")
+            if not year or not month or not doc.id.startswith("dgt4_"):
+                continue
+            try:
+                from app.services.dgt_service import DGTService
+                report = DGTService.get_dgt4_data(company_id, int(year), int(month), sandbox=sandbox)
+                if not report.get("totalCambios", 0):
+                    doc.reference.set({"enabled": False}, merge=True)
+                    disabled += 1
+            except Exception as err:
+                logger.warning(f"⚠️ Error reconciliando alerta DGT-4 ({doc.id}): {err}")
+
+        if disabled:
+            cls._invalidate_notification_cache(owner_uid, company_id)
+        return disabled
+
     # ── Estado ───────────────────────────────────────────────────────────────
 
     @classmethod
@@ -802,8 +885,12 @@ class TaxObligationService:
         (depende de operaciones sujetas a retención, no de la nómina).
         """
         today = reference_date or date.today()
+        # Reconcile only automatic alerts; manual/custom alerts are untouched.
+        cls.reconcile_dgt4_alerts(owner_uid, company_id=company_id)
         fiscal_end_month = _get_fiscal_end_month(owner_uid, company_id=company_id)
         obligations = cls.get_all(owner_uid, company_id=company_id)
+        tax_profile = cls.detect_tax_profile(owner_uid, company_id=company_id)
+        regime_key = tax_profile.get("regime_key")
 
         has_employees = None
         if any(
@@ -817,6 +904,9 @@ class TaxObligationService:
         for ob in obligations:
             key = ob.get("obligation_key") or ob.get("key") or ob.get("id")
             is_enabled = ob.get("enabled", True)
+            # Guard against legacy alerts that predate a change to RST.
+            if regime_key in ("rst_income_fisica", "rst_income_juridica") and key == "anticipos_isr":
+                continue
             if not is_enabled:
                 continue
 
