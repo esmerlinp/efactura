@@ -366,7 +366,7 @@ def client_portal_main():
     total_cxc = 0.0
     
     for inv in invoices:
-        if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador', 'Eliminada']:
+        if not inv.get('isQuotation') and inv.get('documentType') != 'proforma' and inv.get('status') not in ['Anulada', 'Borrador', 'Eliminada']:
             total_invoiced += float(inv.get('total', 0.0))
             if inv.get('status') in ['Emitida', 'Vencida', 'Parcialmente Cobrada', 'Revisión de Pago']:
                 total_cxc += float(inv.get('remainingBalance', inv.get('netPayable', 0.0)))

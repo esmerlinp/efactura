@@ -86,6 +86,9 @@ class Invoice(BaseModel):
     isRecurring: bool = False
     recurrenceInterval: str = "mensual"
     nextOccurrenceDate: str = ""
+    contractId: str = ""
+    contractNumber: str = ""
+    occurrenceId: str = ""
     firebasePDFURL: str = ""
     firebaseXMLURL: str = ""
     currency: str = "DOP"

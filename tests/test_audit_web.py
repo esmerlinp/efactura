@@ -77,7 +77,9 @@ def test_audit_detail_resolves_company_id(client):
         resp = client.get('/audit/log-123')
         assert resp.status_code == 200
         assert b"log-123" in resp.data
-        mock_resolve.assert_called_once_with('test_owner_uid')
+        # La empresa activa de la sesión es la fuente de verdad; no se adivina
+        # por owner (un owner puede tener varias empresas).
+        mock_resolve.assert_not_called()
         mock_get_detail.assert_called_once_with('test_owner_uid', 'log-123', company_id='test_comp_1')
 
 
@@ -136,4 +138,4 @@ def test_audit_export_resolves_company_id(client):
         assert resp.status_code == 200
         assert resp.mimetype == 'text/csv'
         assert b"Factura #1" in resp.data
-        mock_resolve.assert_called_once_with('test_owner_uid')
+        mock_resolve.assert_not_called()

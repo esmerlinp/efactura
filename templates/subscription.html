@@ -937,11 +937,11 @@
                             <div
                                 style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-bottom: 12px; font-family: var(--font-heading);">
                                 {{ storage_used | round(2) }} <span style="font-size: 1rem; font-weight: 500; color: var(--text-muted);">/
-                                    {% if storage_limit > 0 %}{{ storage_limit }} MB{% else %}ilimitado{% endif %}</span>
+                                    {% if effective_storage_limit > 0 %}{{ effective_storage_limit | round(2) }} MB{% else %}ilimitado{% endif %}</span>
                             </div>
 
-                            {% if storage_limit > 0 %}
-                            {% set storage_pct = (storage_used / storage_limit * 100) | round | int %}
+                            {% if effective_storage_limit > 0 %}
+                            {% set storage_pct = (storage_used / effective_storage_limit * 100) | round | int %}
                             {% set s_fill_class = '' %}
                             {% if storage_pct >= 90 %}{% set s_fill_class = 'danger' %}{% elif storage_pct >= 75 %}{% set s_fill_class = 'warning' %}{% endif %}
 
@@ -952,7 +952,7 @@
                             <div
                                 style="font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; font-weight: 500;">
                                 <span>{{ storage_pct }}% del almacenamiento total ocupado</span>
-                                <span>{{ (storage_limit - storage_used) | round(2) }} MB disponibles</span>
+                                <span>{{ storage_available | round(2) }} MB disponibles</span>
                             </div>
                             {% else %}
                             <div class="progress-bar-container">
@@ -961,6 +961,19 @@
                             <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Almacenamiento ilimitado para esta cuenta.</span>
                             {% endif %}
                         </div>
+                        {% if storage_addon_cost > 0 and session.get('user', {}).get('permissions', {}).get('canManageStorageAddons', session.get('user', {}).get('role') in ['owner', 'admin']) %}
+                        <div style="border-top: 1px solid var(--border-color); padding-top: 18px;">
+                            <strong>¿Necesitas más espacio?</strong>
+                            <p style="margin: 6px 0 12px; color: var(--text-muted); font-size: .85rem;">El espacio se habilita de inmediato y el cargo se incluirá en tu próxima factura.</p>
+                            <form method="POST" action="{{ url_for('web_invoices.activate_storage_addon') }}" style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+                                <label style="font-size:.8rem;">GB adicionales
+                                    <input type="number" name="quantity_gb" value="1" min="1" max="100" required class="form-input" style="width:110px; margin-top:4px;">
+                                </label>
+                                <span style="font-size:.85rem; color:var(--text-muted);">USD ${{ storage_addon_cost | round(2) }} por GB / mes</span>
+                                <button type="submit" class="btn btn-primary" onclick="return confirm('Confirmas que deseas habilitar el almacenamiento adicional y aceptar el cargo en tu próxima factura?');">Agregar almacenamiento</button>
+                            </form>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
 

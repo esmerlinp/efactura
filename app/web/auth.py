@@ -1431,7 +1431,7 @@ def update_user_profile():
             filename = secure_filename(avatar_file.filename)
             unique_filename = f"{uuid.uuid4().hex}_{filename}"
             owner_uid = session['user'].get('ownerUID', uid)
-            company_id = _resolve_company_id(owner_uid)
+            company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
             destination_path = f"companies/{company_id}/avatars/{unique_filename}" if company_id else f"users/{owner_uid}/avatars/{unique_filename}"
             
             avatar_file.seek(0)

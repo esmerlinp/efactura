@@ -41,7 +41,7 @@ def audit_log():
     owner_uid = session['user']['ownerUID']
 
     # Obtener lista de usuarios de la compañía (propietario + colaboradores)
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     company_users = []
     owner_profile = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_profile:
@@ -124,7 +124,7 @@ def audit_detail(log_id):
         return denied
 
     owner_uid = session['user']['ownerUID']
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     log = AuditService.get_log_detail(owner_uid, log_id, company_id=company_id)
 
     if not log:
@@ -150,7 +150,7 @@ def audit_export():
         return redirect(url_for('web_audit.audit_log'))
 
     owner_uid = user['ownerUID']
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
 
     # Leer filtros del formulario POST
     module_f  = request.form.get('module', 'Todos')
@@ -182,7 +182,7 @@ def audit_export_status(job_id):
     if denied:
         return denied
     owner_uid = session['user']['ownerUID']
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     from app.services.audit_export_service import AuditExportService
     job = AuditExportService.get_job(company_id, job_id, sandbox=True)
     if not job or job.get('ownerUID') != owner_uid:
@@ -196,7 +196,7 @@ def audit_export_download(job_id):
     if denied:
         return denied
     owner_uid = session['user']['ownerUID']
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     from app.services.audit_export_service import AuditExportService
     url = AuditExportService.get_download_url(company_id, owner_uid, job_id, sandbox=True)
     if not url:

@@ -35,7 +35,7 @@ except Exception as e:
     WEASYPRINT_AVAILABLE = False
 import random
 from config import Config
-from app.services.db_service import DatabaseService
+from app.services.db_service import DatabaseService, _resolve_company_id
 from app.services.quotation_expiry_service import (
     quotation_expiry,
     apply_expiry_status,
@@ -749,7 +749,9 @@ def list_items():
     if not check_permission('canManageCatalog'):
         return render_template('auth/restricted.html', feature_name="Catálogo de Productos", required_permission="canManageCatalog"), 403
     owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
+    # Use the same company resolution as the contracts module when the session
+    # does not carry a selected company (e.g. after quotation conversion).
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     sandbox = session.get('is_sandbox_mode', True)
     
     items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
@@ -5181,9 +5183,12 @@ def send_quotation_to_client(invoice_id):
     recipient_email = request.form.get("email", "").strip()
     
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
-    if not invoice or not invoice.get('isQuotation'):
-        flash('Cotización no encontrada.', 'error')
+    is_proforma = invoice and invoice.get('documentType') == 'proforma'
+    if not invoice or (not invoice.get('isQuotation') and not is_proforma):
+        flash('Cotización o proforma no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_quotations'))
+
+    document_label = 'Proforma' if is_proforma else 'Cotización'
         
     if not recipient_email:
         recipient_email = _get_client_email(owner_uid, invoice, sandbox=sandbox, company_id=company_id)
@@ -5236,16 +5241,16 @@ def send_quotation_to_client(invoice_id):
   <div class="wrapper">
     <div class="header">
       {f'<img src="{company.get("logoUrl")}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;">' if company.get("logoUrl") else ''}
-      <h1>Propuesta Comercial</h1>
+      <h1>{document_label}</h1>
       <p>{company_name}</p>
     </div>
     <div class="body">
       <p style="font-size:1.05rem; font-weight: 600; color:#0f172a; margin-top:0;">Estimado cliente ({invoice.get('clientName', '')}):</p>
       <p style="font-size:0.92rem; color:#475569; line-height: 1.6;">
-        Hemos preparado una propuesta comercial para usted con el número de documento <strong>{invoice.get('invoiceNumber', '')}</strong> por un monto total de <strong>RD$ {invoice.get('total', 0.0):,.2f}</strong>.
+        Hemos preparado una {document_label.lower()} para usted con el número de documento <strong>{invoice.get('invoiceNumber', '')}</strong> por un monto total de <strong>RD$ {invoice.get('total', 0.0):,.2f}</strong>.
       </p>
       <p style="font-size:0.92rem; color:#475569; line-height: 1.6;">
-        Puede revisar la propuesta completa y proceder a su firma y aprobación electrónica certificada haciendo clic en el siguiente botón:
+        Puede revisar el documento completo y proceder a su firma y aprobación electrónica certificada haciendo clic en el siguiente botón:
       </p>
 
       <div style="background:#f1f5f9; border-radius:8px; padding:16px 20px; margin:20px 0; text-align:center;">
@@ -5256,7 +5261,7 @@ def send_quotation_to_client(invoice_id):
       </div>
 
       <div class="btn-container">
-        <a href="{portal_link}" class="btn-link" target="_blank">Revisar y Firmar Cotización</a>
+        <a href="{portal_link}" class="btn-link" target="_blank">Revisar y Firmar {document_label}</a>
       </div>
 
       <p style="font-size:0.85rem; color:#64748b; text-align: center;">
@@ -5273,7 +5278,7 @@ def send_quotation_to_client(invoice_id):
 </body>
 </html>
 """
-        subject = f"Propuesta Comercial - Cotización {invoice.get('invoiceNumber', '')} | {company_name}"
+        subject = f"{document_label} {invoice.get('invoiceNumber', '')} | {company_name}"
         success = Mailer.send(app=app._get_current_object(), to_email=recipient_email, subject=subject, html_body=html_body, from_name=company_name, category='noreply')
 
         if not success:
@@ -5291,7 +5296,7 @@ def send_quotation_to_client(invoice_id):
         except Exception as ae:
             print(f"⚠️ Error al registrar auditoría de envío de correo: {ae}")
 
-        flash(f"Enlace de aprobación enviado con éxito a {recipient_email}.", "success")
+        flash(f"Enlace de aprobación de la {document_label.lower()} enviado con éxito a {recipient_email}.", "success")
     else:
         # ── RUTA PDF: enviar cotización como PDF adjunto (o HTML inline) ──
         import io
@@ -5332,16 +5337,16 @@ def send_quotation_to_client(invoice_id):
   <div class="wrapper">
     <div class="header">
       {f'<img src="{company.get("logoUrl")}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;">' if company.get("logoUrl") else ''}
-      <h1>Cotización</h1>
+      <h1>{document_label}</h1>
       <p>{company_name}</p>
     </div>
     <div class="body">
       <p style="font-size:1.05rem; font-weight: 600; color:#0f172a; margin-top:0;">Estimado cliente ({invoice.get('clientName', '')}):</p>
       <p style="font-size:0.92rem; color:#475569; line-height: 1.6;">
-        Hemos preparado una cotización para usted con el número <strong>{invoice.get('invoiceNumber', '')}</strong> por un monto total de <strong>{total_str}</strong>.
+        Hemos preparado una {document_label.lower()} para usted con el número <strong>{invoice.get('invoiceNumber', '')}</strong> por un monto total de <strong>{total_str}</strong>.
       </p>
       <p style="font-size:0.92rem; color:#475569; line-height: 1.6;">
-        Adjunto encontrará el detalle completo de la propuesta en formato PDF.
+        Adjunto encontrará el detalle completo de la {document_label.lower()} en formato PDF.
       </p>
       <div class="footer-note">
         Para consultas adicionales, comuníquese con nosotros.<br>
@@ -5352,12 +5357,12 @@ def send_quotation_to_client(invoice_id):
 </body>
 </html>
 """
-        subject = f"Cotización {invoice.get('invoiceNumber', '')} | {company_name}"
+        subject = f"{document_label} {invoice.get('invoiceNumber', '')} | {company_name}"
         
         attachments = []
         if pdf_bytes:
             attachments.append({
-                'filename': f"cotizacion-{invoice.get('invoiceNumber', '')}.pdf",
+                'filename': f"{document_label.lower()}-{invoice.get('invoiceNumber', '')}.pdf",
                 'data': pdf_bytes,
                 'mimetype': 'pdf'
             })
@@ -5374,7 +5379,7 @@ def send_quotation_to_client(invoice_id):
         except Exception as ae:
             print(f"⚠️ Error al registrar auditoría de envío de cotización PDF: {ae}")
         
-        flash(f"Cotización enviada con éxito a {recipient_email}.", "success")
+        flash(f"{document_label} enviada con éxito a {recipient_email}.", "success")
         
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
@@ -5583,6 +5588,12 @@ def prepare_contract_submit(invoice_id):
     }
 
     DatabaseService.save_contract(owner_uid, contract_id, contract_dict, company_id=company_id, sandbox=sandbox)
+
+    # Confirm the document is readable in the exact context used by the
+    # contract detail route before marking the quotation as converted.
+    if not DatabaseService.get_contract(owner_uid, contract_id, company_id=company_id, sandbox=sandbox):
+        flash('No se pudo guardar el contrato. Intenta nuevamente.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
     # ── Marcar cotización como convertida ─────────────────────────────────────
     invoice['isConvertedToContract'] = True
@@ -11831,6 +11842,10 @@ def client_subscription_page():
     )
     storage_used = DatabaseService.get_storage_usage_mb(owner_uid, company_id=company_id)
     storage_limit = profile.get('storageLimitMB', 512) or 512
+    storage_addons_gb = float(profile.get('additionalStorageGB', 0) or 0)
+    storage_addon_cost = float(profile.get('additionalStorageCost', 0) or 0)
+    effective_storage_limit = float(storage_limit) + storage_addons_gb * 1024
+    storage_available = max(0.0, effective_storage_limit - storage_used)
 
     cancel_scheduled = profile.get('cancel_at_period_end', False)
     cancel_date = profile.get('cancel_scheduled_date', '')
@@ -11866,11 +11881,44 @@ def client_subscription_page():
     return render_template('subscription.html', active_page='subscription',
         profile=profile, plan_name=plan_name, stats=stats, payments=payments,
         billing_history=billing_history, storage_used=storage_used, storage_limit=storage_limit,
+        storage_addons_gb=storage_addons_gb, storage_addon_cost=storage_addon_cost,
+        effective_storage_limit=effective_storage_limit, storage_available=storage_available,
         cancel_scheduled=cancel_scheduled, cancel_date=cancel_date,
         proration_current=proration_current,
         resource_metrics=resource_metrics,
         total_excess_cost=total_excess_cost,
         total_projected_bill=total_projected_bill)
+
+@web_invoices_bp.route('/suscripcion/storage-addon', methods=['POST'])
+@require_permission('canViewSubscription', 'Suscripción y Consumo')
+def activate_storage_addon():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    user = session['user']
+    permissions = user.get('permissions', {})
+    if not permissions.get('canManageStorageAddons', user.get('role') in ('owner', 'admin')):
+        flash('No tienes permiso para contratar almacenamiento adicional.', 'error')
+        return redirect(url_for('web_invoices.client_subscription_page'))
+    try:
+        quantity_gb = int(request.form.get('quantity_gb', 0))
+    except (TypeError, ValueError):
+        quantity_gb = 0
+    company_id = session.get('selected_company_id')
+    owner_uid = user['ownerUID']
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    if not profile or quantity_gb < 1 or quantity_gb > 100:
+        flash('Selecciona una cantidad válida de 1 a 100 GB.', 'error')
+        return redirect(url_for('web_invoices.client_subscription_page'))
+    unit_price = float(profile.get('additionalStorageCost', 0) or 0)
+    if unit_price <= 0:
+        flash('Tu plan no tiene configurado un costo por GB adicional.', 'error')
+        return redirect(url_for('web_invoices.client_subscription_page'))
+    try:
+        addon = DatabaseService.activate_storage_addon(company_id, owner_uid, quantity_gb, unit_price, user.get('uid', owner_uid))
+        flash(f"Se habilitaron {addon['quantityGB']} GB. Se agregarán ${addon['monthlyCharge']:.2f} a tu próxima factura.", 'success')
+    except Exception as e:
+        flash(f'No se pudo habilitar el almacenamiento adicional: {e}', 'error')
+    return redirect(url_for('web_invoices.client_subscription_page'))
 
 def _update_profile_fields(owner_uid, updates, company_id=None):
     """Actualiza campos específicos del perfil de empresa en Firestore sin sobrescribir todo."""

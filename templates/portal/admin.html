@@ -305,9 +305,23 @@ function sendCredentials(btn, clientId) {
 
     fetch('{{ url_for("web_clients.send_portal_credentials", client_id="CLIENT_ID_PLACEHOLDER") }}'.replace('CLIENT_ID_PLACEHOLDER', clientId), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({})
     })
-    .then(r => r.json())
+    .then(async response => {
+        const contentType = response.headers.get('content-type') || '';
+        const data = contentType.includes('application/json')
+            ? await response.json()
+            : { error: `El servidor respondió con HTTP ${response.status}.` };
+        if (!response.ok) {
+            throw new Error(data.error || `Error HTTP ${response.status}`);
+        }
+        return data;
+    })
     .then(data => {
         if (data.success) {
             showToast('✅ Credenciales enviadas al cliente');
@@ -315,7 +329,7 @@ function sendCredentials(btn, clientId) {
             showToast('❌ ' + (data.error || 'Error al enviar'));
         }
     })
-    .catch(() => showToast('❌ Error de conexión'))
+    .catch(error => showToast('❌ ' + (error.message || 'Error de conexión')))
     .finally(() => {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-envelope"></i> Enviar Credenciales';

@@ -41,6 +41,14 @@ class Config:
         'false' if APP_ENVIRONMENT == 'production' else 'true'
     ).lower() in ('true', '1', 'yes')
 
+    # Motor de contratos recurrentes V2. Por defecto activo fuera de producción
+    # (desarrollo/sandbox/staging); en producción requiere activación explícita
+    # por empresa vía Firestore o esta variable de entorno.
+    RECURRING_CONTRACT_ENGINE_V2_DEFAULT = os.getenv(
+        'RECURRING_CONTRACT_ENGINE_V2_DEFAULT',
+        'false' if APP_ENVIRONMENT == 'production' else 'true'
+    ).lower() in ('true', '1', 'yes')
+
     SECRET_KEY = os.getenv('SECRET_KEY')
     TIMEZONE = os.getenv('TIMEZONE', 'America/Santo_Domingo')
     

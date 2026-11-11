@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+{% block title %}Contratos recurrentes{% endblock %}
+{% block page_header %}Contratos recurrentes{% endblock %}
+{% block content %}
+<div style="max-width:1180px;margin:0 auto;">
+  <div class="guide-banner" style="margin-bottom:20px;">
+    <div class="guide-banner-icon"><i class="fa-solid fa-shield-halved"></i></div>
+    <div class="guide-banner-content">
+      <h4>Administración del dominio nuevo</h4>
+      <p>Esta vista solo muestra contratos <code>schemaVersion=2</code>. Los cálculos de períodos, importes y elegibilidad fiscal pertenecen a los servicios del dominio.</p>
+      <p style="margin-bottom:0;"><strong>Motor V2:</strong> {% if flag_enabled %}habilitado para esta compañía y entorno{% else %}no habilitado; no se puede activar desde la interfaz{% endif %}</p>
+    </div>
+  </div>
+  <form method="get" class="card-table-wrapper" style="padding:18px;margin-bottom:20px;display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:12px;align-items:end;">
+    <label>Cliente<input class="form-control" name="client" value="{{ filters.get('client','') }}" placeholder="Nombre o ID"></label>
+    <label>Estado<select class="form-control" name="status"><option value="">Todos</option>{% for s in ['draft','pending_approval','active','suspended','cancelled','expired'] %}<option value="{{ s }}" {% if filters.get('status')==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+    <label>Frecuencia<select class="form-control" name="frequency"><option value="">Todas</option>{% for f in ['weekly','biweekly','monthly','quarterly','semiannual','annual'] %}<option value="{{ f }}" {% if filters.get('frequency')==f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></label>
+    <label>Fiscal<select class="form-control" name="fiscal"><option value="">Todos</option><option value="ready">Listos</option><option value="review">Revisión fiscal</option></select></label>
+    <button class="btn btn-primary" type="submit">Filtrar</button>
+  </form>
+  <div class="card-table-wrapper"><div class="table-responsive"><table class="data-grid">
+    <thead><tr><th>Contrato</th><th>Cliente</th><th>Estado</th><th>Frecuencia</th><th>Vigencia</th><th>Fiscal</th><th></th></tr></thead>
+    <tbody>{% for contract in contracts %}
+      <tr>
+        <td><strong>{{ contract.contract_number or contract.id }}</strong><br><small>{{ contract.id }}</small></td>
+        <td>{{ contract.client_name_snapshot }}<br><small>{{ contract.client_rnc_snapshot }}</small></td>
+        <td><span class="badge">{{ contract.status.value }}</span></td>
+        <td>{{ contract.frequency.value }}<br><small>{{ contract.billing_mode.value }}</small></td>
+        <td>{{ contract.start_date }}{% if contract.end_date %} → {{ contract.end_date }}{% else %} → indefinido{% endif %}</td>
+        <td>{% if contract.needs_fiscal_review %}<span class="badge" style="background:#fef3c7;color:#92400e;">Revisión requerida</span>{% else %}<span class="badge" style="background:#dcfce7;color:#166534;">Configurado</span>{% endif %}</td>
+        <td><a class="btn btn-secondary" href="{{ url_for('recurring_contracts_admin.recurring_contract_detail', contract_id=contract.id) }}">Ver detalle</a></td>
+      </tr>
+    {% else %}<tr><td colspan="7" style="text-align:center;padding:40px;">No hay contratos del dominio nuevo para estos filtros.</td></tr>{% endfor %}</tbody>
+  </table></div></div>
+</div>
+{% endblock %}

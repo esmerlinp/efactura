@@ -702,7 +702,10 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all, company_i
                     "includeInRui": bool(data.get("includeInRui", True)),
                     "ruiId": data.get("ruiId", ""),
                     "ruiNcf": data.get("ruiNcf", ""),
-                    "excludeFromRuiReason": data.get("excludeFromRuiReason", "")
+                    "excludeFromRuiReason": data.get("excludeFromRuiReason", ""),
+                    "contractId": data.get("contractId") or data.get("contract_id") or "",
+                    "contractNumber": data.get("contractNumber", ""),
+                    "occurrenceId": data.get("occurrenceId", "")
                 })
             invoices.sort(key=lambda x: x["date"] or "", reverse=True)
         except Exception as e:
@@ -1086,18 +1089,30 @@ def require_company_id(company_id, context="unknown"):
         )
 
 def _resolve_company_id(owner_uid):
-    """Resuelve company_id desde owner_uid (lookup directo, bridge legacy→multi-company)."""
+    """Resuelve company_id desde owner_uid solo cuando NO es ambiguo.
+
+    Un owner puede tener varias empresas. Adivinar "la más reciente" mezcla
+    datos entre empresas distintas; por eso este bridge legacy es fail-closed:
+    únicamente resuelve cuando el owner tiene exactamente una empresa.
+    Con 0 o >1 empresas devuelve None y el caller debe usar la empresa activa
+    de la sesión (selected_company_id) o pasar company_id explícito.
+    """
     if not owner_uid:
         return None
     try:
         docs = db_firestore.collection("companies").where(filter=firestore.FieldFilter("owner_uid", "==", owner_uid)).get()
-        companies = [(d.id, d.to_dict().get("created_at", "")) for d in docs]
-        companies.sort(key=lambda x: x[1], reverse=True)
-        if companies:
-            return companies[0][0]
+        company_ids = [d.id for d in docs]
+        if len(company_ids) == 1:
+            return company_ids[0]
+        if len(company_ids) > 1:
+            print(
+                f"⚠️ [_resolve_company_id] owner {owner_uid} tiene "
+                f"{len(company_ids)} empresas: se requiere company_id explícito "
+                f"(empresa activa de la sesión). No se adivina."
+            )
+        return None
     except Exception:
-        pass
-    return None
+        return None
 
 def _resolve_owner_uid(company_id):
     """Resuelve owner_uid desde company_id (lookup directo)."""
@@ -1119,7 +1134,6 @@ def _company_coll(*, company_id=None, coll_name=None, owner_uid=None):
         return db_firestore.collection("companies").document(resolved_cid).collection(coll_name)
     # No usar users/{owner_uid} como sustituto silencioso del ambito de
     # compania. Los callers legacy deben migrar y proporcionar company_id.
-    return None
     return None
 
 
@@ -2267,6 +2281,11 @@ class DatabaseService:
         resolved_warehouse_cost = _resolve_cost("additionalWarehouseCost", "additional_warehouse_cost")
         resolved_employee_cost = _resolve_cost("additionalEmployeeCost", "additional_employee_cost")
         resolved_box_cost = _resolve_cost("additionalBoxCost", "additional_box_cost")
+        resolved_storage_cost = _resolve_cost("additionalStorageCost", "additional_storage_cost")
+        try:
+            additional_storage_gb = float(company.get("additionalStorageGB", company.get("additional_storage_gb", 0)) or 0)
+        except (TypeError, ValueError):
+            additional_storage_gb = 0.0
 
         return {
             "ownerUID": company.get("owner_uid", company.get("ownerUID", owner_uid)),
@@ -2307,6 +2326,8 @@ class DatabaseService:
             "userLimit": user_limit,
             "documentLimit": doc_limit,
             "storageLimitMB": storage_limit,
+            "additionalStorageGB": additional_storage_gb,
+            "additionalStorageCost": resolved_storage_cost,
             "branchLimit": branch_limit,
             "additionalBranchCost": resolved_branch_cost,
             "warehouseLimit": warehouse_limit,
@@ -2677,7 +2698,10 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_projects" if sandbox else "projects"
-                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
+                coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
+                if coll is None:
+                    return projects
+                docs = coll.get()
                 for doc in docs:
                     data = doc.to_dict()
                     p_branch_id = data.get("branchId", "")
@@ -4010,9 +4034,12 @@ class DatabaseService:
                         "notes": data.get("notes", ""),
                         "comentario": data.get("comentario", ""),
                         "footer": data.get("footer", ""),
-                        "isRecurring": bool(data.get("isRecurring", False)),
-                        "recurrenceInterval": data.get("recurrenceInterval", "mensual"),
-                        "nextOccurrenceDate": serialize_field(data.get("nextOccurrenceDate")),
+                    "isRecurring": bool(data.get("isRecurring", False)),
+                    "recurrenceInterval": data.get("recurrenceInterval", "mensual"),
+                    "nextOccurrenceDate": serialize_field(data.get("nextOccurrenceDate")),
+                    "contractId": data.get("contractId") or data.get("contract_id") or "",
+                    "contractNumber": data.get("contractNumber", ""),
+                    "occurrenceId": data.get("occurrenceId", ""),
                         "firebasePDFURL": data.get("firebasePDFURL", ""),
                         "firebaseXMLURL": data.get("firebaseXMLURL", ""),
                         "currency": data.get("currency", "DOP"),
@@ -4707,8 +4734,8 @@ class DatabaseService:
                 is_note = "Nota de Crédito" in ecf_type or "Nota de Débito" in ecf_type
                 if not inv_data.get("isQuotation", False) and not is_note and new_status in ("Cobrada", "Pagado pero no emitido"):
                     from app.services.accounting_service import AccountingService
-                    company_id = DatabaseService._resolve_company_id(owner_uid)
-                    entry = AccountingService.auto_generate_invoice_entry(company_id, inv_data, sandbox=sandbox)
+                    entry_company_id = company_id or DatabaseService._resolve_company_id(owner_uid)
+                    entry = AccountingService.auto_generate_invoice_entry(entry_company_id, inv_data, sandbox=sandbox)
                     if entry:
                         print(f"✅ Asiento contable {entry.get('number', '')} generado para factura {inv_data.get('invoiceNumber', '')}")
             except Exception as acc_err:
@@ -5211,6 +5238,7 @@ class DatabaseService:
                 profile = cls.get_company_profile(owner_uid, company_id=company_id)
                 if profile:
                     storage_limit = profile.get('storageLimitMB')
+                    storage_limit = float(storage_limit or 0) + (float(profile.get('additionalStorageGB', 0) or 0) * 1024)
                     if storage_limit:
                         current_usage = cls.get_storage_usage_mb(owner_uid)
                         new_file_mb = len(file_data) / (1024 * 1024)
@@ -7831,7 +7859,10 @@ class DatabaseService:
     def get_invoices_by_contract(cls, owner_uid, contract_id, sandbox=True, company_id=None):
         """Retorna todas las facturas generadas desde un contrato específico."""
         all_invoices = cls.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
-        return [inv for inv in all_invoices if inv.get('contractId') == contract_id]
+        return [
+            inv for inv in all_invoices
+            if str(inv.get('contractId') or inv.get('contract_id') or '').strip() == str(contract_id).strip()
+        ]
 
     @classmethod
     def delete_contract(cls, owner_uid, contract_id, sandbox=True, company_id=None):

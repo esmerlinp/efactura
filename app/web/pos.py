@@ -2681,7 +2681,7 @@ import re
 from app.web.invoices import format_mentions
 
 def process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sandbox):
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     taggable_users = []
     owner_prof = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_prof:

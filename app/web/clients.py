@@ -588,7 +588,10 @@ def send_portal_credentials(client_id):
     )
 
     if not success:
-        return jsonify({"success": False, "error": "Error al enviar correo."}), 500
+        return jsonify({
+            "success": False,
+            "error": "No se pudo enviar el correo. Verifique la configuración SMTP o Microsoft Graph y revise los logs del servidor."
+        }), 502
 
     import uuid as _uuid
     from datetime import datetime as _dt, timezone

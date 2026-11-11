@@ -40,7 +40,42 @@ def _get_all_owner_uids(company_id=None):
     return uids
 
 
-def _production_contract_blocked(owner_uid: str) -> bool:
+def _billing_companies(company_id=None):
+    """Empresas a procesar por los jobs de facturación.
+
+    Cada entrada lleva su propio company_id y owner_uid. Nunca se resuelve
+    "la empresa del owner": un owner puede tener varias empresas y adivinar
+    mezclaría datos entre ellas.
+    """
+    from app.services.db_service import db_firestore, firebase_initialized
+    if not firebase_initialized or not db_firestore:
+        return []
+    try:
+        if company_id:
+            doc = db_firestore.collection("companies").document(company_id).get()
+            if not doc.exists:
+                return []
+            data = doc.to_dict() or {}
+            owner_uid = data.get("owner_uid")
+            if not owner_uid:
+                logger.warning("Empresa %s sin owner_uid — omitida en facturación", company_id)
+                return []
+            return [{"id": doc.id, "owner_uid": owner_uid}]
+        result = []
+        for doc in db_firestore.collection("companies").stream():
+            data = doc.to_dict() or {}
+            owner_uid = data.get("owner_uid")
+            if not owner_uid:
+                logger.warning("Empresa %s sin owner_uid — omitida en facturación", doc.id)
+                continue
+            result.append({"id": doc.id, "owner_uid": owner_uid})
+        return result
+    except Exception as e:
+        logger.error(f"Error obteniendo empresas para facturación: {e}")
+        return []
+
+
+def _production_contract_blocked(owner_uid: str, company_id: str | None = None) -> bool:
     """True si la operación de producción de este owner debe omitirse por contrato.
 
     Los procesos automáticos requieren aceptación empresarial vigente, pero no
@@ -49,6 +84,8 @@ def _production_contract_blocked(owner_uid: str) -> bool:
     """
     from app.services.production_agreement_access_service import ProductionAgreementAccessService
     try:
+        if company_id:
+            return ProductionAgreementAccessService.requires_job_contract_access(company_id)
         return ProductionAgreementAccessService.requires_job_contract_access_for_owner(owner_uid)
     except Exception as e:
         logger.error(f"Error verificando contrato de producción para {owner_uid}: {e}")
@@ -65,12 +102,19 @@ def run_daily_contract_billing(company_id=None):
     """
     from app.services.db_service import db_firestore
     from app.services.recurrence import RecurrenceService
+    from app.services.recurring_contract_flag_loader import firestore_recurring_contract_flag_loader
+    from app.services.recurring_contract_service import RecurringContractFeatureFlags, RecurringContractService
+    from app.services.recurring_contract_occurrence_service import RecurringContractOccurrenceService
+    from app.services.recurring_contract_outbox_service import OutboxCommandService
+    from app.models.recurring_contract import RecurringContract
 
     logger.info("⏰ APScheduler — Iniciando facturación diaria de contratos recurrentes...")
 
-    owner_uids = _get_all_owner_uids(company_id=company_id)
-    if not owner_uids:
-        logger.info("ℹ️ No se encontraron usuarios para facturación de contratos.")
+    from app.services.db_service import _company_coll
+
+    companies = _billing_companies(company_id=company_id)
+    if not companies:
+        logger.info("ℹ️ No se encontraron empresas para facturación de contratos.")
         return
 
     collections = [
@@ -79,33 +123,71 @@ def run_daily_contract_billing(company_id=None):
     ]
 
     for collection_name, is_sandbox in collections:
-        for owner_uid in owner_uids:
+        for company in companies:
+            owner_uid = company["owner_uid"]
+            current_company_id = company["id"]
             try:
-                contracts = db_firestore.collection(collection_name) \
-                    .where("ownerUID", "==", owner_uid) \
-                    .where("status", "==", "Activo").stream()
+                if firestore_recurring_contract_flag_loader(db_firestore, current_company_id, is_sandbox):
+                    contracts_v2 = RecurrenceService._get_contracts_for_billing(owner_uid, sandbox=is_sandbox, company_id=current_company_id)
+                    coordinator = RecurringContractService(
+                        occurrence_service=RecurringContractOccurrenceService(db_firestore),
+                        outbox_service=OutboxCommandService(db_firestore),
+                        flags=RecurringContractFeatureFlags(lambda cid, sb: cid == current_company_id and sb == is_sandbox),
+                    )
+                    count = 0
+                    for raw_contract in contracts_v2:
+                        if raw_contract.get("schemaVersion") != 2:
+                            continue
+                        try:
+                            typed = RecurringContract.model_validate(raw_contract)
+                            result = coordinator.prepare_and_enqueue(
+                                contract=typed,
+                                owner_uid=owner_uid,
+                                company_id=current_company_id,
+                                sandbox=is_sandbox,
+                                trigger="scheduler",
+                            )
+                            if result.get("enabled"):
+                                count += 1
+                        except Exception as contract_exc:
+                            logger.error("Error coordinando contrato %s: %s", raw_contract.get("id"), contract_exc)
+                    if count:
+                        logger.info("✅ %s contrato(s) enviados al Outbox para %s", count, owner_uid)
+                    continue
+
+                contracts_coll = _company_coll(
+                    company_id=current_company_id,
+                    coll_name=collection_name,
+                )
+                if contracts_coll is None:
+                    continue
+                contracts = contracts_coll.where("status", "==", "Activo").stream()
                 has_active = any(True for _ in contracts)
                 if not has_active:
                     continue
 
-                if not is_sandbox and _production_contract_blocked(owner_uid):
-                    logger.info(f"⏭️ Contrato de producción no aceptado — omitiendo {owner_uid} (sandbox={is_sandbox})")
+                if not is_sandbox and _production_contract_blocked(owner_uid, current_company_id):
+                    logger.info(
+                        f"⏭️ Contrato de producción no aceptado — omitiendo "
+                        f"empresa {current_company_id} (sandbox={is_sandbox})"
+                    )
                     continue
 
                 count = RecurrenceService.process_pending_contracts(
                     owner_uid,
                     sandbox=is_sandbox,
                     app_instance=_flask_app,
+                    company_id=current_company_id,
                 )
                 if count > 0:
                     logger.info(
-                        f"✅ {count} contrato(s) facturado(s) para owner "
-                        f"{owner_uid} (sandbox={is_sandbox})"
+                        f"✅ {count} contrato(s) facturado(s) para empresa "
+                        f"{current_company_id} (sandbox={is_sandbox})"
                     )
             except Exception as exc:
                 logger.error(
-                    f"❌ Error procesando contratos de {owner_uid} "
-                    f"(sandbox={is_sandbox}): {exc}"
+                    f"❌ Error procesando contratos de la empresa "
+                    f"{current_company_id} (sandbox={is_sandbox}): {exc}"
                 )
 
     logger.info("✅ APScheduler — Facturación diaria finalizada.")

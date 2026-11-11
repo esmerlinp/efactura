@@ -258,6 +258,26 @@
                     <option value="anual">Anual (cada 365 días)</option>
                 </select>
             </div>
+            <div class="grid-2" style="margin-top:20px;">
+                <div>
+                    <label class="field-label" for="ecfType">Tipo de e-CF</label>
+                    <select id="ecfType" name="ecfType" class="field-input" required>
+                        {% for fiscal_type in fiscal_types %}
+                        <option value="{{ fiscal_type.code }}" {% if fiscal_type.code == 'E31' %}selected{% endif %}>{{ fiscal_type.label_with_code }}{% if fiscal_type.code not in ['E31', 'E32'] %} · condicionado{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    <small style="color:var(--text-muted);font-size:0.77rem;display:block;margin-top:6px;">E43, E41 y notas fiscales no están disponibles para contratos comerciales.</small>
+                </div>
+                <div>
+                    <label class="field-label" for="currency">Moneda</label>
+                    <select id="currency" name="currency" class="field-input"><option>DOP</option><option>USD</option><option>EUR</option></select>
+                </div>
+            </div>
+            <div class="grid-3" style="margin-top:20px;">
+                <div><label class="field-label" for="billingMode">Facturación</label><select id="billingMode" name="billingMode" class="field-input"><option value="advance">Anticipada</option><option value="arrears">Vencida</option></select></div>
+                <div><label class="field-label" for="paymentType">Condición de pago</label><select id="paymentType" name="paymentType" class="field-input"><option>Contado</option><option>Crédito</option></select></div>
+                <div><label class="field-label" for="creditDays">Días de crédito</label><input id="creditDays" name="creditDays" type="number" min="0" max="3650" value="0" class="field-input"></div>
+            </div>
         </div>
 
         <!-- Sección 5: Vigencia -->
