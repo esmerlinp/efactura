@@ -540,7 +540,7 @@ def add_po_comment(po_id):
             file_data = file.read()
             mime_type = file.mimetype or "application/octet-stream"
             filename = f"comment_po_{po_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
-            company_id = _resolve_company_id(owner_uid)
+            company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
             destination_path = f"companies/{company_id}/comments/{filename}" if company_id else f"users/{owner_uid}/comments/{filename}"
             attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
             attachment_name = file.filename
@@ -606,7 +606,7 @@ def edit_po_comment(po_id, comment_id):
             file_data = file.read()
             mime_type = file.mimetype or "application/octet-stream"
             filename = f"comment_po_{po_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
-            company_id = _resolve_company_id(owner_uid)
+            company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
             destination_path = f"companies/{company_id}/comments/{filename}" if company_id else f"users/{owner_uid}/comments/{filename}"
             attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
             comment['attachmentUrl'] = attachment_url
@@ -683,7 +683,7 @@ def attach_po_document(po_id):
                 file_data = att_file.read()
                 mime_type = att_file.content_type or "application/octet-stream"
                 safe_name = att_file.filename.replace(' ', '_')
-                company_id = _resolve_company_id(owner_uid)
+                company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
                 dest_path = f"companies/{company_id}/purchase_orders/{po_id}/{safe_name}" if company_id else f"users/{owner_uid}/purchase_orders/{po_id}/{safe_name}"
                 public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
                 att_type = attachment_types[i] if i < len(attachment_types) else 'otro'

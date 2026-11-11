@@ -1066,7 +1066,7 @@
                 <span>Ver Factura Emitida ({{ invoice.convertedInvoiceNumber or 'FAC' }})</span>
             </a>
         </div>
-        {% elif invoice.status != 'Aprobada' %}
+        {% elif invoice.status != 'Aprobada' or is_proforma %}
         {% if invoice.status == 'Rechazada' %}
         <div class="card-table-wrapper"
             style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-red); background: rgba(239, 68, 68, 0.03);">

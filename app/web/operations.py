@@ -5,12 +5,91 @@ from app.utils.decorators import check_permission
 from app.utils.module_gate import require_module, module_enabled, get_module_label
 from config import Config
 from app.brand import get_product_name
-from datetime import datetime, timedelta, timezone
+from app.models.recurring_contract import (
+    BillingFrequency,
+    BillingMode,
+    ContractTermsVersion,
+    DueDatePolicy,
+    FirstBillingPolicy,
+    PeriodEndPolicy,
+    ProrationPolicy,
+    RecurringContract,
+    RecurringContractLine,
+    RecurringContractStatus,
+)
+from app.services.recurring_contract_fiscal_service import RecurringContractFiscalService
+from app.services.recurring_contract_admin_service import RecurringContractAdminService
+from app.services.recurring_contract_repository import RecurringContractRepository
+from app.services.recurring_contract_schedule_service import RecurringContractScheduleService
+from datetime import date, datetime, timedelta, timezone
 import uuid
 import random
 import json
 
 web_operations_bp = Blueprint('web_operations', __name__)
+
+_V2_STATUS_LABELS = {
+    RecurringContractStatus.DRAFT: 'Borrador',
+    RecurringContractStatus.PENDING_APPROVAL: 'Pendiente de Aprobación',
+    RecurringContractStatus.ACTIVE: 'Activo',
+    RecurringContractStatus.SUSPENDED: 'Suspendido',
+    RecurringContractStatus.CANCELLED: 'Cancelado',
+    RecurringContractStatus.EXPIRED: 'Expirado',
+}
+_V2_STATUS_FROM_LABEL = {
+    label.casefold(): status for status, label in _V2_STATUS_LABELS.items()
+}
+_V2_STATUS_FROM_LABEL['inactivo'] = RecurringContractStatus.SUSPENDED
+
+
+def _v2_status_label(status):
+    return _V2_STATUS_LABELS.get(status, status.value if hasattr(status, 'value') else str(status))
+
+
+def _v2_status_from_label(label):
+    return _V2_STATUS_FROM_LABEL.get(' '.join(str(label).casefold().split()))
+
+
+def _v2_toggle_target(status):
+    return (
+        RecurringContractStatus.SUSPENDED
+        if status == RecurringContractStatus.ACTIVE
+        else RecurringContractStatus.ACTIVE
+    )
+
+
+def _v2_next_billing_date(contract):
+    try:
+        return RecurringContractScheduleService.next_billing_date(contract, date.today()).isoformat()
+    except Exception:
+        return contract.billing_anchor_date.isoformat()
+
+
+def _save_v2_contract_status(owner_uid, contract_id, company_id, sandbox, v2_contract, target):
+    updated = v2_contract.transition_to(target)
+    full = DatabaseService.get_contract(owner_uid, contract_id, company_id=company_id, sandbox=sandbox) or {}
+    payload = dict(full)
+    payload.update(updated.model_dump(mode='json'))
+    payload['schemaVersion'] = 2
+    DatabaseService.save_contract(owner_uid, contract_id, payload, company_id=company_id, sandbox=sandbox)
+    return updated
+
+
+def _require_contract_fiscal_code(raw_value):
+    """Tipo de e-CF obligatorio al crear un contrato comercial (V2)."""
+    raw = (raw_value or '').strip()
+    if not raw:
+        raise ValueError('Selecciona el tipo de e-CF del contrato para poder facturarlo.')
+    return RecurringContractFiscalService.normalize_for_contract(raw)
+
+
+def _no_active_company_redirect():
+    flash('No hay una empresa activa seleccionada. Selecciona la empresa con la que deseas trabajar.', 'error')
+    return redirect(url_for('web_auth.select_company'))
+
+
+def _no_active_company_json():
+    return jsonify({"success": False, "error": "No hay una empresa activa seleccionada."}), 409
 
 
 @web_operations_bp.before_request
@@ -62,14 +141,17 @@ def new_contract():
         return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts"), 403
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
+    if not company_id:
+        return _no_active_company_redirect()
     clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     items = DatabaseService.get_items(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     return render_template(
         'operations/new_contract.html',
         active_page='contracts',
         clients=clients,
-        items=items
+        items=items,
+        fiscal_types=RecurringContractFiscalService.eligible_types(),
     )
 
 @web_operations_bp.route('/operations/contracts', methods=['GET', 'POST'])
@@ -81,7 +163,9 @@ def list_contracts():
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
+    if not company_id:
+        return _no_active_company_redirect()
     if request.method == 'POST':
         contract_id = request.form.get('id') or str(uuid.uuid4())
         client_id   = request.form.get('clientId')
@@ -90,6 +174,110 @@ def list_contracts():
 
         if not client:
             flash("Cliente no válido.", "error")
+            return redirect(url_for('web_operations.new_contract'))
+
+        # New contracts are created in the approved V2 domain. Existing
+        # legacy documents remain readable and are not rewritten here.
+        try:
+            start_date = datetime.strptime(request.form.get('startDate', ''), '%Y-%m-%d').date()
+            billing_anchor = datetime.strptime(request.form.get('nextBillingDate', ''), '%Y-%m-%d').date()
+            end_date_raw = request.form.get('endDate', '').strip()
+            end_date = datetime.strptime(end_date_raw, '%Y-%m-%d').date() if end_date_raw else None
+            frequency_raw = request.form.get('recurrenceInterval', 'mensual')
+            frequency_map = {
+                'semanal': BillingFrequency.WEEKLY,
+                'quincenal': BillingFrequency.BIWEEKLY,
+                'mensual': BillingFrequency.MONTHLY,
+                'trimestral': BillingFrequency.QUARTERLY,
+                'semestral': BillingFrequency.SEMIANNUAL,
+                'anual': BillingFrequency.ANNUAL,
+            }
+            fiscal_code = _require_contract_fiscal_code(request.form.get('ecfType', ''))
+            lines = []
+            for i, item_id in enumerate(request.form.getlist('lineItemId')):
+                if not item_id:
+                    continue
+                lines.append(RecurringContractLine(
+                    item_id=item_id,
+                    name=request.form.getlist('lineName')[i],
+                    code=request.form.getlist('lineCode')[i] if i < len(request.form.getlist('lineCode')) else '',
+                    quantity=float(request.form.getlist('lineQty')[i]),
+                    unit_price=float(request.form.getlist('linePrice')[i]),
+                    itbis_rate=float(request.form.getlist('lineItbisRate')[i]) / 100,
+                ))
+            if not lines:
+                raise ValueError('Debes agregar al menos una línea facturable.')
+            status_map = {
+                'borrador': RecurringContractStatus.DRAFT,
+                'pendiente_de_aprobación': RecurringContractStatus.PENDING_APPROVAL,
+                'pendiente_de_aprobacion': RecurringContractStatus.PENDING_APPROVAL,
+                'activo': RecurringContractStatus.ACTIVE,
+                'suspendido': RecurringContractStatus.SUSPENDED,
+                'cancelado': RecurringContractStatus.CANCELLED,
+                'expirado': RecurringContractStatus.EXPIRED,
+            }
+            raw_status = request.form.get('status', 'Borrador').strip().lower().replace(' ', '_')
+            contract_status = status_map.get(raw_status)
+            if contract_status is None:
+                raise ValueError(f'Estado contractual no válido: {raw_status}')
+            contract = RecurringContract(
+                id=contract_id,
+                owner_uid=owner_uid,
+                company_id=company_id,
+                contract_number=request.form.get('contractNumber', '').strip(),
+                client_id=client_id,
+                client_name_snapshot=client.get('razonSocial', ''),
+                client_rnc_snapshot=client.get('rnc', ''),
+                status=contract_status,
+                start_date=start_date,
+                end_date=end_date,
+                auto_renew=request.form.get('autoRenew') == 'on',
+                frequency=frequency_map[frequency_raw],
+                billing_mode=BillingMode(request.form.get('billingMode', 'advance')),
+                billing_day=billing_anchor.day,
+                billing_anchor_date=billing_anchor,
+                first_billing_policy=FirstBillingPolicy.NEXT_ANCHOR,
+                proration_policy=ProrationPolicy.DAILY if request.form.get('prorationPolicy') == 'daily' else ProrationPolicy.NONE,
+                period_end_policy=PeriodEndPolicy(request.form.get('periodEndPolicy', 'anchor_day')),
+                ecf_type=fiscal_code,
+                currency=request.form.get('currency', 'DOP'),
+                payment_type=request.form.get('paymentType', 'Contado'),
+                payment_method=request.form.get('paymentMethod', 'Efectivo'),
+                credit_days=int(request.form.get('creditDays', 0) or 0),
+                due_date_policy=DueDatePolicy(request.form.get('dueDatePolicy', 'occurrence_plus_credit_days')),
+                needs_fiscal_review=fiscal_code is None,
+                lines=tuple(lines),
+                schema_version=2,
+            )
+            contract = contract.add_terms_version(ContractTermsVersion(
+                version=1,
+                effective_from=start_date,
+                ecf_type=fiscal_code,
+                currency=contract.currency,
+                payment_type=contract.payment_type,
+                payment_method=contract.payment_method,
+                credit_days=contract.credit_days,
+                due_date_policy=contract.due_date_policy,
+                billing_mode=contract.billing_mode,
+                tax_policy=contract.tax_policy,
+                lines=contract.lines,
+                notes=request.form.get('notes', ''),
+            ))
+            payload = contract.model_dump(mode='json')
+            payload['schemaVersion'] = 2
+            payload['contractLines'] = [
+                {
+                    'itemId': line.item_id, 'name': line.name, 'code': line.code,
+                    'quantity': line.quantity, 'unitPrice': line.unit_price,
+                    'itbisRate': line.itbis_rate, 'discountRate': line.discount_rate,
+                    'subtotal': line.subtotal, 'itbisAmount': line.itbis_amount, 'total': line.total,
+                } for line in lines
+            ]
+            DatabaseService.save_contract(owner_uid, contract_id, payload, company_id=company_id, sandbox=sandbox)
+            flash('Contrato V2 guardado. La emisión se realizará únicamente mediante ocurrencia y Outbox.', 'success')
+            return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+        except Exception as exc:
+            flash(f'No se pudo crear el contrato V2: {exc}', 'error')
             return redirect(url_for('web_operations.new_contract'))
 
         # ── Parsear líneas del contrato (Fase 2) ──────────────────────────────
@@ -180,7 +368,27 @@ def list_contracts():
             flash("Contrato guardado exitosamente.", "success")
         return redirect(url_for('web_operations.list_contracts'))
 
-    contracts = DatabaseService.get_contracts(owner_uid, company_id=company_id, sandbox=sandbox)
+    v2_repository = RecurringContractRepository(DatabaseService)
+    contracts = [
+        {
+            'id': item.id,
+            'contractNumber': item.contract_number or item.id,
+            'clientId': item.client_id,
+            'clientName': item.client_name_snapshot,
+            'clientRNC': item.client_rnc_snapshot,
+            'amount': round(sum(line.total for line in item.lines), 2),
+            'recurrenceInterval': item.frequency.value,
+            'status': _v2_status_label(item.status),
+            'statusValue': item.status.value,
+            'startDate': item.start_date.isoformat(),
+            'endDate': item.end_date.isoformat() if item.end_date else '',
+            'nextBillingDate': _v2_next_billing_date(item),
+            'autoSendEmail': False,
+            'needsFiscalReview': item.needs_fiscal_review,
+            'schemaVersion': 2,
+        }
+        for item in v2_repository.get_all(owner_uid, company_id, sandbox=sandbox)
+    ]
     clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     items = DatabaseService.get_items(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
@@ -240,8 +448,20 @@ def toggle_contract(contract_id):
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     
+    if not company_id:
+        return _no_active_company_json()
+
+    v2_contract = RecurringContractRepository(DatabaseService).get(owner_uid, company_id, contract_id, sandbox=sandbox)
+    if v2_contract:
+        target = _v2_toggle_target(v2_contract.status)
+        try:
+            updated = _save_v2_contract_status(owner_uid, contract_id, company_id, sandbox, v2_contract, target)
+        except ValueError as exc:
+            return jsonify({"success": False, "error": str(exc)}), 409
+        return jsonify({"success": True, "new_status": _v2_status_label(updated.status)})
+
     contracts = DatabaseService.get_contracts(owner_uid, company_id=company_id, sandbox=sandbox)
     contract = next((c for c in contracts if c['id'] == contract_id), None)
     
@@ -261,15 +481,29 @@ def set_contract_status(contract_id):
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     
+    if not company_id:
+        return _no_active_company_json()
+
     data = request.get_json() or {}
     new_status = data.get('status', '').strip()
     
     valid_statuses = ['Borrador', 'Pendiente de Aprobación', 'Activo', 'Suspendido', 'Cancelado', 'Expirado', 'Inactivo']
     if new_status not in valid_statuses:
         return jsonify({"success": False, "error": f"Estado no válido: {new_status}"}), 400
-    
+
+    v2_contract = RecurringContractRepository(DatabaseService).get(owner_uid, company_id, contract_id, sandbox=sandbox)
+    if v2_contract:
+        target = _v2_status_from_label(new_status)
+        if target is None:
+            return jsonify({"success": False, "error": f"Estado no válido: {new_status}"}), 400
+        try:
+            updated = _save_v2_contract_status(owner_uid, contract_id, company_id, sandbox, v2_contract, target)
+        except ValueError as exc:
+            return jsonify({"success": False, "error": str(exc)}), 409
+        return jsonify({"success": True, "new_status": _v2_status_label(updated.status)})
+
     contracts = DatabaseService.get_contracts(owner_uid, company_id=company_id, sandbox=sandbox)
     contract = next((c for c in contracts if c['id'] == contract_id), None)
     
@@ -288,7 +522,9 @@ def delete_contract_route(contract_id):
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
+    if not company_id:
+        return _no_active_company_json()
     
     DatabaseService.delete_contract(owner_uid, contract_id, company_id=company_id, sandbox=sandbox)
     flash("Contrato eliminado correctamente.", "success")
@@ -303,8 +539,48 @@ def trigger_contract_billing(contract_id):
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    company_id = _resolve_company_id(owner_uid)
-    
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
+    if not company_id:
+        return _no_active_company_redirect()
+
+    v2_contract = RecurringContractRepository(DatabaseService).get(owner_uid, company_id, contract_id, sandbox=sandbox)
+    if v2_contract:
+        from app.services.recurring_contract_flag_loader import firestore_recurring_contract_flag_loader
+        from app.services.recurring_contract_service import RecurringContractFeatureFlags, RecurringContractService
+        from app.services.recurring_contract_occurrence_service import RecurringContractOccurrenceService
+        from app.services.recurring_contract_outbox_service import OutboxCommandService
+        from app.services.db_service import db_firestore
+
+        if not firestore_recurring_contract_flag_loader(db_firestore, company_id, sandbox):
+            flash('El motor de contratos V2 está deshabilitado para esta empresa/entorno.', 'warning')
+            return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+        try:
+            coordinator = RecurringContractService(
+                occurrence_service=RecurringContractOccurrenceService(db_firestore),
+                outbox_service=OutboxCommandService(db_firestore),
+                flags=RecurringContractFeatureFlags(lambda cid, sb: cid == company_id and sb == sandbox),
+            )
+            result = coordinator.prepare_and_enqueue(
+                contract=v2_contract,
+                owner_uid=owner_uid,
+                company_id=company_id,
+                sandbox=sandbox,
+                trigger="manual",
+            )
+            flash(
+                f"Factura borrador {result['invoice_id']} generada para el contrato "
+                f"{v2_contract.contract_number or v2_contract.id}.",
+                "success",
+            )
+        except Exception as exc:
+            hint = (
+                " Configura el tipo de e-CF en el panel de revisión fiscal del contrato."
+                if getattr(v2_contract, "needs_fiscal_review", False)
+                else ""
+            )
+            flash(f"No se pudo preparar la facturación V2: {exc}.{hint}", "error")
+        return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+
     contracts = DatabaseService.get_contracts(owner_uid, company_id=company_id, sandbox=sandbox)
     contract = next((c for c in contracts if c['id'] == contract_id), None)
     
@@ -492,7 +768,7 @@ def ai_contract_terms():
         return jsonify({"success": False, "error": "Describe el servicio para generar términos."}), 400
 
     owner_uid = session['user']['ownerUID']
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     product_name = get_product_name()
 
@@ -570,7 +846,7 @@ def list_commissions():
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     
     if request.method == 'POST':
         if 'percentage' in request.form:
@@ -700,7 +976,7 @@ def upload_client_document_route(client_id):
         file_data = file.read()
         mime_type = file.mimetype or "application/octet-stream"
         filename = f"doc_{client_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
-        company_id = _resolve_company_id(owner_uid)
+        company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
         destination_path = f"companies/{company_id}/crm_documents/{filename}" if company_id else f"users/{owner_uid}/crm_documents/{filename}"
         
         # Guardar en Firebase Storage
@@ -737,7 +1013,7 @@ def delete_client_document_route(client_id, doc_id):
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     
     DatabaseService.delete_client_document(owner_uid, client_id, doc_id, company_id=company_id, sandbox=sandbox)
     flash("Documento eliminado del archivo centralizado del cliente.", "success")
@@ -745,7 +1021,7 @@ def delete_client_document_route(client_id, doc_id):
 
 
 def _get_taggable_users(owner_uid):
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     taggable_users = []
     owner_prof = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_prof:
@@ -767,7 +1043,7 @@ def _get_taggable_users(owner_uid):
 
 
 def process_resource_comment_mentions(owner_uid, content, resource_type, resource_id, resource_label, sandbox):
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     taggable_users = _get_taggable_users(owner_uid)
     for u in taggable_users:
         name = u.get("name", "")
@@ -863,12 +1139,75 @@ def contract_detail(contract_id):
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
+    if not company_id:
+        return _no_active_company_redirect()
     
     contract = DatabaseService.get_contract(owner_uid, contract_id, company_id=company_id, sandbox=sandbox)
     if not contract:
         flash('Contrato no encontrado.', 'error')
         return redirect(url_for('web_operations.list_contracts'))
+
+    # Adapt V2 domain data to the legacy detail template without changing
+    # domain values or recalculating business rules in the template.
+    if contract.get('schemaVersion') == 2:
+        from app.models.recurring_contract import RecurringContract
+        try:
+            # Firestore keeps legacy audit fields alongside the V2 document.
+            # Validate only the approved domain fields; preserve the original
+            # dictionary for the legacy detail template below.
+            domain_fields = set(RecurringContract.model_fields)
+            v2_contract = RecurringContract.model_validate({
+                key: value for key, value in contract.items() if key in domain_fields
+            })
+            v2_lines = []
+            total_subtotal = 0.0
+            total_itbis = 0.0
+            total_amount = 0.0
+            for line in v2_contract.lines:
+                subtotal = line.subtotal
+                itbis_amount = line.itbis_amount
+                total = line.total
+                v2_lines.append({
+                    'itemId': line.item_id,
+                    'name': line.name,
+                    'code': line.code,
+                    'quantity': line.quantity,
+                    'unitPrice': line.unit_price,
+                    'itbisRate': line.itbis_rate,
+                    'itbisAmount': itbis_amount,
+                    'subtotal': subtotal,
+                    'total': total,
+                })
+                total_subtotal += subtotal
+                total_itbis += itbis_amount
+                total_amount += total
+            contract.update({
+                'contractNumber': v2_contract.contract_number,
+                'clientId': v2_contract.client_id,
+                'clientName': v2_contract.client_name_snapshot,
+                'clientRNC': v2_contract.client_rnc_snapshot,
+                'status': _v2_status_label(v2_contract.status),
+                'domainStatus': v2_contract.status.value,
+                'createdAt': v2_contract.created_at.isoformat(),
+                'updatedAt': v2_contract.updated_at.isoformat(),
+                'recurrenceInterval': v2_contract.frequency.value,
+                'startDate': v2_contract.start_date.isoformat(),
+                'endDate': v2_contract.end_date.isoformat() if v2_contract.end_date else '',
+                'nextBillingDate': _v2_next_billing_date(v2_contract),
+                'autoRenew': v2_contract.auto_renew,
+                'needsFiscalReview': v2_contract.needs_fiscal_review,
+                'ecfType': v2_contract.ecf_type,
+                'amount': round(total_amount, 2),
+                'totalSubtotal': round(total_subtotal, 2),
+                'totalITBIS': round(total_itbis, 2),
+                'contractLines': v2_lines,
+                'notes': v2_contract.terms_versions[-1].notes if v2_contract.terms_versions else '',
+                'version': len(v2_contract.terms_versions),
+            })
+        except Exception as exc:
+            flash(f'No se pudo preparar el detalle del contrato V2: {exc}', 'error')
+            return redirect(url_for('web_operations.list_contracts'))
         
     comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, company_id=company_id, sandbox=sandbox)
     taggable_users = _get_taggable_users(owner_uid)
@@ -876,7 +1215,7 @@ def contract_detail(contract_id):
     contract_invoices.sort(key=lambda x: x.get('date', ''), reverse=True)
 
     from app.services.audit_service import AuditService
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
     history_logs = AuditService.get_entity_logs(owner_uid=owner_uid, company_id=company_id, entity_id=contract_id)
 
     clients_all = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
@@ -892,7 +1231,8 @@ def contract_detail(contract_id):
         format_mentions=format_mentions,
         contract_invoices=contract_invoices,
         history_logs=history_logs,
-        client_email=client_email
+        client_email=client_email,
+        fiscal_types=RecurringContractFiscalService.eligible_types(),
     )
 
 
@@ -904,7 +1244,9 @@ def add_contract_comment(contract_id):
         return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts"), 403
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
+    if not company_id:
+        return _no_active_company_redirect()
     
     content = request.form.get('content', '').strip()
     if not content:
@@ -919,7 +1261,7 @@ def add_contract_comment(contract_id):
             file_data = file.read()
             mime_type = file.mimetype or "application/octet-stream"
             filename = f"comment_contract_{contract_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
-            company_id = _resolve_company_id(owner_uid)
+            company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
             destination_path = f"companies/{company_id}/comments/{filename}" if company_id else f"users/{owner_uid}/comments/{filename}"
             attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
             attachment_name = file.filename
@@ -959,7 +1301,9 @@ def edit_contract_comment(contract_id, comment_id):
         return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts"), 403
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
+    if not company_id:
+        return _no_active_company_redirect()
     
     comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, company_id=company_id, sandbox=sandbox)
     comment = next((c for c in comments if c['id'] == comment_id), None)
@@ -988,7 +1332,7 @@ def edit_contract_comment(contract_id, comment_id):
             file_data = file.read()
             mime_type = file.mimetype or "application/octet-stream"
             filename = f"comment_contract_{contract_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
-            company_id = _resolve_company_id(owner_uid)
+            company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
             destination_path = f"companies/{company_id}/comments/{filename}" if company_id else f"users/{owner_uid}/comments/{filename}"
             attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
             comment['attachmentUrl'] = attachment_url
@@ -1017,7 +1361,9 @@ def delete_contract_comment(contract_id, comment_id):
         return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts"), 403
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    company_id = _resolve_company_id(owner_uid)
+    company_id = session.get('selected_company_id') or _resolve_company_id(owner_uid)
+    if not company_id:
+        return _no_active_company_redirect()
     
     comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, company_id=company_id, sandbox=sandbox)
     comment = next((c for c in comments if c['id'] == comment_id), None)
@@ -1063,5 +1409,3 @@ def trigger_contract_billing_route():
         flash(f'Error al procesar facturación: {str(e)}', 'error')
         
     return redirect(url_for('web_operations.contracts_list'))
-
-

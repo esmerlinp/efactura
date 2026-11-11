@@ -406,4 +406,3 @@ def test_invoice_detail_renders_bank_accounts(app):
         assert "555666777" in rendered
         assert "Titular Test" in rendered
         assert "40200000000" in rendered
-

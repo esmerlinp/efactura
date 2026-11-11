@@ -40,6 +40,9 @@ def check_permission(permission_name):
     if access.role == 'owner':
         return True
 
+    if permission_name == 'canManageStorageAddons':
+        return bool(user_perms.get(permission_name, access.role == 'admin'))
+
     user_perms = access.permissions
 
     if permission_name in {

@@ -700,7 +700,7 @@
                                 <strong>RD$ {{ "{:,.2f}".format(inv.total) }}</strong>
                             </td>
                             <td data-label="Saldo Pendiente">
-                                {% if inv.documentType == 'quotation' %}
+                                {% if inv.documentType in ('quotation', 'proforma') %}
                                 <span>-</span>
                                 {% else %}
                                 <strong

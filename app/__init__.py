@@ -120,10 +120,10 @@ def create_app():
                     session['selected_project_id'] = None
                 selected_bid = session.get('selected_branch_id')
                 if selected_bid:
-                    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=session.get('is_sandbox_mode', False))
+                    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=session.get('is_sandbox_mode', False), company_id=company_id)
                     session['available_projects'] = projects
                 else:
-                    projects = DatabaseService.get_projects(owner_uid, sandbox=session.get('is_sandbox_mode', False))
+                    projects = DatabaseService.get_projects(owner_uid, sandbox=session.get('is_sandbox_mode', False), company_id=company_id)
                     session['available_projects'] = projects
                 if session.get('selected_project_id'):
                     project_ids = [p['id'] for p in projects]
@@ -1150,6 +1150,7 @@ def create_app():
     from app.web.pos import web_pos_bp
     from app.web.import_mapper import web_import_mapper_bp
     from app.web.operations import web_operations_bp
+    from app.web.recurring_contracts_admin import recurring_contracts_admin_bp
     from app.web.portal import portal_bp
     from app.web.audit import web_audit_bp
     from app.web.suppliers import web_suppliers_bp
@@ -1197,6 +1198,7 @@ def create_app():
     app.register_blueprint(web_pos_bp)
     app.register_blueprint(web_import_mapper_bp)
     app.register_blueprint(web_operations_bp)
+    app.register_blueprint(recurring_contracts_admin_bp)
     app.register_blueprint(portal_bp)
     app.register_blueprint(web_audit_bp)
     app.register_blueprint(web_suppliers_bp)

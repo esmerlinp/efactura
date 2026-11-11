@@ -10,6 +10,20 @@ from app.brand import get_product_name
 
 class RecurrenceService:
     @staticmethod
+    def _get_contracts_for_billing(owner_uid, sandbox=True, company_id=None):
+        """Return full contract documents for the opt-in v2 coordinator."""
+        from app.services.db_service import DatabaseService, firebase_initialized, _company_coll
+        if not firebase_initialized:
+            return []
+        coll_name = "sandbox_contracts" if sandbox else "contracts"
+        docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
+        result = []
+        for doc in docs:
+            data = doc.to_dict()
+            data["id"] = doc.id
+            result.append(data)
+        return result
+    @staticmethod
     def _add_months(dt, months):
         """Suma meses a una fecha respetando el fin de mes (31→28/30, bisiestos)."""
         month = dt.month - 1 + months
@@ -578,7 +592,10 @@ class RecurrenceService:
         today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         processed_count = 0
 
-        contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox, company_id=company_id)
+        contracts = cls._get_contracts_for_billing(owner_uid, sandbox=sandbox, company_id=company_id)
+        # V2 contracts are coordinated through occurrences and Outbox. Never
+        # silently fall back to direct legacy invoice creation for them.
+        contracts = [contract for contract in contracts if contract.get("schemaVersion") != 2]
         pending = [
             c for c in contracts
             if c.get("status") == "Activo"

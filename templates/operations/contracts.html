@@ -45,6 +45,13 @@
         }
     }
 </style>
+<style>
+    /* The last-row actions menu must open inside the visible table area. */
+    .contracts-list-table tbody tr:last-child .action-menu-dropdown {
+        top: auto;
+        bottom: calc(100% + 4px);
+    }
+</style>
 
 <div class="guide-banner" id="guide-contracts">
     <button class="guide-banner-close" onclick="closeGuide('guide-contracts')" title="Cerrar guía" aria-label="Cerrar guía">
@@ -133,7 +140,7 @@
 <!-- Listado de Contratos -->
 <div class="card-table-wrapper">
     <div class="table-responsive">
-            <table class="data-grid">
+            <table class="data-grid contracts-list-table">
             <thead>
                 <tr>
                     <th>Cód. Contrato</th>
@@ -150,9 +157,15 @@
                 {% if contracts %}
                 {% for contract in contracts %}
                 <tr id="contract-row-{{ contract.id }}">
-                    <td><span style="font-family: monospace;">{{ contract.contractNumber }}</span></td>
                     <td>
-                        {{ contract.clientName }}
+                        <a href="{{ url_for('web_operations.contract_detail', contract_id=contract.id) }}"
+                           style="font-family: monospace; color: var(--accent-emerald); font-weight: 700; text-decoration: none;"
+                           title="Ver detalle del contrato">{{ contract.contractNumber }}</a>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('web_clients.client_detail', client_id=contract.clientId) }}"
+                           style="color: var(--text-primary); text-decoration: none; font-weight: 600;"
+                           title="Ver ficha del cliente">{{ contract.clientName }}</a>
                         {% if contract.autoSendEmail %}
                         <i class="fa-solid fa-paper-plane" title="Envío automático de factura activado" style="color: var(--accent-emerald); font-size: 0.75rem; margin-left: 6px; opacity: 0.8;"></i>
                         {% endif %}
