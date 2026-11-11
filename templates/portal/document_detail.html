@@ -792,6 +792,7 @@
 </head>
 
 <body>
+    {% set portal_status = invoice.portalStatus or invoice.status %}
 
     <!-- Top sticky action bar -->
     <div class="navbar">
@@ -825,7 +826,7 @@
                     <span>Descargar XML</span>
                 </a>
                 {% endif %}
-                {% if invoice.remainingBalance > 0.01 and invoice.status != 'Borrador' and invoice.status != 'Revisión de Pago' %}
+                {% if invoice.remainingBalance > 0.01 and portal_status not in ['Pago en revisión', 'Anulada'] %}
                 <button class="btn btn-success" onclick="openPaymentOptionsModal()" title="Procesar Pago">
                     <i class="fa-solid fa-credit-card"></i>
                     <span>Procesar Pago</span>
@@ -887,14 +888,14 @@
                 </div>
                 <div style="text-align: right;">
                     <div style="margin-bottom: 8px;">
-                        {% if invoice.status in ['Cobrada', 'Aprobada'] %}
-                        <span class="badge badge-success">{{ invoice.status }}</span>
-                        {% elif invoice.status in ['Rechazada', 'Anulada'] or invoice.quotationExpired %}
-                        <span class="badge badge-danger">{{ 'Vencida' if invoice.quotationExpired else invoice.status }}</span>
-                        {% elif invoice.status == 'Revisión de Pago' %}
-                        <span class="badge badge-info" style="background-color: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.2);">{{ invoice.status }}</span>
+                        {% if portal_status in ['Cobrada', 'Aprobada'] %}
+                        <span class="badge badge-success">{{ portal_status }}</span>
+                        {% elif portal_status in ['Rechazada', 'Anulada', 'Vencida'] or invoice.quotationExpired %}
+                        <span class="badge badge-danger">{{ portal_status }}</span>
+                        {% elif portal_status == 'Pago en revisión' %}
+                        <span class="badge badge-info" style="background-color: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.2);">{{ portal_status }}</span>
                         {% else %}
-                        <span class="badge badge-warning">{{ invoice.status }}</span>
+                        <span class="badge badge-warning">{{ portal_status }}</span>
                         {% endif %}
                     </div>
                     
@@ -1318,6 +1319,16 @@
         }
         function closeAcceptModal() {
             const modal = document.getElementById('accept-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        // Payment options modal controls
+        function openPaymentOptionsModal() {
+            const modal = document.getElementById('payment-modal');
+            if (modal) modal.style.display = 'flex';
+        }
+        function closePaymentModal() {
+            const modal = document.getElementById('payment-modal');
             if (modal) modal.style.display = 'none';
         }
 
