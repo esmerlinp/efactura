@@ -710,17 +710,17 @@
                 <div style="border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; background-color: var(--bg-input);">
                     <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0 0 12px 0; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
                         <i class="fa-solid fa-key" style="color: var(--accent-purple);"></i>
-                        <span>Credenciales de Acceso</span>
+                         <span>Acceso al Portal</span>
                     </h4>
                     <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem;">
                         <div>
                            <span style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">Usuario (RNC / Cédula)</span>
                            <strong style="color: var(--text-primary); font-family: monospace;">{{ client.rnc }}</strong>
                         </div>
-                        <div>
-                           <span style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">Clave de Acceso (PIN)</span>
-                           <strong style="color: var(--text-primary); font-family: monospace;">{{ client.accessPin or 'No asignada (Edita el cliente para asignarla)' }}</strong>
-                        </div>
+                         <div>
+                            <span style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">Contraseña</span>
+                            <strong style="color: var(--text-secondary);">Administrada exclusivamente por el cliente</strong>
+                         </div>
                     </div>
                 </div>
                 
@@ -770,12 +770,12 @@
                     <!-- Botón Enviar Credenciales -->
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 0 8px;">
                         <span style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; max-width: 60%;">
-                            Envía las credenciales de acceso (RNC, clave y enlace al portal) directamente al correo del cliente.
+                                 Envía un enlace de acceso al correo del cliente. La empresa nunca recibe ni administra su contraseña.
                         </span>
                         <button onclick="openCredentialsModal()" class="btn btn-secondary"
                                 style="padding: 0 14px; font-size: 0.8rem; height: 32px; display: inline-flex; align-items: center; gap: 6px; border-color: var(--accent-purple); color: var(--accent-purple);">
                             <i class="fa-solid fa-paper-plane"></i>
-                            <span>Enviar Credenciales</span>
+                             <span>Enviar enlace de acceso</span>
                         </button>
                     </div>
                     <!-- Botón de Vista Previa -->
@@ -796,7 +796,7 @@
     {% endif %}
 </div>
 
-<!-- ═══ MODAL: Confirmar envío de credenciales ═══ -->
+<!-- ═══ MODAL: Confirmar envío de enlace ═══ -->
 <div id="modal-send-credentials" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; backdrop-filter: blur(2px);">
     <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 28px 32px; max-width: 440px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
@@ -804,7 +804,7 @@
                 <i class="fa-solid fa-paper-plane" style="color: var(--accent-purple);"></i>
             </div>
             <div>
-                <h3 style="margin: 0; font-size: 1rem; font-family: var(--font-heading); font-weight: 700; color: var(--text-primary);">Enviar Credenciales al Cliente</h3>
+                 <h3 style="margin: 0; font-size: 1rem; font-family: var(--font-heading); font-weight: 700; color: var(--text-primary);">Enviar enlace de acceso</h3>
                 <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: var(--text-secondary);">Confirma el correo destinatario antes de enviar</p>
             </div>
         </div>
@@ -814,10 +814,10 @@
                 <span style="color: var(--text-secondary);">Usuario (RNC):</span>
                 <strong style="font-family: monospace;">{{ client.rnc }}</strong>
             </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; border-top: 1px solid var(--border-color); padding-top: 6px;">
-                <span style="color: var(--text-secondary);">Clave (PIN):</span>
-                <strong style="font-family: monospace; letter-spacing: 0.1em; color: var(--accent-emerald);">{{ client.accessPin or '—' }}</strong>
-            </div>
+             <div style="display: flex; justify-content: space-between; margin-bottom: 6px; border-top: 1px solid var(--border-color); padding-top: 6px;">
+                 <span style="color: var(--text-secondary);">Contraseña:</span>
+                 <strong style="color: var(--text-secondary);">La administra el cliente</strong>
+             </div>
         </div>
 
         <div style="margin-bottom: 20px;">
