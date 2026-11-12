@@ -2321,6 +2321,7 @@ class DatabaseService:
             "apiKey": company.get("api_key", company.get("apiKey", "")),
             "developersEnabled": company.get("developers_enabled", company.get("developersEnabled", False)),
             "planId": plan_id,
+            "modules": (plan_data or {}).get("modules", company.get("modules", {})),
             "plan_version": plan_version,
             "status": status_str,
             "userLimit": user_limit,
