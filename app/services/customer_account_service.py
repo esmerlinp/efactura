@@ -115,3 +115,18 @@ class CustomerAccountService:
             "updatedAt": now,
         }, merge=True)
         return account_id
+
+    @classmethod
+    def find_account_id(cls, rnc):
+        """Return the global account id for an existing customer RNC."""
+        if not firebase_initialized or db_firestore is None:
+            return None
+        normalized = cls.normalize_rnc(rnc)
+        if not normalized:
+            return None
+        docs = db_firestore.collection(cls.COLLECTION).where(
+            "rncNormalized", "==", normalized
+        ).limit(1).stream()
+        for doc in docs:
+            return doc.id
+        return None
