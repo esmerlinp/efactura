@@ -2354,7 +2354,7 @@ def portal_admin():
     clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     portal_clients = []
     for c in clients:
-        if c.get('accessPin'):
+        if c.get('email') and c.get('customerId'):
             from app.utils.security import generate_portal_token
             token = generate_portal_token(owner_uid, c['id'], sandbox=sandbox, company_id=company_id)
             portal_url = url_for('portal.portal_entry', token=token, _external=True)
@@ -2364,7 +2364,6 @@ def portal_admin():
                 'rnc': c.get('rnc', ''),
                 'email': c.get('email', ''),
                 'telefono': c.get('telefono', ''),
-                'accessPin': c.get('accessPin', ''),
                 'portalUrl': portal_url
             })
     portal_clients.sort(key=lambda x: x['razonSocial'].lower())

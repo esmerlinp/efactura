@@ -26,6 +26,31 @@ class CustomerAccountService:
         return bool(EMAIL_RE.match(cls.normalize_email(value)))
 
     @classmethod
+    def company_portal_enabled(cls, company_id):
+        """Resolve the company's portal entitlement without relying on UI session state."""
+        try:
+            from app.services.db_service import DatabaseService
+            profile = DatabaseService.get_company_profile(None, company_id=company_id) or {}
+            modules = profile.get("modules") or profile.get("enabledModules") or {}
+            portal = modules.get("portal_cliente") if isinstance(modules, dict) else None
+            if isinstance(portal, dict):
+                return bool(portal.get("enabled", False))
+            if isinstance(portal, bool):
+                return portal
+            plan_id = profile.get("planId") or profile.get("plan_id")
+            if plan_id:
+                plan = DatabaseService.get_plan(plan_id, profile.get("plan_version", 0)) or {}
+                plan_modules = plan.get("modules") or {}
+                plan_portal = plan_modules.get("portal_cliente") if isinstance(plan_modules, dict) else None
+                if isinstance(plan_portal, dict):
+                    return bool(plan_portal.get("enabled", False))
+                if isinstance(plan_portal, bool):
+                    return plan_portal
+        except Exception:
+            pass
+        return False
+
+    @classmethod
     def ensure_for_contact(cls, contact, owner_uid, company_id, sandbox):
         """Create/update the global account and its company membership."""
         if not firebase_initialized or db_firestore is None:
@@ -71,12 +96,14 @@ class CustomerAccountService:
             }, merge=True)
 
         membership_id = f"{company_id}_{contact['id']}_{int(bool(sandbox))}"
+        portal_enabled = cls.company_portal_enabled(company_id)
         account_ref.document(account_id).collection("memberships").document(membership_id).set({
             "ownerUid": owner_uid,
             "companyId": company_id,
             "clientId": contact["id"],
             "sandbox": bool(sandbox),
             "status": "active",
+            "portalEnabled": portal_enabled,
             "updatedAt": now,
         }, merge=True)
         return account_id
