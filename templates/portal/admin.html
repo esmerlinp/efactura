@@ -141,7 +141,7 @@
         {% if clients %}
         <div class="portal-admin-list">
             <div class="portal-admin-list-header">
-                <span>Clientes con Acceso al Portal</span>
+                <span>Clientes con Portal habilitado</span>
                 <span style="font-weight:400;text-transform:none;">{{ clients|length }} cliente(s)</span>
             </div>
             <div id="portalClientList">
@@ -152,7 +152,7 @@
                         <div class="name">{{ c.razonSocial }}</div>
                         <div class="sub">RNC: {{ c.rnc or '—' }} &middot; {{ c.email or 'Sin email' }}</div>
                     </div>
-                    <div class="status-dot active"></div>
+                    <div class="status-dot {% if c.portalEnabled %}active{% else %}inactive{% endif %}"></div>
                 </div>
                 {% endfor %}
             </div>
@@ -161,7 +161,7 @@
         <div class="empty-portal-state">
             <i class="fa-solid fa-globe"></i>
             <h3>Ningún cliente tiene acceso al portal</h3>
-            <p>Para habilitar el portal, edita un cliente y asígnale un PIN de acceso en la sección "Portal de Autoservicio".</p>
+            <p>Administra enlaces de acceso y recuperación para clientes con email válido y Portal de Clientes habilitado.</p>
             <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-primary" style="margin-top:18px;display:inline-flex;">
                 <i class="fa-solid fa-address-book"></i> Ir a Clientes
             </a>
