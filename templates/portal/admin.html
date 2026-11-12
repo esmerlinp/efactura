@@ -228,11 +228,11 @@ function selectClient(clientId) {
             <span class="value">${client.telefono || '—'}</span>
         </div>
         <div style="margin-top:16px;">
-            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">PIN de Acceso</div>
+             <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">Acceso</div>
             <div class="portal-pin-wrapper">
-                <span id="pinDisplay" class="pin-hidden" data-pin="${client.accessPin}">${client.accessPin}</span>
+                 <span>Contraseña administrada por el cliente</span>
                 <button class="portal-pin-toggle" onclick="togglePin()" title="Mostrar/ocultar PIN">
-                    <i class="fa-solid fa-eye"></i>
+                    <i class="fa-solid fa-lock"></i>
                 </button>
             </div>
         </div>
@@ -247,14 +247,14 @@ function selectClient(clientId) {
                 <i class="fa-solid fa-copy"></i> Copiar Enlace
             </button>
             <button class="btn btn-secondary" onclick="sendCredentials(this, '${client.id}')">
-                <i class="fa-solid fa-envelope"></i> Enviar Credenciales
+                <i class="fa-solid fa-envelope"></i> Enviar enlace de acceso
             </button>
             <a href="${client.portalUrl}" target="_blank" class="btn btn-outline" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.86rem;font-weight:500;color:var(--text-primary);transition:background 0.15s;">
                 <i class="fa-solid fa-external-link-alt"></i> Abrir Portal
             </a>
         </div>
         <div style="margin-top:14px;font-size:0.78rem;color:var(--text-muted);">
-            <i class="fa-solid fa-circle-info"></i> El portal permite al cliente ver facturas, cotizaciones, contratos y realizar pagos en línea.
+             <i class="fa-solid fa-circle-info"></i> La empresa no puede ver ni modificar la contraseña del cliente.
         </div>
     `;
 }
@@ -324,7 +324,7 @@ function sendCredentials(btn, clientId) {
     })
     .then(data => {
         if (data.success) {
-            showToast('✅ Credenciales enviadas al cliente');
+             showToast('✅ Enlace de acceso enviado al cliente');
         } else {
             showToast('❌ ' + (data.error || 'Error al enviar'));
         }
@@ -332,7 +332,7 @@ function sendCredentials(btn, clientId) {
     .catch(error => showToast('❌ ' + (error.message || 'Error de conexión')))
     .finally(() => {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-envelope"></i> Enviar Credenciales';
+        btn.innerHTML = '<i class="fa-solid fa-envelope"></i> Enviar enlace de acceso';
     });
 }
 </script>

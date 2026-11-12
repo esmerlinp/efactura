@@ -490,10 +490,6 @@ def send_portal_credentials(client_id):
     if not recipient_email:
         return jsonify({"success": False, "error": "Este cliente no tiene un correo registrado."}), 400
 
-    access_pin = client.get('accessPin', '')
-    if not access_pin:
-        return jsonify({"success": False, "error": "El cliente no tiene una clave de acceso asignada. Edite el cliente primero."}), 400
-
     # Construir URL del portal segura y encriptada
     from app.utils.security import generate_portal_token
     token = generate_portal_token(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
@@ -523,15 +519,14 @@ def send_portal_credentials(client_id):
         <p>Le compartimos sus credenciales de acceso al portal de autoservicio de <strong>{company_name}</strong>, donde podrá consultar sus facturas, cotizaciones y realizar pagos en línea.</p>
 
         <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
-            <h3 style="margin: 0 0 14px 0; color: {brand_color}; font-size: 1rem;">Sus Credenciales de Acceso</h3>
+            <h3 style="margin: 0 0 14px 0; color: {brand_color}; font-size: 1rem;">Acceso seguro</h3>
             <table style="width: 100%; border-collapse: collapse;">
                 <tr>
                     <td style="padding: 8px 0; color: #6b7280; font-size: 0.9rem;">Usuario (RNC / Cédula):</td>
                     <td style="padding: 8px 0; font-weight: bold; text-align: right; font-family: monospace; font-size: 1rem;">{client_rnc}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 0.9rem;">Clave de Acceso (PIN):</td>
-                    <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; font-weight: bold; text-align: right; font-family: monospace; font-size: 1.2rem; letter-spacing: 0.15em; color: {brand_color};">{access_pin}</td>
+                    <td colspan="2" style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 0.9rem;">La contraseña se establece y administra exclusivamente desde el portal.</td>
                 </tr>
             </table>
         </div>
@@ -566,14 +561,14 @@ def send_portal_credentials(client_id):
             interaction_id = str(_uuid.uuid4())
             interaction_dict = {
                 "type": "Email",
-                "title": "Credenciales del Portal enviadas (Simulado)",
-                "content": f"Simulación: Credenciales de acceso al portal enviadas a {recipient_email}.\nRNC: {client_rnc} | PIN: {access_pin} | URL: {portal_url}",
+        "title": "Enlace del Portal enviado (Simulado)",
+                "content": f"Simulación: enlace de acceso al portal enviado a {recipient_email}.\nRNC: {client_rnc} | URL: {portal_url}",
                 "date": _dt.now(timezone.utc).isoformat(),
                 "completed": True,
                 "createdBy": session.get('user', {}).get('email', 'Sistema')
             }
             DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, company_id=company_id, sandbox=sandbox)
-            return jsonify({"success": True, "message": f"Credenciales simuladas enviadas a {recipient_email} (SMTP no configurado)."})
+            return jsonify({"success": True, "message": f"Enlace simulado enviado a {recipient_email} (SMTP no configurado)."})
         return jsonify({"success": False, "error": "Servidor de correo SMTP no configurado."}), 500
 
     subject = f"🔑 Acceso al Portal de Autoservicio - {company_name}"
@@ -598,15 +593,15 @@ def send_portal_credentials(client_id):
     interaction_id = str(_uuid.uuid4())
     interaction_dict = {
         "type": "Email",
-        "title": "Credenciales del Portal enviadas",
-        "content": f"Credenciales de acceso al portal enviadas a {recipient_email}.\nRNC: {client_rnc} | PIN: {access_pin}",
+        "title": "Enlace del Portal enviado",
+        "content": f"Enlace de acceso al portal enviado a {recipient_email}.\nRNC: {client_rnc}",
         "date": _dt.now(timezone.utc).isoformat(),
         "completed": True,
         "createdBy": session.get('user', {}).get('email', 'Sistema')
     }
     DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, company_id=company_id, sandbox=sandbox)
 
-    return jsonify({"success": True, "message": f"Credenciales enviadas exitosamente a {recipient_email}."})
+    return jsonify({"success": True, "message": f"Enlace enviado exitosamente a {recipient_email}."})
 
 @web_clients_bp.route('/clients/<client_id>')
 def client_detail(client_id):
