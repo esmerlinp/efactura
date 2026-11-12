@@ -30,7 +30,13 @@ class CustomerAccountService:
         """Resolve the company's portal entitlement without relying on UI session state."""
         try:
             from app.services.db_service import DatabaseService
-            profile = DatabaseService.get_company_profile(None, company_id=company_id) or {}
+            if not company_id:
+                return False
+            raw_company = DatabaseService.get_company(company_id) or {}
+            profile = DatabaseService.get_company_profile(
+                raw_company.get("owner_uid") or raw_company.get("ownerUID"),
+                company_id=company_id,
+            ) or {}
             if str(profile.get("status", "")).lower() in {"cancelled", "canceled", "suspended", "cancelado", "suspendido"}:
                 return False
             modules = profile.get("modules") or profile.get("enabledModules") or {}
