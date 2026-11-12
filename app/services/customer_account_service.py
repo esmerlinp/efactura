@@ -31,6 +31,8 @@ class CustomerAccountService:
         try:
             from app.services.db_service import DatabaseService
             profile = DatabaseService.get_company_profile(None, company_id=company_id) or {}
+            if str(profile.get("status", "")).lower() in {"cancelled", "canceled", "suspended", "cancelado", "suspendido"}:
+                return False
             modules = profile.get("modules") or profile.get("enabledModules") or {}
             portal = modules.get("portal_cliente") if isinstance(modules, dict) else None
             if isinstance(portal, dict):
