@@ -76,24 +76,6 @@
     .portal-admin-detail .portal-url-box .url-text {
         display: none;
     }
-    .portal-pin-wrapper {
-        display: flex; align-items: center; gap: 8px;
-        font-family: 'Courier New', monospace; font-size: 1.4rem;
-        font-weight: 700; letter-spacing: 6px; color: var(--accent-emerald);
-        padding: 12px; background: #f0fdf4; border-radius: 8px; margin: 10px 0;
-    }
-    .portal-pin-wrapper .pin-hidden {
-        letter-spacing: 4px; -webkit-text-security: disc;
-    }
-    .portal-pin-wrapper .pin-visible {
-        letter-spacing: 6px; -webkit-text-security: none;
-    }
-    .portal-pin-toggle {
-        background: none; border: none; cursor: pointer;
-        color: #94a3b8; font-size: 1.1rem; padding: 4px;
-        flex-shrink: 0; transition: color 0.15s;
-    }
-    .portal-pin-toggle:hover { color: var(--accent-emerald); }
     .portal-admin-detail .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
     .portal-admin-detail .btn-group .btn { flex: 1; min-width: 120px; justify-content: center; }
 
@@ -175,7 +157,7 @@
             <h3 id="detailTitle">Selecciona un cliente</h3>
             <div id="detailContent" style="color:var(--text-muted);font-size:0.88rem;text-align:center;padding:24px 0;">
                 <i class="fa-solid fa-hand-pointer" style="font-size:1.8rem;opacity:0.3;display:block;margin-bottom:10px;"></i>
-                Haz clic en un cliente de la lista para ver sus credenciales del portal
+                Haz clic en un cliente para ver su estado y acciones de acceso
             </div>
             {% endif %}
         </div>
@@ -227,14 +209,9 @@ function selectClient(clientId) {
             <span class="label">Teléfono</span>
             <span class="value">${client.telefono || '—'}</span>
         </div>
-        <div style="margin-top:16px;">
-             <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">Acceso</div>
-            <div class="portal-pin-wrapper">
-                 <span>Contraseña administrada por el cliente</span>
-                <button class="portal-pin-toggle" onclick="togglePin()" title="Mostrar/ocultar PIN">
-                    <i class="fa-solid fa-lock"></i>
-                </button>
-            </div>
+        <div class="info-row" style="margin-top:16px;">
+            <span class="label">Estado del portal</span>
+            <span class="value" style="color:#059669;"><i class="fa-solid fa-circle" style="font-size:.55rem;"></i> Habilitado</span>
         </div>
         <div style="margin-top:16px;">
             <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;">Enlace del Portal</div>
@@ -257,22 +234,6 @@ function selectClient(clientId) {
              <i class="fa-solid fa-circle-info"></i> La empresa no puede ver ni modificar la contraseña del cliente.
         </div>
     `;
-}
-
-function togglePin() {
-    const el = document.getElementById('pinDisplay');
-    const btn = el.nextElementSibling.querySelector('i');
-    if (el.classList.contains('pin-hidden')) {
-        el.classList.remove('pin-hidden');
-        el.classList.add('pin-visible');
-        el.textContent = el.dataset.pin;
-        btn.className = 'fa-regular fa-eye-slash';
-    } else {
-        el.classList.remove('pin-visible');
-        el.classList.add('pin-hidden');
-        el.textContent = el.dataset.pin;
-        btn.className = 'fa-regular fa-eye';
-    }
 }
 
 function copyPortalUrl(url) {
