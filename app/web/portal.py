@@ -3,7 +3,7 @@ import hmac
 import hashlib
 import json
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session, make_response, g, abort
+from flask import Blueprint, current_app, render_template, request, jsonify, redirect, url_for, flash, session, make_response, g, abort
 from firebase_admin import firestore
 from app.services.db_service import db_firestore, DatabaseService
 from app.services.quotation_expiry_service import (
@@ -2355,9 +2355,8 @@ def portal_admin():
     portal_clients = []
     for c in clients:
         if c.get('email') and c.get('customerId'):
-            from app.utils.security import generate_portal_token
-            token = generate_portal_token(owner_uid, c['id'], sandbox=sandbox, company_id=company_id)
-            portal_url = url_for('portal.portal_entry', token=token, _external=True)
+            portal_base_url = current_app.config.get('CLIENTS_PORTAL_BASE_URL', 'https://clientes.vykcore.com').rstrip('/')
+            portal_url = f"{portal_base_url}/"
             portal_clients.append({
                 'id': c['id'],
                 'razonSocial': c.get('razonSocial', ''),

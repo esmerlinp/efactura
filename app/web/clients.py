@@ -491,9 +491,8 @@ def send_portal_credentials(client_id):
         return jsonify({"success": False, "error": "Este cliente no tiene un correo registrado."}), 400
 
     # Construir URL del portal segura y encriptada
-    from app.utils.security import generate_portal_token
-    token = generate_portal_token(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
-    portal_url = url_for('portal.portal_entry', token=token, _external=True)
+    portal_base_url = current_app.config.get('CLIENTS_PORTAL_BASE_URL', 'https://clientes.vykcore.com').rstrip('/')
+    portal_url = f"{portal_base_url}/"
 
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     company_name = company.get('tradeName') or company.get('companyName') or get_product_name()
