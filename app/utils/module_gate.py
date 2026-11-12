@@ -211,6 +211,17 @@ def module_enabled(module_key):
 
     from flask import session
     modules = get_enabled_modules()
+    # Refresh the entitlement directly from the selected company's plan for
+    # portal access. This avoids stale session modules after plan changes.
+    if module_key == "portal_cliente":
+        try:
+            from flask import session
+            from app.services.customer_account_service import CustomerAccountService
+            company_id = session.get("selected_company_id")
+            if company_id:
+                return CustomerAccountService.company_portal_enabled(company_id)
+        except Exception:
+            return False
     if not modules or not isinstance(modules, dict):
         return False
 
