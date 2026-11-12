@@ -2363,6 +2363,7 @@ def portal_admin():
                 'rnc': c.get('rnc', ''),
                 'email': c.get('email', ''),
                 'telefono': c.get('telefono', ''),
+                'portalEnabled': True,
                 'portalUrl': portal_url
             })
     portal_clients.sort(key=lambda x: x['razonSocial'].lower())
