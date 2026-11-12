@@ -242,6 +242,11 @@ class ContactService:
         contact_dict["razonSocial"] = contact_dict.get("razonSocial", "").strip()
         contact_dict["rnc"] = "".join(filter(str.isdigit, str(contact_dict.get("rnc", ""))))
 
+        if "cliente" in contact_dict.get("types", []):
+            from app.services.customer_account_service import CustomerAccountService
+            if not CustomerAccountService.valid_email(contact_dict.get("email")):
+                raise ValueError("El correo electrónico del cliente es obligatorio y debe ser válido.")
+
         defaults = dict(CONTACT_DEFAULTS)
         for k, v in defaults.items():
             if k not in contact_dict:
@@ -255,6 +260,15 @@ class ContactService:
 
         _sync_to_legacy_clients(owner_uid=owner_uid, contact=contact_dict, sandbox=sandbox, company_id=company_id)
         _sync_to_legacy_suppliers(owner_uid=owner_uid, contact=contact_dict, sandbox=sandbox, company_id=company_id)
+
+        if "cliente" in contact_dict.get("types", []):
+            from app.services.customer_account_service import CustomerAccountService
+            account_id = CustomerAccountService.ensure_for_contact(contact_dict, owner_uid, company_id, sandbox)
+            if account_id:
+                contact_dict["customerId"] = account_id
+                _coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(contact_id).set(
+                    {"customerId": account_id}, merge=True
+                )
 
         return contact_dict
 
