@@ -51,6 +51,8 @@ class Config:
 
     SECRET_KEY = os.getenv('SECRET_KEY')
     TIMEZONE = os.getenv('TIMEZONE', 'America/Santo_Domingo')
+    CLIENTS_PORTAL_BASE_URL = os.getenv('CLIENTS_PORTAL_BASE_URL', 'https://clientes.vykcore.com').rstrip('/')
+    PORTAL_TOKEN_SECRET = os.getenv('PORTAL_TOKEN_SECRET', '')
     
     # Configuración de Firebase
     _firebase_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON', 'firebase-adminsdk.json')
