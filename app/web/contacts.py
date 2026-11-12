@@ -259,7 +259,7 @@ def new_contact():
             "types": types,
             "rnc": rnc,
             "razonSocial": razon_social,
-            "email": request.form.get('email', ''),
+            "email": request.form.get('email', '').strip(),
             "telefono": request.form.get('telefono', ''),
             "telefono2": request.form.get('telefono2', ''),
             "celular": request.form.get('celular', ''),
@@ -288,6 +288,12 @@ def new_contact():
             "notes": request.form.get('notes', ''),
             "associatedPeople": [],
         }
+
+        if 'cliente' in types:
+            from app.services.customer_account_service import CustomerAccountService
+            if not CustomerAccountService.valid_email(contact_dict['email']):
+                flash('El correo electrónico es obligatorio para registrar un cliente.', 'error')
+                return redirect(request.url)
 
         # People
         people_names = request.form.getlist('people_name[]')
