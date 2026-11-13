@@ -649,8 +649,12 @@ def create_app():
                     ]
                     # Incluir endpoints de validación de entornos también para no interferir
                     if request.endpoint not in allowed and request.endpoint not in allowed_endpoints:
-                        flash("Para poder operar en la plataforma, debes primero configurar los datos requeridos de tu empresa.", "warning")
+                        if not session.get('_onboarding_flash_shown'):
+                            flash("Para poder operar en la plataforma, debes primero configurar los datos requeridos de tu empresa.", "warning")
+                            session['_onboarding_flash_shown'] = True
                         return redirect(flask_url_for('web_invoices.onboarding_wizard'))
+                else:
+                    session.pop('_onboarding_flash_shown', None)
 
     @app.context_processor
     def inject_global_brand():

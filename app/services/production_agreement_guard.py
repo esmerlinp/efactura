@@ -33,6 +33,11 @@ class ProductionAgreementGuard:
         "web_production_agreement.accept_company",
         "web_production_agreement.acknowledge",
         "web_production_agreement.reject",
+        # Onboarding inicial (empresa aún no configurada: el guard de
+        # "no configurado" en app/__init__.py la envía aquí, y si no se
+        # exime, entra en bucle con /production-agreement).
+        "web_invoices.onboarding_wizard",
+        "web_invoices.onboarding_skip",
         # Autenticación y cierre de sesión
         "web_auth.logout",
         "web_auth.select_company",

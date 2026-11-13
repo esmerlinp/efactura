@@ -176,6 +176,8 @@ class TestGuardExemptions:
             "web_production_agreement.view",
             "web_production_agreement.accept_company",
             "web_production_agreement.acknowledge",
+            "web_invoices.onboarding_wizard",
+            "web_invoices.onboarding_skip",
             "web_auth.logout",
             "web_auth.select_company",
             "static",
