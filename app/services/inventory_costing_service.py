@@ -235,20 +235,70 @@ class InventoryCostingService:
     # ── PROMEDIO PONDERADO ─────────────────────────────────────────────────
 
     @staticmethod
+    def _get_stock_avg_cost(company_id, item_id, warehouse_id=None, sandbox=True):
+        """Lee el costo promedio vigente desde el estado de valoración en inventory_stock."""
+        try:
+            from app.services.db_service import db_firestore, firebase_initialized, _company_coll
+            if not firebase_initialized or db_firestore is None:
+                return None
+            coll = "sandbox_inventory_stock" if sandbox else "inventory_stock"
+            if warehouse_id:
+                doc = _company_coll(company_id=company_id, coll_name=coll).document(f"{item_id}_{warehouse_id}").get()
+                if getattr(doc, "exists", False):
+                    data = doc.to_dict() or {}
+                    if not isinstance(data, dict):
+                        return None
+                    qty = float(data.get("quantity", 0.0) or 0.0)
+                    val = float(data.get("totalValue", 0.0) or 0.0)
+                    if qty > 0 and val > 0:
+                        return round(val / qty, 4)
+                return None
+            # Sin almacén específico: promedia el estado de todos los almacenes con valor registrado
+            docs = _company_coll(company_id=company_id, coll_name=coll).get()
+            total_value = 0.0
+            total_qty = 0.0
+            for d in docs:
+                data = d.to_dict() or {}
+                if not isinstance(data, dict):
+                    continue
+                if data.get("itemId") != item_id:
+                    continue
+                qty = float(data.get("quantity", 0.0) or 0.0)
+                val = float(data.get("totalValue", 0.0) or 0.0)
+                if qty > 0:
+                    total_value += val
+                    total_qty += qty
+            if total_qty > 0 and total_value > 0:
+                return round(total_value / total_qty, 4)
+        except Exception as e:
+            print(f"⚠️ Error al leer costo promedio de stock: {e}")
+        return None
+
+    @staticmethod
     def get_weighted_average_cost(company_id, item_id, warehouse_id=None, sandbox=True):
         """
-        Calcula el costo promedio ponderado para un item.
-        Usa el libro de costos (ledger) para calcular: Σ(qty_in × unit_cost) / Σ(qty_in).
+        Calcula el costo promedio ponderado vigente (móvil) para un item.
+
+        1. Fuente canónica: estado de valoración en `inventory_stock` (promedio móvil).
+        2. Fallback FIFO: promedio ponderado del SALDO REMANENTE de capas
+           (Σ balanceQty × unitCost) / Σ balanceQty (no sobre las capas ya consumidas).
         """
+        stock_avg = InventoryCostingService._get_stock_avg_cost(company_id, item_id, warehouse_id, sandbox)
+        if stock_avg is not None and stock_avg > 0:
+            return stock_avg
+
         ledger = InventoryCostingService.get_fifo_ledger(company_id, item_id, warehouse_id, sandbox)
         total_value = 0.0
         total_qty = 0.0
         for row in ledger:
-            total_value += row["qtyIn"] * row["unitCost"]
-            total_qty += row["qtyIn"]
+            bal = float(row.get("balanceQty", 0.0) or 0.0)
+            if bal <= 0:
+                continue
+            total_value += bal * float(row.get("unitCost", 0.0) or 0.0)
+            total_qty += bal
 
         if total_qty > 0:
-            return round(total_value / total_qty, 2)
+            return round(total_value / total_qty, 4)
         return 0.0
 
     # ── COSTO ESTÁNDAR ─────────────────────────────────────────────────────
@@ -292,7 +342,10 @@ class InventoryCostingService:
 
     @staticmethod
     def recalculate_item_avg_cost(company_id, item_id, warehouse_id=None, sandbox=True, owner_uid=""):
-        """Recalcula y actualiza el costPrice del item usando promedio ponderado."""
+        """Recalcula y actualiza el costo promedio (`avgCost`) del item.
+
+        NUNCA modifica `costPrice` (costo de referencia configurado en la ficha).
+        """
         avg = InventoryCostingService.get_weighted_average_cost(company_id, item_id, warehouse_id, sandbox)
         if avg <= 0:
             return
@@ -300,5 +353,5 @@ class InventoryCostingService:
         items = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
         item = next((it for it in items if it["id"] == item_id), None)
         if item:
-            item["costPrice"] = avg
+            item["avgCost"] = round(float(avg), 4)
             DatabaseService.save_item(owner_uid=owner_uid, company_id=company_id, item_id=item_id, item_dict=item, sandbox=sandbox)

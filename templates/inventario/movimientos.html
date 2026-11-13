@@ -53,13 +53,15 @@
         <table class="data-grid" id="transactions-table">
             <thead>
                 <tr>
-                    <th style="width: 14%;">Fecha / Hora</th>
-                    <th style="width: 24%;">Producto</th>
-                    <th style="width: 12%;">Tipo</th>
-                    <th style="width: 10%; text-align: right;">Cantidad</th>
-                    <th style="width: 15%;">Origen ⇄ Destino</th>
-                    <th style="width: 12%;">Motivo / Ref</th>
-                    <th style="width: 13%;">Responsable</th>
+                    <th style="width: 12%;">Fecha / Hora</th>
+                    <th style="width: 20%;">Producto</th>
+                    <th style="width: 10%;">Tipo</th>
+                    <th style="width: 8%; text-align: right;">Cantidad</th>
+                    <th style="width: 9%; text-align: right;">Costo unit.</th>
+                    <th style="width: 14%;">Origen ⇄ Destino</th>
+                    <th style="width: 11%;">Motivo / Ref</th>
+                    <th style="width: 12%;">Responsable</th>
+                    <th style="width: 10%; text-align: center;">Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -87,6 +89,9 @@
                         <td style="text-align: right; font-weight: bold; font-family: monospace; font-size: 0.95rem; color: {% if tx.type == 'ENTRADA' %}var(--accent-emerald){% elif tx.type == 'SALIDA' %}var(--accent-red){% else %}inherit{% endif %};">
                             {% if tx.type == 'ENTRADA' %}+{% elif tx.type == 'SALIDA' %}-{% endif %}{{ "{:,.2f}".format(tx.quantity) }}
                         </td>
+                        <td style="text-align: right; font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">
+                            {% if tx.unitCost %}{{ "{:,.2f}".format(tx.unitCost) }}{% else %}—{% endif %}
+                        </td>
                         <td style="font-size: 0.82rem;">
                             {% if tx.type == 'ENTRADA' %}
                             <span style="color: var(--text-secondary);"><i class="fa-solid fa-arrow-right" style="color: var(--accent-emerald); font-size: 0.75rem; margin-right: 4px;"></i>{{ tx.destinationWarehouseName }}</span>
@@ -108,11 +113,25 @@
                         <td style="font-size: 0.82rem; color: var(--text-secondary); font-family: monospace;">
                             {{ tx.performedBy }}
                         </td>
+                        <td style="text-align: center;">
+                            {% if tx.reversalTxId %}
+                            <span class="badge badge-warning" style="font-size: 0.72rem;" title="Revertido por {{ tx.reversedBy or '' }}">
+                                <i class="fa-solid fa-rotate-left"></i> Revertido
+                            </span>
+                            {% else %}
+                            <form method="POST" action="{{ url_for('web_invoices.reverse_inventory_transaction', tx_id=tx.id) }}" style="display: inline;" onsubmit="return confirm('¿Revertir este movimiento? Se generará el movimiento opuesto con el mismo costo.');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-secondary" style="font-size: 0.75rem; padding: 4px 10px;">
+                                    <i class="fa-solid fa-rotate-left"></i> Reversión
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                        <td colspan="9" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
                             <i class="fa-solid fa-clock-rotate-left" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                             <span>No se han registrado movimientos de inventario en el historial.</span>
                         </td>

@@ -40,7 +40,7 @@
                     <div class="item-picker-hint">Escribe al menos 2 caracteres para filtrar el catálogo.</div>
                     <div class="item-options" id="item-options" role="listbox" aria-label="Productos físicos">
                     {% for item in items %}
-                    <button type="button" class="item-option" role="option" data-id="{{ item.id }}" data-name="{{ item.name or '' }}" data-code="{{ item.code or '' }}" data-barcode="{{ item.barcode or '' }}" data-track-lots="{{ 'true' if item.trackLots else 'false' }}">
+                    <button type="button" class="item-option" role="option" data-id="{{ item.id }}" data-name="{{ item.name or '' }}" data-code="{{ item.code or '' }}" data-barcode="{{ item.barcode or '' }}" data-track-lots="{{ 'true' if item.trackLots else 'false' }}" data-cost="{{ item.costPrice or 0 }}" data-avgcost="{{ item.avgCost or 0 }}" data-lastpurchase="{{ item.lastPurchaseCost or 0 }}">
                         <span class="item-option-main">{{ item.name }}</span>
                         <span class="item-option-meta">{{ item.code or 'S/C' }}{% if item.barcode %} · {{ item.barcode }}{% endif %} · RD$ {{ "{:,.2f}".format(item.price|float) }}</span>
                     </button>
@@ -73,6 +73,15 @@
                 <label for="quantity">Cantidad (Unidades / Peso / Yardas)</label>
                 <input type="number" id="quantity" name="quantity" class="form-input" min="0.01" step="0.01" required placeholder="0.00">
                 <small style="color: var(--text-secondary); font-size: 0.75rem;">Soporta decimales para mediciones fraccionadas.</small>
+            </div>
+
+            <!-- Costo Unitario (Solo para ENTRADAS) -->
+            <div class="form-group" id="grp-unit-cost">
+                <label for="unit_cost">Costo Unitario de Adquisición</label>
+                <input type="number" id="unit_cost" name="unit_cost" class="form-input" min="0" step="0.0001" placeholder="0.00">
+                <small id="unit-cost-hint" style="color: var(--text-secondary); font-size: 0.75rem;">
+                    Último costo: — · Costo promedio: —
+                </small>
             </div>
 
             <!-- Almacén Origen (Solo para SALIDAS y TRANSFERENCIAS) -->
@@ -206,7 +215,24 @@
         itemSearch.value = option.dataset.name;
         itemOptions.forEach(current => current.classList.toggle('selected', current === option));
         itemPicker.classList.remove('open');
+        fillUnitCost(option);
         checkItemLotRequirement();
+    }
+
+    function fillUnitCost(option) {
+        const unitCostInput = document.getElementById('unit_cost');
+        const hint = document.getElementById('unit-cost-hint');
+        if (!unitCostInput) return;
+        const ref = parseFloat(option.dataset.cost || '0');
+        const avg = parseFloat(option.dataset.avgcost || '0');
+        const last = parseFloat(option.dataset.lastpurchase || '0');
+        if (ref > 0) {
+            unitCostInput.value = ref;
+        }
+        if (hint) {
+            const fmt = v => v > 0 ? v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+            hint.textContent = `Último costo: ${fmt(last)} · Costo promedio: ${fmt(avg)}`;
+        }
     }
 
     function filterItems() {
@@ -265,6 +291,7 @@
     function toggleWarehousePickers(type) {
         const grpOrigin = document.getElementById('grp-origin-wh');
         const grpDest = document.getElementById('grp-destination-wh');
+        const grpUnitCost = document.getElementById('grp-unit-cost');
         const selectOrigin = document.getElementById('originWarehouseId');
         const selectDest = document.getElementById('destinationWarehouseId');
         const selectReason = document.getElementById('reason');
@@ -278,7 +305,10 @@
             selectReason.appendChild(el);
         });
 
-        // Alternar visibilidad de almacenes
+        // Alternar visibilidad de almacenes y campo de costo
+        if (grpUnitCost) {
+            grpUnitCost.style.display = (type === 'ENTRADA') ? 'block' : 'none';
+        }
         if (type === 'ENTRADA') {
             grpOrigin.style.display = 'none';
             selectOrigin.required = false;

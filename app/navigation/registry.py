@@ -71,6 +71,7 @@ NAVIGATION_ITEMS = (
     _link("global.inventory.transfers", "Transferencias", "web_inventory.transfer_list", WORKSPACE_GLOBAL, 50, parent="global.inventory", module_key="inventario", permission="canInventoryTransfers", active_pages=("inventory_transfers",)),
     _link("global.inventory.counts", "Conteos Físicos", "web_inventory.physical_count_list", WORKSPACE_GLOBAL, 60, parent="global.inventory", module_key="inventario", permission="canInventoryCounts", active_pages=("inventory_counts",)),
     _link("global.inventory.lots", "Lotes y Vencimientos", "web_inventory.lot_list", WORKSPACE_GLOBAL, 70, parent="global.inventory", module_key="inventario", permission="canInventoryLots", active_pages=("inventory_lots",)),
+    _link("global.inventory.transactions", "Movimientos de Inventario", "web_invoices.inventory_transactions", WORKSPACE_GLOBAL, 80, parent="global.inventory", module_key="inventario", permission="canInventoryAdjustments", active_pages=("inventory_transactions",)),
 
     _group("global.purchases", "Compras y Proveedores", "fa-regular fa-credit-card", WORKSPACE_GLOBAL, 70, dom_id="sidebar-section-compras"),
     _group("global.purchases.buying", "Compras", "", WORKSPACE_GLOBAL, 10, parent="global.purchases"),

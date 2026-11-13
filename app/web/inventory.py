@@ -68,13 +68,20 @@ def advanced_dashboard():
     warehouses = DatabaseService.get_warehouses(owner_uid=owner_uid, company_id=company_id, sandbox=sb)
     stocks = DatabaseService.get_inventory_stock(owner_uid=owner_uid, company_id=company_id, sandbox=sb)
 
-    # Total valuation
+    # Total valuation (por almacén, usando estado de valoración real si existe)
     total_cost = 0.0
-    for it in items:
-        if it.get("type", "Bien") == "Bien":
-            qty = float(it.get("totalStock", 0))
-            cost = float(it.get("costPrice", 0))
-            total_cost += qty * cost
+    items_map = {it.get("id"): it for it in items}
+    for s in stocks:
+        item = items_map.get(s.get("itemId"))
+        if not item or item.get("type", "Bien") != "Bien":
+            continue
+        qty = float(s.get("quantity", 0.0) or 0.0)
+        stock_val = float(s.get("totalValue", 0.0) or 0.0)
+        stock_unit = float(s.get("unitCost", 0.0) or 0.0)
+        if item.get("valuationMethod") == "promedio" and stock_unit > 0:
+            total_cost += (stock_val if stock_val > 0 else qty * stock_unit)
+        else:
+            total_cost += qty * float(item.get("costPrice", 0.0) or 0.0)
 
     reorder = InventoryAlertService.get_reorder_suggestions(company_id, sandbox=sb, owner_uid=owner_uid)
     expirations = InventoryAlertService.get_expiration_alerts(company_id, sandbox=sb)
@@ -453,6 +460,23 @@ def new_receipt():
         warehouse_name = request.form.get("warehouseName", "")
 
         po_items = po.get("items", [])
+        # Catálogo para precargar/validar costo de referencia, último costo y promedio
+        catalog_map = {}
+        try:
+            all_catalog = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox) or []
+            catalog_map = {c.get("id"): c for c in all_catalog if c.get("id")}
+        except Exception:
+            catalog_map = {}
+
+        def _form_float(key, default=0.0):
+            raw = request.form.get(key, "").strip()
+            if raw == "":
+                return default
+            try:
+                return float(raw)
+            except (TypeError, ValueError):
+                return default
+
         receipt_items = []
         for item in po_items:
             item_id = item.get("id", "")
@@ -474,10 +498,25 @@ def new_receipt():
 
             uprice = float(item.get("unitPrice", 0) or 0)
             disc_pct = float(item.get("discount", 0) or 0)
-            net_uprice = uprice * (1.0 - (disc_pct / 100.0))
             po_currency = po.get("currency", "DOP") or "DOP"
             po_exchange_rate = float(po.get("exchangeRate", 1.0) or 1.0)
-            unit_cost_dop = round(net_uprice * po_exchange_rate, 4)
+
+            cat_item = catalog_map.get(cat_item_id, {})
+            reference_cost = float(cat_item.get("costPrice", 0.0) or 0.0)
+            last_purchase_cost = float(cat_item.get("lastPurchaseCost", 0.0) or 0.0)
+            avg_cost = float(cat_item.get("avgCost", 0.0) or 0.0)
+
+            # Costo unitario de adquisición (bruto, en DOP). Precarga: referencia → precio OC.
+            default_unit_cost = reference_cost if reference_cost > 0 else round(uprice * po_exchange_rate, 4)
+            unit_cost_dop = _form_float(f"unit_cost_{item_id}", default_unit_cost)
+
+            # Descuento por línea (monto, en DOP). Precarga desde el % de descuento de la OC.
+            default_discount = round(uprice * (disc_pct / 100.0) * po_exchange_rate, 2)
+            discount_amount = _form_float(f"discount_amount_{item_id}", default_discount)
+            additional_costs = _form_float(f"additional_costs_{item_id}", 0.0)
+            tax_recoverable = _form_float(f"tax_recoverable_{item_id}", 0.0)
+            non_recoverable_tax = _form_float(f"non_recoverable_tax_{item_id}", 0.0)
+
             is_inv = item.get("isInventoriable")
             if is_inv is None:
                 is_inv = True
@@ -494,6 +533,13 @@ def new_receipt():
                 "unitPrice": uprice,
                 "discount": disc_pct,
                 "unitCost": unit_cost_dop,
+                "discountAmount": discount_amount,
+                "additionalCosts": additional_costs,
+                "taxAmountRecoverable": tax_recoverable,
+                "nonRecoverableTax": non_recoverable_tax,
+                "referenceCost": reference_cost,
+                "lastPurchaseCost": last_purchase_cost,
+                "avgCost": avg_cost,
                 "currency": po_currency,
                 "exchangeRate": po_exchange_rate,
                 "isInventoriable": is_inv,

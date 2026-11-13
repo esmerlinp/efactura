@@ -308,6 +308,18 @@
     background: rgba(239, 68, 68, 0.05);
 }
 
+/* ── Inputs de costo por línea ────────────────────────────────────── */
+.unit-cost-input,
+.discount-input,
+.additional-input,
+.tax-recoverable-input {
+    width: 92px;
+    text-align: right;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.78rem;
+    padding: 5px 6px;
+}
+
 .btn-quick-max {
     background: var(--bg-input, rgba(0,0,0,0.04));
     border: 1px solid var(--border-color);
@@ -704,16 +716,18 @@
                 <table class="receipt-table" id="receipt-table">
                     <thead>
                         <tr>
-                            <th style="width:40px; text-align:center;">#</th>
-                            <th style="width:24%;">Partida (OC)</th>
-                            <th style="width:8%; text-align:center;">Ordenado</th>
-                            <th style="width:9%; text-align:center;">Recibido Prev.</th>
-                            <th style="width:8%; text-align:center;">Pendiente</th>
-                            <th style="width:14%; text-align:center;">Recibir Ahora *</th>
-                            <th style="width:7%;">Unidad</th>
-                            <th style="width:11%; text-align:right;">Precio</th>
-                            <th style="width:11%; text-align:right;">Subtotal</th>
-                            <th style="width:22%;">Ítem del Catálogo *</th>
+                            <th style="width:34px; text-align:center;">#</th>
+                            <th style="width:17%;">Partida (OC)</th>
+                            <th style="width:6%; text-align:center;">Ordenado</th>
+                            <th style="width:6%; text-align:center;">Pendiente</th>
+                            <th style="width:8%; text-align:center;">Recibir Ahora *</th>
+                            <th style="width:5%;">Unidad</th>
+                            <th style="width:9%; text-align:right;">Costo Unit. *</th>
+                            <th style="width:7%; text-align:right;">Descuento</th>
+                            <th style="width:6%; text-align:right;">Adic.</th>
+                            <th style="width:7%; text-align:right;">ITBIS Rec.</th>
+                            <th style="width:8%; text-align:right;">Costo Línea</th>
+                            <th style="width:16%;">Ítem del Catálogo *</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -723,6 +737,9 @@
                         {% set remaining = (ordered - prev)|round(2) %}
                         {% if remaining < 0 %}{% set remaining = 0 %}{% endif %}
                         {% set unit_price = item.get('unitPrice', 0)|float %}
+                        {% set po_exchange_rate = order.get('exchangeRate', 1.0)|float %}
+                        {% set unit_cost_dop = (unit_price * po_exchange_rate)|round(4) %}
+                        {% set discount_amount = (unit_price * (item.get('discount', 0)|float / 100.0) * po_exchange_rate)|round(2) %}
                         
                         <tr class="po-item-row" data-po-item-id="{{ item.id }}" id="row-{{ item.id }}">
                             <td style="text-align:center; color:var(--text-muted); font-size:0.8rem;">
@@ -735,15 +752,11 @@
                                     <i class="fa-solid fa-handshake"></i> Servicio / No inventariable
                                 </div>
                                 {% endif %}
+                                <div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;">
+                                    Recibido prev.: <span class="mono">{{ prev }}</span>
+                                </div>
                             </td>
                             <td style="text-align:center; font-weight:600;" class="mono">{{ ordered }}</td>
-                            <td style="text-align:center;">
-                                {% if prev > 0 %}
-                                <span class="badge-pill badge-green mono">{{ prev }}</span>
-                                {% else %}
-                                <span style="color:var(--text-muted);" class="mono">—</span>
-                                {% endif %}
-                            </td>
                             <td style="text-align:center;">
                                 {% if remaining > 0 %}
                                 <span class="badge-pill badge-amber mono" id="rem-badge-{{ item.id }}">{{ remaining }}</span>
@@ -764,7 +777,6 @@
                                            data-ordered="{{ ordered }}"
                                            data-prev="{{ prev }}"
                                            data-remaining="{{ remaining }}"
-                                           data-price="{{ unit_price }}"
                                            oninput="onQtyChange('{{ item.id }}')">
                                     <button type="button" class="btn-quick-max" onclick="setQty('{{ item.id }}', {{ remaining }})" title="Recibir restante ({{ remaining }})">
                                         Max
@@ -777,11 +789,57 @@
                             <td>
                                 <span class="badge-pill badge-gray">{{ item.unit|default('Unidad') }}</span>
                             </td>
-                            <td style="text-align:right;" class="mono">
-                                {{ "{:,.2f}".format(unit_price) }}
+                            <td style="text-align:right;">
+                                <input type="number" 
+                                       class="form-input unit-cost-input" 
+                                       name="unit_cost_{{ item.id }}" 
+                                       id="unit_cost_{{ item.id }}" 
+                                       value="{{ unit_cost_dop }}" 
+                                       min="0" 
+                                       step="0.0001"
+                                       data-ref="0"
+                                       data-last="0"
+                                       data-avg="0"
+                                       oninput="onCostChange('{{ item.id }}')">
+                                <div id="cost-hint-{{ item.id }}" style="font-size:0.64rem; color:var(--text-muted); margin-top:2px; text-align:right;">
+                                    Ref: — · Prom: — · Último: —
+                                </div>
+                                <div id="cost-warn-{{ item.id }}" style="display:none; font-size:0.66rem; color:#d97706; margin-top:2px; text-align:right; font-weight:600;">
+                                    <i class="fa-solid fa-triangle-exclamation"></i> Variación vs último costo
+                                </div>
                             </td>
-                            <td style="text-align:right; font-weight:700;" class="mono" id="subtotal-val-{{ item.id }}">
-                                {{ "{:,.2f}".format(remaining * unit_price) }}
+                            <td style="text-align:right;">
+                                <input type="number" 
+                                       class="form-input discount-input" 
+                                       name="discount_amount_{{ item.id }}" 
+                                       id="discount_amount_{{ item.id }}" 
+                                       value="{{ discount_amount }}" 
+                                       min="0" 
+                                       step="0.01"
+                                       oninput="onCostChange('{{ item.id }}')">
+                            </td>
+                            <td style="text-align:right;">
+                                <input type="number" 
+                                       class="form-input additional-input" 
+                                       name="additional_costs_{{ item.id }}" 
+                                       id="additional_costs_{{ item.id }}" 
+                                       value="0" 
+                                       min="0" 
+                                       step="0.01"
+                                       oninput="onCostChange('{{ item.id }}')">
+                            </td>
+                            <td style="text-align:right;">
+                                <input type="number" 
+                                       class="form-input tax-recoverable-input" 
+                                       name="tax_recoverable_{{ item.id }}" 
+                                       id="tax_recoverable_{{ item.id }}" 
+                                       value="0" 
+                                       min="0" 
+                                       step="0.01"
+                                       oninput="onCostChange('{{ item.id }}')">
+                            </td>
+                            <td style="text-align:right; font-weight:700;" class="mono" id="cost-line-val-{{ item.id }}">
+                                0.00
                             </td>
                             <td>
                                 {% if item.isInventoriable is false %}
@@ -813,7 +871,7 @@
 
                         <!-- Subfila de Asignación de Lotes -->
                         <tr id="lot-subrow-{{ item.id }}" class="lot-subrow" style="{% if item.trackLots and item.isInventoriable is not false %}{% else %}display:none;{% endif %}">
-                            <td colspan="10" style="padding:0;">
+                            <td colspan="12" style="padding:0;">
                                 <div class="lot-drawer">
                                     <div class="lot-drawer-header">
                                         <div class="lot-header-title">
@@ -1065,6 +1123,9 @@ document.querySelectorAll('.catalog-search').forEach(input => {
                         if (catItemInput) catItemInput.value = item.id;
                         if (catNameInput) catNameInput.value = item.name;
 
+                        // Precargar costo de referencia y mostrar promedio/último costo
+                        applyCatalogCosts(poItemId, item);
+
                         // Manejo de lotes
                         const trackLots = !!item.trackLots;
                         const trackLotsInput = document.getElementById('track_lots_' + poItemId);
@@ -1138,9 +1199,7 @@ function onQtyChange(itemId, triggerRecalc = true) {
 
     const val = parseFloat(input.value || '0');
     const remaining = parseFloat(input.dataset.remaining || '0');
-    const price = parseFloat(input.dataset.price || '0');
     const hint = document.getElementById('qty-hint-' + itemId);
-    const subtotalCell = document.getElementById('subtotal-val-' + itemId);
 
     if (val > remaining + 0.0001) {
         input.classList.add('over-limit');
@@ -1153,9 +1212,70 @@ function onQtyChange(itemId, triggerRecalc = true) {
         if (hint) hint.style.display = 'none';
     }
 
-    if (subtotalCell) {
-        const lineTotal = Math.max(0, val) * price;
-        subtotalCell.textContent = lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    onCostChange(itemId, false);
+    if (triggerRecalc) {
+        recalculateAllTotals();
+    }
+}
+
+// ── Control de Costos por Línea ─────────────────────────────────────
+const COST_VARIATION_THRESHOLD = 0.20; // 20% de variación vs último costo (informativo)
+
+function fmt2(v) {
+    return Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function lineCost(poItemId) {
+    const q = parseFloat(document.getElementById('received_qty_' + poItemId)?.value || '0');
+    const uc = parseFloat(document.getElementById('unit_cost_' + poItemId)?.value || '0');
+    const disc = parseFloat(document.getElementById('discount_amount_' + poItemId)?.value || '0');
+    const add = parseFloat(document.getElementById('additional_costs_' + poItemId)?.value || '0');
+    return Math.max(0, (q * uc) - disc + add);
+}
+
+function updateCostHint(poItemId) {
+    const unitCostInput = document.getElementById('unit_cost_' + poItemId);
+    const hint = document.getElementById('cost-hint-' + poItemId);
+    if (!unitCostInput || !hint) return;
+    const ref = parseFloat(unitCostInput.dataset.ref || 0);
+    const last = parseFloat(unitCostInput.dataset.last || 0);
+    const avg = parseFloat(unitCostInput.dataset.avg || 0);
+    hint.textContent = `Ref: ${ref ? fmt2(ref) : '—'} · Prom: ${avg ? fmt2(avg) : '—'} · Último: ${last ? fmt2(last) : '—'}`;
+}
+
+function applyCatalogCosts(poItemId, catItem) {
+    const unitCostInput = document.getElementById('unit_cost_' + poItemId);
+    if (!unitCostInput) return;
+    const ref = parseFloat(catItem.costPrice || 0);
+    const last = parseFloat(catItem.lastPurchaseCost || 0);
+    const avg = parseFloat(catItem.avgCost || 0);
+    unitCostInput.dataset.ref = ref || 0;
+    unitCostInput.dataset.last = last || 0;
+    unitCostInput.dataset.avg = avg || 0;
+    if (ref > 0) {
+        unitCostInput.value = ref;
+    }
+    updateCostHint(poItemId);
+    onCostChange(poItemId);
+}
+
+function onCostChange(poItemId, triggerRecalc = true) {
+    const costLineCell = document.getElementById('cost-line-val-' + poItemId);
+    if (costLineCell) {
+        costLineCell.textContent = fmt2(lineCost(poItemId));
+    }
+
+    const unitCostInput = document.getElementById('unit_cost_' + poItemId);
+    const warn = document.getElementById('cost-warn-' + poItemId);
+    const q = parseFloat(document.getElementById('received_qty_' + poItemId)?.value || '0');
+    if (warn && unitCostInput) {
+        const last = parseFloat(unitCostInput.dataset.last || 0);
+        const eff = q > 0 ? lineCost(poItemId) / q : 0;
+        if (last > 0 && q > 0 && Math.abs(eff - last) / last > COST_VARIATION_THRESHOLD) {
+            warn.style.display = 'block';
+        } else {
+            warn.style.display = 'none';
+        }
     }
 
     if (triggerRecalc) {
@@ -1171,12 +1291,12 @@ function recalculateAllTotals() {
 
     inputs.forEach(inp => {
         const q = parseFloat(inp.value || '0');
-        const price = parseFloat(inp.dataset.price || '0');
+        const itemId = inp.id.replace('received_qty_', '');
         if (q > 0) {
             activeLines++;
             totalQty += q;
-            totalAmount += (q * price);
         }
+        totalAmount += lineCost(itemId);
     });
 
     const kpiReceiving = document.getElementById('kpi-receiving-units');
@@ -1196,7 +1316,7 @@ function recalculateAllTotals() {
 
     const sumAmt = document.getElementById('summary-total-amount');
     if (sumAmt) {
-        sumAmt.textContent = 'RD$ ' + totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        sumAmt.textContent = 'RD$ ' + fmt2(totalAmount);
     }
 }
 
@@ -1288,6 +1408,21 @@ window.addEventListener('DOMContentLoaded', function() {
     if (whSelect) {
         onWarehouseChange(whSelect);
     }
+
+    // Precargar costos (referencia/promedio/último) para partidas ya vinculadas al catálogo
+    document.querySelectorAll('.po-item-row').forEach(row => {
+        const poItemId = row.dataset.poItemId;
+        const catItemId = document.getElementById('catalog_item_' + poItemId)?.value;
+        if (catItemId) {
+            const cat = catalogItems.find(i => i.id === catItemId);
+            if (cat) {
+                applyCatalogCosts(poItemId, cat);
+                return;
+            }
+        }
+        onCostChange(poItemId, false);
+    });
+
     recalculateAllTotals();
 });
 </script>

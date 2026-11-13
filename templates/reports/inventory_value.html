@@ -199,7 +199,9 @@
                 <th>Ítem / Producto</th>
                 <th>Almacén</th>
                 <th class="text-right">Cantidad</th>
+                <th class="text-right">Costo referencia</th>
                 <th class="text-right">Costo promedio</th>
+                <th class="text-right">Último costo</th>
                 <th class="text-right">Valor de inventario</th>
             </tr>
         </thead>
@@ -210,7 +212,9 @@
                 <td style="font-weight: 600;">{{ r.name }}</td>
                 <td>{{ r.warehouse_name }}</td>
                 <td class="text-right" style="font-weight: 500;">{{ "{:,.2f}".format(r.quantity) }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(r.reference_cost) }}</td>
                 <td class="text-right">RD$ {{ "{:,.2f}".format(r.cost_price) }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(r.last_purchase) }}</td>
                 <td class="text-right" style="font-weight: 600; color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(r.total_value) }}</td>
             </tr>
             {% endfor %}

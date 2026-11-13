@@ -37,6 +37,40 @@ class ContingencySyncService:
         )
 
     @classmethod
+    def spawn_background_check(cls, owner_uid, invoice_id, company, sandbox=True,
+                               company_id=None, max_attempts=20, max_seconds=600):
+        """Arranca un hilo daemon que consulta el estado DGII de una emisión API
+        pendiente hasta resolver ACCEPTED/REJECTED, sin depender de APScheduler
+        (cuyo trigger 'date' no dispara bajo gunicorn --preload multi-worker)."""
+        import threading
+
+        def _run():
+            try:
+                cls.poll_pending_invoice_until_terminal(
+                    owner_uid=owner_uid,
+                    invoice_id=invoice_id,
+                    company=company,
+                    sandbox=sandbox,
+                    company_id=company_id,
+                    max_attempts=max_attempts,
+                    max_seconds=max_seconds,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Error en consulta DGII en background para %s: %s",
+                    invoice_id,
+                    exc,
+                )
+
+        thread = threading.Thread(
+            target=_run,
+            daemon=True,
+            name=f"dgii-check-{invoice_id}",
+        )
+        thread.start()
+        return thread
+
+    @classmethod
     def check_pending_invoice_now(cls, owner_uid, invoice_id, company, sandbox=True, company_id=None):
         """Consulta una factura API pendiente y aplica un resultado terminal."""
         invoice = DatabaseService.get_invoice(

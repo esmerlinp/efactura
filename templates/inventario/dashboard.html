@@ -882,6 +882,10 @@
                 <i class="fa-solid fa-shuffle"></i>
                 <span>Ajuste / Mover</span>
             </a>
+            <a href="{{ url_for('web_invoices.inventory_transactions') }}" class="btn btn-secondary" title="Historial de movimientos de inventario">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>Historial</span>
+            </a>
             {% endif %}
         </div>
     </div>
@@ -1046,7 +1050,7 @@
                     {% set min_stock_val = (item.minStock or 0.0) | float %}
                     {% set max_stock_val = (item.maxStock or 0.0) | float %}
                     {% set is_low = (min_stock_val > 0 and stock_val <= min_stock_val) %}
-                    {% set cost_val = (item.costPrice or 0.0) | float %}
+                    {% set cost_val = (item.avgCost or item.costPrice or 0.0) | float %}
                     {% set price_val = (item.price or 0.0) | float %}
                     {% set total_cost = stock_val * cost_val %}
                     {% set total_pvp = stock_val * price_val %}
