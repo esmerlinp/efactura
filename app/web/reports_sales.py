@@ -2717,7 +2717,10 @@ def inventory_value_report():
             items_map[it['id']] = {
                 'name': it.get('name', 'Sin nombre'),
                 'reference': it.get('reference', 'N/A'),
-                'costPrice': float(it.get('costPrice', 0.0))
+                'costPrice': float(it.get('costPrice', 0.0)),
+                'avgCost': float(it.get('avgCost', 0.0) or 0.0),
+                'lastPurchaseCost': float(it.get('lastPurchaseCost', 0.0) or 0.0),
+                'valuationMethod': it.get('valuationMethod', '')
             }
 
     inventory_rows = []
@@ -2734,8 +2737,21 @@ def inventory_value_report():
             continue
 
         item_info = items_map[item_id]
-        cost = item_info['costPrice']
-        row_value = qty * cost
+        stock_unit_cost = float(st.get('unitCost', 0.0) or 0.0)
+        stock_total_value = float(st.get('totalValue', 0.0) or 0.0)
+        stock_last_purchase = float(st.get('lastPurchaseCost', 0.0) or 0.0)
+
+        # Valorar con el estado real por almacén (inventory_stock) cuando existe;
+        # en caso contrario (histórico sin backfill) usar el costo de referencia.
+        if stock_unit_cost > 0:
+            cost = stock_unit_cost
+            row_value = stock_total_value if stock_total_value > 0 else qty * cost
+        else:
+            cost = item_info['costPrice']
+            row_value = qty * cost
+
+        last_purchase = stock_last_purchase if stock_last_purchase > 0 else item_info['lastPurchaseCost']
+        reference_cost = item_info['costPrice']
 
         total_value += row_value
 
@@ -2755,7 +2771,9 @@ def inventory_value_report():
             'warehouse_name': wh_name,
             'quantity': qty,
             'cost_price': cost,
-            'total_value': row_value
+            'total_value': row_value,
+            'reference_cost': reference_cost,
+            'last_purchase': last_purchase,
         })
 
     inventory_rows.sort(key=lambda x: x['name'].lower())
@@ -2816,7 +2834,10 @@ def inventory_value_export():
             items_map[it['id']] = {
                 'name': it.get('name', 'Sin nombre'),
                 'reference': it.get('reference', 'N/A'),
-                'costPrice': float(it.get('costPrice', 0.0))
+                'costPrice': float(it.get('costPrice', 0.0)),
+                'avgCost': float(it.get('avgCost', 0.0) or 0.0),
+                'lastPurchaseCost': float(it.get('lastPurchaseCost', 0.0) or 0.0),
+                'valuationMethod': it.get('valuationMethod', '')
             }
 
     inventory_rows = []
@@ -2832,8 +2853,18 @@ def inventory_value_export():
             continue
 
         item_info = items_map[item_id]
-        cost = item_info['costPrice']
-        row_value = qty * cost
+        stock_unit_cost = float(st.get('unitCost', 0.0) or 0.0)
+        stock_total_value = float(st.get('totalValue', 0.0) or 0.0)
+        stock_last_purchase = float(st.get('lastPurchaseCost', 0.0) or 0.0)
+
+        if stock_unit_cost > 0:
+            cost = stock_unit_cost
+            row_value = stock_total_value if stock_total_value > 0 else qty * cost
+        else:
+            cost = item_info['costPrice']
+            row_value = qty * cost
+
+        last_purchase = stock_last_purchase if stock_last_purchase > 0 else item_info['lastPurchaseCost']
 
         wh_name = wh_map.get(wh_id, 'Desconocido')
         item_name = item_info['name']
@@ -2851,7 +2882,9 @@ def inventory_value_export():
             wh_name,
             f"{qty:.2f}",
             f"{cost:.2f}",
-            f"{row_value:.2f}"
+            f"{row_value:.2f}",
+            f"{item_info['costPrice']:.2f}",
+            f"{last_purchase:.2f}"
         ])
 
     inventory_rows.sort(key=lambda x: x[1].lower())
@@ -2859,7 +2892,7 @@ def inventory_value_export():
     output = io.StringIO()
     output.write('\ufeff')
     writer = csv.writer(output)
-    writer.writerow(['Referencia', 'Item / Producto', 'Almacen', 'Cantidad', 'Costo promedio', 'Valor total'])
+    writer.writerow(['Referencia', 'Item / Producto', 'Almacen', 'Cantidad', 'Costo promedio', 'Valor total', 'Costo referencia', 'Ultimo costo'])
     for row in inventory_rows:
         writer.writerow(row)
 

@@ -212,6 +212,8 @@ class Config:
     DGII_POLL_MAX_SECONDS = float(os.getenv('DGII_POLL_MAX_SECONDS', '30'))
     POS_DGII_POLL_MAX_SECONDS = float(os.getenv('POS_DGII_POLL_MAX_SECONDS', '15'))
     POS_DGII_POLL_MAX_ATTEMPTS = int(os.getenv('POS_DGII_POLL_MAX_ATTEMPTS', '5'))
+    WEB_DGII_POLL_MAX_SECONDS = float(os.getenv('WEB_DGII_POLL_MAX_SECONDS', '10'))
+    WEB_DGII_POLL_MAX_ATTEMPTS = int(os.getenv('WEB_DGII_POLL_MAX_ATTEMPTS', '8'))
     DGII_SIGNING_MODE = os.getenv('DGII_SIGNING_MODE', 'mock')
     DGII_ALLOW_SIMULATION = os.getenv('DGII_ALLOW_SIMULATION', 'true').lower() == 'true'
     DGII_SANDBOX_MODE = os.getenv('DGII_SANDBOX_MODE', 'local').lower()

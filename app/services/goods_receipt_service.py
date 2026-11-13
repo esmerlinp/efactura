@@ -344,15 +344,23 @@ class GoodsReceiptService:
             if qty <= 0:
                 continue
 
-            # Determinación de costo unitario neto en DOP (moneda base)
+            # Costo unitario de adquisición (bruto, antes de descuento) en DOP (moneda base)
             unit_cost = item.get("unitCost")
-            if unit_cost is None or float(unit_cost) <= 0:
+            has_explicit_cost = unit_cost is not None and float(unit_cost) > 0
+            if not has_explicit_cost:
+                # Legacy: derivar costo neto desde unitPrice y % de descuento de la OC
                 uprice = float(item.get("unitPrice", po_item.get("unitPrice", 0) if po_item else 0) or 0)
                 disc_pct = float(item.get("discount", po_item.get("discount", 0) if po_item else 0) or 0)
-                net_price = uprice * (1.0 - (disc_pct / 100.0))
-                unit_cost = round(net_price * exchange_rate, 4)
+                unit_cost = round(uprice * (1.0 - (disc_pct / 100.0)) * exchange_rate, 4)
             else:
                 unit_cost = float(unit_cost)
+
+            # Descuento por línea, costos adicionales e impuestos (desglose para valoración).
+            # En el flujo legacy el descuento ya viene aplicado en unit_cost, así que no se resta de nuevo.
+            discount_amount = float(item.get("discountAmount", 0.0) or 0.0) if has_explicit_cost else 0.0
+            additional_costs = float(item.get("additionalCosts", 0.0) or 0.0)
+            tax_recoverable = float(item.get("taxAmountRecoverable", 0.0) or 0.0)
+            non_recoverable_tax = float(item.get("nonRecoverableTax", 0.0) or 0.0)
 
             line_ref = item.get("poItemId") or item.get("id") or item_id
             idempotency_key = InventoryTransactionService.build_idempotency_key(
@@ -368,6 +376,12 @@ class GoodsReceiptService:
                 "itemName": item.get("itemName", item.get("poItemName", "")),
                 "quantity": qty,
                 "unitCost": unit_cost,
+                "discountAmount": discount_amount,
+                "additionalCosts": additional_costs,
+                "taxAmountRecoverable": tax_recoverable,
+                "nonRecoverableTax": non_recoverable_tax,
+                "supplierId": receipt_data.get("supplierId", ""),
+                "referenceCost": float(item.get("referenceCost", 0.0) or 0.0),
                 "destinationWarehouseId": warehouse_id,
                 "destinationWarehouseName": receipt_data.get("warehouseName", ""),
                 "reason": InventoryTransactionService.REASON_COMPRA,

@@ -1661,7 +1661,7 @@ def inventory_transactions():
         t['originWarehouseName'] = t.get('originWarehouseName') or wh_map.get(t['originWarehouseId'], '')
         t['destinationWarehouseName'] = t.get('destinationWarehouseName') or wh_map.get(t['destinationWarehouseId'], '')
         
-    return render_template('inventario/movimientos.html', active_page='inventory', transactions=txs)
+    return render_template('inventario/movimientos.html', active_page='inventory_transactions', transactions=txs)
 
 @web_invoices_bp.route('/inventory/transactions/new', methods=['GET', 'POST'])
 def new_inventory_transaction():
@@ -1687,7 +1687,12 @@ def new_inventory_transaction():
         wh_map = {wh['id']: wh['name'] for wh in warehouses}
         
         from app.services.inventory_transaction_service import InventoryTransactionService, InsufficientStockError, InventoryTransactionError
-        unit_cost = float(item.get('costPrice', 0.0) or 0.0) if item else 0.0
+        reference_cost = float(item.get('costPrice', 0.0) or 0.0) if item else 0.0
+        unit_cost_raw = request.form.get('unit_cost', '').strip()
+        try:
+            unit_cost = float(unit_cost_raw) if unit_cost_raw else reference_cost
+        except ValueError:
+            unit_cost = reference_cost
 
         lot_choice = request.form.get('lotChoice', 'new')
         enable_lot = request.form.get('enableLot') in ('on', 'true', '1') or 'enableLot' in request.form
@@ -1713,6 +1718,7 @@ def new_inventory_transaction():
             "type": tx_type,
             "quantity": qty,
             "unitCost": unit_cost,
+            "referenceCost": reference_cost,
             "reason": reason,
             "notes": notes,
             "originWarehouseId": request.form.get('originWarehouseId', ''),
@@ -1758,11 +1764,121 @@ def new_inventory_transaction():
     
     return render_template(
         'inventario/nueva_transaccion.html',
-        active_page='inventory',
+        active_page='inventory_transactions',
         items=goods,
         warehouses=warehouses,
         selected_item_id=request.args.get('item_id', '')
     )
+
+@web_invoices_bp.route('/inventory/transactions/<tx_id>/reverse', methods=['POST'])
+def reverse_inventory_transaction(tx_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canInventoryAdjustments'):
+        return render_template('auth/restricted.html', feature_name="Reversión de Inventario", required_permission="canInventoryAdjustments"), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    coll_name = "sandbox_inventory_transactions" if sandbox else "inventory_transactions"
+    tx_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(tx_id)
+    doc = tx_ref.get()
+    if not doc.exists:
+        flash('Movimiento no encontrado.', 'error')
+        return redirect(url_for('web_invoices.inventory_transactions'))
+
+    tx = doc.to_dict() or {}
+    if tx.get('reversalTxId'):
+        flash('Este movimiento ya fue revertido.', 'warning')
+        return redirect(url_for('web_invoices.inventory_transactions'))
+
+    from app.services.inventory_transaction_service import InventoryTransactionService, InsufficientStockError, InventoryTransactionError
+
+    tx_type = str(tx.get('type', 'ENTRADA')).upper()
+    qty = float(tx.get('quantity', 0.0) or 0.0)
+    unit_cost = float(tx.get('unitCost', 0.0) or 0.0)
+    item_id = tx.get('itemId', '')
+    item_name = tx.get('itemName', '')
+
+    # Movimiento opuesto
+    if tx_type == 'ENTRADA':
+        rev_type = InventoryTransactionService.TYPE_SALIDA
+        origin_wh = tx.get('destinationWarehouseId', '')
+        origin_wh_name = tx.get('destinationWarehouseName', '')
+        dest_wh = ''
+        dest_wh_name = ''
+        rev_reason = 'REVERSION'
+    elif tx_type == 'SALIDA':
+        rev_type = InventoryTransactionService.TYPE_ENTRADA
+        origin_wh = ''
+        origin_wh_name = ''
+        dest_wh = tx.get('originWarehouseId', '')
+        dest_wh_name = tx.get('originWarehouseName', '')
+        rev_reason = 'REVERSION'
+    elif tx_type == 'TRANSFERENCIA':
+        rev_type = InventoryTransactionService.TYPE_TRANSFERENCIA
+        origin_wh = tx.get('destinationWarehouseId', '')
+        origin_wh_name = tx.get('destinationWarehouseName', '')
+        dest_wh = tx.get('originWarehouseId', '')
+        dest_wh_name = tx.get('originWarehouseName', '')
+        rev_reason = 'TRANSFERENCIA_ENTRE_ALMACENES'
+    else:
+        flash('Tipo de movimiento no reversible.', 'error')
+        return redirect(url_for('web_invoices.inventory_transactions'))
+
+    idempotency_key = InventoryTransactionService.build_idempotency_key(
+        company_id=company_id,
+        reference_type="TRANSACTION_REVERSAL",
+        reference_id=tx_id,
+        operation=rev_type
+    )
+
+    rev_dict = {
+        "itemId": item_id,
+        "itemName": item_name,
+        "type": rev_type,
+        "quantity": qty,
+        "unitCost": unit_cost,
+        "reason": rev_reason,
+        "referenceType": "TRANSACTION_REVERSAL",
+        "referenceId": tx_id,
+        "idempotencyKey": idempotency_key,
+        "originWarehouseId": origin_wh,
+        "originWarehouseName": origin_wh_name,
+        "destinationWarehouseId": dest_wh,
+        "destinationWarehouseName": dest_wh_name,
+        "notes": f"Reversión del movimiento {tx_id} ({tx_type})",
+        "performedBy": session['user']['email'],
+        "lotId": tx.get('lotId', ''),
+        "lotNumber": tx.get('lotNumber', ''),
+    }
+
+    try:
+        res = InventoryTransactionService.execute_transaction(
+            owner_uid=owner_uid,
+            company_id=company_id,
+            tx_dict=rev_dict,
+            sandbox=sandbox
+        )
+        if res:
+            try:
+                tx_ref.update({
+                    "reversalTxId": res.get("id", ""),
+                    "reversedBy": session['user']['email'],
+                    "reversedAt": datetime.now(timezone.utc).isoformat(),
+                })
+            except Exception as upd_err:
+                print(f"⚠️ Error marcando reversión del movimiento {tx_id}: {upd_err}")
+            flash('Movimiento revertido correctamente.', 'success')
+        else:
+            flash('Fallo al revertir el movimiento.', 'error')
+    except InsufficientStockError as e:
+        flash(f'Stock insuficiente para revertir: {str(e)}', 'error')
+    except InventoryTransactionError as e:
+        flash(f'Error al revertir: {str(e)}', 'error')
+    except Exception as e:
+        flash(f'Fallo al revertir el movimiento: {str(e)}', 'error')
+
+    return redirect(url_for('web_invoices.inventory_transactions'))
 
 # =========================================================================
 # MESAS DE EMISIÓN DE COMPROBANTES FISCALES (e-CF)
@@ -4704,6 +4820,50 @@ def reject_payment_proof(invoice_id):
         
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
+def _resolve_pending_dgii_inline(company, res, sandbox, invoice_id):
+    """Consulta el estado final DGII de una emisión API que quedó PENDING.
+
+    Normaliza `res` para que el flujo de emisión lo trate como terminal:
+      - ACCEPTED  -> status/dgiiStatus = ACCEPTED (la factura se marca Emitida)
+      - REJECTED  -> success=False con error/message (cae en el branch de rechazo)
+      - TIMEOUT   -> sin cambios (sigue PENDING y el job en background lo retoma)
+    """
+    if not (res.get("success") and res.get("mode") == "API"
+            and res.get("status") == "PENDING" and res.get("trackId")):
+        return res
+    try:
+        poll_res = DgiiDirectService.poll_status_until_terminal(
+            company,
+            res["trackId"],
+            sandbox=sandbox,
+            max_attempts=Config.WEB_DGII_POLL_MAX_ATTEMPTS,
+            max_seconds=Config.WEB_DGII_POLL_MAX_SECONDS,
+        )
+    except Exception as poll_err:
+        import logging
+        logging.getLogger(__name__).warning(
+            "No se pudo resolver el estado DGII inline para %s: %s",
+            invoice_id,
+            poll_err,
+        )
+        return res
+
+    status = str(poll_res.get("dgiiStatus") or "").upper()
+    if status == "ACCEPTED":
+        res["status"] = "ACCEPTED"
+        res["dgiiStatus"] = "ACCEPTED"
+    elif status == "REJECTED":
+        mensajes = poll_res.get("mensajes") or []
+        msgs = "; ".join(m.get("valor", "") for m in mensajes if isinstance(m, dict) and m.get("valor"))
+        error_msg = msgs or "DGII rechazó el comprobante"
+        res["success"] = False
+        res["status"] = "REJECTED"
+        res["dgiiStatus"] = "REJECTED"
+        res["error"] = error_msg
+        res["message"] = error_msg
+    return res
+
+
 @web_invoices_bp.route('/invoices/<invoice_id>/sign', methods=['POST'])
 def sign_invoice_route(invoice_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
@@ -4740,7 +4900,8 @@ def sign_invoice_route(invoice_id):
             
         # Emitir a través de DGII Direct (con Fallback de contingencia)
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
-        
+        res = _resolve_pending_dgii_inline(company, res, sandbox, invoice_id)
+
         if res.get("success"):
             pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
             rem_bal = float(invoice.get("remainingBalance", 0.0))
@@ -4772,7 +4933,7 @@ def sign_invoice_route(invoice_id):
             if pending_dgii and res.get("mode") == "API" and invoice.get("trackId"):
                 try:
                     from app.services.contingency_sync_service import ContingencySyncService
-                    ContingencySyncService.schedule_immediate_api_check(
+                    ContingencySyncService.spawn_background_check(
                         owner_uid=owner_uid,
                         invoice_id=invoice_id,
                         company=company,
@@ -4782,7 +4943,7 @@ def sign_invoice_route(invoice_id):
                 except Exception as immediate_check_err:
                     import logging
                     logging.getLogger(__name__).warning(
-                        "No se pudo programar consulta DGII inmediata %s: %s",
+                        "No se pudo iniciar consulta DGII en background %s: %s",
                         invoice_id,
                         immediate_check_err,
                     )
@@ -4882,6 +5043,7 @@ def reemit_invoice_route(invoice_id):
 
     try:
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
+        res = _resolve_pending_dgii_inline(company, res, sandbox, invoice_id)
 
         if res.get("success"):
             pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
@@ -4898,6 +5060,24 @@ def reemit_invoice_route(invoice_id):
             invoice.pop("enviadoADGII", None)
 
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
+
+            if pending_dgii and res.get("mode") == "API" and invoice.get("trackId"):
+                try:
+                    from app.services.contingency_sync_service import ContingencySyncService
+                    ContingencySyncService.spawn_background_check(
+                        owner_uid=owner_uid,
+                        invoice_id=invoice_id,
+                        company=company,
+                        sandbox=sandbox,
+                        company_id=company_id,
+                    )
+                except Exception as immediate_check_err:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "No se pudo iniciar consulta DGII en background %s: %s",
+                        invoice_id,
+                        immediate_check_err,
+                    )
 
             _log_dgii_emission_to_audit(owner_uid, invoice, res, session['user']['email'],
                                          performed_by_name=session['user'].get('name', 'Sistema'),

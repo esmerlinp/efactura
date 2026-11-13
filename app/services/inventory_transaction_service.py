@@ -36,6 +36,7 @@ from app.services.db_service import (
     _invalidate_items,
     serialize_field
 )
+from app.services.inventory_valuation_service import InventoryValuationService, quantize_value
 
 
 class InventoryTransactionError(Exception):
@@ -222,6 +223,11 @@ class InventoryTransactionService:
             if wh_for_lot:
                 target_lot_id = LotService.build_canonical_lot_id(item_id, wh_for_lot, lot_number_in)
 
+        # Política de valoración de la empresa (lectura best-effort fuera de transacción)
+        company_valuation_method = InventoryValuationService.get_company_valuation_method(
+            company_id=company_id, sandbox=sandbox, owner_uid=owner_uid
+        )
+
         # Preparamos hash seguro de idempotencia para doc ID si existe
         idempotency_doc_id = None
         if idempotency_key:
@@ -262,25 +268,45 @@ class InventoryTransactionService:
             item_name = tx_dict.get("itemName") or item_data.get("name", "Artículo")
             item_code = tx_dict.get("itemCode") or item_data.get("code", "")
             unit_cost = float(tx_dict.get("unitCost") or item_data.get("costPrice", 0.0) or 0.0)
-            
+            reference_cost = float(item_data.get("costPrice", 0.0) or 0.0)
+
             old_item_total_stock = float(item_data.get("totalStock", 0.0))
+            valuation_method = InventoryValuationService.resolve_method(
+                item_dict=item_data,
+                company_method=company_valuation_method,
+                tx_override=tx_dict.get("valuationMethod"),
+            )
 
             # 1.3 Lecturas de Existencias por Almacén
             orig_stock_ref = None
             old_orig_qty = 0.0
+            old_orig_value = 0.0
+            old_orig_unit_cost = 0.0
+            old_orig_last_purchase = 0.0
             if orig_wh_id:
                 orig_stock_ref = stock_coll.document(f"{item_id}_{orig_wh_id}")
                 orig_stock_doc = orig_stock_ref.get(transaction=txn)
                 if orig_stock_doc.exists:
-                    old_orig_qty = float(orig_stock_doc.to_dict().get("quantity", 0.0))
+                    _od = orig_stock_doc.to_dict() or {}
+                    old_orig_qty = float(_od.get("quantity", 0.0))
+                    old_orig_value = float(_od.get("totalValue", 0.0) or 0.0)
+                    old_orig_unit_cost = float(_od.get("unitCost", 0.0) or 0.0)
+                    old_orig_last_purchase = float(_od.get("lastPurchaseCost", 0.0) or 0.0)
 
             dest_stock_ref = None
             old_dest_qty = 0.0
+            old_dest_value = 0.0
+            old_dest_unit_cost = 0.0
+            old_dest_last_purchase = 0.0
             if dest_wh_id:
                 dest_stock_ref = stock_coll.document(f"{item_id}_{dest_wh_id}")
                 dest_stock_doc = dest_stock_ref.get(transaction=txn)
                 if dest_stock_doc.exists:
-                    old_dest_qty = float(dest_stock_doc.to_dict().get("quantity", 0.0))
+                    _dd = dest_stock_doc.to_dict() or {}
+                    old_dest_qty = float(_dd.get("quantity", 0.0))
+                    old_dest_value = float(_dd.get("totalValue", 0.0) or 0.0)
+                    old_dest_unit_cost = float(_dd.get("unitCost", 0.0) or 0.0)
+                    old_dest_last_purchase = float(_dd.get("lastPurchaseCost", 0.0) or 0.0)
 
             # 1.4 Lectura de Lote en la transacción (si aplica)
             lot_ref = None
@@ -322,19 +348,53 @@ class InventoryTransactionService:
             new_dest_qty = old_dest_qty
             new_item_total_stock = old_item_total_stock
 
+            new_orig_value = old_orig_value
+            new_orig_unit_cost = old_orig_unit_cost
+            new_dest_value = old_dest_value
+            new_dest_unit_cost = old_dest_unit_cost
+            new_dest_last_purchase = old_dest_last_purchase
+
             previous_balance = 0.0
             new_balance = 0.0
             consumed_fifo_details = []
             fifo_layer_updates = []
             new_opening_layer = None
-            cost_method = "FIFO"
+            use_moving_average = (valuation_method == InventoryValuationService.METHOD_PROMEDIO)
+            cost_method = "PROMEDIO" if use_moving_average else "FIFO"
             tx_total_cost = round(qty * unit_cost, 2)
+
+            previous_avg_cost = 0.0
+            resulting_avg_cost = 0.0
+            last_purchase_cost = old_dest_last_purchase
 
             if tx_type == cls.TYPE_ENTRADA:
                 new_dest_qty = old_dest_qty + qty
                 new_item_total_stock = old_item_total_stock + qty
                 previous_balance = old_dest_qty
                 new_balance = new_dest_qty
+
+                # Valor de adquisición de la línea (uniforme para FIFO y promedio):
+                # (unitCost × qty) − descuento + costosAdicionales + ITBIS no recuperable.
+                discount_amount = float(tx_dict.get("discountAmount", 0.0) or 0.0)
+                additional_costs = float(tx_dict.get("additionalCosts", 0.0) or 0.0)
+                non_recoverable_tax = float(tx_dict.get("nonRecoverableTax", 0.0) or 0.0)
+                line_value = InventoryValuationService.entry_line_value(
+                    unit_cost, qty, discount_amount, additional_costs, non_recoverable_tax
+                )
+                eff_unit = InventoryValuationService.effective_unit_cost(line_value, qty)
+                unit_cost = float(eff_unit)
+                tx_total_cost = float(quantize_value(line_value))
+
+                if use_moving_average:
+                    mv = InventoryValuationService.moving_average_after_entry(
+                        old_dest_qty, old_dest_value, qty, line_value
+                    )
+                    new_dest_value = float(mv["totalValue"])
+                    new_dest_unit_cost = float(mv["unitCost"])
+                    new_dest_last_purchase = float(eff_unit)
+                    previous_avg_cost = old_dest_unit_cost
+                    resulting_avg_cost = new_dest_unit_cost
+                    last_purchase_cost = new_dest_last_purchase
 
             elif tx_type == cls.TYPE_SALIDA:
                 if not allow_negative_stock and old_orig_qty < qty:
@@ -347,20 +407,50 @@ class InventoryTransactionService:
                 previous_balance = old_orig_qty
                 new_balance = new_orig_qty
 
-                # Consumo FIFO atómico
-                from app.services.inventory_costing_service import InventoryCostingService
-                fifo_res = InventoryCostingService.calculate_fifo_consumption(
-                    active_layers=active_fifo_layers,
-                    qty_needed=qty,
-                    item_catalog_cost=unit_cost,
-                    available_physical_stock=old_orig_qty
-                )
-                consumed_fifo_details = fifo_res.get("costLayers", [])
-                fifo_layer_updates = fifo_res.get("layerUpdates", [])
-                new_opening_layer = fifo_res.get("openingLayer")
-                if fifo_res.get("totalCost", 0.0) > 0 or consumed_fifo_details:
-                    tx_total_cost = fifo_res["totalCost"]
-                    unit_cost = fifo_res["unitCost"]
+                if use_moving_average:
+                    # Reversión de una entrada previa documentada: honrar el costo explícito
+                    # (devolución a proveedor, anulación de factura o nota de crédito).
+                    # Ajustes físicos/mercas/conteos NO usan el costo de catálogo: usan el promedio.
+                    reason_upper = (tx_dict.get("reason") or "").strip().upper()
+                    ref_type_upper = (tx_dict.get("referenceType") or "").strip().upper()
+                    is_reversal = (
+                        reason_upper in ("DEVOLUCION_PROVEEDOR", "ANULACION_VENTA", "REVERSION")
+                        or ref_type_upper in ("GOODS_RECEIPT_ROLLBACK", "CREDIT_NOTE_CANCEL", "INVOICE_CANCEL", "INVOICE_ANULADA", "TRANSACTION_REVERSAL")
+                    )
+                    explicit_cost = float(tx_dict.get("unitCost") or 0.0)
+                    if is_reversal and explicit_cost > 0:
+                        tx_total_cost = round(qty * explicit_cost, 2)
+                        unit_cost = explicit_cost
+                        new_orig_value = max(0.0, round(old_orig_value - tx_total_cost, 2))
+                        previous_avg_cost = old_orig_unit_cost
+                        new_orig_unit_cost = round(new_orig_value / new_orig_qty, 4) if new_orig_qty > 0 else 0.0
+                        resulting_avg_cost = new_orig_unit_cost
+                    else:
+                        # COGS = costoPromedioVigente × cantidad; el promedio no cambia.
+                        ev = InventoryValuationService.exit_valuation(old_orig_qty, old_orig_value, qty)
+                        tx_total_cost = float(ev["cogs"])
+                        unit_cost = float(ev["unitCost"])
+                        new_orig_value = float(ev["totalValue"])
+                        new_orig_unit_cost = float(ev["unitCost"])
+                        previous_avg_cost = old_orig_unit_cost
+                        resulting_avg_cost = old_orig_unit_cost
+                    consumed_fifo_details = []
+                    fifo_layer_updates = []
+                else:
+                    # Consumo FIFO atómico
+                    from app.services.inventory_costing_service import InventoryCostingService
+                    fifo_res = InventoryCostingService.calculate_fifo_consumption(
+                        active_layers=active_fifo_layers,
+                        qty_needed=qty,
+                        item_catalog_cost=unit_cost,
+                        available_physical_stock=old_orig_qty
+                    )
+                    consumed_fifo_details = fifo_res.get("costLayers", [])
+                    fifo_layer_updates = fifo_res.get("layerUpdates", [])
+                    new_opening_layer = fifo_res.get("openingLayer")
+                    if fifo_res.get("totalCost", 0.0) > 0 or consumed_fifo_details:
+                        tx_total_cost = fifo_res["totalCost"]
+                        unit_cost = fifo_res["unitCost"]
 
             elif tx_type == cls.TYPE_TRANSFERENCIA:
                 if not allow_negative_stock and old_orig_qty < qty:
@@ -374,24 +464,40 @@ class InventoryTransactionService:
                 previous_balance = old_orig_qty
                 new_balance = new_orig_qty
 
-                from app.services.inventory_costing_service import InventoryCostingService
-                fifo_res = InventoryCostingService.calculate_fifo_consumption(
-                    active_layers=active_fifo_layers,
-                    qty_needed=qty,
-                    item_catalog_cost=unit_cost,
-                    available_physical_stock=old_orig_qty
-                )
-                consumed_fifo_details = fifo_res.get("costLayers", [])
-                fifo_layer_updates = fifo_res.get("layerUpdates", [])
-                new_opening_layer = fifo_res.get("openingLayer")
-                if fifo_res.get("totalCost", 0.0) > 0 or consumed_fifo_details:
-                    tx_total_cost = fifo_res["totalCost"]
-                    unit_cost = fifo_res["unitCost"]
+                if use_moving_average:
+                    # Sale del origen al costo promedio vigente y entra al destino con ese mismo costo.
+                    ev = InventoryValuationService.exit_valuation(old_orig_qty, old_orig_value, qty)
+                    tx_total_cost = float(ev["cogs"])
+                    unit_cost = float(ev["unitCost"])
+                    new_orig_value = float(ev["totalValue"])
+                    new_orig_unit_cost = float(ev["unitCost"])
+                    mv = InventoryValuationService.moving_average_after_entry(
+                        old_dest_qty, old_dest_value, qty, ev["cogs"]
+                    )
+                    new_dest_value = float(mv["totalValue"])
+                    new_dest_unit_cost = float(mv["unitCost"])
+                    previous_avg_cost = old_orig_unit_cost
+                    resulting_avg_cost = new_dest_unit_cost
+                    consumed_fifo_details = []
+                    fifo_layer_updates = []
+                else:
+                    from app.services.inventory_costing_service import InventoryCostingService
+                    fifo_res = InventoryCostingService.calculate_fifo_consumption(
+                        active_layers=active_fifo_layers,
+                        qty_needed=qty,
+                        item_catalog_cost=unit_cost,
+                        available_physical_stock=old_orig_qty
+                    )
+                    consumed_fifo_details = fifo_res.get("costLayers", [])
+                    fifo_layer_updates = fifo_res.get("layerUpdates", [])
+                    new_opening_layer = fifo_res.get("openingLayer")
+                    if fifo_res.get("totalCost", 0.0) > 0 or consumed_fifo_details:
+                        tx_total_cost = fifo_res["totalCost"]
+                        unit_cost = fifo_res["unitCost"]
 
             elif tx_type == cls.TYPE_AJUSTE:
                 # Ajuste relativo o directo
                 target_qty = tx_dict.get("targetQuantity")
-                target_wh = dest_wh_id or orig_wh_id
                 if target_qty is not None:
                     target_qty = float(target_qty)
                     wh_old = old_dest_qty if dest_wh_id else old_orig_qty
@@ -415,6 +521,34 @@ class InventoryTransactionService:
                         previous_balance = old_orig_qty
                         new_balance = new_orig_qty
                     new_item_total_stock = old_item_total_stock + delta
+
+                if use_moving_average and delta != 0:
+                    # El ajuste se valora al costo promedio vigente del almacén afectado
+                    # (o al costo explícito indicado). El promedio se recalcula al final.
+                    adj_wh_old_qty = old_dest_qty if dest_wh_id else old_orig_qty
+                    adj_wh_old_value = old_dest_value if dest_wh_id else old_orig_value
+                    adj_wh_old_unit_cost = old_dest_unit_cost if dest_wh_id else old_orig_unit_cost
+
+                    explicit_adj_cost = float(tx_dict.get("unitCost") or 0.0)
+                    if explicit_adj_cost > 0:
+                        adj_unit_cost = explicit_adj_cost
+                    elif adj_wh_old_qty > 0 and adj_wh_old_value > 0:
+                        adj_unit_cost = adj_wh_old_value / adj_wh_old_qty
+                    else:
+                        adj_unit_cost = adj_wh_old_unit_cost
+
+                    tx_total_cost = round(abs(delta) * adj_unit_cost, 2)
+                    unit_cost = adj_unit_cost
+                    new_adj_value = adj_wh_old_value + (delta * adj_unit_cost)
+                    new_adj_value = max(0.0, round(new_adj_value, 2))
+                    if dest_wh_id:
+                        new_dest_value = new_adj_value
+                        new_dest_unit_cost = round(new_adj_value / new_dest_qty, 4) if new_dest_qty > 0 else 0.0
+                    else:
+                        new_orig_value = new_adj_value
+                        new_orig_unit_cost = round(new_adj_value / new_orig_qty, 4) if new_orig_qty > 0 else 0.0
+                    previous_avg_cost = adj_wh_old_unit_cost
+                    resulting_avg_cost = round(new_adj_value / (adj_wh_old_qty + delta), 4) if (adj_wh_old_qty + delta) > 0 else 0.0
 
             # Validación de requerimiento de lotes por catálogo
             item_requires_lot = bool(item_data.get("trackLots", False))
@@ -519,6 +653,16 @@ class InventoryTransactionService:
                 "unitCost": unit_cost,
                 "totalValue": tx_total_cost,
                 "costMethod": cost_method,
+                "valuationMethod": valuation_method,
+                "referenceCost": reference_cost,
+                "previousAvgCost": previous_avg_cost,
+                "resultingAvgCost": resulting_avg_cost,
+                "lastPurchaseCost": last_purchase_cost,
+                "discountAmount": float(tx_dict.get("discountAmount", 0.0) or 0.0),
+                "additionalCosts": float(tx_dict.get("additionalCosts", 0.0) or 0.0),
+                "taxAmountRecoverable": float(tx_dict.get("taxAmountRecoverable", 0.0) or 0.0),
+                "nonRecoverableTax": float(tx_dict.get("nonRecoverableTax", 0.0) or 0.0),
+                "supplierId": tx_dict.get("supplierId", ""),
                 "costLayers": consumed_fifo_details,
                 "originWarehouseId": orig_wh_id,
                 "originWarehouseName": orig_wh_name,
@@ -548,31 +692,45 @@ class InventoryTransactionService:
             # ── FASE 3: TODAS LAS ESCRITURAS DESPUÉS DE LAS LECTURAS ────────
             # 3.1 Actualización de existencias de origen
             if orig_stock_ref and orig_wh_id:
-                txn.set(orig_stock_ref, {
+                orig_payload = {
                     "id": f"{item_id}_{orig_wh_id}",
                     "itemId": item_id,
                     "warehouseId": orig_wh_id,
                     "quantity": new_orig_qty,
                     "updatedAt": server_timestamp
-                })
+                }
+                if use_moving_average:
+                    orig_payload["totalValue"] = new_orig_value
+                    orig_payload["unitCost"] = new_orig_unit_cost
+                    orig_payload["lastPurchaseCost"] = old_orig_last_purchase
+                txn.set(orig_stock_ref, orig_payload)
 
             # 3.2 Actualización de existencias de destino
             if dest_stock_ref and dest_wh_id:
-                txn.set(dest_stock_ref, {
+                dest_payload = {
                     "id": f"{item_id}_{dest_wh_id}",
                     "itemId": item_id,
                     "warehouseId": dest_wh_id,
                     "quantity": new_dest_qty,
                     "updatedAt": server_timestamp
-                })
+                }
+                if use_moving_average:
+                    dest_payload["totalValue"] = new_dest_value
+                    dest_payload["unitCost"] = new_dest_unit_cost
+                    dest_payload["lastPurchaseCost"] = new_dest_last_purchase
+                txn.set(dest_stock_ref, dest_payload)
 
             # 3.3 Actualización atómica de la vista materializada totalStock en el catálogo
-            txn.update(item_ref, {
+            item_update = {
                 "totalStock": new_item_total_stock,
                 "lastInventoryTransactionId": tx_id,
                 "lastInventoryTransactionDate": date_iso,
                 "updatedAt": server_timestamp
-            })
+            }
+            if use_moving_average and tx_type == cls.TYPE_ENTRADA:
+                item_update["avgCost"] = new_dest_unit_cost
+                item_update["lastPurchaseCost"] = last_purchase_cost
+            txn.update(item_ref, item_update)
 
             # 3.4 Actualizaciones de Capas FIFO consumidas
             for lup in fifo_layer_updates:
@@ -603,7 +761,8 @@ class InventoryTransactionService:
                 })
 
             # 3.6 Entrada en Libro de Costeo FIFO si es Entrada o Destino de Transferencia
-            if (tx_type == cls.TYPE_ENTRADA or tx_type == cls.TYPE_TRANSFERENCIA) and unit_cost > 0 and dest_wh_id:
+            #     (solo aplica al método FIFO; en promedio móvil la valoración vive en inventory_stock)
+            if (tx_type == cls.TYPE_ENTRADA or tx_type == cls.TYPE_TRANSFERENCIA) and unit_cost > 0 and dest_wh_id and not use_moving_average:
                 fifo_entry_id = str(uuid.uuid4())
                 fifo_ref = ledger_coll.document(fifo_entry_id)
                 txn.set(fifo_ref, {

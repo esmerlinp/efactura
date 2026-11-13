@@ -691,7 +691,14 @@ class KardexService:
 
     @classmethod
     def _get_company_ledger(cls, company_id: str, warehouse_id: Optional[str] = None, sandbox: bool = True, owner_uid: Optional[str] = None) -> Dict[str, float]:
-        """Lee las capas FIFO activas una vez y las agrupa por artículo."""
+        """Lee el valor de valoración consolidado por artículo.
+
+        Combina dos fuentes de verdad:
+        1. Capas FIFO activas (`inventory_cost_ledger`, balanceQty × unitCost).
+        2. Estado de valoración por promedio móvil (`inventory_stock.totalValue`).
+        Los artículos FIFO no tienen `totalValue` en stock (0) y los de promedio
+        no tienen capas (0), por lo que la suma es correcta sin doble conteo.
+        """
         grouped = {}
         coll_name = "sandbox_inventory_cost_ledger" if sandbox else "inventory_cost_ledger"
         try:
@@ -707,6 +714,21 @@ class KardexService:
                     grouped[item_id] = grouped.get(item_id, 0.0) + balance_qty * float(data.get("unitCost", 0.0) or 0.0)
         except Exception as e:
             print(f"⚠️ Error al leer ledger consolidado de inventario: {e}")
+
+        stock_coll_name = "sandbox_inventory_stock" if sandbox else "inventory_stock"
+        try:
+            coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=stock_coll_name)
+            docs = coll.stream()
+            for doc in docs:
+                data = doc.to_dict() or {}
+                if warehouse_id and data.get("warehouseId") != warehouse_id:
+                    continue
+                item_id = data.get("itemId")
+                val = float(data.get("totalValue", 0.0) or 0.0)
+                if item_id and val > 0:
+                    grouped[item_id] = grouped.get(item_id, 0.0) + val
+        except Exception as e:
+            print(f"⚠️ Error al leer stock consolidado para valoración: {e}")
         return grouped
 
     @classmethod
@@ -1007,17 +1029,21 @@ class KardexService:
         stock_coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=stock_coll_name)
 
         physical_stock_qty = 0.0
+        stock_total_value = 0.0
         try:
             if warehouse_id:
                 doc = stock_coll.document(f"{item_id}_{warehouse_id}").get()
                 if doc.exists:
-                    physical_stock_qty = float(doc.to_dict().get("quantity", 0.0))
+                    _sdata = doc.to_dict() or {}
+                    physical_stock_qty = float(_sdata.get("quantity", 0.0))
+                    stock_total_value = float(_sdata.get("totalValue", 0.0) or 0.0)
             else:
                 stock_query = stock_coll.where("itemId", "==", item_id)
                 docs = stock_query.stream() if hasattr(stock_query, "stream") else stock_query.get()
                 for d in docs:
                     d_data = d.to_dict() or {}
                     physical_stock_qty += float(d_data.get("quantity", 0.0))
+                    stock_total_value += float(d_data.get("totalValue", 0.0) or 0.0)
         except Exception as e:
             print(f"⚠️ Error al leer inventory_stock para conciliación: {e}")
 
@@ -1045,8 +1071,12 @@ class KardexService:
         # 3. Leer totalStock del catálogo
         catalog_stock = float(kardex_data.get("item", {}).get("totalStock", 0.0))
 
+        # Para valoración por promedio móvil el estado canónico vive en inventory_stock;
+        # para FIFO legacy vive en las capas del ledger.
+        effective_ledger_val = stock_total_value if stock_total_value > 0 else ledger_val
+
         qty_diff = round(kardex_final_qty - physical_stock_qty, 4)
-        val_diff = round(kardex_final_val - ledger_val, 2)
+        val_diff = round(kardex_final_val - effective_ledger_val, 2)
         catalog_diff = round(catalog_stock - physical_stock_qty, 4) if not warehouse_id else 0.0
 
         is_qty_ok = abs(qty_diff) <= 0.0001

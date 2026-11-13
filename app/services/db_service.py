@@ -460,6 +460,9 @@ def _cached_items(owner_uid, sandbox, company_id=None):
                     "name": data.get("name", ""),
                     "price": float(data.get("price", 0.0)),
                     "costPrice": float(data.get("costPrice", 0.0)),
+                    "avgCost": float(data.get("avgCost", 0.0)),
+                    "lastPurchaseCost": float(data.get("lastPurchaseCost", 0.0)),
+                    "valuationMethod": data.get("valuationMethod", ""),
                     "barcode": data.get("barcode", ""),
                     "categoryId": data.get("categoryId", "general"),
                     "unit": data.get("unit", "Unidad"),
@@ -3166,6 +3169,9 @@ class DatabaseService:
         
         item_dict["price"] = float(item_dict.get("price", 0.0))
         item_dict["costPrice"] = float(item_dict.get("costPrice", 0.0))
+        item_dict["avgCost"] = float(item_dict.get("avgCost", 0.0))
+        item_dict["lastPurchaseCost"] = float(item_dict.get("lastPurchaseCost", 0.0))
+        item_dict["valuationMethod"] = item_dict.get("valuationMethod", "")
         item_dict["barcode"] = item_dict.get("barcode", "")
         item_dict["categoryId"] = item_dict.get("categoryId", "general")
         item_dict["itbisRate"] = float(item_dict.get("itbisRate") if item_dict.get("itbisRate") is not None and str(item_dict.get("itbisRate")).strip() != "" else 0.18)
@@ -5481,6 +5487,9 @@ class DatabaseService:
                         "itemId": data.get("itemId", ""),
                         "warehouseId": data.get("warehouseId", ""),
                         "quantity": float(data.get("quantity", 0.0)),
+                        "totalValue": float(data.get("totalValue", 0.0) or 0.0),
+                        "unitCost": float(data.get("unitCost", 0.0) or 0.0),
+                        "lastPurchaseCost": float(data.get("lastPurchaseCost", 0.0) or 0.0),
                         "updatedAt": serialize_field(data.get("updatedAt"))
                     })
             except Exception as e:
@@ -5511,6 +5520,11 @@ class DatabaseService:
                         "destinationBranchId": data.get("destinationBranchId", ""),
                         "reason": data.get("reason", "AJUSTE_MANUAL"),
                         "referenceId": data.get("referenceId", ""),
+                        "referenceType": data.get("referenceType", ""),
+                        "unitCost": float(data.get("unitCost", 0.0) or 0.0),
+                        "totalValue": float(data.get("totalValue", 0.0) or 0.0),
+                        "reversalTxId": data.get("reversalTxId", ""),
+                        "reversedBy": data.get("reversedBy", ""),
                         "notes": data.get("notes", ""),
                         "date": serialize_field(data.get("date")),
                         "performedBy": data.get("performedBy", "")
