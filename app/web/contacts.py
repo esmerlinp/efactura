@@ -554,9 +554,18 @@ def contact_detail(contact_id):
     if not client_insight:
         client_insight = {"type": "success", "text": "Contacto sin anomalías detectadas. Perfil estable."}
 
-    from app.utils.security import generate_portal_token
+    from app.utils.security import generate_portal_token, build_clients_portal_url
     token = generate_portal_token(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
-    portal_url = url_for('portal.portal_entry', token=token, _external=True)
+    portal_url = build_clients_portal_url(token)
+
+    global_account_id = contact.get("customerId")
+    if not global_account_id and contact.get("rnc"):
+        try:
+            from app.services.customer_account_service import CustomerAccountService
+            global_account_id = CustomerAccountService.find_account_id(contact.get("rnc"))
+        except Exception:
+            global_account_id = None
+    global_account = bool(global_account_id)
 
     missing_fields = []
     if is_client:
@@ -601,6 +610,8 @@ def contact_detail(contact_id):
         portal_url=portal_url,
         client_insight=client_insight,
         missing_fields=missing_fields,
+        global_account=global_account,
+        global_account_id=global_account_id,
         crm_360=crm_360,
         opportunities=opportunities,
         activities=activities,
@@ -890,13 +901,9 @@ def send_contact_portal_credentials(contact_id):
     if not recipient_email:
         return jsonify({"success": False, "error": "Este contacto no tiene un correo registrado."}), 400
 
-    access_pin = contact.get('accessPin', '')
-    if not access_pin:
-        return jsonify({"success": False, "error": "El contacto no tiene una clave de acceso asignada."}), 400
-
-    from app.utils.security import generate_portal_token
+    from app.utils.security import generate_portal_token, build_clients_portal_url
     token = generate_portal_token(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
-    portal_url = url_for('portal.portal_entry', token=token, _external=True)
+    portal_url = build_clients_portal_url(token)
 
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     company_name = company.get('tradeName') or company.get('companyName') or get_product_name()
@@ -917,13 +924,14 @@ def send_contact_portal_credentials(contact_id):
             <p style="color: #666; margin: 4px 0 0 0;">{company_name}</p>
         </div>
         <p>Estimado/a <strong>{contact_name}</strong>,</p>
-        <p>Le compartimos sus credenciales de acceso al portal de autoservicio de <strong>{company_name}</strong>.</p>
+        <p>Le compartimos el acceso al portal de autoservicio de <strong>{company_name}</strong>, donde podrá consultar sus facturas, cotizaciones y realizar pagos en línea.</p>
         <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
             <h3 style="margin: 0 0 14px 0; color: {brand_color}; font-size: 1rem;">Sus Credenciales</h3>
             <table style="width: 100%; border-collapse: collapse;">
                 <tr><td style="padding: 8px 0; color: #6b7280;">Usuario (RNC):</td><td style="padding: 8px 0; font-weight: bold; text-align: right; font-family: monospace;">{contact_rnc}</td></tr>
-                <tr><td style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280;">Clave (PIN):</td><td style="padding: 8px 0; border-top: 1px solid #e5e7eb; font-weight: bold; text-align: right; font-family: monospace; letter-spacing: 0.15em; color: {brand_color};">{access_pin}</td></tr>
+                <tr><td style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280;">Contraseña inicial:</td><td style="padding: 8px 0; border-top: 1px solid #e5e7eb; font-weight: bold; text-align: right; font-family: monospace; color: {brand_color};">Su RNC/Cédula</td></tr>
             </table>
+            <p style="font-size: 0.8rem; color: #6b7280; margin: 12px 0 0 0;">Deberá cambiar su contraseña en el primer acceso.</p>
         </div>
         <p style="text-align: center; margin: 28px 0 10px 0;">
             <a href="{portal_url}" style="background: {brand_color}; color: white; text-decoration: none; padding: 14px 36px; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">Ingresar al Portal</a>
@@ -941,7 +949,7 @@ def send_contact_portal_credentials(contact_id):
             interaction_id = str(_uuid.uuid4())
             interaction_dict = {
                 "type": "Email", "title": "Credenciales del Portal enviadas (Simulado)",
-                "content": f"Simulación: Credenciales enviadas a {recipient_email}. RNC: {contact_rnc} | PIN: {access_pin}",
+                "content": f"Simulación: Credenciales enviadas a {recipient_email}. RNC: {contact_rnc} | Contraseña inicial: RNC/Cédula",
                 "date": datetime.now(timezone.utc).isoformat(), "completed": True,
                 "createdBy": session.get('user', {}).get('email', 'Sistema')
             }
@@ -964,13 +972,69 @@ def send_contact_portal_credentials(contact_id):
     interaction_id = str(_uuid.uuid4())
     interaction_dict = {
         "type": "Email", "title": "Credenciales del Portal enviadas",
-        "content": f"Credenciales enviadas a {recipient_email}. RNC: {contact_rnc} | PIN: {access_pin}",
+        "content": f"Credenciales enviadas a {recipient_email}. RNC: {contact_rnc} | Contraseña inicial: RNC/Cédula",
         "date": datetime.now(timezone.utc).isoformat(), "completed": True,
         "createdBy": session.get('user', {}).get('email', 'Sistema')
     }
     DatabaseService.save_client_interaction(owner_uid, contact_id, interaction_id, interaction_dict, sandbox=sandbox, company_id=company_id)
 
     return jsonify({"success": True, "message": f"Credenciales enviadas a {recipient_email}."})
+
+
+@web_contacts_bp.route('/contacts/<contact_id>/ensure_customer_account', methods=['POST'])
+@require_module('portal_cliente')
+def ensure_customer_account(contact_id):
+    """Crea/vincula la identidad global (customer_accounts) del cliente si no existe."""
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado."}), 401
+    if not check_permission('canClients'):
+        return jsonify({"success": False, "error": "Sin permisos."}), 403
+
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
+    if not contact:
+        return jsonify({"success": False, "error": "Contacto no encontrado."}), 404
+    if 'cliente' not in (contact.get('types') or []):
+        return jsonify({"success": False, "error": "Este contacto no es un cliente."}), 400
+
+    from app.services.customer_account_service import CustomerAccountService
+
+    data = request.get_json(silent=True) or request.form or {}
+    email = (data.get('email') or '').strip()
+    if email:
+        if not CustomerAccountService.valid_email(email):
+            return jsonify({"success": False, "error": "El correo electrónico no es válido.", "needEmail": True}), 400
+        contact['email'] = email
+    elif not CustomerAccountService.valid_email(contact.get('email')):
+        return jsonify({
+            "success": False,
+            "error": "El cliente necesita un correo electrónico válido para crear su identidad global.",
+            "needEmail": True,
+        }), 400
+
+    try:
+        saved = ContactService.save_contact(owner_uid, contact_id, contact, sandbox=sandbox, company_id=company_id)
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e), "needEmail": True}), 400
+
+    customer_id = saved.get('customerId')
+    if not customer_id and contact.get('rnc'):
+        try:
+            customer_id = CustomerAccountService.find_account_id(contact.get('rnc'))
+        except Exception:
+            customer_id = None
+
+    if not customer_id:
+        return jsonify({"success": False, "error": "No se pudo crear la identidad global del cliente."}), 500
+
+    return jsonify({
+        "success": True,
+        "customerId": customer_id,
+        "message": "Identidad global creada. La contraseña inicial es el RNC/Cédula del cliente.",
+    })
 
 
 # =========================================================================

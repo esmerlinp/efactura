@@ -105,8 +105,10 @@ search?.addEventListener('input', filterPortalRows); status?.addEventListener('c
  }
 function showToast(message) { const toast=document.createElement('div'); toast.className='toast-copy'; toast.textContent='✅ '+message; document.body.appendChild(toast); setTimeout(()=>toast.remove(),2200); }
  function sendCredentials(btn) {
-     btn.disabled = true;
-     fetch(btn.dataset.sendUrl, {
+      var original = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+      fetch(btn.dataset.sendUrl, {
              method: 'POST',
              headers: {
                  'Content-Type': 'application/json',
@@ -129,9 +131,10 @@ function showToast(message) { const toast=document.createElement('div'); toast.c
          console.error('Error enviando enlace del portal:', error);
          showToast('No se pudo contactar al servidor. Intente nuevamente.');
      })
-     .finally(function() {
-         btn.disabled = false;
-     });
+      .finally(function() {
+          btn.innerHTML = original;
+          btn.disabled = false;
+      });
  }
  document.querySelectorAll('.portal-send-link').forEach(function(button) {
      button.addEventListener('click', function() {

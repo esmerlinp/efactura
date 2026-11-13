@@ -5284,13 +5284,13 @@ def send_quotation_to_client(invoice_id):
     if portal_enabled:
         # ── RUTA PORTAL: enviar enlace de aprobación ──
         client = DatabaseService.get_client(owner_uid, invoice['clientId'], company_id=company_id, sandbox=sandbox)
-        if not client or not client.get('accessPin'):
+        if not client or not (client.get('email') or client.get('companyEmail')):
             session['pin_missing_client'] = invoice['clientId']
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
-        from app.utils.security import generate_portal_token
+        from app.utils.security import generate_portal_token, build_clients_portal_url
         token = generate_portal_token(owner_uid, invoice['clientId'], sandbox=sandbox, company_id=company_id, doc_id=invoice_id)
-        portal_link = url_for('portal.portal_entry', token=token, _external=True)
+        portal_link = build_clients_portal_url(token)
         brand_color = company.get("colorMarca", "#1e3a8a")
         
         html_body = f"""
@@ -5329,8 +5329,9 @@ def send_quotation_to_client(invoice_id):
       <div style="background:#f1f5f9; border-radius:8px; padding:16px 20px; margin:20px 0; text-align:center;">
         <p style="font-size:0.82rem; color:#64748b; margin:0 0 8px;">Sus credenciales de acceso al portal:</p>
         <p style="font-size:1.15rem; font-weight:700; color:#0f172a; margin:0; letter-spacing:0.15em;">
-          RNC/Cédula: {client.get('rnc', '')} &nbsp;·&nbsp; Código: {client.get('accessPin', '')}
+          RNC/Cédula: {client.get('rnc', '')} &nbsp;·&nbsp; Contraseña inicial: su RNC/Cédula
         </p>
+        <p style="font-size:0.78rem; color:#94a3b8; margin:8px 0 0;">Deberá cambiar su contraseña en el primer acceso.</p>
       </div>
 
       <div class="btn-container">
@@ -12393,16 +12394,14 @@ def cxc_dashboard():
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
 
     # Enlace tokenizado del portal por factura (para recordatorios por WhatsApp)
-    from app.utils.security import generate_portal_token
+    from app.utils.security import generate_portal_token, build_clients_portal_url
     for inv in cxc_invoices:
         try:
-            inv['portalUrl'] = url_for(
-                'portal.portal_entry',
-                token=generate_portal_token(
+            inv['portalUrl'] = build_clients_portal_url(
+                generate_portal_token(
                     owner_uid, inv.get('clientId'), sandbox=sandbox,
                     company_id=company_id, doc_id=inv.get('id')
-                ),
-                _external=True
+                )
             )
         except Exception:
             inv['portalUrl'] = ''
@@ -12652,9 +12651,9 @@ def send_invoice_cxc_reminder(invoice_id, method):
         return jsonify({"success": False, "message": "No se especificó contacto de destino."}), 400
         
     from app.services.notifications import NotificationService
-    from app.utils.security import generate_portal_token
+    from app.utils.security import generate_portal_token, build_clients_portal_url
     token = generate_portal_token(owner_uid, invoice.get('clientId'), sandbox=sandbox, company_id=company_id, doc_id=invoice.get('id'))
-    portal_url = url_for('portal.portal_entry', token=token, _external=True)
+    portal_url = build_clients_portal_url(token)
     
     success, message = NotificationService.send_cxc_reminder(
         owner_uid=owner_uid,

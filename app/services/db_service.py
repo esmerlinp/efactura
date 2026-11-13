@@ -2951,13 +2951,51 @@ class DatabaseService:
         client_dict["pipelineStage"] = client_dict.get("pipelineStage", "Prospecto")
 
         if firebase_initialized:
+            email = (client_dict.get("email") or "").strip()
+            if not email and company_id:
+                try:
+                    company_profile = cls.get_company_profile(owner_uid, company_id=company_id) or {}
+                    email = (
+                        company_profile.get("companyEmail")
+                        or company_profile.get("email")
+                        or ""
+                    ).strip()
+                except Exception as e:
+                    print(f"⚠️ No se pudo resolver el email de la empresa para el cliente: {e}")
+                    email = ""
+                if email:
+                    client_dict["email"] = email
+
             try:
                 contact_dict = _client_to_contact(client_dict)
+                contact_dict["id"] = client_id
                 _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox)).document(client_id).set(contact_dict, merge=True)
                 _invalidate_clients(owner_uid, company_id=company_id)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar cliente en Firestore: {e}")
+
+            # Link the global customer identity used by the independent portal.
+            # Best-effort: never blocks saving the client.
+            if company_id and email:
+                try:
+                    from app.services.customer_account_service import CustomerAccountService
+
+                    if CustomerAccountService.valid_email(email):
+                        contact_dict = _client_to_contact(client_dict)
+                        contact_dict["id"] = client_id
+                        account_id = CustomerAccountService.ensure_for_contact(
+                            contact_dict, owner_uid, company_id, sandbox
+                        )
+                        if account_id:
+                            client_dict["customerId"] = account_id
+                            _company_coll(
+                                company_id=company_id,
+                                owner_uid=owner_uid,
+                                coll_name=_client_coll_name(sandbox),
+                            ).document(client_id).set({"customerId": account_id}, merge=True)
+                except Exception as e:
+                    print(f"⚠️ No se pudo vincular la identidad global del cliente: {e}")
 
         return client_dict
 
