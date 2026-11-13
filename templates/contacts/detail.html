@@ -855,7 +855,7 @@
                     </div>
                     <div>
                         <span style="color:var(--text-secondary); display:block; font-size:0.75rem; text-transform:uppercase; font-weight:600;">Contraseña</span>
-                        <strong style="color:var(--text-secondary);">Administrada exclusivamente por el cliente</strong>
+                        <strong style="color:var(--text-secondary);">Inicial: su RNC/Cédula</strong>
                     </div>
                 </div>
             </div>
@@ -871,6 +871,22 @@
                     </label>
                     <span style="font-size:0.88rem; font-weight:500; color:var(--text-primary);">Pausar recordatorios</span>
                 </div>
+            </div>
+            <div style="border:1px solid var(--border-color); border-radius:8px; padding:16px; background-color:var(--bg-input); display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <h4 style="font-size:0.95rem; font-weight:700; margin:0 0 8px 0; color:var(--text-primary);"><i class="fa-solid fa-fingerprint" style="color:var(--accent-purple);"></i> Identidad Global</h4>
+                    {% if global_account %}
+                        <p style="font-size:0.82rem; color:var(--text-secondary); margin:0 0 12px 0; line-height:1.4;">Este cliente ya tiene una cuenta global y puede acceder a los datos de todas las empresas desde su portal.</p>
+                        <span style="display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; font-weight:600; color:var(--accent-emerald); background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); padding:5px 10px; border-radius:999px;"><i class="fa-solid fa-circle-check"></i> Activa</span>
+                    {% else %}
+                        <p style="font-size:0.82rem; color:var(--text-secondary); margin:0 0 12px 0; line-height:1.4;">Crea la cuenta global del cliente para que acceda a los datos de todas las empresas desde su portal. La contraseña inicial será su RNC/Cédula.</p>
+                    {% endif %}
+                </div>
+                {% if not global_account %}
+                <button onclick="openEnsureAccountModal()" class="btn btn-secondary" style="padding:0 14px; font-size:0.8rem; height:32px; display:inline-flex; align-items:center; gap:6px; border-color:var(--accent-purple); color:var(--accent-purple);">
+                    <i class="fa-solid fa-fingerprint"></i> Crear identidad global
+                </button>
+                {% endif %}
             </div>
         </div>
         <div style="border-top:1px solid var(--border-color); padding:16px; display:flex; flex-direction:column; gap:16px;">
@@ -931,6 +947,43 @@
             <button onclick="closeCredentialsModal()" class="btn btn-secondary" style="padding:0 16px; font-size:0.82rem; height:34px;">Cancelar</button>
             <button id="modal-send-btn" onclick="confirmSendCredentials('{{ contact.id }}')" class="btn btn-primary" style="padding:0 16px; font-size:0.82rem; height:34px; display:inline-flex; align-items:center; gap:6px;">
                 <i class="fa-solid fa-paper-plane"></i> Enviar Ahora
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Crear identidad global -->
+<div id="modal-ensure-account" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; backdrop-filter:blur(2px);">
+    <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:14px; padding:28px 32px; max-width:440px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+            <div style="width:40px; height:40px; border-radius:10px; background:rgba(168,85,247,0.1); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <i class="fa-solid fa-fingerprint" style="color:var(--accent-purple);"></i>
+            </div>
+            <div>
+                <h3 style="margin:0; font-size:1rem; font-family:var(--font-heading); font-weight:700; color:var(--text-primary);">Crear identidad global</h3>
+                <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--text-secondary);">Habilita el acceso del cliente a su portal global</p>
+            </div>
+        </div>
+        <div style="background:var(--bg-input); border:1px solid var(--border-color); border-radius:8px; padding:14px 16px; margin-bottom:20px; font-size:0.85rem;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                <span style="color:var(--text-secondary);">Usuario (RNC):</span>
+                <strong style="font-family:monospace;">{{ contact.rnc }}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; border-top:1px solid var(--border-color); padding-top:6px;">
+                <span style="color:var(--text-secondary);">Contraseña inicial:</span>
+                <strong style="font-family:monospace; color:var(--text-secondary);">Su RNC/Cédula</strong>
+            </div>
+        </div>
+        <div style="margin-bottom:20px;">
+            <label for="modal-ensure-email-input" style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:6px; color:var(--text-secondary);">Correo Electrónico del Cliente</label>
+            <input type="email" id="modal-ensure-email-input" value="{{ contact.email or '' }}" placeholder="correo@ejemplo.com" style="width:100%; padding:9px 12px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-input); color:var(--text-primary); font-size:0.88rem; outline:none; box-sizing:border-box;">
+            <p style="margin:4px 0 0 0; font-size:0.75rem; color:var(--text-muted);">Se guardará en el cliente y se usará para su acceso al portal.</p>
+        </div>
+        <div id="modal-ensure-result" style="display:none; font-size:0.82rem; border-radius:6px; padding:10px 14px; margin-bottom:16px;"></div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button onclick="closeEnsureAccountModal()" class="btn btn-secondary" style="padding:0 16px; font-size:0.82rem; height:34px;">Cancelar</button>
+            <button id="modal-ensure-btn" onclick="confirmEnsureAccount('{{ contact.id }}')" class="btn btn-primary" style="padding:0 16px; font-size:0.82rem; height:34px; display:inline-flex; align-items:center; gap:6px;">
+                <i class="fa-solid fa-fingerprint"></i> Crear identidad
             </button>
         </div>
     </div>
@@ -1106,6 +1159,88 @@ const credentialsModal = document.getElementById('modal-send-credentials');
 if (credentialsModal) {
     credentialsModal.addEventListener('click', function(e) {
         if (e.target === this) closeCredentialsModal();
+    });
+}
+
+function openEnsureAccountModal() {
+    const modal = document.getElementById('modal-ensure-account');
+    const result = document.getElementById('modal-ensure-result');
+    const btn = document.getElementById('modal-ensure-btn');
+    const emailInput = document.getElementById('modal-ensure-email-input');
+    if (!modal) return;
+    if (result) result.style.display = 'none';
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-fingerprint"></i> Crear identidad';
+    }
+    modal.style.display = 'flex';
+    if (emailInput) emailInput.focus();
+}
+
+function closeEnsureAccountModal() {
+    const modal = document.getElementById('modal-ensure-account');
+    if (modal) modal.style.display = 'none';
+}
+
+function confirmEnsureAccount(contactId) {
+    const emailInput = document.getElementById('modal-ensure-email-input');
+    const result = document.getElementById('modal-ensure-result');
+    const btn = document.getElementById('modal-ensure-btn');
+    if (!emailInput || !result || !btn) return;
+    const email = emailInput.value.trim();
+
+    if (!email) {
+        result.style.display = 'block';
+        result.style.background = 'rgba(239,68,68,0.08)';
+        result.style.color = 'var(--accent-red)';
+        result.style.border = '1px solid rgba(239,68,68,0.2)';
+        result.textContent = 'Por favor ingresa un correo válido.';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Creando...';
+    result.style.display = 'none';
+
+    fetch(`/contacts/${contactId}/ensure_customer_account`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+    })
+        .then(res => res.json())
+        .then(data => {
+            result.style.display = 'block';
+            if (data.success) {
+                result.style.background = 'rgba(16,185,129,0.08)';
+                result.style.color = 'var(--accent-emerald)';
+                result.style.border = '1px solid rgba(16,185,129,0.2)';
+                result.textContent = data.message;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Creada';
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                result.style.background = 'rgba(239,68,68,0.08)';
+                result.style.color = 'var(--accent-red)';
+                result.style.border = '1px solid rgba(239,68,68,0.2)';
+                result.textContent = data.error;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-fingerprint"></i> Crear identidad';
+            }
+        })
+        .catch(() => {
+            result.style.display = 'block';
+            result.style.background = 'rgba(239,68,68,0.08)';
+            result.style.color = 'var(--accent-red)';
+            result.style.border = '1px solid rgba(239,68,68,0.2)';
+            result.textContent = 'Error de red. Intente nuevamente.';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-fingerprint"></i> Crear identidad';
+        });
+}
+
+const ensureAccountModal = document.getElementById('modal-ensure-account');
+if (ensureAccountModal) {
+    ensureAccountModal.addEventListener('click', function(e) {
+        if (e.target === this) closeEnsureAccountModal();
     });
 }
 </script>

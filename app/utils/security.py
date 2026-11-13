@@ -2,7 +2,7 @@
 import os
 import hashlib
 import logging
-from itsdangerous import URLSafeSerializer
+from itsdangerous import URLSafeTimedSerializer
 from flask import current_app
 from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
@@ -48,8 +48,8 @@ def sanitize_filename(filename):
     return safe_name
 
 def get_serializer():
-    secret_key = current_app.config['SECRET_KEY']
-    return URLSafeSerializer(secret_key, salt='portal-access')
+    secret_key = current_app.config.get('PORTAL_TOKEN_SECRET') or current_app.config['SECRET_KEY']
+    return URLSafeTimedSerializer(secret_key, salt='portal-access')
 
 def generate_portal_token(owner_uid, client_id, sandbox=True, company_id=None, doc_id=None):
     """Genera un token firmado y serializado seguro para URL conteniendo los parámetros."""
@@ -68,7 +68,7 @@ def decode_portal_token(token):
     """Descifra y valida el token. Retorna los parámetros o None si es inválido o manipulado."""
     s = get_serializer()
     try:
-        data = s.loads(token)
+        data = s.loads(token, max_age=None)
         return {
             'owner_uid': data.get('owner_uid'),
             'client_id': data.get('client_id'),
@@ -79,6 +79,15 @@ def decode_portal_token(token):
     except Exception as e:
         print(f"Error decodificando token de portal: {e}")
         return None
+
+def build_clients_portal_url(token):
+    """Construye la URL del portal global de clientes a partir de un token firmado.
+
+    Los enlaces de acceso deben apuntar al dominio independiente (clientes.vykcore.com),
+    no al portal interno del ERP. Ambos servicios comparten PORTAL_TOKEN_SECRET.
+    """
+    base_url = (current_app.config.get('CLIENTS_PORTAL_BASE_URL') or 'https://clientes.vykcore.com').rstrip('/')
+    return f"{base_url}/portal/p/{token}"
 
 
 def get_field_cipher():

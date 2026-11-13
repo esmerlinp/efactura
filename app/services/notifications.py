@@ -24,16 +24,11 @@ class NotificationService:
         invoice_number = invoice.get("invoiceNumber", f"ID: {invoice.get('id')}")
         due_date = invoice.get("dueDate", "")
         
-        # Construir URL del portal si no viene especificado
+        # Construir URL del portal global si no viene especificado
         if not portal_url:
-            from flask import request
-            try:
-                base_url = request.host_url.rstrip('/')
-            except Exception:
-                base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
-            from app.utils.security import generate_portal_token
+            from app.utils.security import generate_portal_token, build_clients_portal_url
             token = generate_portal_token(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
-            portal_url = f"{base_url}/portal/p/{token}"
+            portal_url = build_clients_portal_url(token)
 
         client_pin = ""
         try:
@@ -50,7 +45,7 @@ class NotificationService:
                     print(f"⚠️ SMTP no configurado. Simulando envío de email a {recipient_contact}...")
                     cls._record_interaction(owner_uid=owner_uid, client_id=client_id, method="Email", 
                                             title=f"Recordatorio de Pago enviado (Email Simulado)",
-                                            content=f"Simulación de envío para factura {invoice_number} al correo {recipient_contact}. Balance pendiente: RD$ {remaining_balance:,.2f}.\nContenido custom: {custom_message}\nClave de acceso: {client_pin}", 
+                                            content=f"Simulación de envío para factura {invoice_number} al correo {recipient_contact}. Balance pendiente: RD$ {remaining_balance:,.2f}.\nContenido custom: {custom_message}\nContraseña inicial: su RNC/Cédula", 
                                             sandbox=sandbox, company_id=company_id)
                     return True, f"Simulado: Recordatorio enviado por correo a {recipient_contact} (SMTP no configurado)."
                 return False, "Servidor de correo SMTP no configurado en los ajustes de la aplicación."
@@ -106,7 +101,7 @@ class NotificationService:
                         </a>
                     </p>
                     <div style="text-align: center; font-size: 0.85rem; color: #475569; margin-bottom: 24px;">
-                        <strong>Clave de Acceso Autoservicio:</strong> <span style="font-family: monospace; font-size: 0.95rem; background: #f1f5f9; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{client_pin}</span>
+                        <strong>Contraseña inicial:</strong> <span style="font-family: monospace; font-size: 0.95rem; background: #f1f5f9; padding: 3px 8px; border-radius: 4px; font-weight: bold;">Su RNC/Cédula</span>
                     </div>
                     
                     <p style="font-size: 0.85rem; color: #6b7280; text-align: center;">
@@ -574,16 +569,10 @@ class NotificationService:
             return False, "SMTP no configurado."
 
         portal_link = ""
-        from flask import request
-        try:
-            base_url = request.host_url.rstrip('/')
-        except Exception:
-            base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
-        
         if client_id:
-            from app.utils.security import generate_portal_token
+            from app.utils.security import generate_portal_token, build_clients_portal_url
             token = generate_portal_token(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
-            portal_link = f"{base_url}/portal/p/{token}"
+            portal_link = build_clients_portal_url(token)
 
         is_approved = action == 'aprobado'
         icon = "✅" if is_approved else "❌"
@@ -615,7 +604,7 @@ class NotificationService:
                     </a>
                 </p>
                 <div style="text-align: center; font-size: 0.85rem; color: #475569; margin-bottom: 24px;">
-                    <strong>Clave de Acceso Autoservicio:</strong> <span style="font-family: monospace; font-size: 0.95rem; background: #f1f5f9; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{client_pin}</span>
+                    <strong>Contraseña inicial:</strong> <span style="font-family: monospace; font-size: 0.95rem; background: #f1f5f9; padding: 3px 8px; border-radius: 4px; font-weight: bold;">Su RNC/Cédula</span>
                 </div>
             """
 

@@ -535,9 +535,8 @@ def send_portal_credentials(client_id):
     if not recipient_email:
         return jsonify({"success": False, "error": "Este cliente no tiene un correo registrado."}), 400
 
-    # Construir URL del portal segura y encriptada
-    portal_base_url = current_app.config.get('CLIENTS_PORTAL_BASE_URL', 'https://clientes.vykcore.com').rstrip('/')
-    portal_url = f"{portal_base_url}/"
+    # URL del portal global: solo la ruta base (el cliente inicia sesión con RNC + contraseña).
+    portal_url = (current_app.config.get('CLIENTS_PORTAL_BASE_URL', 'https://clientes.vykcore.com') or '').rstrip('/')
 
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     company_name = company.get('tradeName') or company.get('companyName') or get_product_name()
@@ -568,7 +567,7 @@ def send_portal_credentials(client_id):
                     <td style="padding: 8px 0; font-weight: bold; text-align: right; font-family: monospace; font-size: 1rem;">{client_rnc}</td>
                 </tr>
                 <tr>
-                    <td colspan="2" style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 0.9rem;">La contraseña se establece y administra exclusivamente desde el portal.</td>
+                    <td colspan="2" style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 0.9rem;">Contraseña inicial: su RNC/Cédula. La deberá cambiar en el primer acceso.</td>
                 </tr>
             </table>
         </div>
@@ -764,9 +763,9 @@ def client_detail(client_id):
     if not client_insight:
         client_insight = {"type": "success", "text": "Cliente sin anomalías detectadas. Perfil de compras estable."}
 
-    from app.utils.security import generate_portal_token
+    from app.utils.security import generate_portal_token, build_clients_portal_url
     token = generate_portal_token(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
-    portal_url = url_for('portal.portal_entry', token=token, _external=True)
+    portal_url = build_clients_portal_url(token)
 
     # Detectar campos relevantes faltantes para operaciones
     operational_fields = [
