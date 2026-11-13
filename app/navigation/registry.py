@@ -52,7 +52,7 @@ NAVIGATION_ITEMS = (
     _link("global.sales.proformas", "Proformas", "web_invoices.list_proformas", WORKSPACE_GLOBAL, 45, parent="global.sales", module_key="cotizaciones", permission="canManageQuotations", active_pages=("proformas",)),
     _link("global.sales.pos", "Punto de Venta (POS)", "web_pos.pos_dashboard", WORKSPACE_GLOBAL, 50, parent="global.sales", module_key="pos", permission="canManagePOS", active_pages=("pos", "pos_admin"), company_flag="company_profile_pos_enabled"),
     _group("global.customers", "Clientes", "", WORKSPACE_GLOBAL, 20, parent="global.sales_customers"),
-    _link("global.customers.clients", "Clientes", "web_contacts.list_contacts", WORKSPACE_GLOBAL, 10, parent="global.customers", permission_any=("canClients", "canCRMContacts"), active_pages=("contacts", "clients")),
+    _link("global.customers.clients", "Clientes", "web_clients.list_clients", WORKSPACE_GLOBAL, 10, parent="global.customers", permission_any=("canClients", "canCRMContacts"), active_pages=("clients", "contacts")),
     _link("global.portal", "Portal de Clientes", "portal.portal_admin", WORKSPACE_GLOBAL, 20, parent="global.customers", module_key="portal_cliente", permission="canManageClientPortal", active_pages=("portal_admin",)),
     _link("global.customers.price_lists", "Listas de Precios", "web_invoices.list_price_lists", WORKSPACE_GLOBAL, 30, parent="global.customers", module_key="price_lists", permission="canManagePriceLists", active_pages=("price_lists",)),
 

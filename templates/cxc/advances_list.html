@@ -87,7 +87,7 @@
                 <tr>
                     <td style="font-weight: 600;">
                         {% if a.get('clientId') %}
-                        <a href="{{ url_for('web_clients.client_detail', client_id=a.get('clientId')) }}" style="color: var(--accent-blue); text-decoration: none;">
+                        <a href="{{ url_for('web_contacts.contact_detail', contact_id=a.get('clientId')) }}" style="color: var(--accent-blue); text-decoration: none;">
                             {{ a.get('clientName', '') or '—' }}
                         </a>
                         {% else %}

@@ -35,3 +35,6 @@ build/
 
 # Índice de tutoriales generado (embeddings)
 docs/tutoriales/.index.json
+
+# Padrón DGII local (archivo grande, no versionar)
+DGII_RNC.txt

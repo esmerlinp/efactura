@@ -137,7 +137,7 @@
                         <a href="{{ url_for('web_contacts.contact_detail', contact_id=c.id) }}" class="btn btn-ghost btn-xs" title="Ver">
                             <i class="fa-solid fa-eye"></i>
                         </a>
-                        <a href="{{ url_for('web_contacts.edit_contact', contact_id=c.id) }}" class="btn btn-ghost btn-xs" title="Editar">
+                        <a href="{% if 'cliente' in (c.types or []) %}{{ url_for('web_contacts.edit_contact', contact_id=c.id) }}{% elif 'proveedor' in (c.types or []) %}{{ url_for('web_suppliers.edit_supplier', supplier_id=c.id) }}{% else %}{{ url_for('web_contacts.edit_contact', contact_id=c.id) }}{% endif %}" class="btn btn-ghost btn-xs" title="Editar">
                             <i class="fa-solid fa-pen-to-square"></i>
                         </a>
                         <form method="POST" action="{{ url_for('web_contacts.delete_contact_route', contact_id=c.id) }}" style="display:inline" onsubmit="return confirm('¿Eliminar este contacto?')">

@@ -87,6 +87,43 @@ def _build_contact_from_doc(doc, owner_uid):
     return contact
 
 
+def _legacy_supplier_to_contact(supplier):
+    """Proyecta un proveedor legacy (`suppliers`) al shape canónico de contacto."""
+    contact = dict(CONTACT_DEFAULTS)
+    contact.update({
+        "id": supplier.get("id", ""),
+        "types": ["proveedor"],
+        "rnc": supplier.get("rnc", ""),
+        "razonSocial": supplier.get("name") or supplier.get("razonSocial", ""),
+        "email": supplier.get("email", ""),
+        "telefono": supplier.get("phone") or supplier.get("telefono", ""),
+        "direccion": supplier.get("address") or supplier.get("direccion", ""),
+        "municipio": supplier.get("city") or supplier.get("municipio", ""),
+        "pais": supplier.get("country") or supplier.get("pais", "República Dominicana"),
+        "tipoPersona": supplier.get("tipoPersona", "fisica"),
+        "supplierType": supplier.get("supplierType", "formal"),
+        "currency": supplier.get("currency", "DOP"),
+        "creditDays": supplier.get("creditDays", 0),
+        "creditLimit": supplier.get("creditLimit", 0.0),
+        "paymentMethod": supplier.get("paymentMethod", "Efectivo"),
+        "ecfTypeEmits": supplier.get("ecfTypeEmits", "E31"),
+        "itbisWithholding": supplier.get("itbisWithholding", False),
+        "isrWithholding": supplier.get("isrWithholding", False),
+        "tipoGastoDGII": supplier.get("tipoGastoDGII", "02"),
+        "estado": supplier.get("estado", "Activo"),
+        "notes": supplier.get("notes", ""),
+        "code": supplier.get("code", ""),
+        "contactPerson": supplier.get("contactPerson", ""),
+        "attachments": supplier.get("attachments", []),
+        "firebaseAttachmentURLs": supplier.get("firebaseAttachmentURLs", []),
+        "branchId": supplier.get("branchId", "default-sucursal-principal"),
+        "projectId": supplier.get("projectId"),
+        "createdAt": supplier.get("createdAt", ""),
+        "updatedAt": supplier.get("updatedAt", ""),
+    })
+    return contact
+
+
 # =========================================================================
 # Sync helpers — write to legacy collections for backward compatibility
 # =========================================================================
@@ -104,9 +141,13 @@ def _sync_to_legacy_clients(owner_uid=None, contact=None, sandbox=True, company_
     if "cliente" not in contact.get("types", []):
         return
     client_dict = {
+        "types": contact.get("types", ["cliente"]),
+        "branchId": contact.get("branchId", "default-sucursal-principal"),
+        "projectId": contact.get("projectId"),
         "rnc": contact.get("rnc", ""),
         "razonSocial": contact.get("razonSocial", ""),
         "email": contact.get("email", ""),
+        "companyEmail": contact.get("companyEmail", ""),
         "telefono": contact.get("telefono", ""),
         "direccion": contact.get("direccion", ""),
         "crmNotes": contact.get("notes", ""),
@@ -164,7 +205,7 @@ def _sync_to_legacy_suppliers(owner_uid=None, contact=None, sandbox=True, compan
         "projectId": contact.get("projectId"),
         "updatedAt": contact.get("updatedAt", datetime.now(timezone.utc).isoformat()),
     }
-    SupplierService.save_supplier(owner_uid, contact["id"], supplier_dict, sandbox=sandbox, company_id=company_id)
+    SupplierService._save_legacy_supplier(owner_uid, contact["id"], supplier_dict, sandbox=sandbox, company_id=company_id)
 
 
 def _delete_from_legacy_clients(owner_uid=None, contact_id=None, sandbox=True, company_id=None):
@@ -215,6 +256,47 @@ class ContactService:
         return contacts
 
     @classmethod
+    def get_contacts_with_legacy(cls, owner_uid=None, sandbox=True, company_id=None):
+        """Contactos canónicos + proveedores de `SupplierService` (misma fuente que /suppliers).
+
+        Garantiza paridad con el listado de proveedores: incluye tanto contactos
+        canónicos con rol `proveedor` como proveedores legacy aún no migrados.
+        Deduplica por `id`; si un proveedor comparte id con un contacto existente
+        sin rol `proveedor`, se añade el rol en memoria para que aparezca en la
+        pestaña de proveedores.
+        """
+        contacts = cls.get_contacts(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
+        by_id = {c.get("id"): c for c in contacts if c.get("id")}
+
+        try:
+            from app.services.supplier_service import SupplierService
+            suppliers = SupplierService.get_suppliers(
+                owner_uid=owner_uid, sandbox=sandbox, company_id=company_id
+            )
+        except Exception as e:
+            print(f"⚠️ Error al obtener proveedores para contactos: {e}")
+            return contacts
+
+        added = False
+        for s in suppliers:
+            sid = s.get("id")
+            existing = by_id.get(sid)
+            if existing:
+                types = list(existing.get("types") or [])
+                if "proveedor" not in types:
+                    types.append("proveedor")
+                    existing["types"] = types
+                continue
+            c = _legacy_supplier_to_contact(s)
+            contacts.append(c)
+            by_id[sid] = c
+            added = True
+
+        if added:
+            contacts.sort(key=lambda x: (x.get("razonSocial") or "").lower())
+        return contacts
+
+    @classmethod
     def get_contact(cls, owner_uid=None, contact_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return None
@@ -240,11 +322,24 @@ class ContactService:
             contact_dict["createdAt"] = serialize_field(datetime.now(timezone.utc))
         contact_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc))
         contact_dict["razonSocial"] = contact_dict.get("razonSocial", "").strip()
-        contact_dict["rnc"] = "".join(filter(str.isdigit, str(contact_dict.get("rnc", ""))))
+        if contact_dict.get("customer_category") == "FOREIGN":
+            contact_dict["rnc"] = str(contact_dict.get("rnc", "")).strip()
+        else:
+            contact_dict["rnc"] = "".join(filter(str.isdigit, str(contact_dict.get("rnc", ""))))
+
+        existing_contact = None
+        if contact_id:
+            try:
+                existing_contact = cls.get_contact(
+                    owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id
+                )
+            except Exception:
+                existing_contact = None
 
         if "cliente" in contact_dict.get("types", []):
             from app.services.customer_account_service import CustomerAccountService
-            if not CustomerAccountService.valid_email(contact_dict.get("email")):
+            was_client = bool(existing_contact and "cliente" in (existing_contact.get("types") or []))
+            if not was_client and not CustomerAccountService.valid_email(contact_dict.get("email")):
                 raise ValueError("El correo electrónico del cliente es obligatorio y debe ser válido.")
 
         defaults = dict(CONTACT_DEFAULTS)
@@ -261,9 +356,20 @@ class ContactService:
         _sync_to_legacy_clients(owner_uid=owner_uid, contact=contact_dict, sandbox=sandbox, company_id=company_id)
         _sync_to_legacy_suppliers(owner_uid=owner_uid, contact=contact_dict, sandbox=sandbox, company_id=company_id)
 
+        existing_types = (existing_contact or {}).get("types") or []
+        new_types = contact_dict.get("types") or []
+        if "cliente" in existing_types and "cliente" not in new_types:
+            _delete_from_legacy_clients(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
+        if "proveedor" in existing_types and "proveedor" not in new_types:
+            _delete_from_legacy_suppliers(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
+
         if "cliente" in contact_dict.get("types", []):
             from app.services.customer_account_service import CustomerAccountService
-            account_id = CustomerAccountService.ensure_for_contact(contact_dict, owner_uid, company_id, sandbox)
+            try:
+                account_id = CustomerAccountService.ensure_for_contact(contact_dict, owner_uid, company_id, sandbox)
+            except ValueError:
+                # Contactos legacy pueden conservar su rol de cliente sin email válido.
+                account_id = None
             if account_id:
                 contact_dict["customerId"] = account_id
                 _coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(contact_id).set(
@@ -381,6 +487,36 @@ class ContactService:
         }
         cls.save_contact(owner_uid=owner_uid, contact_id=contact_id, contact_dict=contact_dict, sandbox=sandbox, company_id=company_id)
         return (contact_id, True)
+    @classmethod
+    def remove_role(cls, owner_uid=None, contact_id=None, role=None, sandbox=True, company_id=None):
+        """Quita un rol del contacto sin borrar la entidad si conserva otros roles.
+
+        Si el contacto se queda sin roles, se elimina por completo. Si conserva
+        otros roles, solo se elimina el espejo legacy del rol retirado.
+        Devuelve True si el rol fue retirado (o el contacto eliminado por quedar
+        sin roles), False si el contacto no existe o no tenía ese rol.
+        """
+        contact = cls.get_contact(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
+        if not contact:
+            return False
+
+        types = [t for t in (contact.get("types") or []) if t != role]
+        if len(types) == len(contact.get("types") or []):
+            return False
+
+        if not types:
+            return cls.delete_contact(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
+
+        updated = dict(contact)
+        updated["types"] = types
+        cls.save_contact(owner_uid=owner_uid, contact_id=contact_id, contact_dict=updated, sandbox=sandbox, company_id=company_id)
+
+        if role == "cliente":
+            _delete_from_legacy_clients(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
+        elif role == "proveedor":
+            _delete_from_legacy_suppliers(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
+        return True
+
     @classmethod
     def update_pipeline(cls, owner_uid=None, contact_id=None, pipeline_stage=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:

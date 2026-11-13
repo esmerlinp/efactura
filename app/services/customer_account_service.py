@@ -98,8 +98,6 @@ class CustomerAccountService:
         else:
             account_ref.document(account_id).set({
                 "legalName": contact.get("razonSocial", ""),
-                "email": email,
-                "emailNormalized": email,
                 "updatedAt": now,
             }, merge=True)
 

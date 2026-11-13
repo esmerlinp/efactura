@@ -2953,7 +2953,7 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 contact_dict = _client_to_contact(client_dict)
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox)).document(client_id).set(contact_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox)).document(client_id).set(contact_dict, merge=True)
                 _invalidate_clients(owner_uid, company_id=company_id)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:

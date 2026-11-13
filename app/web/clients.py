@@ -2,7 +2,7 @@
 import uuid
 import html
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
+from flask import Blueprint, current_app, render_template, request, redirect, url_for, flash, session, jsonify, g
 from app.services.db_service import DatabaseService
 from app.services.contact_service import ContactService
 from app.services.mailer import Mailer
@@ -11,6 +11,7 @@ from app.services.ai_service import AIService
 from app.utils.decorators import check_permission
 from app.utils.module_gate import require_module, module_enabled, get_module_label, clients_module_enabled
 from app.brand import get_product_name
+from app.utils.client_email import get_client_communication_email
 
 web_clients_bp = Blueprint('web_clients', __name__)
 
@@ -60,19 +61,25 @@ def list_clients():
         client['total_invoiced'] = sum(inv['total'] for inv in client_sales)
         client['total_cxc'] = sum(inv['netPayable'] for inv in client_sales if inv['status'] in ['Emitida', 'Vencida', 'Revisión de Pago'])
 
+    total_clients_count = len(clients)
+
     # Aplicar filtros
     q = request.args.get('q', '').strip()
     q_lower = q.lower()
     
     stage = request.args.get('stage')
-    # Por defecto, mostrar 'Cliente Activo' si no se provee filtro
-    if stage is None:
-        stage = 'Cliente Activo'
+    # Sin filtro se muestran todos los clientes, sin importar su etapa comercial.
+    if stage is None or not str(stage).strip():
+        stage = 'Todos'
     else:
         stage = stage.strip()
     
     if q_lower:
-        clients = [c for c in clients if q_lower in c.get('razonSocial', '').lower() or q_lower in c.get('rnc', '').lower() or q_lower in c.get('telefono', '').lower()]
+        clients = [c for c in clients if
+                   q_lower in c.get('razonSocial', '').lower() or
+                   q_lower in c.get('rnc', '').lower() or
+                   q_lower in c.get('email', '').lower() or
+                   q_lower in c.get('telefono', '').lower()]
         
     if stage and stage != 'Todos':
         clients = [c for c in clients if c.get('pipelineStage') == stage]
@@ -111,31 +118,51 @@ def list_clients():
 
     # Paginación
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
-    
+    per_page_raw = (request.args.get('per_page') or '10').strip()
+    if per_page_raw == 'all':
+        per_page = max(1, len(clients))
+    else:
+        try:
+            per_page = int(per_page_raw)
+        except ValueError:
+            per_page = 10
+        if per_page not in (10, 25, 50, 100):
+            per_page = 10
+            per_page_raw = '10'
+
     total_items = len(clients)
     total_pages = max(1, (total_items + per_page - 1) // per_page)
-    
+
     if page < 1:
         page = 1
     elif page > total_pages:
         page = total_pages
-        
+
     start_idx = (page - 1) * per_page
     end_idx = start_idx + per_page
     paginated_clients = clients[start_idx:end_idx]
 
+    start_count = ((page - 1) * per_page) + 1 if total_items > 0 else 0
+    end_count = min(page * per_page, total_items)
+
     return render_template(
-        'clients/list.html', 
-        active_page='clients', 
-        clients=clients, 
+        'clients/list.html',
+        active_page='clients',
+        clients=clients,
         paginated_clients=paginated_clients,
-        q=q, 
+        q=q,
         stage=stage,
         page=page,
         per_page=per_page,
+        per_page_raw=per_page_raw,
         total_pages=total_pages,
-        total_items=total_items
+        total_items=total_items,
+        total_clients_count=total_clients_count,
+        pages_range=range(1, total_pages + 1),
+        has_prev=page > 1,
+        has_next=page < total_pages,
+        start_count=start_count,
+        end_count=end_count,
     )
 
 @web_clients_bp.route('/clients/new', methods=['GET', 'POST'])
@@ -143,6 +170,8 @@ def new_client():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canCreateClient'):
         return render_template('auth/restricted.html', feature_name="Nuevo Cliente", required_permission="canCreateClient"), 403
+    if request.method == 'GET':
+        return redirect(url_for('web_contacts.new_contact'))
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -177,6 +206,7 @@ def new_client():
             "rnc": rnc_value,
             "razonSocial": request.form['razonSocial'],
             "email": request.form.get('email', ''),
+            "companyEmail": request.form.get('companyEmail', '').strip(),
             "telefono": request.form.get('telefono', ''),
             "direccion": request.form.get('direccion', ''),
             "foreignTaxId": foreign_tax_id,
@@ -303,6 +333,8 @@ def ajax_create_client():
 @web_clients_bp.route('/clients/<client_id>/edit', methods=['GET', 'POST'])
 def edit_client(client_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if request.method == 'GET':
+        return redirect(url_for('web_contacts.edit_contact', contact_id=client_id))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Editar Cliente", required_permission="canClients"), 403
     owner_uid = session['user']['ownerUID']
@@ -342,18 +374,24 @@ def edit_client(client_id):
                 access_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
 
         customer_category = request.form.get('customer_category', client.get('customer_category', 'NORMAL'))
-        rnc_value = request.form.get('rnc', '')
-        foreign_tax_id = request.form.get('foreignTaxId', '').strip() or (rnc_value if customer_category == 'FOREIGN' else '')
-        client_dict = {
+        # La identidad global del cliente se conserva; solo los datos operativos
+        # de esta empresa pueden modificarse desde esta ficha.
+        rnc_value = client.get('rnc', '')
+        foreign_tax_id = client.get('foreignTaxId', '')
+        existing_contact = ContactService.get_contact(owner_uid, client_id, sandbox=sandbox, company_id=company_id) or {}
+        client_dict = dict(existing_contact)
+        client_dict.update({
             "rnc": rnc_value,
-            "razonSocial": request.form['razonSocial'],
-            "email": request.form.get('email', ''),
+            "razonSocial": client.get('razonSocial', ''),
+            "email": client.get('email', ''),
+            "companyEmail": request.form.get('companyEmail', client.get('companyEmail', '')).strip(),
             "telefono": request.form.get('telefono', ''),
             "direccion": request.form.get('direccion', ''),
             "foreignTaxId": foreign_tax_id,
             "crmNotes": request.form.get('crmNotes', ''),
+            "notes": request.form.get('crmNotes', ''),
             "nextContactDate": request.form.get('nextContactDate', ''),
-            "createdAt": client["createdAt"],
+            "createdAt": client.get("createdAt") or existing_contact.get("createdAt"),
             "pipelineStage": request.form.get('pipelineStage', client.get("pipelineStage", "Cliente Activo")),
             "disableAutoReminders": request.form.get('disableAutoReminders') == 'on' or request.form.get('disableAutoReminders') == 'true',
             "responsibleId": request.form.get('responsibleId', ''),
@@ -367,7 +405,7 @@ def edit_client(client_id):
             "estadoDgii": (request.form.get('estadoDgii') or '').strip(),
             "categoriaDgii": (request.form.get('categoriaDgii') or '').strip(),
             "actividadDgii": (request.form.get('actividadDgii') or '').strip()
-        }
+        })
         DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
         
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_CLIENTES
@@ -405,7 +443,14 @@ def delete_client_route(client_id):
         before_client = next((c for c in clients if c['id'] == client_id), {})
     except Exception:
         pass
-        
+
+    contact = ContactService.get_contact(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
+    if contact and "proveedor" in (contact.get("types") or []):
+        # El contacto también es proveedor: solo se retira el rol de cliente.
+        ContactService.remove_role(owner_uid, client_id, "cliente", sandbox=sandbox, company_id=company_id)
+        flash('Rol de cliente eliminado. El contacto se conserva como proveedor.', 'success')
+        return redirect(url_for('web_clients.list_clients'))
+
     DatabaseService.delete_client(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
     
     from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_CLIENTES
@@ -486,7 +531,7 @@ def send_portal_credentials(client_id):
         return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
 
     if not recipient_email:
-        recipient_email = client.get('email', '')
+        recipient_email = get_client_communication_email(client)
     if not recipient_email:
         return jsonify({"success": False, "error": "Este cliente no tiene un correo registrado."}), 400
 
@@ -499,8 +544,6 @@ def send_portal_credentials(client_id):
     brand_color = company.get('colorMarca', '#10b981')
     logo_url = company.get('logoUrl', '')
     logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;"><br>' if logo_url else ''
-
-    from flask import current_app
 
     client_name = client.get('razonSocial', 'Cliente')
     client_rnc = client.get('rnc', '')
@@ -572,14 +615,21 @@ def send_portal_credentials(client_id):
 
     subject = f"🔑 Acceso al Portal de Autoservicio - {company_name}"
 
-    success = Mailer.send(
-        app=current_app._get_current_object(),
-        to_email=recipient_email,
-        subject=subject,
-        html_body=html_body,
-        from_name=company_name,
-        category='credentials'
-    )
+    try:
+        success = Mailer.send(
+            app=current_app._get_current_object(),
+            to_email=recipient_email,
+            subject=subject,
+            html_body=html_body,
+            from_name=company_name,
+            category='credentials'
+        )
+    except Exception:
+        current_app.logger.exception("Error enviando enlace del portal a %s", recipient_email)
+        return jsonify({
+            "success": False,
+            "error": "No se pudo conectar con el servidor de correo. Revise la configuración y los logs."
+        }), 502
 
     if not success:
         return jsonify({
@@ -604,9 +654,7 @@ def send_portal_credentials(client_id):
 
 @web_clients_bp.route('/clients/<client_id>')
 def client_detail(client_id):
-    if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Ver Detalle de Cliente", required_permission="canClients"), 403
+    return redirect(url_for('web_contacts.contact_detail', contact_id=client_id))
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -614,6 +662,34 @@ def client_detail(client_id):
     clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients if c['id'] == client_id), None)
     
+    if not client:
+        contact = ContactService.get_contact(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
+        if contact and 'cliente' in (contact.get('types') or []):
+            client = {
+                "id": contact.get("id", client_id),
+                "rnc": contact.get("rnc", ""),
+                "razonSocial": contact.get("razonSocial", ""),
+                "email": contact.get("email", ""),
+                "companyEmail": contact.get("companyEmail", ""),
+                "correo": contact.get("correo", ""),
+                "telefono": contact.get("telefono", ""),
+                "direccion": contact.get("direccion", ""),
+                "crmNotes": contact.get("notes", ""),
+                "nextContactDate": contact.get("nextContactDate", ""),
+                "pipelineStage": contact.get("pipelineStage", "Prospecto"),
+                "responsibleId": contact.get("responsibleId", ""),
+                "imageUrl": contact.get("imageUrl", ""),
+                "accessPin": contact.get("accessPin", ""),
+                "disableAutoReminders": contact.get("disableAutoReminders", False),
+                "createdAt": contact.get("createdAt", ""),
+                "customer_category": contact.get("customer_category", "NORMAL"),
+                "foreignTaxId": contact.get("foreignTaxId", ""),
+                "regimenDgii": contact.get("regimenDgii", ""),
+                "estadoDgii": contact.get("estadoDgii", ""),
+                "categoriaDgii": contact.get("categoriaDgii", ""),
+                "actividadDgii": contact.get("actividadDgii", ""),
+            }
+
     if not client:
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('web_clients.list_clients'))

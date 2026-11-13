@@ -1,7 +1,15 @@
 import pytest
+import requests
 from unittest.mock import Mock, patch
-from app.services.dgii import DGIIService
+from app.services.dgii import DGIIService, _lookup_rnc_in_file
 from app.countries.do.dgii_client import REGIMEN_RULES
+
+
+@pytest.fixture(autouse=True)
+def _clear_rnc_file_cache():
+    _lookup_rnc_in_file.cache_clear()
+    yield
+    _lookup_rnc_in_file.cache_clear()
 
 
 class TestDgiiRounding:
@@ -27,36 +35,64 @@ class TestRncCleaner:
 
 
 class TestRncLookupRegimen:
-    def test_reads_dgii_regimen_de_pagos(self):
+    def test_reads_local_file_record(self, tmp_path, monkeypatch):
+        padron = tmp_path / "DGII_RNC.txt"
+        padron.write_text(
+            "133753652|VYKCORE AUTOMATIONS SRL|VYKCORE AUTOMATIONS|DISEÑO Y DESARROLLO DE SOFTWARE| | | | |07/07/2026|ACTIVO|RST\r\n",
+            encoding="iso-8859-1",
+        )
+        monkeypatch.setenv("DGII_RNC_FILE", str(padron))
+
+        result = DGIIService.validate_and_fetch_rnc("133753652")
+
+        assert result["verified"] is True
+        assert result["source"] == "local_file"
+        assert result["razon_social"] == "VYKCORE AUTOMATIONS SRL"
+        assert result["actividad"] == "DISEÑO Y DESARROLLO DE SOFTWARE"
+        assert result["estado"] == "ACTIVO"
+        assert result["regimen"] == "RST"
+        assert result["regimen_normalized"] == "rst_income"
+        assert result["categoria"] == "RST"
+
+    def test_falls_back_to_api_when_not_in_file(self, tmp_path, monkeypatch):
+        padron = tmp_path / "DGII_RNC.txt"
+        padron.write_text("", encoding="iso-8859-1")
+        monkeypatch.setenv("DGII_RNC_FILE", str(padron))
         response = Mock(status_code=200)
         response.json.return_value = {
-            "error": False,
-            "nombre_razon_social": "CONTRIBUYENTE TEST",
-            "regimen_de_pagos": "NORMAL",
-            "estado": "ACTIVO",
-            "categoria": "",
+            "exito": True,
+            "data": {
+                "rnc": "131880681",
+                "razon_social": "DOCUMENTOS ELECTRONICOS DE 03",
+                "actividad_economica": "OPERADORAS DE ZONAS FRANCAS",
+                "fecha_inicio": "22/01/2019",
+                "estado": "ACTIVO",
+                "regimen_pago": "NORMAL",
+            },
         }
 
         with patch("app.services.dgii.requests.get", return_value=response):
             result = DGIIService.validate_and_fetch_rnc("131880681")
 
+        assert result["verified"] is True
+        assert result["source"] == "dominicantechnology"
+        assert result["razon_social"] == "DOCUMENTOS ELECTRONICOS DE 03"
         assert result["regimen"] == "NORMAL"
         assert result["regimen_normalized"] == "ordinary"
-        assert result["estado"] == "ACTIVO"
+        assert result["categoria"] == "NORMAL"
 
-    def test_supports_legacy_regimen_pagos_key(self):
-        response = Mock(status_code=200)
-        response.json.return_value = {
-            "error": False,
-            "nombre_razon_social": "CONTRIBUYENTE TEST",
-            "regimen_pagos": "RST INGRESOS",
-        }
+    def test_api_failure_returns_unverified_checksum(self, tmp_path, monkeypatch):
+        padron = tmp_path / "DGII_RNC.txt"
+        padron.write_text("", encoding="iso-8859-1")
+        monkeypatch.setenv("DGII_RNC_FILE", str(padron))
 
-        with patch("app.services.dgii.requests.get", return_value=response):
+        with patch("app.services.dgii.requests.get", side_effect=requests.exceptions.RequestException("down")):
             result = DGIIService.validate_and_fetch_rnc("131880681")
 
-        assert result["regimen"] == "RST INGRESOS"
-        assert result["regimen_normalized"] == "rst_income"
+        assert result["error"] is False
+        assert result["verified"] is False
+        assert result["source"] == "local"
+        assert result["razon_social"] == ""
 
     def test_none_returns_empty(self):
         assert DGIIService.clean_rnc(None) == ""

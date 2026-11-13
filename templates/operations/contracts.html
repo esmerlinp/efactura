@@ -163,7 +163,7 @@
                            title="Ver detalle del contrato">{{ contract.contractNumber }}</a>
                     </td>
                     <td>
-                        <a href="{{ url_for('web_clients.client_detail', client_id=contract.clientId) }}"
+                        <a href="{{ url_for('web_contacts.contact_detail', contact_id=contract.clientId) }}"
                            style="color: var(--text-primary); text-decoration: none; font-weight: 600;"
                            title="Ver ficha del cliente">{{ contract.clientName }}</a>
                         {% if contract.autoSendEmail %}

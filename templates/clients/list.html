@@ -1,535 +1,204 @@
 {% extends "layout.html" %}
-
-{% block title %}Pipeline CRM{% endblock %}
-
-{% block page_header %}Pipeline de Ventas y CRM{% endblock %}
+{% block title %}Clientes{% endblock %}
+{% block page_header %}Clientes{% endblock %}
 
 {% block content %}
 <style>
-    /* Kanban Layout Compacto */
-    .kanban-board {
-        display: flex;
-        gap: 15px;
-        margin-top: 20px;
-        overflow-x: auto;
-        padding-bottom: 20px;
-        min-height: 500px;
-    }
+    .contacts-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); }
+    .contacts-tabs .tab-btn { padding: 10px 20px; cursor: pointer; border: none; background: none; font-size: 0.9rem; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; font-family: var(--font-heading); text-decoration: none; }
+    .contacts-tabs .tab-btn:hover { color: var(--text-primary); }
+    .contacts-tabs .tab-btn.active { color: var(--accent-emerald); border-bottom-color: var(--accent-emerald); font-weight: 600; }
+    .contacts-tabs .tab-btn .badge { margin-left: 6px; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; background: var(--bg-muted); color: var(--text-secondary); }
+    .contacts-tabs .tab-btn.active .badge { background: rgba(16,185,129,0.12); color: var(--accent-emerald); }
 
-    .kanban-column {
-        flex: 1;
-        min-width: 250px;
-        max-width: 350px;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
-        display: flex;
-        flex-direction: column;
-    }
+    .contacts-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+    .contacts-toolbar .search-box { flex: 1; min-width: 200px; position: relative; }
+    .contacts-toolbar .search-box input { width: 100%; padding: 8px 12px 8px 36px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--card-bg); color: var(--text-primary); font-size: 0.85rem; }
+    .contacts-toolbar .search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.85rem; }
 
-    .kanban-header {
-        padding: 10px 15px;
-        border-bottom: 1px solid var(--border-color);
-        font-family: var(--font-heading);
-        font-size: 1rem;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: rgba(0, 0, 0, 0.1);
-        border-top-left-radius: var(--radius-md);
-        border-top-right-radius: var(--radius-md);
-    }
+    .badge-type { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
+    .badge-cliente { background: rgba(16,185,129,0.12); color: #059669; }
+    .badge-ambos { background: rgba(139,92,246,0.12); color: #7c3aed; }
 
-    .kanban-cards {
-        padding: 10px;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        min-height: 150px;
-    }
-
-    /* Client Card */
-    .client-card {
-        border-radius: var(--radius-sm);
-        padding: 10px 12px;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        background: #ffffff;
-        border: 1px solid rgba(0, 0, 0, 0.06);
-        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
-        cursor: grab;
-        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
-    }
-
-    .client-card:active {
-        cursor: grabbing;
-        transform: scale(0.98);
-    }
-
-    .client-card:hover {
-        box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-        border-color: rgba(16, 185, 129, 0.4);
-        transform: translateY(-3px);
-    }
-
-    .client-title {
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        font-family: var(--font-heading);
-        margin-bottom: 4px;
-        word-break: break-word;
-        text-decoration: none;
-        line-height: 1.2;
-    }
-
-    .client-title:hover {
-        color: var(--accent-emerald);
-    }
-
-    .client-meta {
-        font-size: 0.75rem;
-        color: var(--text-secondary);
-        margin-bottom: 8px;
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-    }
-
-    .client-meta span {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-
-    .client-meta i {
-        width: 12px;
-        font-size: 0.7rem;
-        text-align: center;
-        color: var(--text-muted);
-    }
-
-    .client-finance {
-        font-size: 0.8rem;
-        background: #f8fafc;
-        border: 1px dashed var(--border-color);
-        padding: 6px 8px;
-        border-radius: var(--radius-sm);
-        margin-bottom: 8px;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-    .card-actions {
-        display: flex;
-        gap: 6px;
-        justify-content: flex-end;
-        margin-top: auto;
-        border-top: 1px solid rgba(0, 0, 0, 0.04);
-        padding-top: 8px;
-    }
-
-    .btn-icon {
-        background: #f1f5f9;
-        border: 1px solid transparent;
-        color: var(--text-secondary);
-        border-radius: 50%;
-        width: 24px;
-        height: 24px;
-        font-size: 0.75rem;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-decoration: none;
-    }
-
-    .btn-icon:hover {
-        background: #e2e8f0;
-        color: var(--text-primary);
-        border-color: rgba(0, 0, 0, 0.1);
-        transform: scale(1.05);
-    }
-
-    .btn-icon.eye:hover {
-        color: var(--accent-emerald);
-    }
-
-    .btn-icon.edit:hover {
-        color: var(--accent-blue);
-    }
-
-    /* Stage specific colors */
-    .kanban-column#col-prospecto .kanban-header {
-        border-bottom-color: var(--accent-yellow);
-        color: var(--accent-yellow);
-    }
-
-    .kanban-column#col-contactado .kanban-header {
-        border-bottom-color: var(--accent-blue);
-        color: var(--accent-blue);
-    }
-
-    .kanban-column#col-negociacion .kanban-header {
-        border-bottom-color: var(--accent-purple);
-        color: var(--accent-purple);
-    }
-
-    .kanban-column#col-activo .kanban-header {
-        border-bottom-color: var(--accent-emerald);
-        color: var(--accent-emerald);
-    }
+    .pipeline-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .pipeline-Prospecto { background: #9ca3af; }
+    .pipeline-Contactado { background: #60a5fa; }
+    .pipeline-Negociacion, .pipeline-En\ Negociación { background: #f59e0b; }
+    .pipeline-Cliente\ Activo { background: #10b981; }
+    .pipeline-Periodo\ de\ Prueba { background: #8b5cf6; }
+    .pipeline-Expirado { background: #ef4444; }
 </style>
 
-<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
-    <h1 class="page-title"
-        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
-        Pipeline de Ventas y CRM
-    </h1>
+<div class="contacts-tabs">
+    <a href="{{ url_for('web_clients.list_clients') }}" class="tab-btn active">
+        Clientes <span class="badge">{{ total_clients_count }}</span>
+    </a>
+    <a href="{{ url_for('web_contacts.list_contacts', tab='proveedores') }}" class="tab-btn">Proveedores</a>
+    <a href="{{ url_for('web_contacts.list_contacts') }}" class="tab-btn">Todos los contactos</a>
 </div>
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-
-    <div>
-        <p style="color: var(--text-secondary); font-size: 0.95rem; margin: 0;">Gestiona tus clientes arrastrándolos por
-            el embudo de ventas.</p>
+<div class="contacts-toolbar">
+    <div class="search-box">
+        <i class="fa-solid fa-search"></i>
+        <input type="text" id="q" name="q" form="filters-form" placeholder="Buscar por nombre, RNC, teléfono..." value="{{ q }}" onkeydown="if(event.key=='Enter'){event.preventDefault();document.getElementById('page-input').value=1;document.getElementById('filters-form').submit();}">
     </div>
-    <div style="display: flex; gap: 12px; align-items: center;">
-        <button type="button" class="btn btn-secondary" onclick="exportToCSV()"
-            style="display: inline-flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-file-csv"></i>
-            <span>Exportar CSV</span>
-        </button>
-        <button class="btn btn-secondary" onclick="openImportModal()"
-            style="display: inline-flex; align-items: center;">
-            <i class="fa-solid fa-file-import"></i>
-            <span>Importar CSV</span>
-        </button>
-        <a href="{{ url_for('web_clients.new_client') }}" class="btn btn-primary"
-            style="display: inline-flex; align-items: center;">
-            <i class="fa-solid fa-user-plus"></i>
-            <span>Nuevo Lead</span>
-        </a>
-    </div>
-</div>
-
-<!-- Filtros Minimalistas -->
-<div
-    style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
-    <form method="GET" action="{{ url_for('web_clients.list_clients') }}" id="filters-form"
-        style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap; margin: 0;">
-        <input type="hidden" name="page" id="page-input" value="{{ page or 1 }}">
-        <input type="hidden" name="per_page" id="per-page-input" value="{{ per_page or 10 }}">
-
-        <!-- Búsqueda -->
-        <div style="position: relative; flex-grow: 1; min-width: 220px; max-width: 350px;">
-            <i class="fa-solid fa-magnifying-glass"
-                style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
-            <input type="text" name="q" id="q" value="{{ q or '' }}" placeholder="Buscar Razón Social, RNC, Tel..."
-                style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);"
-                onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';"
-                onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}">
-        </div>
-
-        <!-- Selector de Estado Oculto -->
-        <input type="hidden" name="stage" id="stage-input-field" value="{{ stage }}">
-
-        <!-- Botones de Filtro Rápido -->
-        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;" id="quick-filters-container">
-            <button type="button" class="btn {% if stage == 'Todos' %}btn-primary{% else %}btn-secondary{% endif %}" data-stage="Todos" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 20px; font-weight: 500; height: 34px;">Todos</button>
-            <button type="button" class="btn {% if stage == 'Prospecto' %}btn-primary{% else %}btn-secondary{% endif %}" data-stage="Prospecto" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 20px; font-weight: 500; height: 34px;">Prospectos</button>
-            <button type="button" class="btn {% if stage == 'Contactado' %}btn-primary{% else %}btn-secondary{% endif %}" data-stage="Contactado" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 20px; font-weight: 500; height: 34px;">Contactados</button>
-            <button type="button" class="btn {% if stage == 'En Negociación' %}btn-primary{% else %}btn-secondary{% endif %}" data-stage="En Negociación" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 20px; font-weight: 500; height: 34px;">En Negociación</button>
-            <button type="button" class="btn {% if stage == 'Cliente Activo' %}btn-primary{% else %}btn-secondary{% endif %}" data-stage="Cliente Activo" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 20px; font-weight: 500; height: 34px;">Clientes Activos</button>
-        </div>
-
-        <!-- Limpiar -->
-        <a href="{{ url_for('web_clients.list_clients') }}"
-            style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none; padding: 6px 10px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 4px;"
-            title="Limpiar Filtros"
-            onmouseover="this.style.backgroundColor='rgba(0,0,0,0.03)'; this.style.color='var(--text-primary)'"
-            onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-muted)'">
-            <i class="fa-solid fa-eraser"></i> Limpiar
-        </a>
-
-        <!-- Vista Toggle (Oculto temporalmente) -->
-        <div
-            style="display: none; align-items: center; gap: 4px; margin-left: auto; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
-            <button type="button" id="btn-kanban" onclick="switchView('kanban')"
-                style="border: none; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;"><i
-                    class="fa-solid fa-table-columns"></i> Kanban</button>
-            <button type="button" id="btn-list" onclick="switchView('list')"
-                style="border: none; background: #ffffff; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);"><i
-                    class="fa-solid fa-list"></i> Lista</button>
-        </div>
-    </form>
-</div>
-
-{% macro render_client(client) %}
-<div class="client-card" id="client-{{ client.id }}" draggable="true" ondragstart="drag(event)">
-    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-        {% if client.imageUrl %}
-        <div style="width: 24px; height: 24px; border-radius: 50%; overflow: hidden; border: 1px solid var(--border-color); flex-shrink: 0;">
-            <img src="{{ client.imageUrl }}" alt="{{ client.razonSocial }}" style="width: 100%; height: 100%; object-fit: cover;">
-        </div>
-        {% else %}
-        <div style="width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-emerald), #059669); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold; flex-shrink: 0; font-family: var(--font-heading);">
-            {{ client.razonSocial[:2].upper() }}
-        </div>
-        {% endif %}
-        <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="client-title" style="margin-bottom: 0;">
-            {{ client.razonSocial }}
-        </a>
-    </div>
-
-    <div class="client-meta">
-        <span><i class="fa-solid fa-id-card"></i> {{ client.rnc }}</span>
-        <span><i class="fa-solid fa-phone"></i> {{ client.telefono or 'N/A' }}</span>
-        {% if client.nextContactDate %}
-        <span style="color: var(--accent-purple); font-weight: 500;"><i class="fa-solid fa-clock"></i> Contacto: {{
-            client.nextContactDate | format_date }}</span>
-        {% endif %}
-    </div>
-
-    {% if client.total_invoiced and client.total_invoiced > 0 %}
-    <div class="client-finance">
-        <strong style="color: var(--accent-emerald); display: block;">Ventas: RD$ {{
-            "{:,.2f}".format(client.total_invoiced) }}</strong>
-        {% if client.total_cxc > 0 %}
-        <span style="color: var(--accent-red); font-weight: 500; font-size: 0.8rem;">CxC: RD$ {{
-            "{:,.2f}".format(client.total_cxc) }}</span>
-        {% endif %}
-    </div>
+    {% if module_enabled('crm') %}
+    <select name="stage" form="filters-form" onchange="document.getElementById('page-input').value=1;document.getElementById('filters-form').submit()" style="padding:8px 12px; border:1px solid var(--border-color); border-radius:var(--radius-md); background:var(--card-bg); color:var(--text-primary); font-size:0.85rem; min-width:150px;">
+        <option value="Todos" {% if stage == 'Todos' %}selected{% endif %}>Todas las etapas</option>
+        <option value="Prospecto" {% if stage == 'Prospecto' %}selected{% endif %}>Prospecto</option>
+        <option value="Contactado" {% if stage == 'Contactado' %}selected{% endif %}>Contactado</option>
+        <option value="En Negociación" {% if stage == 'En Negociación' %}selected{% endif %}>En Negociación</option>
+        <option value="Cliente Activo" {% if stage == 'Cliente Activo' %}selected{% endif %}>Cliente Activo</option>
+        <option value="Periodo de Prueba" {% if stage == 'Periodo de Prueba' %}selected{% endif %}>Periodo de Prueba</option>
+        <option value="Expirado" {% if stage == 'Expirado' %}selected{% endif %}>Expirado</option>
+    </select>
     {% endif %}
-
-    <div class="card-actions">
-        <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="btn-icon eye"
-            title="Ver Ficha">
-            <i class="fa-solid fa-eye"></i>
-        </a>
-        <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}" class="btn-icon edit" title="Editar">
-            <i class="fa-solid fa-pen-to-square"></i>
+    <div class="btn-group">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openImportModal()">
+            <i class="fa-solid fa-file-import"></i> Importar CSV
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="exportToCSV()">
+            <i class="fa-solid fa-download"></i> Exportar CSV
+        </button>
+        <a href="{{ url_for('web_clients.new_client') }}" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-user-plus"></i> Nuevo Cliente
         </a>
     </div>
 </div>
-{% endmacro %}
 
-<div class="kanban-board" style="display: none;">
-    <!-- Prospecto -->
-    <div class="kanban-column" id="col-Prospecto" ondrop="drop(event)" ondragover="allowDrop(event)">
-        <h4 class="kanban-header"><i class="fa-solid fa-user-astronaut"></i> Prospecto</h4>
-        <div class="kanban-cards">
-            {% for client in clients if client.pipelineStage == 'Prospecto' %}
-            {{ render_client(client) }}
-            {% endfor %}
-        </div>
-    </div>
+<form id="filters-form" method="GET" action="{{ url_for('web_clients.list_clients') }}" style="display:none">
+    <input type="hidden" name="page" id="page-input" value="{{ page }}">
+    <input type="hidden" name="per_page" id="per-page-input" value="{{ per_page_raw }}">
+</form>
 
-    <!-- Contactado -->
-    <div class="kanban-column" id="col-Contactado" ondrop="drop(event)" ondragover="allowDrop(event)">
-        <h4 class="kanban-header"><i class="fa-solid fa-phone-volume"></i> Contactado</h4>
-        <div class="kanban-cards">
-            {% for client in clients if client.pipelineStage == 'Contactado' %}
-            {{ render_client(client) }}
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- En Negociación -->
-    <div class="kanban-column" id="col-Negociacion" ondrop="drop(event)" ondragover="allowDrop(event)">
-        <h4 class="kanban-header"><i class="fa-solid fa-comments-dollar"></i> En Negociación</h4>
-        <div class="kanban-cards">
-            {% for client in clients if client.pipelineStage == 'En Negociación' %}
-            {{ render_client(client) }}
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- Cliente Activo -->
-    <div class="kanban-column" id="col-Activo" ondrop="drop(event)" ondragover="allowDrop(event)">
-        <h4 class="kanban-header"><i class="fa-solid fa-handshake"></i> Cliente Activo</h4>
-        <div class="kanban-cards">
-            {% for client in clients if client.pipelineStage == 'Cliente Activo' %}
-            {{ render_client(client) }}
-            {% endfor %}
-        </div>
-    </div>
-</div>
-
-<!-- List View -->
-<div id="list-view" class="card-table-wrapper" style="display: block; padding: 0;">
-    <div class="table-responsive">
-        <table class="data-grid">
-            <thead>
-                <tr>
-                    <th>Razón Social</th>
-                    <th>RNC</th>
-                    <th>Teléfono</th>
-                    <th>Etapa (Pipeline)</th>
-                    <th>Próximo Contacto</th>
-                    <th style="text-align: right; width: 50px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for client in paginated_clients %}
-                <tr>
-                    <td>
-                        <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="client-link" style="display: inline-flex; align-items: center; gap: 8px;">
-                            {% if client.imageUrl %}
-                            <div style="width: 24px; height: 24px; border-radius: 50%; overflow: hidden; border: 1px solid var(--border-color); flex-shrink: 0;">
-                                <img src="{{ client.imageUrl }}" alt="{{ client.razonSocial }}" style="width: 100%; height: 100%; object-fit: cover;">
-                            </div>
-                            {% else %}
-                            <div style="width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-emerald), #059669); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold; flex-shrink: 0; font-family: var(--font-heading);">
-                                {{ client.razonSocial[:2].upper() }}
-                            </div>
-                            {% endif %}
-                            <span style="font-size: 0.85rem; display: block;">{{ client.razonSocial }}</span>
+<div class="card-segment" style="overflow-x: auto;">
+    <table class="data-grid" style="width: 100%;">
+        <thead>
+            <tr>
+                <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">RNC / ID</th>
+                <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Nombre / Razón Social</th>
+                <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Teléfono</th>
+                <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Email</th>
+                <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Tipo</th>
+                {% if module_enabled('crm') %}
+                <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Etapa</th>
+                {% endif %}
+                <th style="text-align:right; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Total Facturado</th>
+                <th style="text-align:right; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">CxC</th>
+                <th style="text-align:center; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in paginated_clients %}
+            <tr style="border-bottom:1px solid var(--border-color); transition:background 0.15s;" onmouseover="this.style.background='var(--bg-muted)'" onmouseout="this.style.background='transparent'">
+                <td style="padding:12px 16px;">
+                    <span style="font-family:monospace; font-size:0.85rem;">{{ c.rnc or '—' }}</span>
+                </td>
+                <td style="padding:12px 16px;">
+                    <a href="{{ url_for('web_contacts.contact_detail', contact_id=c.id) }}" style="font-weight:500; color:var(--text-primary); text-decoration:none;">
+                        {{ c.razonSocial or 'Sin nombre' }}
+                    </a>
+                </td>
+                <td style="padding:12px 16px; color:var(--text-secondary); font-size:0.85rem;">{{ c.telefono or '—' }}</td>
+                <td style="padding:12px 16px; color:var(--text-secondary); font-size:0.85rem;">{{ c.email or '—' }}</td>
+                <td style="padding:12px 16px;">
+                    {% set types = c.get('types', []) %}
+                    {% if 'proveedor' in types %}
+                        <span class="badge-type badge-ambos"><i class="fa-solid fa-address-card"></i> Cliente / Proveedor</span>
+                    {% else %}
+                        <span class="badge-type badge-cliente"><i class="fa-solid fa-user"></i> Cliente</span>
+                    {% endif %}
+                </td>
+                {% if module_enabled('crm') %}
+                <td style="padding:12px 16px;">
+                    {% set stage_name = c.get('pipelineStage', 'Prospecto') %}
+                    <span class="pipeline-dot pipeline-{{ stage_name|replace(' ', '_') }}"></span>
+                    <span style="font-size:0.8rem; color:var(--text-secondary);">{{ stage_name }}</span>
+                </td>
+                {% endif %}
+                <td style="padding:12px 16px; text-align:right; font-size:0.85rem;">
+                    <span style="font-weight:500;">RD$ {{ "{:,.2f}".format(c.get('total_invoiced', 0) or 0) }}</span>
+                </td>
+                <td style="padding:12px 16px; text-align:right; font-size:0.85rem;">
+                    {% if c.get('total_cxc', 0) > 0 %}
+                    <span style="color:var(--accent-red); font-weight:500;">RD$ {{ "{:,.2f}".format(c.get('total_cxc', 0)) }}</span>
+                    {% else %}
+                    <span style="color:var(--text-secondary);">—</span>
+                    {% endif %}
+                </td>
+                <td style="padding:12px 16px; text-align:center;">
+                    <div class="btn-group" style="justify-content:center;">
+                        <a href="{{ url_for('web_contacts.contact_detail', contact_id=c.id) }}" class="btn btn-ghost btn-xs" title="Ver ficha">
+                            <i class="fa-solid fa-eye"></i>
                         </a>
-                    </td>
-                    <td><span style="font-size: 0.85rem; font-family: monospace;">{{ client.rnc }}</span></td>
-                    <td><span style="font-size: 0.85rem;">{{ client.telefono or 'N/A' }}</span></td>
-                    <td>
-                        {% if client.pipelineStage == 'Prospecto' %}
-                        <span class="badge badge-warning" style="font-size: 0.65rem;">{{ client.pipelineStage }}</span>
-                        {% elif client.pipelineStage == 'Contactado' %}
-                        <span class="badge"
-                            style="background-color: rgba(59, 130, 246, 0.12); color: var(--accent-blue); font-size: 0.65rem;">{{
-                            client.pipelineStage }}</span>
-                        {% elif client.pipelineStage == 'En Negociación' %}
-                        <span class="badge badge-primary" style="font-size: 0.65rem;">{{ client.pipelineStage }}</span>
-                        {% elif client.pipelineStage == 'Cliente Activo' %}
-                        <span class="badge badge-success" style="font-size: 0.65rem;">{{ client.pipelineStage }}</span>
-                        {% else %}
-                        <span class="badge badge-secondary" style="font-size: 0.65rem;">{{ client.pipelineStage
-                            }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if client.nextContactDate %}
-                        <span style="color: var(--accent-purple); font-weight: 500; font-size: 0.75rem;"><i
-                                class="fa-solid fa-clock"></i> {{ client.nextContactDate | format_date }}</span>
-                        {% else %}
-                        <span class="text-muted" style="font-size: 0.75rem;">N/A</span>
-                        {% endif %}
-                    </td>
-                    <td style="text-align: right;">
-                        <div class="action-menu">
-                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
-                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                        <a href="{{ url_for('web_contacts.edit_contact', contact_id=c.id) }}" class="btn btn-ghost btn-xs" title="Editar">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </a>
+                        <a href="{{ url_for('web_clients.client_insights', client_id=c.id) }}" class="btn btn-ghost btn-xs" title="Smart Insights">
+                            <i class="fa-solid fa-chart-line"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('web_clients.delete_client_route', client_id=c.id) }}" style="display:inline" onsubmit="return confirm('¿Eliminar este cliente?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-ghost btn-xs" title="Eliminar" style="color:var(--danger);">
+                                <i class="fa-solid fa-trash-can"></i>
                             </button>
-                            <div class="action-menu-dropdown">
-                                <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}"
-                                    class="action-menu-item">
-                                    <i class="fa-solid fa-eye"></i> Ver ficha
-                                </a>
-                                <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}"
-                                    class="action-menu-item">
-                                    <i class="fa-solid fa-pen-to-square"></i> Editar
-                                </a>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
-                        <i class="fa-solid fa-users"
-                            style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
-                        <span>No hay clientes registrados en el CRM.</span>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Controles de Paginación -->
-    <div
-        style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.01); flex-wrap: wrap; gap: 16px;">
-        <div style="font-size: 0.85rem; color: var(--text-secondary);">
-            Mostrando <strong>{{ ((page - 1) * per_page) + 1 if total_items > 0 else 0 }}</strong> - <strong>{{ [page *
-                per_page, total_items]|min }}</strong> de <strong>{{ total_items }}</strong> registros
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-            <!-- Selector de Cantidad por Página -->
-            <div
-                style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary);">
-                <span>Registros por página:</span>
-                <select onchange="updatePerPage(this.value)"
-                    style="height: 30px; padding: 0 8px; background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); outline: none; cursor: pointer;">
-                    <option value="10" {% if per_page==10 %}selected{% endif %}>10</option>
-                    <option value="25" {% if per_page==25 %}selected{% endif %}>25</option>
-                    <option value="50" {% if per_page==50 %}selected{% endif %}>50</option>
-                    <option value="100" {% if per_page==100 %}selected{% endif %}>100</option>
-                </select>
-            </div>
-
-            <!-- Botones de Página -->
-            <div style="display: inline-flex; gap: 4px;">
-                <button type="button" onclick="goToPage(1)" {% if page==1 %}disabled{% endif %}
-                    class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Primera página">
-                    <i class="fa-solid fa-angles-left"></i>
-                </button>
-                <button type="button" onclick="goToPage({{ page - 1 }})" {% if page==1 %}disabled{% endif %}
-                    class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Anterior">
-                    <i class="fa-solid fa-angle-left"></i>
-                </button>
-
-                {% for p in range([1, page - 2]|max, [total_pages, page + 2]|min + 1) %}
-                <button type="button" onclick="goToPage({{ p }})"
-                    class="btn {% if page == p %}btn-primary{% else %}btn-secondary{% endif %}"
-                    style="padding: 6px 12px; font-size: 0.78rem; min-width: 32px; justify-content: center; {% if page == p %}background: var(--accent-emerald); border-color: var(--accent-emerald);{% endif %}">
-                    {{ p }}
-                </button>
-                {% endfor %}
-
-                <button type="button" onclick="goToPage({{ page + 1 }})" {% if page==total_pages %}disabled{% endif %}
-                    class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Siguiente">
-                    <i class="fa-solid fa-angle-right"></i>
-                </button>
-                <button type="button" onclick="goToPage({{ total_pages }})" {% if page==total_pages %}disabled{% endif
-                    %} class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Última página">
-                    <i class="fa-solid fa-angles-right"></i>
-                </button>
-            </div>
-        </div>
-    </div>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="9" style="padding:40px 16px; text-align:center; color:var(--text-secondary);">
+                    <i class="fa-solid fa-users" style="font-size:2rem; margin-bottom:12px; display:block; opacity:0.4;"></i>
+                    No se encontraron clientes.
+                    <br><br>
+                    <a href="{{ url_for('web_clients.new_client') }}" class="btn btn-primary btn-sm">
+                        <i class="fa-solid fa-user-plus"></i> Crear primer cliente
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
-<script>
-    (function() {
-        const savedView = 'list'; // localStorage.getItem('crmView') || 'list';
-        if (savedView === 'kanban') {
-            const kanban = document.querySelector('.kanban-board');
-            const listView = document.getElementById('list-view');
-            const btnKanban = document.getElementById('btn-kanban');
-            const btnList = document.getElementById('btn-list');
-            if (kanban && listView && btnKanban && btnList) {
-                kanban.style.display = 'flex';
-                listView.style.display = 'none';
-                btnKanban.style.background = '#ffffff';
-                btnKanban.style.color = 'var(--text-primary)';
-                btnKanban.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-                btnList.style.background = 'transparent';
-                btnList.style.color = 'var(--text-secondary)';
-                btnList.style.boxShadow = 'none';
-            }
-        }
-    })();
-</script>
-
+{% if total_pages > 1 %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding:12px 0;">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <span style="font-size:0.8rem; color:var(--text-secondary);">
+            Mostrando {{ start_count }}-{{ end_count }} de {{ total_items }}
+        </span>
+        <select onchange="updatePerPage(this.value)" style="padding:4px 8px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-size:0.8rem;">
+            <option value="10" {% if per_page_raw == '10' %}selected{% endif %}>10</option>
+            <option value="25" {% if per_page_raw == '25' %}selected{% endif %}>25</option>
+            <option value="50" {% if per_page_raw == '50' %}selected{% endif %}>50</option>
+            <option value="100" {% if per_page_raw == '100' %}selected{% endif %}>100</option>
+            <option value="all" {% if per_page_raw == 'all' %}selected{% endif %}>Todos</option>
+        </select>
+    </div>
+    <div class="pagination" style="display:flex; gap:4px;">
+        {% if has_prev %}
+        <a href="{{ url_for('web_clients.list_clients', q=q, stage=stage, page=page-1, per_page=per_page_raw) }}" class="btn btn-ghost btn-xs"><i class="fa-solid fa-chevron-left"></i></a>
+        {% endif %}
+        {% for p in pages_range %}
+            {% if p == page %}
+            <span style="padding:6px 12px; background:var(--accent-emerald); color:white; border-radius:var(--radius-sm); font-size:0.8rem; font-weight:600;">{{ p }}</span>
+            {% elif p == 1 or p == total_pages or (p >= page-2 and p <= page+2) %}
+            <a href="{{ url_for('web_clients.list_clients', q=q, stage=stage, page=p, per_page=per_page_raw) }}" class="btn btn-ghost btn-xs" style="padding:6px 12px;">{{ p }}</a>
+            {% elif p == page-3 or p == page+3 %}
+            <span style="padding:6px 8px; color:var(--text-secondary);">...</span>
+            {% endif %}
+        {% endfor %}
+        {% if has_next %}
+        <a href="{{ url_for('web_clients.list_clients', q=q, stage=stage, page=page+1, per_page=per_page_raw) }}" class="btn btn-ghost btn-xs"><i class="fa-solid fa-chevron-right"></i></a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-    // Pagination helpers
     function goToPage(page) {
         document.getElementById('page-input').value = page;
         document.getElementById('filters-form').submit();
@@ -541,49 +210,18 @@
         document.getElementById('filters-form').submit();
     }
 
-    // View Switcher Logic
-    function switchView(viewName) {
-        const kanban = document.querySelector('.kanban-board');
-        const listView = document.getElementById('list-view');
-        const btnKanban = document.getElementById('btn-kanban');
-        const btnList = document.getElementById('btn-list');
-
-        if (viewName === 'kanban') {
-            kanban.style.display = 'flex';
-            listView.style.display = 'none';
-            btnKanban.style.background = '#ffffff';
-            btnKanban.style.color = 'var(--text-primary)';
-            btnKanban.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-
-            btnList.style.background = 'transparent';
-            btnList.style.color = 'var(--text-secondary)';
-            btnList.style.boxShadow = 'none';
-            localStorage.setItem('crmView', 'kanban');
-        } else {
-            kanban.style.display = 'none';
-            listView.style.display = 'block';
-            btnList.style.background = '#ffffff';
-            btnList.style.color = 'var(--text-primary)';
-            btnList.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-
-            btnKanban.style.background = 'transparent';
-            btnKanban.style.color = 'var(--text-secondary)';
-            btnKanban.style.boxShadow = 'none';
-            localStorage.setItem('crmView', 'list');
-        }
+    function exportToCSV() {
+        const form = document.getElementById('filters-form');
+        const params = new URLSearchParams(new FormData(form));
+        params.set('export', 'csv');
+        window.location.href = form.action + '?' + params.toString();
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const savedView = 'list'; // localStorage.getItem('crmView') || 'list';
-        switchView(savedView);
-
-        // Auto-submit logic for filter
-        const form = document.getElementById('filters-form');
+    document.addEventListener('DOMContentLoaded', function () {
         const searchInput = document.getElementById('q');
-        const selectStage = document.getElementById('stage');
-
-        let debounceTimer;
-        if (searchInput) {
+        const form = document.getElementById('filters-form');
+        if (searchInput && form) {
+            let debounceTimer;
             searchInput.addEventListener('input', function () {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
@@ -591,80 +229,9 @@
                     form.submit();
                 }, 500);
             });
-
-            if (searchInput.value) {
-                searchInput.focus();
-                const val = searchInput.value;
-                searchInput.value = '';
-                searchInput.value = val;
-            }
-        }
-
-        // Lógica de botones de filtro rápido
-        const quickFilterBtns = document.querySelectorAll('#quick-filters-container button');
-        const stageInputField = document.getElementById('stage-input-field');
-        if (quickFilterBtns && stageInputField) {
-            quickFilterBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    stageInputField.value = btn.getAttribute('data-stage');
-                    document.getElementById('page-input').value = 1;
-                    form.submit();
-                });
-            });
         }
     });
 
-    // Kanban Logic
-    function allowDrop(ev) {
-        ev.preventDefault();
-    }
-
-    function drag(ev) {
-        ev.dataTransfer.setData("text", ev.currentTarget.id);
-        ev.currentTarget.style.opacity = '0.5';
-    }
-
-    document.addEventListener("dragend", function (event) {
-        if (event.target.classList && event.target.classList.contains('client-card')) {
-            event.target.style.opacity = '1';
-        }
-    });
-
-    function drop(ev) {
-        ev.preventDefault();
-        var data = ev.dataTransfer.getData("text");
-        if (!data) return;
-
-        var card = document.getElementById(data);
-        if (!card) return;
-
-        var targetCol = ev.target.closest('.kanban-column');
-
-        if (targetCol && card) {
-            var cardsContainer = targetCol.querySelector('.kanban-cards');
-            cardsContainer.appendChild(card);
-            card.style.opacity = '1';
-
-            // Map column ID to stage name
-            let status = 'Prospecto';
-            if (targetCol.id === 'col-Contactado') status = 'Contactado';
-            if (targetCol.id === 'col-Negociacion') status = 'En Negociación';
-            if (targetCol.id === 'col-Activo') status = 'Cliente Activo';
-
-            // Save to backend
-            const clientId = data.replace('client-', '');
-            fetch('{{ url_for("web_clients.list_clients") }}/' + clientId + '/update_pipeline', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pipelineStage: status })
-            }).then(res => res.json())
-                .catch(err => console.error(err));
-        }
-    }
-
-    // ==========================================
-    // Lógica del Modal de Importación
-    // ==========================================
     function openImportModal() {
         const modal = document.getElementById('import-modal');
         if (modal) {
@@ -688,160 +255,131 @@
         const uploadBtn = document.getElementById('upload-btn');
         const uploadIcon = dropzone ? dropzone.querySelector('.fa-cloud-arrow-up') : null;
 
-        if (dropzone && fileInput && uploadBtn) {
-            const form = dropzone.closest('form');
+        if (!dropzone || !fileInput || !uploadBtn) return;
 
-            if (form) {
-                form.addEventListener('submit', function (e) {
-                    if (!fileInput.files || fileInput.files.length === 0) {
-                        e.preventDefault();
-                        showAlert('Validación', 'Por favor, selecciona o arrastra un archivo .csv antes de continuar.', 'warning');
-                    }
-                });
-            }
-
-            dropzone.addEventListener('click', function () {
-                fileInput.click();
-            });
-
-            // Hover effects
-            dropzone.addEventListener('mouseenter', function () {
-                if (!fileInput.files.length) {
-                    dropzone.style.borderColor = 'var(--accent-emerald)';
-                    if (uploadIcon) uploadIcon.style.transform = 'translateY(-3px)';
-                }
-            });
-            dropzone.addEventListener('mouseleave', function () {
-                if (!fileInput.files.length) {
-                    dropzone.style.borderColor = 'var(--border-color)';
-                    if (uploadIcon) uploadIcon.style.transform = 'none';
-                }
-            });
-
-            // Drag and drop events
-            ['dragenter', 'dragover'].forEach(eventName => {
-                dropzone.addEventListener(eventName, function (e) {
+        const form = dropzone.closest('form');
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                if (!fileInput.files || fileInput.files.length === 0) {
                     e.preventDefault();
-                    e.stopPropagation();
-                    dropzone.style.borderColor = 'var(--accent-emerald)';
-                    dropzone.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
-                    if (uploadIcon) uploadIcon.style.transform = 'scale(1.1) translateY(-3px)';
-                }, false);
-            });
-
-            ['dragleave', 'drop'].forEach(eventName => {
-                dropzone.addEventListener(eventName, function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    dropzone.style.backgroundColor = 'transparent';
-                    if (!fileInput.files.length) {
-                        dropzone.style.borderColor = 'var(--border-color)';
-                        if (uploadIcon) uploadIcon.style.transform = 'none';
-                    } else {
-                        dropzone.style.borderColor = 'var(--accent-emerald)';
-                        if (uploadIcon) uploadIcon.style.transform = 'scale(1.05)';
-                    }
-                }, false);
-            });
-
-            dropzone.addEventListener('drop', function (e) {
-                const dt = e.dataTransfer;
-                const files = dt.files;
-
-                if (files && files.length > 0) {
-                    const file = files[0];
-                    if (file.name.endsWith('.csv')) {
-                        fileInput.files = files;
-                        fileInput.dispatchEvent(new Event('change'));
-                    } else {
-                        showAlert('Validación', 'Por favor, selecciona únicamente archivos con extensión .csv', 'warning');
-                    }
-                }
-            }, false);
-
-            fileInput.addEventListener('change', function () {
-                if (fileInput.files && fileInput.files.length > 0) {
-                    fileLabel.textContent = "Cargando " + fileInput.files[0].name + "...";
-                    fileLabel.style.color = 'var(--accent-emerald)';
-                    dropzone.style.borderColor = 'var(--accent-emerald)';
-                    dropzone.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
-                    uploadBtn.disabled = false;
-                    if (uploadIcon) {
-                        uploadIcon.className = "fa-solid fa-circle-notch fa-spin";
-                        uploadIcon.style.color = 'var(--accent-emerald)';
-                    }
-                    setTimeout(() => {
-                        form.submit();
-                    }, 400);
-                } else {
-                    fileLabel.textContent = 'Seleccionar archivo .csv';
-                    fileLabel.style.color = 'var(--text-secondary)';
-                    dropzone.style.borderColor = 'var(--border-color)';
-                    dropzone.style.backgroundColor = 'transparent';
-                    uploadBtn.disabled = true;
-                    if (uploadIcon) {
-                        uploadIcon.className = "fa-solid fa-cloud-arrow-up";
-                        uploadIcon.style.color = 'var(--text-muted)';
-                        uploadIcon.style.transform = 'none';
-                    }
+                    showAlert('Validación', 'Por favor, selecciona o arrastra un archivo .csv antes de continuar.', 'warning');
                 }
             });
         }
-    });
 
-    function exportToCSV() {
-        const form = document.getElementById('filters-form');
-        const formData = new FormData(form);
-        const params = new URLSearchParams(formData);
-        params.set('export', 'csv');
-        window.location.href = form.action + '?' + params.toString();
-    }
+        dropzone.addEventListener('click', function () {
+            fileInput.click();
+        });
+
+        dropzone.addEventListener('mouseenter', function () {
+            if (!fileInput.files.length) {
+                dropzone.style.borderColor = 'var(--accent-emerald)';
+                if (uploadIcon) uploadIcon.style.transform = 'translateY(-3px)';
+            }
+        });
+        dropzone.addEventListener('mouseleave', function () {
+            if (!fileInput.files.length) {
+                dropzone.style.borderColor = 'var(--border-color)';
+                if (uploadIcon) uploadIcon.style.transform = 'none';
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.style.borderColor = 'var(--accent-emerald)';
+                dropzone.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
+                if (uploadIcon) uploadIcon.style.transform = 'scale(1.1) translateY(-3px)';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.style.backgroundColor = 'transparent';
+                if (!fileInput.files.length) {
+                    dropzone.style.borderColor = 'var(--border-color)';
+                    if (uploadIcon) uploadIcon.style.transform = 'none';
+                } else {
+                    dropzone.style.borderColor = 'var(--accent-emerald)';
+                    if (uploadIcon) uploadIcon.style.transform = 'scale(1.05)';
+                }
+            }, false);
+        });
+
+        dropzone.addEventListener('drop', function (e) {
+            const files = e.dataTransfer && e.dataTransfer.files;
+            if (files && files.length > 0) {
+                const file = files[0];
+                if (file.name.endsWith('.csv')) {
+                    fileInput.files = files;
+                    fileInput.dispatchEvent(new Event('change'));
+                } else {
+                    showAlert('Validación', 'Por favor, selecciona únicamente archivos con extensión .csv', 'warning');
+                }
+            }
+        }, false);
+
+        fileInput.addEventListener('change', function () {
+            if (fileInput.files && fileInput.files.length > 0) {
+                fileLabel.textContent = "Cargando " + fileInput.files[0].name + "...";
+                fileLabel.style.color = 'var(--accent-emerald)';
+                dropzone.style.borderColor = 'var(--accent-emerald)';
+                dropzone.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
+                uploadBtn.disabled = false;
+                if (uploadIcon) {
+                    uploadIcon.className = "fa-solid fa-circle-notch fa-spin";
+                    uploadIcon.style.color = 'var(--accent-emerald)';
+                }
+                setTimeout(() => {
+                    form.submit();
+                }, 400);
+            } else {
+                fileLabel.textContent = 'Seleccionar archivo .csv';
+                fileLabel.style.color = 'var(--text-secondary)';
+                dropzone.style.borderColor = 'var(--border-color)';
+                dropzone.style.backgroundColor = 'transparent';
+                uploadBtn.disabled = true;
+                if (uploadIcon) {
+                    uploadIcon.className = 'fa-solid fa-cloud-arrow-up';
+                    uploadIcon.style.color = 'var(--text-muted)';
+                    uploadIcon.style.transform = 'none';
+                }
+            }
+        });
+    });
 </script>
 
-<!-- Modal de Importación Masiva CSV de Clientes -->
-<div id="import-modal" class="search-modal"
-    style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
-    <div class="modal-backdrop" onclick="closeImportModal()"
-        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
-    </div>
-    <div class="modal-content animate-fade-in"
-        style="max-width: 500px; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
-        <div class="modal-header"
-            style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
-            <h3
-                style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+<div id="import-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
+    <div class="modal-backdrop" onclick="closeImportModal()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
+    <div class="modal-content animate-fade-in" style="max-width: 500px; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
+        <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
                 <i class="fa-solid fa-file-csv" style="color: var(--accent-emerald); font-size: 1.3rem;"></i>
-                <span>Importación de Clientes CRM</span>
+                <span>Importación de Clientes</span>
             </h3>
-            <button class="btn-close-modal" onclick="closeImportModal()"
-                style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">
+            <button class="btn-close-modal" onclick="closeImportModal()" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
         <div class="modal-body" style="padding: 28px;">
-            <p
-                style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
-                Sube tu listado de clientes en formato .csv. Al seleccionar o arrastrar el archivo, el sistema iniciará
-                automáticamente el Asistente de Mapeo Inteligente.
+            <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
+                Sube tu listado de clientes en formato .csv. Al seleccionar o arrastrar el archivo, el sistema iniciará automáticamente el Asistente de Mapeo Inteligente.
             </p>
 
-            <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data"
-                style="display: flex; flex-direction: column; gap: 18px; margin: 0;">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 18px; margin: 0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="import_type" value="clients">
-                <div id="dropzone"
-                    style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 40px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">
-                    <i class="fa-solid fa-cloud-arrow-up"
-                        style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block; transition: transform var(--transition-fast);"></i>
-                    <span style="font-size: 0.88rem; font-weight: 500; color: var(--text-secondary);"
-                        id="file-label">Seleccionar archivo .csv</span>
-                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">o
-                        arrastra tu archivo aquí</p>
+                <div id="dropzone" style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 40px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block; transition: transform var(--transition-fast);"></i>
+                    <span style="font-size: 0.88rem; font-weight: 500; color: var(--text-secondary);" id="file-label">Seleccionar archivo .csv</span>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">o arrastra tu archivo aquí</p>
                 </div>
                 <input type="file" id="csv-file" name="file" accept=".csv" style="display: none;">
 
-                <button type="submit" id="upload-btn" class="btn btn-primary" style="width: 100%; display: none;"
-                    disabled></button>
+                <button type="submit" id="upload-btn" class="btn btn-primary" style="width: 100%; display: none;" disabled></button>
             </form>
         </div>
     </div>

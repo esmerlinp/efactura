@@ -725,7 +725,7 @@ def trigger_contract_billing(contract_id):
         try:
             client_record = DatabaseService.get_client(owner_uid, invoice_dict['clientId'], company_id=company_id, sandbox=sandbox)
             if client_record and client_record.get('email'):
-                recipient_email = client_record['email'].strip()
+                recipient_email = (client_record.get('companyEmail') or client_record.get('email') or '').strip()
                 if recipient_email:
                     from flask import current_app, request
                     flask_app = current_app._get_current_object()

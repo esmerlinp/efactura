@@ -2356,14 +2356,15 @@ def portal_admin():
     portal_clients = []
     portal_enabled = CustomerAccountService.company_portal_enabled(company_id)
     for c in clients:
-        if c.get('email') and portal_enabled:
+        portal_email = c.get('companyEmail') or c.get('email')
+        if portal_email and portal_enabled:
             portal_base_url = current_app.config.get('CLIENTS_PORTAL_BASE_URL', 'https://clientes.vykcore.com').rstrip('/')
             portal_url = f"{portal_base_url}/"
             portal_clients.append({
                 'id': c['id'],
                 'razonSocial': c.get('razonSocial', ''),
                 'rnc': c.get('rnc', ''),
-                'email': c.get('email', ''),
+                'email': portal_email,
                 'telefono': c.get('telefono', ''),
                 'portalEnabled': portal_enabled,
                 'portalUrl': portal_url

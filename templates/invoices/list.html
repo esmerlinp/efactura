@@ -300,7 +300,7 @@ endblock %}
                         {% if inv.isExpense %}
                         <span>{{ inv.providerName or inv.clientName }}</span>
                         {% elif inv.clientId and inv.clientId != 'api_client_default' %}
-                        <a href="{{ url_for('web_clients.client_detail', client_id=inv.clientId) }}" class="client-link">
+                        <a href="{{ url_for('web_contacts.contact_detail', contact_id=inv.clientId) }}" class="client-link">
                             {{ inv.clientName }}
                         </a>
                         {% elif inv.get('isImported') and not (inv.clientName and inv.clientName != 'Sin Asignar') %}

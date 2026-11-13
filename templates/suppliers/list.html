@@ -101,7 +101,7 @@
                 <tr>
                     <td><span class="mono">{{ s.rnc or '—' }}</span></td>
                     <td>
-                        <a href="{{ url_for('web_suppliers.supplier_detail', supplier_id=s.id) }}" style="color:var(--accent-blue); text-decoration:none; font-weight:600;">
+                        <a href="{{ url_for('web_contacts.contact_detail', contact_id=s.id) }}" style="color:var(--accent-blue); text-decoration:none; font-weight:600;">
                             {{ s.name or '—' }}
                         </a>
                         {% if s.code %}
@@ -145,7 +145,7 @@
                                 <i class="fa-solid fa-ellipsis-vertical"></i>
                             </button>
                             <div class="action-menu-dropdown">
-                                <a href="{{ url_for('web_suppliers.supplier_detail', supplier_id=s.id) }}" class="action-menu-item">
+                                <a href="{{ url_for('web_contacts.contact_detail', contact_id=s.id) }}" class="action-menu-item">
                                     <i class="fa-solid fa-eye"></i> Ver detalle
                                 </a>
                                 <a href="{{ url_for('web_suppliers.edit_supplier', supplier_id=s.id) }}" class="action-menu-item">

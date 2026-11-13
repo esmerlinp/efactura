@@ -1933,8 +1933,9 @@ def create_pos_sale():
             return jsonify({"success": False, "error": "El cliente seleccionado no existe."}), 400
         client_name = client.get('razonSocial') or client.get('name') or 'Cliente'
         client_rnc = re.sub(r'\D', '', str(client.get('rnc') or client.get('identification') or ''))
-        client_email = str(
-            client.get('email') or client.get('clientEmail') or client.get('correo') or ''
+        client_email = (
+            client.get('companyEmail') or client.get('email') or
+            client.get('clientEmail') or client.get('correo') or ''
         ).strip()
         client_project_id = client.get('projectId')
     else:

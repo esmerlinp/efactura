@@ -78,7 +78,13 @@ def _check(perm='canClients', feature='Contactos'):
         return redirect(url_for('web_auth.login'))
     if session.get('user', {}).get('role') == 'owner':
         return None
-    if (request.args.get('tab') == 'proveedores' or request.args.get('type') == 'proveedor') and (check_permission('canManageSuppliers') or check_permission('canCreateSupplier')):
+    form_types = request.form.getlist('types') if request.method == 'POST' else []
+    supplier_context = (
+        request.args.get('tab') == 'proveedores'
+        or request.args.get('type') == 'proveedor'
+        or ('proveedor' in form_types and 'cliente' not in form_types)
+    )
+    if supplier_context and (check_permission('canManageSuppliers') or check_permission('canCreateSupplier')):
         return None
     if not (check_permission(perm) or (perm == 'canClients' and check_permission('canCRMContacts'))):
         return render_template('auth/restricted.html', feature_name=feature, required_permission=perm), 403
@@ -97,7 +103,7 @@ def list_contacts():
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    all_contacts = ContactService.get_contacts(owner_uid, sandbox=sandbox, company_id=company_id)
+    all_contacts = ContactService.get_contacts_with_legacy(owner_uid, sandbox=sandbox, company_id=company_id)
 
     total_contacts_count = len(all_contacts)
     count_clientes = sum(1 for c in all_contacts if 'cliente' in c.get('types', []))
@@ -216,17 +222,19 @@ def new_contact():
     sandbox = session.get('is_sandbox_mode', True)
 
     if request.method == 'POST':
-        rnc_raw = request.form.get('rnc', '')
-        rnc = "".join(filter(str.isdigit, rnc_raw))
+        rnc_raw = request.form.get('rnc', '').strip()
+        customer_category = request.form.get('customer_category', 'NORMAL')
+        rnc = rnc_raw if customer_category == 'FOREIGN' else "".join(filter(str.isdigit, rnc_raw))
+        foreign_tax_id = request.form.get('foreignTaxId', '').strip() or (rnc if customer_category == 'FOREIGN' else '')
         razon_social = request.form.get('razonSocial', '').strip()
         if not razon_social:
             flash('La Razón Social es obligatoria.', 'error')
-            return redirect(url_for('web_contacts.new_contact'))
+            return redirect(request.url)
 
         existing = ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox, company_id=company_id)
         if existing:
             flash('Ya existe un contacto con ese RNC.', 'error')
-            return redirect(url_for('web_contacts.new_contact'))
+            return redirect(request.url)
 
         contact_id = str(uuid.uuid4())
 
@@ -260,6 +268,14 @@ def new_contact():
             "rnc": rnc,
             "razonSocial": razon_social,
             "email": request.form.get('email', '').strip(),
+            "companyEmail": request.form.get('companyEmail', '').strip(),
+            "foreignTaxId": foreign_tax_id,
+            "customer_category": customer_category,
+            "regimenDgii": (request.form.get('regimenDgii') or '').strip(),
+            "regimenDgiiNormalized": (request.form.get('regimenDgiiNormalized') or '').strip(),
+            "estadoDgii": (request.form.get('estadoDgii') or '').strip(),
+            "categoriaDgii": (request.form.get('categoriaDgii') or '').strip(),
+            "actividadDgii": (request.form.get('actividadDgii') or '').strip(),
             "telefono": request.form.get('telefono', ''),
             "telefono2": request.form.get('telefono2', ''),
             "celular": request.form.get('celular', ''),
@@ -270,6 +286,7 @@ def new_contact():
             "imageUrl": image_url,
             "pipelineStage": request.form.get('pipelineStage', 'Prospecto'),
             "priceListId": request.form.get('priceListId', ''),
+            "projectId": request.form.get('projectId') or None,
             "nextContactDate": request.form.get('nextContactDate', ''),
             "responsibleId": request.form.get('responsibleId', ''),
             "accessPin": access_pin,
@@ -309,7 +326,11 @@ def new_contact():
                     "notifyOnExpiry": (people_notify[i] if i < len(people_notify) else '') == 'on',
                 })
 
-        ContactService.save_contact(owner_uid, contact_id, contact_dict, sandbox=sandbox, company_id=company_id)
+        try:
+            ContactService.save_contact(owner_uid, contact_id, contact_dict, sandbox=sandbox, company_id=company_id)
+        except ValueError as e:
+            flash(str(e), 'error')
+            return redirect(request.url)
 
         from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CLIENTES
         AuditService.log_from_request(
@@ -319,16 +340,20 @@ def new_contact():
             user_session=session.get('user', {}), after=contact_dict, sandbox=sandbox
         )
         flash('Contacto registrado exitosamente.', 'success')
-        return redirect(url_for('web_contacts.list_contacts'))
+        if 'cliente' in types:
+            return redirect(url_for('web_clients.list_clients'))
+        return redirect(url_for('web_suppliers.list_suppliers'))
 
     collaborators = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
+    projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=g.get('branch_id'), sandbox=sandbox) if g.get('branch_id') else DatabaseService.get_projects(owner_uid, company_id=company_id, sandbox=sandbox)
     _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
     return render_template('contacts/form.html',
                            active_page='contacts',
                            contact=None,
                            collaborators=collaborators,
                            price_lists=price_lists,
+                           projects=projects,
                            ecf_types=_ecf_types)
 
 
@@ -427,19 +452,46 @@ def ajax_create_contact():
 
 @web_contacts_bp.route('/contacts/<contact_id>')
 def contact_detail(contact_id):
-    r = _check()
-    if r: return r
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
+    role = session.get('user', {}).get('role')
+    has_client_access = check_permission('canClients') or check_permission('canCRMContacts')
+    has_supplier_access = check_permission('canManageSuppliers') or check_permission('canCreateSupplier')
+    if role != 'owner' and not has_client_access and not has_supplier_access:
+        return render_template('auth/restricted.html', feature_name='Contactos', required_permission='canClients'), 403
+
     contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
+    if not contact:
+        try:
+            legacy_client = DatabaseService.get_client(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
+        except Exception:
+            legacy_client = None
+        if legacy_client:
+            contact = dict(legacy_client)
+            contact.setdefault('types', ['cliente'])
+            if not contact.get('notes'):
+                contact['notes'] = contact.get('crmNotes', '')
+        else:
+            from app.services.supplier_service import SupplierService
+            from app.services.contact_service import _legacy_supplier_to_contact
+            try:
+                legacy_supplier = SupplierService.get_supplier(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
+            except Exception:
+                legacy_supplier = None
+            if legacy_supplier:
+                contact = _legacy_supplier_to_contact(legacy_supplier)
     if not contact:
         flash('Contacto no encontrado.', 'error')
         return redirect(url_for('web_contacts.list_contacts'))
 
     is_client = 'cliente' in contact.get('types', [])
     is_supplier = 'proveedor' in contact.get('types', [])
+    if role != 'owner' and not has_client_access and not is_supplier:
+        return render_template('auth/restricted.html', feature_name='Contactos', required_permission='canClients'), 403
 
     all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     client_invoices = [inv for inv in all_invoices if inv['clientId'] == contact_id and not inv.get('isQuotation')] if is_client else []
@@ -563,8 +615,8 @@ def contact_detail(contact_id):
 
 @web_contacts_bp.route('/contacts/<contact_id>/edit', methods=['GET', 'POST'])
 def edit_contact(contact_id):
-    r = _check()
-    if r: return r
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -574,13 +626,33 @@ def edit_contact(contact_id):
         flash('Contacto no encontrado.', 'error')
         return redirect(url_for('web_contacts.list_contacts'))
 
+    contact_types = contact.get('types') or []
+    can_edit = (
+        session.get('user', {}).get('role') == 'owner'
+        or check_permission('canClients')
+        or check_permission('canCRMContacts')
+    )
+    if not can_edit and 'proveedor' in contact_types:
+        can_edit = check_permission('canManageSuppliers') or check_permission('canCreateSupplier')
+    if not can_edit:
+        return render_template('auth/restricted.html', feature_name="Editar Contacto", required_permission="canClients"), 403
+
+    if not contact.get('types'):
+        contact['types'] = ['cliente']
+    if contact.get('crmNotes') and not contact.get('notes'):
+        contact['notes'] = contact.get('crmNotes')
+
     if request.method == 'POST':
         before = contact.copy()
-        rnc = "".join(filter(str.isdigit, request.form.get('rnc', '')))
+        customer_category = request.form.get('customer_category', contact.get('customer_category', 'NORMAL'))
+        rnc_raw = request.form.get('rnc', '').strip()
+        rnc = (contact.get('rnc') or '').strip() or (rnc_raw if customer_category == 'FOREIGN' else "".join(filter(str.isdigit, rnc_raw)))
+        razon_social = (contact.get('razonSocial') or '').strip() or request.form.get('razonSocial', '').strip()
+        email = (contact.get('email') or '').strip() or request.form.get('email', '').strip()
         types_raw = request.form.getlist('types')
         types = [t for t in types_raw if t in ('cliente', 'proveedor')]
         if not types:
-            types = contact.get('types', ['cliente'])
+            types = contact.get('types') or ['cliente']
 
         image_url = contact.get('imageUrl', '')
         image_file = request.files.get('image')
@@ -604,11 +676,22 @@ def edit_contact(contact_id):
             if not access_pin:
                 access_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
 
-        contact_dict = {
+        contact_dict = dict(contact)
+        contact_dict.update({
             "types": types,
+            "branchId": contact.get('branchId', 'default-sucursal-principal'),
             "rnc": rnc,
-            "razonSocial": request.form.get('razonSocial', '').strip(),
-            "email": request.form.get('email', ''),
+            "razonSocial": razon_social,
+            "email": email,
+            "companyEmail": request.form.get('companyEmail', contact.get('companyEmail', '')),
+            "crmNotes": request.form.get('notes', ''),
+            "customer_category": customer_category,
+            "foreignTaxId": request.form.get('foreignTaxId') or contact.get('foreignTaxId', ''),
+            "regimenDgii": request.form.get('regimenDgii', contact.get('regimenDgii', '')),
+            "regimenDgiiNormalized": request.form.get('regimenDgiiNormalized', contact.get('regimenDgiiNormalized', '')),
+            "estadoDgii": request.form.get('estadoDgii', contact.get('estadoDgii', '')),
+            "categoriaDgii": request.form.get('categoriaDgii', contact.get('categoriaDgii', '')),
+            "actividadDgii": request.form.get('actividadDgii', contact.get('actividadDgii', '')),
             "telefono": request.form.get('telefono', ''),
             "telefono2": request.form.get('telefono2', ''),
             "celular": request.form.get('celular', ''),
@@ -619,6 +702,7 @@ def edit_contact(contact_id):
             "imageUrl": image_url,
             "pipelineStage": request.form.get('pipelineStage', contact.get("pipelineStage", "Prospecto")),
             "priceListId": request.form.get('priceListId', ''),
+            "projectId": request.form.get('projectId') or contact.get('projectId'),
             "nextContactDate": request.form.get('nextContactDate', ''),
             "responsibleId": request.form.get('responsibleId', ''),
             "accessPin": access_pin,
@@ -637,7 +721,7 @@ def edit_contact(contact_id):
             "notes": request.form.get('notes', ''),
             "associatedPeople": [],
             "createdAt": contact.get('createdAt', datetime.now(timezone.utc).isoformat()),
-        }
+        })
 
         people_names = request.form.getlist('people_name[]')
         people_emails = request.form.getlist('people_email[]')
@@ -662,16 +746,18 @@ def edit_contact(contact_id):
             user_session=session.get('user', {}), before=before, after=contact_dict, sandbox=sandbox
         )
         flash('Contacto actualizado exitosamente.', 'success')
-        return redirect(url_for('web_contacts.list_contacts'))
+        return redirect(url_for('web_contacts.contact_detail', contact_id=contact_id))
 
     collaborators = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
+    projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=g.get('branch_id'), sandbox=sandbox) if g.get('branch_id') else DatabaseService.get_projects(owner_uid, company_id=company_id, sandbox=sandbox)
     _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
     return render_template('contacts/form.html',
                            active_page='contacts',
                            contact=contact,
                            collaborators=collaborators,
                            price_lists=price_lists,
+                           projects=projects,
                            ecf_types=_ecf_types)
 
 
@@ -688,6 +774,17 @@ def delete_contact_route(contact_id):
     sandbox = session.get('is_sandbox_mode', True)
 
     contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
+    legacy_only = False
+    if not contact:
+        from app.services.supplier_service import SupplierService
+        from app.services.contact_service import _legacy_supplier_to_contact
+        try:
+            legacy_supplier = SupplierService.get_supplier(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
+        except Exception:
+            legacy_supplier = None
+        if legacy_supplier:
+            contact = _legacy_supplier_to_contact(legacy_supplier)
+            legacy_only = True
     if not contact:
         flash('Contacto no encontrado.', 'error')
         return redirect(url_for('web_contacts.list_contacts'))
@@ -701,7 +798,11 @@ def delete_contact_route(contact_id):
             if not check_permission('canDeleteClient'):
                 return render_template('auth/restricted.html', feature_name="Eliminar Contacto", required_permission="canDeleteClient"), 403
 
-    ContactService.delete_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
+    if legacy_only:
+        from app.services.supplier_service import SupplierService
+        SupplierService.delete_supplier(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
+    else:
+        ContactService.delete_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
 
     from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_CLIENTES
     AuditService.log_from_request(
@@ -785,7 +886,7 @@ def send_contact_portal_credentials(contact_id):
         return jsonify({"success": False, "error": "Contacto no encontrado."}), 404
 
     if not recipient_email:
-        recipient_email = contact.get('email', '')
+        recipient_email = contact.get('companyEmail') or contact.get('email', '')
     if not recipient_email:
         return jsonify({"success": False, "error": "Este contacto no tiene un correo registrado."}), 400
 
