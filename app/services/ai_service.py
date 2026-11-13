@@ -15,7 +15,7 @@ class AIService:
             
         # Fallback a la API Key del perfil de la empresa si no está definida a nivel de sistema
         if owner_uid:
-            profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+            profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
             return profile.get("openaiApiKey", "").strip()
         return ""
 
@@ -328,8 +328,8 @@ Retorna ÚNICAMENTE las dos cifras del código correspondiente (ej: 02 o 05). Si
         """
         api_key = cls._get_api_key(owner_uid, company_id=company_id)
         
-        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
-        brand_name = profile.get("tradeName") or profile.get("companyName", "Nuestra Empresa")
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+        brand_name = profile.get("tradeName") or profile.get("companyName") or "Nuestra Empresa"
         company_rnc = profile.get("companyRNC", "")
         final_sender_name = sender_name or "Departamento de Cobranzas"
         
@@ -655,8 +655,8 @@ Importante:
         else:
             payment_behavior = "Sin historial de pagos"
 
-        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
-        brand_name = profile.get("tradeName") or profile.get("companyName", "la empresa")
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+        brand_name = profile.get("tradeName") or profile.get("companyName") or "la empresa"
 
         system_prompt = f"""Eres un experto en retención de clientes y estrategia comercial para una empresa dominicana ({brand_name}). Tu tarea es analizar el perfil de un cliente y generar un plan de mitigación personalizado para evitar que abandone el servicio.
 

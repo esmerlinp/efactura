@@ -29,6 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = await response.json();
 
                     if (response.ok && !data.error) {
+                        const verified = data.verified !== false && !!data.razon_social;
+                        if (!verified) {
+                            showStatusError('RNC con formato válido, pero no se encontró en el padrón. Complete la razón social manualmente.');
+                            return;
+                        }
                         showStatusSuccess(data.razon_social);
                         const info = document.getElementById('dgii-taxpayer-info');
                         if (info) {

@@ -42,6 +42,7 @@ from app.services.quotation_expiry_service import (
     persist_quotation_vencida,
 )
 from app.services.mailer import Mailer
+from app.utils.client_email import get_client_communication_email
 from app.services.dgii import DGIIService
 from app.utils.currency import CurrencyService
 from app.utils.pdf import pdf_write_options
@@ -3034,11 +3035,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
 def _get_client_email(owner_uid, invoice, sandbox=True, company_id=None):
     """Retorna el email del cliente de la factura, si está disponible."""
     try:
-        # 1. Si la factura ya trae el email registrado directamente
-        for field in ("clientEmail", "email", "recipient_email", "correo"):
-            val = (invoice.get(field) or "").strip()
-            if val and "@" in val:
-                return val
+        explicit_invoice_email = invoice.get("recipient_email") or ""
 
         # 2. Resolver company_id si no fue pasado
         if not company_id:
@@ -3056,14 +3053,14 @@ def _get_client_email(owner_uid, invoice, sandbox=True, company_id=None):
         if client_id and client_id != "default":
             client = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
             if client:
-                email = (client.get("email") or client.get("correo") or "").strip()
+                email = get_client_communication_email(client, invoice, explicit_invoice_email)
                 if email and "@" in email:
                     return email
 
             clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox)
             client = next((c for c in clients if c.get("id") == client_id), None)
             if client:
-                email = (client.get("email") or client.get("correo") or "").strip()
+                email = get_client_communication_email(client, invoice, explicit_invoice_email)
                 if email and "@" in email:
                     return email
 
@@ -3073,13 +3070,14 @@ def _get_client_email(owner_uid, invoice, sandbox=True, company_id=None):
             clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox)
             client = next((c for c in clients if (c.get("rnc") or "").replace("-", "").strip() == client_rnc), None)
             if client:
-                email = (client.get("email") or client.get("correo") or "").strip()
+                email = get_client_communication_email(client, invoice, explicit_invoice_email)
                 if email and "@" in email:
                     return email
     except Exception as e:
         import logging
         logging.warning(f"Error obteniendo email del cliente: {e}")
-    return ""
+        fallback = get_client_communication_email(invoice=invoice, explicit_email=explicit_invoice_email)
+        return fallback if "@" in fallback else ""
 
 def _enrich_invoice_totals(invoice):
     """Calcula y agrega totales de impuestos adicionales de forma dinámica para compatibilidad y visualización."""

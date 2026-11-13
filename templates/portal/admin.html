@@ -22,7 +22,8 @@
     .portal-table { width:100%; border-collapse:collapse; }
     .portal-table th { padding:12px 16px; background:#f8fafc; color:var(--text-muted); font-size:.72rem; text-align:left; text-transform:uppercase; letter-spacing:.04em; }
     .portal-table td { padding:14px 16px; border-top:1px solid #f1f5f9; font-size:.84rem; vertical-align:middle; }
-    .portal-client-name { font-weight:700; color:var(--text-primary); }
+     .portal-client-name { font-weight:700; color:var(--text-primary); text-decoration:none; }
+     .portal-client-name:hover { color:#047857; text-decoration:underline; }
     .portal-client-meta { color:var(--text-muted); font-size:.76rem; margin-top:3px; }
     .portal-status { display:inline-flex; align-items:center; gap:6px; font-size:.76rem; font-weight:700; color:#047857; }
     .portal-status i { font-size:.5rem; }
@@ -64,13 +65,13 @@
     <tbody>
     {% for c in clients %}
     <tr data-search="{{ (c.razonSocial ~ ' ' ~ c.rnc ~ ' ' ~ c.email)|lower }}" data-status="{% if c.email %}active{% else %}missing{% endif %}">
-        <td data-label="Cliente"><div class="portal-client-name">{{ c.razonSocial or 'Sin nombre' }}</div><div class="portal-client-meta">Portal independiente</div></td>
+         <td data-label="Cliente"><a class="portal-client-name" href="{{ url_for('web_contacts.contact_detail', contact_id=c.id) }}">{{ c.razonSocial or 'Sin nombre' }}</a><div class="portal-client-meta">Portal independiente</div></td>
         <td data-label="RNC / Cédula"><span style="font-family:monospace">{{ c.rnc or '—' }}</span></td>
-        <td data-label="Email">{{ c.email or 'Sin email' }}</td>
+        <td data-label="Email">{{ c.email or 'Sin email' }}{% if c.email and c.companyEmail %}<br><small>{{ c.companyEmail }} (empresa)</small>{% endif %}</td>
         <td data-label="Estado"><span class="portal-status" style="color:{% if c.email %}#047857{% else %}#c2410c{% endif %}"><i class="fa-solid fa-circle"></i>{% if c.email %}Acceso habilitado{% else %}Bloqueado{% endif %}</span></td>
         <td data-label="Acciones"><div class="portal-actions">
-            <button class="portal-action" title="Copiar enlace" onclick="copyPortalUrl('{{ c.portalUrl }}')"><i class="fa-solid fa-copy"></i></button>
-            <button class="portal-action" title="Enviar enlace" onclick="sendCredentials(this, '{{ c.id }}')"><i class="fa-solid fa-paper-plane"></i></button>
+             <button class="portal-action portal-copy-link" type="button" title="Copiar enlace" data-portal-url="{{ c.portalUrl|e }}"><i class="fa-solid fa-copy"></i></button>
+             <button class="portal-action portal-send-link" type="button" title="Enviar enlace" data-client-id="{{ c.id|e }}" data-send-url="{{ url_for('web_clients.send_portal_credentials', client_id=c.id)|e }}"><i class="fa-solid fa-paper-plane"></i></button>
             <a class="portal-action" title="Abrir portal" href="{{ c.portalUrl }}" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
         </div></td>
     </tr>
@@ -87,8 +88,60 @@ const search = document.getElementById('portalSearch');
 const status = document.getElementById('portalStatus');
 function filterPortalRows() { const q=(search.value||'').toLowerCase().trim(); const s=status.value; document.querySelectorAll('#portalTable tbody tr').forEach(row => { row.style.display=(!q || row.dataset.search.includes(q)) && (s==='all' || row.dataset.status===s) ? '' : 'none'; }); }
 search?.addEventListener('input', filterPortalRows); status?.addEventListener('change', filterPortalRows);
-function copyPortalUrl(url) { navigator.clipboard?.writeText(url).then(()=>showToast('Enlace copiado al portapapeles')); }
+ function copyPortalUrl(url) {
+     if (navigator.clipboard && window.isSecureContext) {
+         navigator.clipboard.writeText(url).then(function() { showToast('Enlace copiado al portapapeles'); });
+     } else {
+         var input = document.createElement('textarea');
+         input.value = url;
+         input.style.position = 'fixed';
+         input.style.opacity = '0';
+         document.body.appendChild(input);
+         input.select();
+         document.execCommand('copy');
+         input.remove();
+         showToast('Enlace copiado al portapapeles');
+     }
+ }
 function showToast(message) { const toast=document.createElement('div'); toast.className='toast-copy'; toast.textContent='✅ '+message; document.body.appendChild(toast); setTimeout(()=>toast.remove(),2200); }
-function sendCredentials(btn, clientId) { btn.disabled=true; fetch('{{ url_for("web_clients.send_portal_credentials", client_id="CLIENT_ID") }}'.replace('CLIENT_ID',clientId), {method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-Requested-With':'XMLHttpRequest'},body:'{}'}).then(r=>r.json()).then(data=>showToast(data.success?'Enlace enviado al cliente':(data.error||'No se pudo enviar el enlace'))).catch(()=>showToast('Error de conexión')).finally(()=>btn.disabled=false); }
+ function sendCredentials(btn) {
+     btn.disabled = true;
+     fetch(btn.dataset.sendUrl, {
+             method: 'POST',
+             headers: {
+                 'Content-Type': 'application/json',
+                 'Accept': 'application/json',
+                 'X-Requested-With': 'XMLHttpRequest'
+             },
+             body: '{}'
+     })
+     .then(function(response) {
+         var contentType = response.headers.get('content-type') || '';
+         if (contentType.indexOf('application/json') !== -1) {
+             return response.json();
+         }
+         return {success: false, error: 'El servidor respondió con un error (' + response.status + ').'};
+     })
+     .then(function(data) {
+         showToast(data.success ? 'Enlace enviado al cliente' : (data.error || 'No se pudo enviar el enlace'));
+     })
+     .catch(function(error) {
+         console.error('Error enviando enlace del portal:', error);
+         showToast('No se pudo contactar al servidor. Intente nuevamente.');
+     })
+     .finally(function() {
+         btn.disabled = false;
+     });
+ }
+ document.querySelectorAll('.portal-send-link').forEach(function(button) {
+     button.addEventListener('click', function() {
+         sendCredentials(button);
+     });
+ });
+ document.querySelectorAll('.portal-copy-link').forEach(function(button) {
+     button.addEventListener('click', function() {
+         copyPortalUrl(button.dataset.portalUrl);
+     });
+ });
 </script>
 {% endblock %}

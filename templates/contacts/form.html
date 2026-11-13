@@ -3,7 +3,12 @@
 {% block page_header %}{% if contact %}Editar Contacto{% else %}Nuevo Contacto{% endif %}{% endblock %}
 
 {% block content %}
+{% set requested_type = (request.args.get('type') or '') %}
+{% set is_client_contact = contact and 'cliente' in (contact.get('types') or []) %}
+{% set is_supplier_contact = contact and 'proveedor' in (contact.get('types') or []) %}
+{% set back_url = url_for('web_clients.list_clients') if is_client_contact else (url_for('web_suppliers.list_suppliers') if (is_supplier_contact or requested_type == 'proveedor') else url_for('web_contacts.list_contacts')) %}
 <style>
+    .master-field-disabled { background:#f1f5f9 !important; color:#64748b !important; border-color:#cbd5e1 !important; cursor:not-allowed !important; opacity:.85; }
     .type-checkboxes { display:flex; gap:12px; padding:8px 0; }
     .type-btn { display:flex; align-items:center; gap:8px; padding:10px 20px; border:2px solid var(--border-color); border-radius:var(--radius-md); cursor:pointer; font-weight:500; font-size:0.88rem; transition:all 0.2s ease; user-select:none; background:var(--bg-card); color:var(--text-secondary); }
     .type-btn:hover { border-color:var(--accent-emerald); background:rgba(16,185,129,0.04); }
@@ -32,10 +37,10 @@
             </h2>
             <p style="color:var(--text-secondary); font-size:0.82rem; margin:4px 0 0;">Un contacto puede ser cliente, proveedor o ambos.</p>
         </div>
-        <a href="{{ url_for('web_contacts.list_contacts') }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+        <a href="{{ back_url }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Volver</a>
     </div>
 
-    <form action="{% if contact %}{{ url_for('web_contacts.edit_contact', contact_id=contact.id) }}{% else %}{{ url_for('web_contacts.new_contact') }}{% endif %}" method="POST" enctype="multipart/form-data">
+    <form action="{% if contact %}{{ url_for('web_contacts.edit_contact', contact_id=contact.id) }}{% elif requested_type %}{{ url_for('web_contacts.new_contact', type=requested_type) }}{% else %}{{ url_for('web_contacts.new_contact') }}{% endif %}" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <!-- SECCIÓN 1: DATOS GENERALES (abierta) -->
@@ -46,27 +51,61 @@
             </div>
             <div class="collapsible-content">
                 <div class="form-grid" style="padding-top:8px;">
+                    <div class="form-group" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 20px; margin-bottom: 15px; background: rgba(0,0,0,0.01); padding: 15px; border-radius: var(--radius-sm); border: 1px dashed var(--border-color);">
+                        <div style="position: relative; width: 80px; height: 80px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--border-color); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                            <img id="avatar-preview" src="{{ contact.imageUrl if contact and contact.imageUrl else '' }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; display: {% if contact and contact.imageUrl %}block{% else %}none{% endif %};">
+                            <div id="avatar-fallback" style="font-size: 1.8rem; font-weight: bold; color: var(--text-secondary); display: {% if contact and contact.imageUrl %}none{% else %}flex{% endif %}; align-items: center; justify-content: center;">
+                                <i class="fa-solid fa-building" style="color: var(--text-muted);"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="image-upload" style="font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; display: block; cursor: pointer; color: var(--accent-emerald);">
+                                <i class="fa-solid fa-camera" style="margin-right: 5px;"></i>
+                                Subir Logo o Imagen del Contacto
+                            </label>
+                            <input type="file" id="image-upload" name="image" accept="image/*" style="display: none;" onchange="previewImage(this)">
+                            <small style="color: var(--text-muted); display: block; font-size: 0.75rem; margin-top: 4px;">Formatos admitidos: PNG, JPG, JPEG o GIF. Máx. 2MB.</small>
+                        </div>
+                    </div>
+
                     <div class="form-group" style="grid-column: 1 / -1;">
                         <div class="type-checkboxes">
-                            <div class="type-btn {% if not contact or 'cliente' in contact.get('types', []) %}active{% endif %}" onclick="toggleTypeBtn(this, 'cliente')">
-                                <input type="checkbox" name="types" value="cliente" {% if not contact or 'cliente' in contact.get('types', []) %}checked{% endif %}>
+                            {% set cliente_selected = (not contact and requested_type != 'proveedor') or (contact and 'cliente' in contact.get('types', [])) %}
+                            {% set proveedor_selected = (not contact and requested_type == 'proveedor') or (contact and 'proveedor' in contact.get('types', [])) %}
+                            <div class="type-btn {% if cliente_selected %}active{% endif %}" onclick="toggleTypeBtn(this, 'cliente')">
+                                <input type="checkbox" name="types" value="cliente" {% if cliente_selected %}checked{% endif %}>
                                 <i class="fa-solid fa-user"></i> Es Cliente
                             </div>
-                            <div class="type-btn {% if contact and 'proveedor' in contact.get('types', []) %}active{% endif %}" onclick="toggleTypeBtn(this, 'proveedor')">
-                                <input type="checkbox" name="types" value="proveedor" {% if contact and 'proveedor' in contact.get('types', []) %}checked{% endif %}>
+                            <div class="type-btn {% if proveedor_selected %}active{% endif %}" onclick="toggleTypeBtn(this, 'proveedor')">
+                                <input type="checkbox" name="types" value="proveedor" {% if proveedor_selected %}checked{% endif %}>
                                 <i class="fa-solid fa-truck"></i> Es Proveedor
                             </div>
                         </div>
                     </div>
 
                     <div class="form-group" style="grid-column: 1 / -1;">
-                        <label>RNC / Cédula <span style="color:var(--accent-red);">*</span></label>
-                        <input type="text" name="rnc" class="form-input" placeholder="Ingresa RNC (9 dígitos) o Cédula (11 dígitos)" value="{{ contact.rnc if contact else '' }}">
+                        <label id="rnc-field-label">RNC / Cédula <span style="color:var(--accent-red);">*</span></label>
+                        <div style="position:relative;">
+                            <i id="lookup-icon" class="fa-solid fa-fingerprint" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted);"></i>
+                            <input type="text" id="rnc-input" name="rnc" class="form-input{% if contact %} master-field-disabled{% endif %}" {% if contact %}readonly{% endif %} style="padding-left:45px; font-family:monospace;" placeholder="Ingresa RNC (9 dígitos) o Cédula (11 dígitos)" value="{{ contact.rnc if contact else '' }}">
+                        </div>
+                        <small id="lookup-status" style="display:block; color:var(--text-muted); font-size:0.75rem; margin-top:4px;">Ingresa 9 dígitos para RNC o 11 dígitos para Cédula. Deja vacío si es cliente extranjero.</small>
+                        <div id="dgii-taxpayer-info" style="display:none; margin-top:8px; padding:9px 12px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-size:0.75rem; color:var(--text-secondary);">
+                            Régimen DGII: <strong id="dgii-regimen-label"></strong>
+                            <span id="dgii-status-label"></span>
+                            <span id="dgii-category-label"></span>
+                        </div>
+                        <input type="hidden" name="regimenDgii" id="regimenDgii" value="{{ contact.regimenDgii if contact else '' }}">
+                        <input type="hidden" name="regimenDgiiNormalized" id="regimenDgiiNormalized" value="{{ contact.regimenDgiiNormalized if contact else '' }}">
+                        <input type="hidden" name="estadoDgii" id="estadoDgii" value="{{ contact.estadoDgii if contact else '' }}">
+                        <input type="hidden" name="categoriaDgii" id="categoriaDgii" value="{{ contact.categoriaDgii if contact else '' }}">
+                        <input type="hidden" name="actividadDgii" id="actividadDgii" value="{{ contact.actividadDgii if contact else '' }}">
                     </div>
 
                     <div class="form-group" style="grid-column: 1 / -1;">
                         <label>Nombre o Razón Social <span style="color:var(--accent-red);">*</span></label>
-                        <input type="text" name="razonSocial" class="form-input" placeholder="Nombre completo o razón social" required value="{{ contact.razonSocial if contact else '' }}">
+                        <input type="text" id="razon-social-input" name="razonSocial" class="form-input{% if contact %} master-field-disabled{% endif %}" {% if contact %}readonly{% endif %} placeholder="Nombre completo o razón social" required value="{{ contact.razonSocial if contact else '' }}">
+                        {% if contact %}<small style="display:block; color:var(--text-muted); font-size:0.75rem; margin-top:4px;">El nombre o razón social no puede modificarse después de crear el contacto.</small>{% endif %}
                     </div>
 
                     <div class="form-group">
@@ -105,7 +144,13 @@
                 <div class="form-grid" style="padding-top:8px;">
                     <div class="form-group" style="grid-column: 1 / -1;">
                         <label>Correo Electrónico</label>
-                        <input type="email" name="email" class="form-input" placeholder="correo@ejemplo.com" value="{{ contact.email if contact else '' }}" required>
+                        <input type="email" name="email" class="form-input{% if contact %} master-field-disabled{% endif %}" {% if contact %}readonly{% endif %} placeholder="correo@ejemplo.com" value="{{ contact.email if contact else '' }}">
+                        <small style="display:block; color:var(--text-muted); font-size:0.75rem; margin-top:4px;">Email maestro del contacto. Se usa para el portal y como respaldo de comunicación.{% if contact %} No puede modificarse por la empresa.{% endif %}</small>
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Email operativo de la empresa</label>
+                        <input type="email" name="companyEmail" class="form-input" placeholder="contacto@empresa.com" value="{{ contact.companyEmail if contact else '' }}">
+                        <small style="display:block; color:var(--text-muted); font-size:0.75rem; margin-top:4px;">Se utiliza para comunicaciones y envíos de esta empresa.</small>
                     </div>
                     <div class="form-group">
                         <label>Teléfono</label>
@@ -183,6 +228,16 @@
                     </div>
                     {% endif %}
                     <div class="form-group">
+                        <label for="customer_category">Categoría Fiscal</label>
+                        <select id="customer_category" name="customer_category" class="form-input">
+                            <option value="NORMAL" {% if not contact or contact.customer_category == 'NORMAL' %}selected{% endif %}>Normal</option>
+                            <option value="GOVERNMENT" {% if contact and contact.customer_category == 'GOVERNMENT' %}selected{% endif %}>Gubernamental</option>
+                            <option value="SPECIAL_REGIME" {% if contact and contact.customer_category == 'SPECIAL_REGIME' %}selected{% endif %}>Régimen Especial</option>
+                            <option value="FOREIGN" {% if contact and contact.customer_category == 'FOREIGN' %}selected{% endif %}>Extranjero</option>
+                        </select>
+                        <small style="display:block; color:var(--text-muted); font-size:0.75rem; margin-top:4px;">Define qué tipo de e-CF se sugerirá al facturar a este cliente.</small>
+                    </div>
+                    <div class="form-group">
                         <label>Lista de Precios</label>
                         <select name="priceListId" class="form-input">
                             <option value="">Precio por defecto</option>
@@ -190,6 +245,16 @@
                             <option value="{{ pl.id }}" {% if contact and contact.priceListId == pl.id %}selected{% endif %}>{{ pl.name }}</option>
                             {% endfor %}
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Proyecto Asociado</label>
+                        <select name="projectId" class="form-input">
+                            <option value="">Sin proyecto asignado</option>
+                            {% for proj in projects or [] %}
+                            <option value="{{ proj.id }}" {% if contact and contact.projectId == proj.id %}selected{% endif %}>{{ proj.name }} ({{ proj.code }})</option>
+                            {% endfor %}
+                        </select>
+                        <small style="display:block; color:var(--text-muted); font-size:0.75rem; margin-top:4px;">Todas las operaciones de este contacto se asociarán al proyecto seleccionado.</small>
                     </div>
                     {% if module_enabled('crm') %}
                     <div class="form-group">
@@ -329,7 +394,7 @@
 
         <!-- Acciones -->
         <div style="display:flex; justify-content:flex-end; gap:12px; padding-top:20px; border-top:1px solid var(--border-color); margin-top:16px;">
-            <a href="{{ url_for('web_contacts.list_contacts') }}" class="btn btn-secondary">Cancelar</a>
+            <a href="{{ back_url }}" class="btn btn-secondary">Cancelar</a>
             <button type="submit" class="btn btn-primary">
                 <i class="fa-solid fa-floppy-disk"></i>
                 {% if contact %}Guardar Cambios{% else %}Registrar Contacto{% endif %}
@@ -340,7 +405,52 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/client_crm.js') }}"></script>
 <script>
+function previewImage(input) {
+    const preview = document.getElementById('avatar-preview');
+    const fallback = document.getElementById('avatar-fallback');
+    if (input.files && input.files[0] && preview && fallback) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            fallback.style.display = 'none';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function toggleForeignFields() {
+    const cat = document.getElementById('customer_category');
+    const rncInput = document.getElementById('rnc-input');
+    const rncLabel = document.getElementById('rnc-field-label');
+    const lookupStatus = document.getElementById('lookup-status');
+    const lookupIcon = document.getElementById('lookup-icon');
+    if (!cat) return;
+    const isForeign = cat.value === 'FOREIGN';
+    if (rncInput) {
+        rncInput.required = !isForeign;
+        rncInput.placeholder = isForeign ? 'Ej: EIN 12-3456789, NIF B-12345678' : 'Ingresa RNC (9 dígitos) o Cédula (11 dígitos)';
+        rncInput.style.fontFamily = isForeign ? '' : 'monospace';
+    }
+    if (rncLabel) rncLabel.textContent = isForeign ? 'Tax ID / RNC Extranjero' : 'RNC / Cédula *';
+    if (lookupStatus) {
+        lookupStatus.textContent = isForeign
+            ? 'Cliente extranjero: el identificador fiscal se usará como Tax ID en el e-CF.'
+            : 'Ingresa 9 dígitos para RNC o 11 dígitos para Cédula. Deja vacío si es cliente extranjero.';
+    }
+    if (lookupIcon) lookupIcon.className = 'fa-solid fa-fingerprint';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const cat = document.getElementById('customer_category');
+    if (cat) {
+        cat.addEventListener('change', toggleForeignFields);
+        toggleForeignFields();
+    }
+});
+
 function toggleCollapse(header) {
     const segment = header.closest('.card-segment');
     segment.classList.toggle('collapsed');
@@ -385,7 +495,11 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 {% else %}
 document.addEventListener('DOMContentLoaded', function() {
+    {% if requested_type == 'proveedor' %}
+    document.getElementById('sec-comercial-cliente').style.display = 'none';
+    {% else %}
     document.getElementById('sec-comercial-proveedor').style.display = 'none';
+    {% endif %}
 });
 {% endif %}
 </script>

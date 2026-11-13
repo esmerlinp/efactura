@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone
 
 try:
@@ -133,7 +132,13 @@ class SupplierService:
         return None
 
     @classmethod
-    def save_supplier(cls, owner_uid=None, supplier_id=None, supplier_dict=None, sandbox=True, company_id=None):
+    def _save_legacy_supplier(cls, owner_uid=None, supplier_id=None, supplier_dict=None, sandbox=True, company_id=None):
+        """Escribe el espejo legacy `suppliers` (NO es la fuente canónica).
+
+        La creación/edición de proveedores debe hacerse vía
+        `ContactService.save_contact` / `ContactService.ensure_supplier`, que
+        escribe en `contacts` y luego invoca este método como espejo.
+        """
         company_id = _require_company_id(company_id)
         supplier_dict["id"] = supplier_id
         supplier_dict["ownerUID"] = owner_uid
@@ -231,24 +236,6 @@ class SupplierService:
                 direccion=address or "", sandbox=sandbox, company_id=company_id,
             )
         except Exception as e:
+            # No crear proveedores legacy huérfanos: la escritura canónica falló.
             print(f"⚠️ Error al asegurar proveedor {rnc}: {e}")
-        # Fallback legacy si ContactService no está disponible
-        existing = cls.get_supplier_by_rnc(owner_uid=owner_uid, rnc=rnc, sandbox=sandbox, company_id=company_id)
-        if existing:
-            return (existing["id"], False)
-        supplier_id = str(uuid.uuid4())
-        supplier_dict = {"rnc": rnc, "name": name, "address": address}
-        cls.save_supplier(owner_uid=owner_uid, supplier_id=supplier_id, supplier_dict=supplier_dict, sandbox=sandbox, company_id=company_id)
-        return (supplier_id, True)
-
-    @classmethod
-    def update_last_import(cls, owner_uid=None, supplier_id=None, sandbox=True, company_id=None):
-        if not firebase_initialized or db_firestore is None:
-            return
-        try:
-            coll_name = "sandbox_suppliers" if sandbox else "suppliers"
-            _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=coll_name).document(supplier_id).update({
-                "lastImportDate": serialize_field(datetime.now(timezone.utc)),
-            })
-        except Exception as e:
-            print(f"⚠️ Error al actualizar lastImportDate: {e}")
+            return (None, False)

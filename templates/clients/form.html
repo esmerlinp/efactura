@@ -5,6 +5,15 @@
 {% block page_header %}{% if client %}Editar Ficha CRM{% else %}Nuevo Cliente CRM{% endif %}{% endblock %}
 
 {% block content %}
+<style>
+    .master-field-disabled {
+        background: #f1f5f9 !important;
+        color: #64748b !important;
+        border-color: #cbd5e1 !important;
+        cursor: not-allowed !important;
+        opacity: .8;
+    }
+</style>
 <div class="card-table-wrapper" style="max-width: 800px; margin: 0 auto;">
     <h3
         style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
@@ -45,7 +54,8 @@
                     <div style="position: relative; flex-grow: 1;">
                         <i id="lookup-icon" class="fa-solid fa-fingerprint"
                             style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); transition: color var(--transition-fast);"></i>
-                        <input type="text" id="rnc-input" name="rnc" class="form-input"
+                        <input type="text" id="rnc-input" name="rnc" class="form-input{% if client %} master-field-disabled{% endif %}"
+                            {% if client %}readonly{% endif %}
                             placeholder="Ingresa RNC (9 dígitos) o Cédula (11 dígitos)"
                             style="padding-left: 45px; width: 100%; font-family: monospace;"
                             value="{{ client.rnc if client else (client.foreignTaxId if client and client.customer_category == 'FOREIGN' else '') }}">
@@ -67,15 +77,24 @@
 
             <div class="form-group" style="grid-column: 1 / -1;">
                 <label for="razon-social-input">Nombre o Razón Social</label>
-                <input type="text" id="razon-social-input" name="razonSocial" class="form-input"
+                <input type="text" id="razon-social-input" name="razonSocial" class="form-input{% if client %} master-field-disabled{% endif %}"
+                    {% if client %}readonly{% endif %}
                     placeholder="Se completará automáticamente al buscar en DGII" required
                     value="{{ client.razonSocial if client else '' }}">
             </div>
 
             <div class="form-group">
                 <label for="email">Correo Electrónico</label>
-                <input type="email" id="email" name="email" class="form-input" placeholder="cliente@correo.com"
-                    value="{{ client.email if client else '' }}">
+                <input type="email" id="email" name="email" class="form-input{% if client %} master-field-disabled{% endif %}" placeholder="cliente@correo.com"
+                    value="{{ client.email if client else '' }}" {% if client %}readonly{% endif %}>
+                {% if client %}<small style="color:var(--text-muted);">Email maestro del cliente. No puede ser modificado por la empresa.</small>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="company-email">Email operativo de la empresa</label>
+                <input type="email" id="company-email" name="companyEmail" class="form-input" placeholder="contacto@empresa.com"
+                    value="{{ client.companyEmail if client else '' }}">
+                <small style="color:var(--text-muted);">Se utiliza para comunicaciones y envíos de esta empresa.</small>
             </div>
 
             <div class="form-group">

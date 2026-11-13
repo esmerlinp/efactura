@@ -117,8 +117,14 @@
                 {% if client.email %}
                 <a href="mailto:{{ client.email }}" style="color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 500; word-break: break-all;">
                     <i class="fa-solid fa-envelope" style="color: var(--accent-emerald); font-size: 0.8rem; flex-shrink: 0;"></i>
-                    {{ client.email }}
-                </a>
+                     {{ client.email }} <span style="font-size:.7rem;color:var(--text-muted);">(global)</span>
+                 </a>
+                 {% if client.companyEmail %}
+                 <a href="mailto:{{ client.companyEmail }}" style="color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 500; word-break: break-all; margin-top:4px;">
+                     <i class="fa-solid fa-building" style="color: var(--accent-emerald); font-size: 0.8rem; flex-shrink: 0;"></i>
+                     {{ client.companyEmail }} <span style="font-size:.7rem;color:var(--accent-emerald);">(empresa)</span>
+                 </a>
+                 {% endif %}
                 {% else %}
                 <span style="color: var(--text-muted); font-style: italic; font-size: 0.85rem;">No registrado</span>
                 {% endif %}
@@ -148,7 +154,7 @@
                 <i class="fa-solid fa-brain"></i>
                 <span>Smart Insights</span>
             </a>
-            <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}" class="btn btn-secondary"
+            <a href="{{ url_for('web_contacts.edit_contact', contact_id=client.id) }}" class="btn btn-secondary"
                 style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 0 14px; font-size: 0.8rem; height: 34px; border-radius: 6px; transition: all var(--transition-fast) ease;">
                 <i class="fa-solid fa-user-pen"></i>
                 <span>Editar Ficha</span>
@@ -187,7 +193,7 @@
     </div>
     <div style="display: flex; flex-wrap: wrap; gap: 6px;">
         {% for mf in missing_fields %}
-        <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}#{{ mf.field }}"
+        <a href="{{ url_for('web_contacts.edit_contact', contact_id=client.id) }}#{{ mf.field }}"
            style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 500; border: 1px solid var(--border-color); color: var(--text-primary); text-decoration: none; transition: all 0.15s ease; background: rgba(255,255,255,0.02);"
            onmouseover="this.style.borderColor='#3b82f6'; this.style.background='rgba(59,130,246,0.06)'; this.style.color='#3b82f6';"
            onmouseout="this.style.borderColor=''; this.style.background=''; this.style.color='';">
@@ -247,7 +253,7 @@
                     <strong style="font-size: 0.95rem; color: var(--text-primary);">{{ client.nextContactDate | format_date }}</strong>
                 </div>
             </div>
-            <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}" class="btn btn-secondary" style="padding: 0 10px; font-size: 0.75rem; height: 28px; display: inline-flex; align-items: center; gap: 4px;">
+            <a href="{{ url_for('web_contacts.edit_contact', contact_id=client.id) }}" class="btn btn-secondary" style="padding: 0 10px; font-size: 0.75rem; height: 28px; display: inline-flex; align-items: center; gap: 4px;">
                 <i class="fa-solid fa-calendar-days"></i>
                 <span>Re-programar</span>
             </a>

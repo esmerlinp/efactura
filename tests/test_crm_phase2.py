@@ -51,8 +51,14 @@ class InMemoryFirestore:
                 doc_mock.to_dict.return_value = store.get(key)
                 return doc_mock
 
-            def set(self, data):
-                store[(company_id, coll_name, self.doc_id)] = dict(data)
+            def set(self, data, merge=False):
+                key = (company_id, coll_name, self.doc_id)
+                if merge and key in store:
+                    merged = dict(store[key])
+                    merged.update(data)
+                    store[key] = merged
+                else:
+                    store[key] = dict(data)
 
             def delete(self):
                 store.pop((company_id, coll_name, self.doc_id), None)

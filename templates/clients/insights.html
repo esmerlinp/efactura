@@ -35,7 +35,7 @@
 
 <div class="insight-wrapper">
 
-  <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="back-link">
+  <a href="{{ url_for('web_contacts.contact_detail', contact_id=client.id) }}" class="back-link">
     <i class="fa-solid fa-arrow-left"></i> Volver a Ficha del Cliente
   </a>
 
@@ -48,7 +48,7 @@
       {% if 'API Key' in strategy.message %}
       <p style="font-size:0.8rem;color:var(--text-muted);margin-top:12px;">Configure su clave de OpenAI en <strong>Ajustes del Sistema → OpenAI API Key</strong> o en la <strong>Ficha de la Empresa</strong>.</p>
       {% endif %}
-      <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:6px;margin-top:16px;padding:8px 20px;font-size:0.82rem;">
+      <a href="{{ url_for('web_contacts.contact_detail', contact_id=client.id) }}" class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:6px;margin-top:16px;padding:8px 20px;font-size:0.82rem;">
         <i class="fa-solid fa-arrow-left"></i> Volver
       </a>
     </div>

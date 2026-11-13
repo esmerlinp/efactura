@@ -265,7 +265,8 @@ class NotificationService:
                 except Exception as e:
                     print(f"⚠️ Error al redactar mensaje con IA: {e}")
 
-                recipient = inv.get("clientEmail") if method == "email" else inv.get("clientPhone")
+                recipient = ((inv.get("companyEmail") or inv.get("clientEmail") or inv.get("email") or inv.get("correo"))
+                             if method == "email" else inv.get("clientPhone"))
                 if not recipient:
                     continue
 

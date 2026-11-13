@@ -314,6 +314,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let pendingRnc = '';
     let lastLookedUpRnc = '';
     let rncLookupDebounce = null;
+    let lastAutoFilledRazon = '';
+    let lastAutoFilledCategory = '';
 
     const setRncLookupStatus = (state, message = '') => {
         if (!rncStatus) return;
@@ -337,13 +339,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const resetRncLookupState = () => {
-        clearTimeout(rncLookupDebounce);
-        rncLookupSeq++;
-        pendingRnc = '';
-        lastLookedUpRnc = '';
-        setRncLookupStatus('idle');
-        setRncLookupBusy(false);
+    const clearLoadedClientData = () => {
+        const razonField = document.getElementById('new-client-razon');
+        if (razonField && lastAutoFilledRazon && razonField.value === lastAutoFilledRazon) {
+            razonField.value = '';
+        }
+        const categoryField = document.getElementById('new-client-category');
+        if (categoryField && lastAutoFilledCategory && categoryField.value === lastAutoFilledCategory) {
+            categoryField.value = 'NORMAL';
+        }
+        lastAutoFilledRazon = '';
+        lastAutoFilledCategory = '';
         const dgiiInfo = document.getElementById('new-client-dgii-info');
         if (dgiiInfo) {
             dgiiInfo.style.display = 'none';
@@ -353,6 +359,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const field = document.getElementById(id);
             if (field) field.value = '';
         });
+    };
+
+    const resetRncLookupState = () => {
+        clearTimeout(rncLookupDebounce);
+        rncLookupSeq++;
+        pendingRnc = '';
+        lastLookedUpRnc = '';
+        setRncLookupStatus('idle');
+        setRncLookupBusy(false);
+        clearLoadedClientData();
     };
 
     const toggleModalForeignFields = () => {
@@ -401,13 +417,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (clientCreateModal) clientCreateModal.style.display = 'none';
     };
 
-    const showCreateAlert = (msg, isError = false) => {
+    const showCreateAlert = (msg, tone = 'success') => {
         if (!createClientAlert) return;
+        const isError = tone === true || tone === 'error';
+        const isWarning = tone === 'warning';
         createClientAlert.textContent = msg;
         createClientAlert.style.display = 'block';
-        createClientAlert.style.background = isError ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)';
-        createClientAlert.style.color = isError ? '#dc2626' : '#059669';
-        createClientAlert.style.border = isError ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(16,185,129,0.3)';
+        if (isError) {
+            createClientAlert.style.background = 'rgba(239,68,68,0.12)';
+            createClientAlert.style.color = '#dc2626';
+            createClientAlert.style.border = '1px solid rgba(239,68,68,0.3)';
+        } else if (isWarning) {
+            createClientAlert.style.background = 'rgba(245,158,11,0.12)';
+            createClientAlert.style.color = '#b45309';
+            createClientAlert.style.border = '1px solid rgba(245,158,11,0.3)';
+        } else {
+            createClientAlert.style.background = 'rgba(16,185,129,0.12)';
+            createClientAlert.style.color = '#059669';
+            createClientAlert.style.border = '1px solid rgba(16,185,129,0.3)';
+        }
     };
 
     if (btnOpenCreateClientModal) btnOpenCreateClientModal.addEventListener('click', openCreateClientModal);
@@ -462,6 +490,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (response.ok && !data.error) {
                     lastLookedUpRnc = cleanedVal;
+                    const verified = data.verified !== false && !!data.razon_social;
+                    if (!verified) {
+                        clearLoadedClientData();
+                        if (razonField) razonField.focus();
+                        showCreateAlert('RNC con formato válido, pero no se encontró en el padrón local ni en la DGII. Complete la razón social manualmente.', 'warning');
+                        return;
+                    }
                     const dgiiInfo = document.getElementById('new-client-dgii-info');
                     if (dgiiInfo) {
                         dgiiInfo.textContent = `Régimen: ${data.regimen || 'No informado'}${data.estado ? ` · Estado: ${data.estado}` : ''}${data.categoria ? ` · Categoría: ${data.categoria}` : ''}`;
@@ -478,8 +513,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         const field = document.getElementById(id);
                         if (field) field.value = value;
                     });
-                    if (razonField && !razonField.value.trim()) {
+                    if (razonField) {
                         razonField.value = data.razon_social || '';
+                        lastAutoFilledRazon = razonField.value;
                         razonField.style.border = '1px solid var(--accent-emerald)';
                         razonField.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.15)';
                         setTimeout(() => {
@@ -498,15 +534,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             mapped = 'NORMAL';
                         }
                         if (mapped) categoryField.value = mapped;
+                        lastAutoFilledCategory = categoryField.value;
                     }
                     showCreateAlert(`✓ RNC validado: ${data.razon_social}`, false);
                 } else {
                     lastLookedUpRnc = '';
+                    clearLoadedClientData();
                     showCreateAlert(data.message || 'RNC no encontrado en DGII.', true);
                 }
             } catch (err) {
                 if (seq !== rncLookupSeq) return;
                 lastLookedUpRnc = '';
+                clearLoadedClientData();
                 showCreateAlert('Error de red al consultar padrón DGII.', true);
             } finally {
                 if (seq === rncLookupSeq) {
@@ -521,6 +560,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const cleanedVal = rncCreateInput.value.replace(/[^0-9]/g, '');
             if (cleanedVal !== lastLookedUpRnc) {
                 lastLookedUpRnc = '';
+                pendingRnc = '';
+                rncLookupSeq++;
+                setRncLookupStatus('idle');
+                setRncLookupBusy(false);
+                clearLoadedClientData();
+                if (createClientAlert) createClientAlert.style.display = 'none';
             }
             clearTimeout(rncLookupDebounce);
             if (cleanedVal.length !== 9 && cleanedVal.length !== 11) {
@@ -1490,6 +1535,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             clientWarning.style.display = 'block';
                             clientWarning.style.color = '#ef4444'; // Red error alert
                             disableSubmitButtons(true);
+                        } else if (data.verified === false || !data.razon_social) {
+                            clientWarning.textContent = '⚠️ RNC con formato válido, pero no se encontró en el padrón local ni en la DGII. Verifique el contribuyente antes de emitir Crédito Fiscal (E31).';
+                            clientWarning.style.display = 'block';
+                            clientWarning.style.color = '#f59e0b'; // Amber warning
+                            disableSubmitButtons(false);
                         } else {
                             clientWarning.textContent = `✅ RNC Registrado: ${data.razon_social} (${data.regimen || 'Régimen Normal'})`;
                             clientWarning.style.display = 'block';

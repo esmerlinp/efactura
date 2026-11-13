@@ -1,5 +1,12 @@
 """
-ContactRepository — clientes, proveedores, interacciones CRM, documentos.
+ContactRepository — DEPRECATED para escrituras de clientes/proveedores.
+
+La fuente canónica es la colección `contacts` y debe escribirse exclusivamente
+vía `ContactService.save_contact` / `ContactService.ensure_supplier` (o
+`SupplierService.get_or_create_supplier`), que además mantiene el espejo legacy
+cuando corresponde. No usar `save_supplier`/`save_client` como vía primaria.
+
+Interacciones y documentos CRM (subcolecciones de `contacts`) sí pueden usarse.
 Opera sobre companies/{company_id}/...
 """
 from typing import Optional

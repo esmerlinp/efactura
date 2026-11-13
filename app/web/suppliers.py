@@ -111,6 +111,8 @@ def new_supplier():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageSuppliers'):
         return render_template('auth/restricted.html', feature_name="Nuevo Proveedor", required_permission="canExpenses"), 403
+    if request.method == 'GET':
+        return redirect(url_for('web_contacts.new_contact', type='proveedor'))
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -280,33 +282,7 @@ def ajax_create_supplier():
 
 @web_suppliers_bp.route('/suppliers/<supplier_id>')
 def supplier_detail(supplier_id):
-    if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canManageSuppliers'):
-        return render_template('auth/restricted.html', feature_name="Detalle Proveedor", required_permission="canExpenses"), 403
-    owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
-    sandbox = session.get('is_sandbox_mode', True)
-
-    supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
-    if not supplier:
-        flash('Proveedor no encontrado.', 'error')
-        return redirect(url_for('web_suppliers.list_suppliers'))
-
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
-    linked_expenses = [e for e in expenses if e.get('supplierId') == supplier_id]
-    linked_expenses.sort(key=lambda x: x.get('date', ''), reverse=True)
-
-    total_purchases = sum(float(e.get('amount', 0)) for e in linked_expenses)
-    cxp_balance = sum(float(e.get('cxpRemainingBalance', 0)) for e in linked_expenses)
-
-    return render_template(
-        'suppliers/detail.html',
-        active_page='suppliers',
-        supplier=supplier,
-        expenses=linked_expenses,
-        total_purchases=total_purchases,
-        cxp_balance=cxp_balance,
-    )
+    return redirect(url_for('web_contacts.contact_detail', contact_id=supplier_id))
 
 
 @web_suppliers_bp.route('/suppliers/<supplier_id>/edit', methods=['GET', 'POST'])
@@ -322,6 +298,10 @@ def edit_supplier(supplier_id):
     if not supplier:
         flash('Proveedor no encontrado.', 'error')
         return redirect(url_for('web_suppliers.list_suppliers'))
+
+    from app.services.contact_service import ContactService
+    contact = ContactService.get_contact(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
+    identity_locked = bool(contact and "cliente" in (contact.get("types") or []))
 
     if request.method == 'POST':
         before = supplier.copy()
@@ -369,8 +349,17 @@ def edit_supplier(supplier_id):
                         print(f"⚠️ Error al subir adjunto: {e}")
 
         from app.services.contact_service import ContactService
-        existing_contact = ContactService.get_contact_by_rnc(owner_uid, supplier_dict["rnc"], sandbox=sandbox, company_id=company_id) if supplier_dict.get("rnc") else None
+        existing_contact = ContactService.get_contact(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
+        if not existing_contact and supplier_dict.get("rnc"):
+            existing_contact = ContactService.get_contact_by_rnc(owner_uid, supplier_dict["rnc"], sandbox=sandbox, company_id=company_id)
         contact_id = existing_contact["id"] if existing_contact else supplier_id
+
+        # La identidad global de un contacto que también es cliente no se edita aquí.
+        if existing_contact and "cliente" in (existing_contact.get("types") or []):
+            supplier_dict["rnc"] = existing_contact.get("rnc", supplier_dict["rnc"])
+            supplier_dict["name"] = existing_contact.get("razonSocial", supplier_dict["name"])
+            supplier_dict["email"] = existing_contact.get("email", supplier_dict["email"])
+
         contact_upd = dict(existing_contact) if existing_contact else {}
         contact_upd.update({
             "rnc": supplier_dict.get("rnc", ""),
@@ -412,7 +401,13 @@ def edit_supplier(supplier_id):
         return redirect(url_for('web_suppliers.list_suppliers'))
 
     _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
-    return render_template('suppliers/edit.html', active_page='suppliers', supplier=supplier, ecf_types=_ecf_types)
+    return render_template(
+        'suppliers/edit.html',
+        active_page='suppliers',
+        supplier=supplier,
+        ecf_types=_ecf_types,
+        identity_locked=identity_locked,
+    )
 
 
 @web_suppliers_bp.route('/suppliers/<supplier_id>/delete', methods=['POST'])
@@ -428,6 +423,13 @@ def delete_supplier(supplier_id):
     supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
     if not supplier:
         flash('Proveedor no encontrado.', 'error')
+        return redirect(url_for('web_suppliers.list_suppliers'))
+
+    contact = ContactService.get_contact(owner_uid, supplier_id, sandbox=sandbox, company_id=company_id)
+    if contact and "cliente" in (contact.get("types") or []):
+        # El contacto también es cliente: solo se retira el rol de proveedor.
+        ContactService.remove_role(owner_uid, supplier_id, "proveedor", sandbox=sandbox, company_id=company_id)
+        flash('Rol de proveedor eliminado. El contacto se conserva como cliente.', 'success')
         return redirect(url_for('web_suppliers.list_suppliers'))
 
     # Soft delete vía ContactService (si existe contacto con ese id)

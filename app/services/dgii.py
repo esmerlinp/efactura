@@ -1,5 +1,54 @@
-import requests
+import os
 import re
+from functools import lru_cache
+from pathlib import Path
+
+import requests
+
+RNC_LOOKUP_API_URL = "https://api-dgii.dominicantechnology.com/api/v1/rnc/{rnc}"
+
+
+def _default_rnc_file_path():
+    override = os.getenv("DGII_RNC_FILE")
+    if override:
+        return Path(override).expanduser()
+    return Path(__file__).resolve().parents[2] / "DGII_RNC.txt"
+
+
+@lru_cache(maxsize=1024)
+def _lookup_rnc_in_file(file_path, clean_rnc):
+    """Busca un RNC en el padrón local DGII_RNC.txt (pipe-delimited, ISO-8859-1).
+
+    Estructura: rnc|razon_social|nombre_comercial|actividad|...|fecha|estado|regimen
+    Devuelve un dict con los datos o None si no está.
+    """
+    path = Path(file_path)
+    if not path.is_file():
+        return None
+
+    prefix = f"{clean_rnc}|"
+    try:
+        with path.open("r", encoding="iso-8859-1", newline="") as handle:
+            for line in handle:
+                if not line.startswith(prefix):
+                    continue
+                fields = line.rstrip("\r\n").split("|")
+                if len(fields) < 11:
+                    continue
+                razon_social = fields[1].strip()
+                if not razon_social:
+                    continue
+                return {
+                    "razon_social": razon_social,
+                    "nombre_comercial": fields[2].strip(),
+                    "actividad": fields[3].strip(),
+                    "fecha_inicio": fields[8].strip(),
+                    "estado": fields[9].strip(),
+                    "regimen": fields[10].strip(),
+                }
+    except OSError:
+        return None
+    return None
 
 
 class DGIIService:
@@ -67,8 +116,8 @@ class DGIIService:
             else:
                 expected = 11 - remainder
             if expected != check_digit:
-                return {"error": True, "message": "RNC invalido: el digito verificador no coincide."}
-            return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "regimen_normalized": "", "estado": "", "categoria": "", "source": "local"}
+                return {"error": True, "verified": False, "message": "RNC invalido: el digito verificador no coincide."}
+            return {"error": False, "verified": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "regimen_normalized": "", "estado": "", "categoria": "", "source": "local"}
 
         elif len(clean_rnc) == 11:
             weights = [1, 2, 1, 2, 1, 2, 1, 2, 1, 2]
@@ -85,10 +134,10 @@ class DGIIService:
             next_ten = ((total + 9) // 10) * 10
             expected = next_ten - total
             if expected != check_digit:
-                return {"error": True, "message": "Cedula invalida: el digito verificador no coincide."}
-            return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "regimen_normalized": "", "estado": "", "categoria": "", "source": "local"}
+                return {"error": True, "verified": False, "message": "Cedula invalida: el digito verificador no coincide."}
+            return {"error": False, "verified": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "regimen_normalized": "", "estado": "", "categoria": "", "source": "local"}
 
-        return {"error": True, "message": "Formato de RNC/Cedula invalido. Debe tener 9 u 11 digitos sin guiones."}
+        return {"error": True, "verified": False, "message": "Formato de RNC/Cedula invalido. Debe tener 9 u 11 digitos sin guiones."}
 
     @classmethod
     def validate_and_fetch_rnc(cls, rnc):
@@ -96,35 +145,79 @@ class DGIIService:
         if len(clean_rnc) not in [9, 11]:
             return {
                 "error": True,
+                "verified": False,
                 "message": "Formato de RNC/Cedula invalido. Debe tener 9 u 11 digitos sin guiones."
             }
 
-        url = f"https://rnc.megaplus.com.do/api/consulta?rnc={clean_rnc}"
-        try:
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if not data.get("error"):
-                    razon_social = data.get("nombre_razon_social") or data.get("nombre_comercial")
-                    if razon_social:
-                        regimen = data.get("regimen_de_pagos") or data.get("regimen_pagos", "")
-                        return {
-                            "error": False,
-                            "rnc": clean_rnc,
-                            "razon_social": razon_social,
-                            "actividad": data.get("actividad_economica", ""),
-                            "regimen": regimen,
-                            "regimen_normalized": cls._normalize_lookup_regimen(regimen),
-                            "estado": data.get("estado", ""),
-                            "categoria": data.get("categoria", ""),
-                            "facturador_electronico": data.get("facturador_electronico", ""),
-                            "administracion_local": data.get("administracion_local", ""),
-                            "source": "megaplus"
-                        }
-        except requests.RequestException:
-            pass
+        local_record = _lookup_rnc_in_file(str(_default_rnc_file_path()), clean_rnc)
+        if local_record:
+            return cls._build_lookup_result(clean_rnc, local_record, "local_file")
+
+        remote_record = cls._fetch_rnc_remote(clean_rnc)
+        if remote_record:
+            return cls._build_lookup_result(clean_rnc, remote_record, "dominicantechnology")
 
         return cls._validate_rnc_local(clean_rnc)
+
+    @staticmethod
+    def _fetch_rnc_remote(clean_rnc):
+        """Consulta el padrón vía API externa. Devuelve dict normalizado o None."""
+        url = RNC_LOOKUP_API_URL.format(rnc=clean_rnc)
+        try:
+            response = requests.get(url, timeout=10, headers={"Accept": "application/json"})
+        except requests.RequestException:
+            return None
+
+        if response.status_code != 200:
+            return None
+
+        try:
+            payload = response.json()
+        except ValueError:
+            return None
+
+        if not isinstance(payload, dict) or not payload.get("exito"):
+            return None
+
+        data = payload.get("data") or {}
+        razon_social = str(data.get("razon_social") or "").strip()
+        if not razon_social:
+            return None
+
+        return {
+            "razon_social": razon_social,
+            "nombre_comercial": data.get("nombre_comercial", ""),
+            "actividad": data.get("actividad_economica", ""),
+            "fecha_inicio": data.get("fecha_inicio", ""),
+            "estado": data.get("estado", ""),
+            "regimen": data.get("regimen_pago", ""),
+        }
+
+    @classmethod
+    def _build_lookup_result(cls, clean_rnc, record, source):
+        regimen = str(record.get("regimen") or "").strip()
+        normalized = cls._normalize_lookup_regimen(regimen)
+        if normalized.startswith("rst_"):
+            categoria = "RST"
+        elif regimen:
+            categoria = "NORMAL"
+        else:
+            categoria = ""
+
+        return {
+            "error": False,
+            "verified": True,
+            "rnc": clean_rnc,
+            "razon_social": record.get("razon_social", ""),
+            "nombre_comercial": record.get("nombre_comercial", ""),
+            "actividad": record.get("actividad", ""),
+            "fecha_inicio": record.get("fecha_inicio", ""),
+            "regimen": regimen,
+            "regimen_normalized": normalized,
+            "estado": record.get("estado", ""),
+            "categoria": categoria,
+            "source": source,
+        }
 
     @classmethod
     def _normalize_lookup_regimen(cls, regimen):
