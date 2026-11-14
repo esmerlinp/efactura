@@ -1,15 +1,17 @@
 import base64
 import json
 import os
+import re
 import uuid
 import zipfile
 from datetime import datetime, timezone
 from io import BytesIO
 
-from flask import Blueprint, request, jsonify, send_file, session
+from flask import Blueprint, request, jsonify, send_file, session, current_app
 
 from app.services.dgii_cert_service import DgiiCertService
 from app.services.db_service import DatabaseService
+import app.services.db_service as db_service
 from app.services.dgii_signer import DgiiSigner
 from app.services.ecf_readiness_service import EcfReadinessService
 from app.utils.module_gate import gate_blueprint_module
@@ -18,6 +20,39 @@ api_certificacion_bp = Blueprint("api_certificacion", __name__)
 gate_blueprint_module(api_certificacion_bp, "certificacion")
 
 UPLOAD_DIR = "uploads/certificacion"
+
+
+def _find_any_step2_xml(encf, run_number):
+    """Find legacy step-2 evidence when its company scope is unavailable."""
+    upload_root = current_app.config.get("UPLOAD_FOLDER") or os.path.abspath(
+        os.path.join(current_app.root_path, "..", "uploads")
+    )
+    cert_root = os.path.join(upload_root, "certificacion")
+    if not os.path.isdir(cert_root):
+        return None, None
+
+    matches = []
+    for company_name in os.listdir(cert_root):
+        step_dir = os.path.join(cert_root, company_name, "step2")
+        if not os.path.isdir(step_dir):
+            continue
+        for run_name in os.listdir(step_dir):
+            if not run_name.startswith("run"):
+                continue
+            try:
+                run_value = int(run_name[3:])
+            except ValueError:
+                continue
+            run_dir = os.path.join(step_dir, run_name)
+            for directory in (os.path.join(run_dir, "xml"), run_dir):
+                for suffix in ("_manual_signed.xml", "_signed.xml", "_e32_firmado.xml"):
+                    path = os.path.join(directory, f"{encf}{suffix}")
+                    if os.path.isfile(path):
+                        matches.append((run_value, str(run_value), path))
+    if matches:
+        _, effective_run, path = max(matches)
+        return effective_run, path
+    return None, None
 
 
 def _get_owner_and_company():
@@ -310,65 +345,101 @@ def step2_check_status(track_id):
 
 @api_certificacion_bp.route("/certificacion/step-2/download/<path:encf>", methods=["GET"])
 def step2_download_xml(encf):
-    auth_err = _login_required()
-    if auth_err:
-        return auth_err
+    try:
+        auth_err = _login_required()
+        if auth_err:
+            return auth_err
 
-    _, company_id, _ = _get_owner_and_company()
-    process = DgiiCertService.get_process(company_id)
-    step_data = process.get("steps", {}).get("2", {})
+        _, company_id, _ = _get_owner_and_company()
+        process = DgiiCertService.get_process(company_id)
+        step_data = process.get("steps", {}).get("2", {})
 
-    run_number = request.args.get("run", step_data.get("current_run", 0))
-    if not run_number:
-        return jsonify({"error": "No hay ejecuciones previas"}), 404
+        run_number = request.args.get("run", step_data.get("current_run", 0))
+        if not run_number:
+            return jsonify({"error": "No hay ejecuciones previas"}), 404
 
-    evidence_dir = _get_evidence_dir_path(company_id, 2, run_number)
-    xml_dir = os.path.join(evidence_dir, "xml")
+        run_number, download_path = _find_step2_xml(company_id, encf, run_number)
+        if not download_path:
+            run_number, download_path = _find_any_step2_xml(encf, run_number)
+        if not download_path:
+            upload_root = current_app.config.get("UPLOAD_FOLDER") or os.path.abspath(
+                os.path.join(current_app.root_path, "..", "uploads")
+            )
+            local_company_dir = os.path.join(upload_root, "certificacion", str(company_id))
+            storage_status = bool(db_service.firebase_storage_bucket)
+            current_app.logger.error(
+                "Cert XML no encontrado encf=%s company_id=%s run=%s upload_root=%s "
+                "local_company_dir=%s exists=%s storage=%s",
+                encf, company_id, run_number, upload_root, local_company_dir,
+                os.path.isdir(local_company_dir), storage_status,
+            )
+            return jsonify({
+                "error": f"XML no encontrado para {encf}",
+                "run": run_number,
+                "company_id": company_id,
+                "upload_root": upload_root,
+                "local_company_dir_exists": os.path.isdir(local_company_dir),
+                "storage_available": storage_status,
+            }), 404
 
-    signed_path = os.path.join(xml_dir, f"{encf}_signed.xml")
-    manual_path = os.path.join(xml_dir, f"{encf}_manual_signed.xml")
+        download_name = os.path.basename(download_path.name) if hasattr(download_path, "name") else os.path.basename(download_path)
+        if hasattr(download_path, "download_as_bytes"):
+            download_path = BytesIO(download_path.download_as_bytes())
 
-    download_path = None
-    if os.path.exists(manual_path):
-        download_path = manual_path
-    elif os.path.exists(signed_path):
-        download_path = signed_path
-
-    if not download_path:
-        return jsonify({"error": f"XML no encontrado para {encf}"}), 404
-
-    return send_file(
-        os.path.abspath(download_path),
-        mimetype="application/xml",
-        as_attachment=True,
-        download_name=os.path.basename(download_path),
-    )
+        return send_file(
+            download_path if hasattr(download_path, "read") else os.path.abspath(download_path),
+            mimetype="application/xml",
+            as_attachment=True,
+            download_name=download_name,
+            conditional=False,
+        )
+    except Exception as exc:
+        current_app.logger.exception("Error descargando XML de certificacion: %s", encf)
+        return jsonify({"error": "No se pudo descargar el XML", "detail": str(exc)}), 500
 
 
 @api_certificacion_bp.route("/certificacion/step-2/download-all", methods=["GET"])
 def step2_download_all():
-    auth_err = _login_required()
-    if auth_err:
-        return auth_err
+    try:
+        auth_err = _login_required()
+        if auth_err:
+            return auth_err
 
-    _, company_id, _ = _get_owner_and_company()
-    process = DgiiCertService.get_process(company_id)
-    step_data = process.get("steps", {}).get("2", {})
+        _, company_id, _ = _get_owner_and_company()
+        process = DgiiCertService.get_process(company_id)
+        step_data = process.get("steps", {}).get("2", {})
 
-    run_number = request.args.get("run", step_data.get("current_run", 0))
-    if not run_number:
-        return jsonify({"error": "No hay ejecuciones previas"}), 404
+        run_number = request.args.get("run", step_data.get("current_run", 0))
+        if not run_number:
+            return jsonify({"error": "No hay ejecuciones previas"}), 404
 
-    zip_data = DgiiCertService.download_all_evidence_zip(company_id, 2, run_number)
-    if not zip_data:
-        return jsonify({"error": "No se encontraron evidencias"}), 404
+        run_number, evidence_dir = _find_step2_evidence_dir(company_id, run_number)
+        zip_data = DgiiCertService.download_all_evidence_zip(company_id, 2, run_number)
+        if not zip_data and db_service.firebase_storage_bucket:
+            buffer = BytesIO()
+            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+                prefixes = (
+                    f"certificacion/{company_id}/step2/run{run_number}/",
+                    f"companies/{company_id}/certificacion/step2/run{run_number}/",
+                )
+                for prefix in prefixes:
+                    for blob in db_service.firebase_storage_bucket.list_blobs(prefix=prefix):
+                        archive.writestr(blob.name[len(prefix):], blob.download_as_bytes())
+            buffer.seek(0)
+            zip_data = buffer.getvalue() if buffer.getbuffer().nbytes else None
+        if not zip_data:
+            return jsonify({"error": "No se encontraron evidencias", "run": run_number}), 404
 
-    return send_file(
-        BytesIO(zip_data),
-        mimetype="application/zip",
-        as_attachment=True,
-        download_name=f"evidencias_paso2_run{run_number}.zip",
-    )
+        return send_file(
+            BytesIO(zip_data),
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"evidencias_paso2_run{run_number}.zip",
+            conditional=False,
+        )
+    except Exception as exc:
+        current_app.logger.exception("Error descargando ZIP de certificacion")
+        return jsonify({"error": "No se pudo descargar el ZIP", "detail": str(exc)}), 500
 
 
 @api_certificacion_bp.route("/certificacion/step-2/mark-manual-uploaded/<encf>", methods=["POST"])
@@ -390,7 +461,122 @@ def step2_mark_manual(encf):
 
 
 def _get_evidence_dir_path(company_id, step, run_number):
-    return f"uploads/certificacion/{company_id}/step{step}/run{run_number}"
+    upload_root = current_app.config.get("UPLOAD_FOLDER")
+    if not upload_root:
+        upload_root = os.path.abspath(os.path.join(current_app.root_path, "..", "uploads"))
+    return os.path.join(upload_root, "certificacion", str(company_id), f"step{step}", f"run{run_number}")
+
+
+def _resolve_evidence_run(company_id, step, run_number):
+    requested_dir = _get_evidence_dir_path(company_id, step, run_number)
+    if os.path.isdir(requested_dir):
+        return str(run_number), requested_dir
+
+    base_dir = os.path.abspath(f"uploads/certificacion/{company_id}")
+    candidates = []
+    if os.path.isdir(base_dir):
+        for name in os.listdir(base_dir):
+            prefix = f"step{step}/run"
+            if not name.startswith(f"step{step}"):
+                continue
+            step_dir = os.path.join(base_dir, name)
+            if not os.path.isdir(step_dir):
+                continue
+            for run_name in os.listdir(step_dir):
+                if not run_name.startswith("run"):
+                    continue
+                try:
+                    run_value = int(run_name[3:])
+                except ValueError:
+                    continue
+                run_dir = os.path.join(step_dir, run_name)
+                if os.path.isdir(os.path.join(run_dir, "xml")):
+                    candidates.append((run_value, run_name, run_dir))
+
+    if candidates:
+        _, effective_run, effective_dir = max(candidates)
+        return effective_run, effective_dir
+    return str(run_number), requested_dir
+
+
+def _find_step2_xml(company_id, encf, run_number):
+    requested_run, requested_dir = _resolve_evidence_run(company_id, 2, run_number)
+    candidates = [(requested_run, requested_dir)]
+    step_dir = os.path.dirname(_get_evidence_dir_path(company_id, 2, run_number))
+
+    if os.path.isdir(step_dir):
+        for run_name in os.listdir(step_dir):
+            if not run_name.startswith("run"):
+                continue
+            try:
+                run_value = int(run_name[3:])
+            except ValueError:
+                continue
+            if str(run_value) != str(requested_run):
+                candidates.append((str(run_value), os.path.join(step_dir, run_name)))
+
+    for effective_run, evidence_dir in candidates:
+        for directory in (os.path.join(evidence_dir, "xml"), evidence_dir):
+            for suffix in ("_manual_signed.xml", "_signed.xml", "_e32_firmado.xml"):
+                path = os.path.join(directory, f"{encf}{suffix}")
+                if os.path.isfile(path):
+                    return effective_run, path
+
+    storage_bucket = db_service.firebase_storage_bucket
+    if storage_bucket:
+        prefixes = (
+            f"certificacion/{company_id}/step2/",
+            f"companies/{company_id}/certificacion/step2/",
+        )
+        blobs = []
+        for prefix in prefixes:
+            blobs.extend(storage_bucket.list_blobs(prefix=prefix))
+        for blob in blobs:
+            name = blob.name
+            if (f"/{encf}_manual_signed.xml" in name
+                    or f"/{encf}_signed.xml" in name
+                    or f"/{encf}_e32_firmado.xml" in name):
+                return name.split("/run", 1)[1].split("/", 1)[0], blob
+
+    return requested_run, None
+
+
+def _find_step2_evidence_dir(company_id, run_number):
+    requested_run, requested_dir = _resolve_evidence_run(company_id, 2, run_number)
+    if os.path.isdir(os.path.join(requested_dir, "xml")):
+        return requested_run, requested_dir
+
+    step_dir = os.path.dirname(_get_evidence_dir_path(company_id, 2, run_number))
+    candidates = []
+    if os.path.isdir(step_dir):
+        for name in os.listdir(step_dir):
+            if not name.startswith("run"):
+                continue
+            try:
+                value = int(name[3:])
+            except ValueError:
+                continue
+            evidence_dir = os.path.join(step_dir, name)
+            if os.path.isdir(os.path.join(evidence_dir, "xml")):
+                candidates.append((value, str(value), evidence_dir))
+    if candidates:
+        _, effective_run, evidence_dir = max(candidates)
+        return effective_run, evidence_dir
+    bucket = db_service.firebase_storage_bucket
+    if bucket:
+        prefixes = (
+            f"certificacion/{company_id}/step2/run",
+            f"companies/{company_id}/certificacion/step2/run",
+        )
+        runs = set()
+        for prefix in prefixes:
+            for blob in bucket.list_blobs(prefix=prefix):
+                match = re.search(r"/run(\d+)(?:/|$)", blob.name)
+                if match:
+                    runs.add(match.group(1))
+        if runs:
+            return max(runs, key=lambda value: int(value)), None
+    return requested_run, requested_dir
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -536,7 +536,8 @@ def send_portal_credentials(client_id):
         return jsonify({"success": False, "error": "Este cliente no tiene un correo registrado."}), 400
 
     # URL del portal global: solo la ruta base (el cliente inicia sesión con RNC + contraseña).
-    portal_url = (current_app.config.get('CLIENTS_PORTAL_BASE_URL', 'https://clientes.vykcore.com') or '').rstrip('/')
+    from app.utils.security import build_clients_portal_url
+    portal_url = build_clients_portal_url()
 
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     company_name = company.get('tradeName') or company.get('companyName') or get_product_name()
@@ -763,9 +764,8 @@ def client_detail(client_id):
     if not client_insight:
         client_insight = {"type": "success", "text": "Cliente sin anomalías detectadas. Perfil de compras estable."}
 
-    from app.utils.security import generate_portal_token, build_clients_portal_url
-    token = generate_portal_token(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
-    portal_url = build_clients_portal_url(token)
+    from app.utils.security import build_clients_portal_url
+    portal_url = build_clients_portal_url()
 
     # Detectar campos relevantes faltantes para operaciones
     operational_fields = [

@@ -80,14 +80,15 @@ def decode_portal_token(token):
         print(f"Error decodificando token de portal: {e}")
         return None
 
-def build_clients_portal_url(token):
-    """Construye la URL del portal global de clientes a partir de un token firmado.
+def build_clients_portal_url(token=None):
+    """Retorna la URL base del portal global de clientes.
 
-    Los enlaces de acceso deben apuntar al dominio independiente (clientes.vykcore.com),
-    no al portal interno del ERP. Ambos servicios comparten PORTAL_TOKEN_SECRET.
+    Los enlaces de acceso apuntan al dominio independiente (clientes.vykcore.com);
+    el cliente inicia sesión con RNC/Cédula y contraseña. El parámetro `token` se
+    conserva por compatibilidad y se ignora (ya no se generan enlaces tokenizados).
     """
     base_url = (current_app.config.get('CLIENTS_PORTAL_BASE_URL') or 'https://clientes.vykcore.com').rstrip('/')
-    return f"{base_url}/portal/p/{token}"
+    return base_url
 
 
 def get_field_cipher():

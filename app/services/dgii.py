@@ -5,7 +5,7 @@ from pathlib import Path
 
 import requests
 
-RNC_LOOKUP_API_URL = "https://api-dgii.dominicantechnology.com/api/v1/rnc/{rnc}"
+RNC_LOOKUP_API_URL = "https://rnc.megaplus.com.do/api/consulta?rnc={rnc}"
 
 
 def _default_rnc_file_path():
@@ -116,7 +116,7 @@ class DGIIService:
             else:
                 expected = 11 - remainder
             if expected != check_digit:
-                return {"error": True, "verified": False, "message": "RNC invalido: el digito verificador no coincide."}
+                return {"error": False, "verified": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "regimen_normalized": "", "estado": "", "categoria": "", "source": "local", "message": "RNC: el digito verificador no coincide."}
             return {"error": False, "verified": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "regimen_normalized": "", "estado": "", "categoria": "", "source": "local"}
 
         elif len(clean_rnc) == 11:
@@ -134,7 +134,7 @@ class DGIIService:
             next_ten = ((total + 9) // 10) * 10
             expected = next_ten - total
             if expected != check_digit:
-                return {"error": True, "verified": False, "message": "Cedula invalida: el digito verificador no coincide."}
+                return {"error": False, "verified": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "regimen_normalized": "", "estado": "", "categoria": "", "source": "local", "message": "Cedula: el digito verificador no coincide."}
             return {"error": False, "verified": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "regimen_normalized": "", "estado": "", "categoria": "", "source": "local"}
 
         return {"error": True, "verified": False, "message": "Formato de RNC/Cedula invalido. Debe tener 9 u 11 digitos sin guiones."}
@@ -155,13 +155,13 @@ class DGIIService:
 
         remote_record = cls._fetch_rnc_remote(clean_rnc)
         if remote_record:
-            return cls._build_lookup_result(clean_rnc, remote_record, "dominicantechnology")
+            return cls._build_lookup_result(clean_rnc, remote_record, "megaplus")
 
         return cls._validate_rnc_local(clean_rnc)
 
     @staticmethod
     def _fetch_rnc_remote(clean_rnc):
-        """Consulta el padrón vía API externa. Devuelve dict normalizado o None."""
+        """Consulta el padrón vía API externa (Mega Plus). Devuelve dict normalizado o None."""
         url = RNC_LOOKUP_API_URL.format(rnc=clean_rnc)
         try:
             response = requests.get(url, timeout=10, headers={"Accept": "application/json"})
@@ -176,21 +176,20 @@ class DGIIService:
         except ValueError:
             return None
 
-        if not isinstance(payload, dict) or not payload.get("exito"):
+        if not isinstance(payload, dict) or payload.get("error") is not False:
             return None
 
-        data = payload.get("data") or {}
-        razon_social = str(data.get("razon_social") or "").strip()
+        razon_social = str(payload.get("nombre_razon_social") or "").strip()
         if not razon_social:
             return None
 
         return {
             "razon_social": razon_social,
-            "nombre_comercial": data.get("nombre_comercial", ""),
-            "actividad": data.get("actividad_economica", ""),
-            "fecha_inicio": data.get("fecha_inicio", ""),
-            "estado": data.get("estado", ""),
-            "regimen": data.get("regimen_pago", ""),
+            "nombre_comercial": payload.get("nombre_comercial", ""),
+            "actividad": payload.get("actividad_economica", ""),
+            "fecha_inicio": "",
+            "estado": payload.get("estado", ""),
+            "regimen": payload.get("regimen_de_pagos", ""),
         }
 
     @classmethod

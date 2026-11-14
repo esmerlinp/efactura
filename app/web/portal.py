@@ -2358,8 +2358,8 @@ def portal_admin():
     for c in clients:
         portal_email = c.get('companyEmail') or c.get('email')
         if portal_email and portal_enabled:
-            portal_base_url = current_app.config.get('CLIENTS_PORTAL_BASE_URL', 'https://clientes.vykcore.com').rstrip('/')
-            portal_url = f"{portal_base_url}/"
+            from app.utils.security import build_clients_portal_url
+            portal_url = build_clients_portal_url()
             portal_clients.append({
                 'id': c['id'],
                 'razonSocial': c.get('razonSocial', ''),

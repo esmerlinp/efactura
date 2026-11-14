@@ -441,7 +441,8 @@
 
         const actions = [];
         if (res && res.success) {
-            actions.push(`<a class="st2-icon-btn" href="/api/v1/certificacion/step-2/download/${c.encf}?run=${globalDataState ? globalDataState.run_number : currentStep2Run}"><i class="fa-solid fa-download"></i> XML</a>`);
+            const downloadRun = globalDataState?.run_number || currentStep2Run;
+            actions.push(`<a class="st2-icon-btn" href="/api/v1/certificacion/step-2/download/${c.encf}?run=${downloadRun}"><i class="fa-solid fa-download"></i> XML</a>`);
         }
         if (gNum === 4 && res && res.success) {
             actions.push(subido
@@ -670,7 +671,12 @@
     }
 
     function downloadAllStep2() {
-        window.open(`/api/v1/certificacion/step-2/download-all?run=${currentStep2Run}`, "_blank");
+        const run = globalDataState ? globalDataState.run_number : currentStep2Run;
+        if (!run) {
+            showToast("No hay una corrida disponible para descargar", "warning");
+            return;
+        }
+        window.open(`/api/v1/certificacion/step-2/download-all?run=${run}`, "_blank");
     }
 
     /* ── Historial ── */
