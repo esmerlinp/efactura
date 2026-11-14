@@ -244,7 +244,7 @@
                         {% elif invoice.dgiiStatus == 'CONTINGENCY' or (invoice.emisionMode == 'FALLBACK' and not invoice.isSyncedWithDGII) %}
                         <span class="badge badge-warning" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(245, 158, 11, 0.15); color: #d97706;" title="Emitido en contingencia (pendiente de sincronizar con DGII)"><i class="fa-solid fa-triangle-exclamation" style="font-size: 0.65rem;"></i> DGII: Contingencia</span>
                         {% elif invoice.dgiiStatus in ['PENDING', 'PENDIENTE'] or invoice.status == 'Pendiente DGII' or (invoice.emisionMode == 'API' and not invoice.isSyncedWithDGII and invoice.encf and invoice.status != 'Anulada') %}
-                        <span class="badge" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(59, 130, 246, 0.15); color: #2563eb;" title="Comprobante enviado a DGII (esperando confirmación)"><i class="fa-solid fa-clock" style="font-size: 0.65rem;"></i> DGII: Pendiente</span>
+                        <span class="badge" id="dgii-status-badge" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(59, 130, 246, 0.15); color: #2563eb;" title="Comprobante enviado a DGII (esperando confirmación)"><i class="fa-solid fa-clock" style="font-size: 0.65rem;"></i> DGII: Pendiente</span>
                         {% elif invoice.dgiiStatus in ['CONDITIONAL', 'CONDICIONAL', 'ACEPTADO_CONDICIONAL'] %}
                         <span class="badge" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(99, 102, 241, 0.15); color: #6366f1;"><i class="fa-solid fa-circle-info" style="font-size: 0.65rem;"></i> DGII: Condicional</span>
                         {% elif invoice.encf %}
@@ -2965,6 +2965,39 @@ function closeDraftPaymentModal() {
                 }
             });
         }
+
+        (function pollDgiiStatus() {
+            const badge = document.getElementById('dgii-status-badge');
+            if (!badge) return;
+            const invoiceId = '{{ invoice.id }}';
+            const endpoint = '{{ url_for("web_invoices.invoice_dgii_status", invoice_id=invoice.id) }}';
+            const MAX_POLLS = 48;
+            let polls = 0;
+
+            const origHtml = badge.innerHTML;
+            badge.title = 'Verificando con DGII…';
+
+            const timer = setInterval(async () => {
+                polls += 1;
+                if (polls > MAX_POLLS) {
+                    clearInterval(timer);
+                    badge.innerHTML = origHtml;
+                    badge.title = 'Comprobante enviado a DGII (esperando confirmación)';
+                    return;
+                }
+                try {
+                    const resp = await fetch(endpoint, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' });
+                    if (!resp.ok) return;
+                    const data = await resp.json();
+                    if (data && data.terminal) {
+                        clearInterval(timer);
+                        location.reload();
+                    }
+                } catch (e) {
+                    // error de red: seguir intentando
+                }
+            }, 5000);
+        })();
 
     </script>
     {% endblock %}

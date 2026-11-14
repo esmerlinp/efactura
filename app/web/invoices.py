@@ -2286,6 +2286,83 @@ def update_invoice_status_ajax(invoice_id):
     DatabaseService.update_invoice_status_simple(owner_uid, invoice_id, new_status, company_id=company_id, sandbox=sandbox)
     return jsonify({'success': True})
 
+def _dgii_status_rate_limited(invoice, min_interval_seconds=5):
+    """Evita consultar a la DGII en cada poll del frontend (rate-limit ligero)."""
+    last = invoice.get('lastPendingCheckAt') or ''
+    if not last:
+        return True
+    try:
+        dt = datetime.fromisoformat(last)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        elapsed = (datetime.now(timezone.utc) - dt).total_seconds()
+        return elapsed >= min_interval_seconds
+    except (ValueError, TypeError):
+        return True
+
+@web_invoices_bp.route('/invoices/<invoice_id>/dgii-status', methods=['GET'])
+def invoice_dgii_status(invoice_id):
+    """Estado DGII en JSON para el auto-refresh del frontend (sin re-render de página)."""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    if not check_permission('canInvoice'):
+        return jsonify({'success': False, 'error': 'Sin permisos'}), 403
+
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
+    if not invoice:
+        return jsonify({'success': False, 'error': 'Factura no encontrada'}), 404
+
+    dgii_status = str(invoice.get('dgiiStatus') or '').strip().upper()
+    status = invoice.get('status') or ''
+    is_synced = bool(invoice.get('isSyncedWithDGII'))
+    emision_mode = str(invoice.get('emisionMode') or '')
+    track_id = invoice.get('trackId') or invoice.get('track_id') or ''
+
+    pending = dgii_status in ('PENDING', 'PENDIENTE') or (
+        emision_mode.upper() == 'API' and not is_synced
+        and bool(invoice.get('encf')) and status != 'Anulada'
+    )
+
+    if pending and track_id and _dgii_status_rate_limited(invoice):
+        try:
+            from app.services.contingency_sync_service import ContingencySyncService
+            company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+            if company:
+                invoice['lastPendingCheckAt'] = datetime.now(timezone.utc).isoformat()
+                res = DgiiDirectService.check_status(company, track_id, sandbox=sandbox)
+                outcome = ContingencySyncService._apply_status_resolution(
+                    owner_uid, invoice_id, invoice, res, sandbox=sandbox, company_id=company_id
+                )
+                if outcome == 'pending':
+                    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
+                refreshed = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
+                if refreshed:
+                    invoice = refreshed
+                    dgii_status = str(invoice.get('dgiiStatus') or '').strip().upper()
+                    status = invoice.get('status') or ''
+                    is_synced = bool(invoice.get('isSyncedWithDGII'))
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Error consultando estado DGII en vivo para %s: %s", invoice_id, e)
+
+    terminal = dgii_status in (
+        'ACCEPTED', 'ACEPTADO', 'ACCEPTED_PREVIOUSLY', 'REJECTED', 'RECHAZADO', 'CONTINGENCY'
+    )
+    return jsonify({
+        'success': True,
+        'invoiceId': invoice_id,
+        'dgiiStatus': dgii_status or 'PENDING',
+        'status': status,
+        'isSyncedWithDGII': is_synced,
+        'emisionMode': emision_mode,
+        'terminal': terminal,
+        'rejected': dgii_status in ('REJECTED', 'RECHAZADO'),
+    })
+
 def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     # Redirect professional quotations to the professional wizard
@@ -2574,6 +2651,31 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
         if not parsed_items:
             flash('Debes añadir al menos una partida a la factura.', 'error')
             return redirect(request.path)
+
+        # Validar existencia por almacén al crear facturas reales (no cotizaciones/proformas).
+        # Solo bloquea ítems tipo "Bien" que tengan inventario registrado y no alcancen la cantidad.
+        if document_type == 'invoice':
+            selected_warehouse_id = request.form.get('warehouseId', '').strip()
+            if selected_warehouse_id:
+                inventory_stock = DatabaseService.get_inventory_stock(owner_uid, company_id=company_id, sandbox=sandbox) or []
+                stock_by_item = {}
+                for st in inventory_stock:
+                    iid = str(st.get("itemId") or "")
+                    wid = str(st.get("warehouseId") or "")
+                    if iid and wid:
+                        stock_by_item.setdefault(iid, {})[wid] = float(st.get("quantity") or 0.0)
+                for it in parsed_items:
+                    if it.get("type") != "Bien":
+                        continue
+                    cid = str(it.get("catalogId") or it.get("id") or "")
+                    item_stocks = stock_by_item.get(cid)
+                    if item_stocks is None:
+                        continue
+                    qty = float(it.get("quantity") or 0.0)
+                    available = float(item_stocks.get(selected_warehouse_id, 0.0) or 0.0)
+                    if available + 1e-9 < qty:
+                        flash(f'El producto "{it.get("name")}" no tiene existencia suficiente en el almacén seleccionado (disponible: {available}).', 'error')
+                        return redirect(request.path)
 
         # Calcular totales exactos usando la lógica fiscal dgii_service
         calcs = DGIIService.calculate_invoice_totals(
@@ -3044,6 +3146,18 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
     projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
+
+    # Existencias por almacén para bloquear selección de productos agotados en el modal
+    inventory_stock = DatabaseService.get_inventory_stock(owner_uid, company_id=company_id, sandbox=sandbox) or []
+    stock_by_item = {}
+    for st in inventory_stock:
+        item_id = str(st.get("itemId") or "")
+        wh_id = str(st.get("warehouseId") or "")
+        if item_id and wh_id:
+            stock_by_item.setdefault(item_id, {})[wh_id] = float(st.get("quantity") or 0.0)
+    for it in catalog:
+        it["warehouse_stocks"] = stock_by_item.get(str(it.get("id") or ""), {})
+
     catalog_json = json.dumps(catalog)
     clients_json = json.dumps(clients)
 

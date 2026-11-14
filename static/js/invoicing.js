@@ -712,6 +712,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalProductFilter = document.getElementById('modal-product-filter');
     const modalProductListBody = document.getElementById('modal-product-list-body');
 
+    const getSelectedWarehouseId = () => {
+        const sel = document.getElementById('warehouse-select-side');
+        if (sel && sel.value) return sel.value;
+        const hidden = document.querySelector('[name=warehouseId]');
+        return hidden ? (hidden.value || '') : '';
+    };
+
+    const getAvailableStock = (p) => {
+        if (!p) return Infinity;
+        const type = String(p.type || '').trim().toLowerCase();
+        if (type === 'servicio' || type === 'service') return Infinity;
+        const ws = p.warehouse_stocks || {};
+        if (Object.keys(ws).length > 0) {
+            const raw = ws[getSelectedWarehouseId()];
+            const v = (raw === undefined || raw === null) ? 0 : parseFloat(raw);
+            return Number.isFinite(v) ? Math.max(0, v) : 0;
+        }
+        const total = parseFloat(p.totalStock || 0);
+        return Number.isFinite(total) ? Math.max(0, total) : 0;
+    };
+
     const renderProducts = (filterText = '') => {
         const query = filterText.toLowerCase().trim();
         const filtered = catalogItems.filter(p =>
@@ -731,12 +752,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     priceLabel = `${formatCurrencyDOP(listPrice)} <span style="font-size:0.7rem;color:var(--accent-emerald);font-weight:400;">(Lista)</span>`;
                 }
             }
+            const typeLabel = String(p.type || '').trim().toLowerCase() === 'servicio' || String(p.type || '').trim().toLowerCase() === 'service' ? 'Servicio' : 'Producto';
+            const stock = getAvailableStock(p);
+            const minStock = parseFloat(p.minStock || 0);
+            const isService = typeLabel === 'Servicio';
+            const stockOut = !isService && stock <= 0;
+            const stockLow = !isService && !stockOut && minStock > 0 && stock <= minStock;
+            const stockLabel = isService ? 'Servicio' :
+                stockOut ? 'Sin existencias' :
+                stockLow ? `${stock} und (bajo mín.)` :
+                `${stock} und disponible`;
+            const stockColor = stockOut ? 'var(--accent-red,#ef4444)' :
+                stockLow ? '#f59e0b' :
+                'var(--accent-emerald,#10b981)';
             return `
-            <tr class="product-select-row" data-id="${p.id}" data-name="${p.name}" data-price="${displayPrice}" data-itbis="${p.itbisRate}" data-code="${p.code || ''}" style="cursor:pointer;transition:background 0.15s;">
+            <tr class="product-select-row${stockOut ? ' is-out-of-stock' : ''}" data-id="${p.id}" data-name="${p.name}" data-price="${displayPrice}" data-itbis="${p.itbisRate}" data-code="${p.code || ''}" data-stock-out="${stockOut ? '1' : '0'}" style="cursor:${stockOut ? 'not-allowed' : 'pointer'};transition:background 0.15s;${stockOut ? 'opacity:0.5;' : ''}">
                 <td style="font-family: monospace; font-weight: 500;">${p.code || 'N/A'}</td>
                 <td>
                     <div style="font-weight: 500;">${p.name}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">${p.type === 'service' ? 'Servicio' : 'Producto'}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); display:flex; align-items:center; gap:6px;">
+                        <span>${typeLabel}</span>
+                        ${isService ? '' : `<span style="color:${stockColor}; font-weight:600;">${stockLabel}</span>`}
+                    </div>
                 </td>
                 <td style="text-align: right; font-weight: 500;">${priceLabel}</td>
                 <td style="text-align:center;">${parseFloat(p.itbisRate * 100)}%</td>
@@ -746,6 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalProductListBody.querySelectorAll('.product-select-row').forEach(row => {
             row.addEventListener('click', () => {
                 if (!activeProductRow) return;
+                if (row.getAttribute('data-stock-out') === '1') return;
                 const id = row.getAttribute('data-id');
                 const name = row.getAttribute('data-name');
                 const price = row.getAttribute('data-price');
@@ -847,6 +885,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     if (modalProductFilter) modalProductFilter.addEventListener('input', (e) => renderProducts(e.target.value));
+
+    const warehouseSelectSide = document.getElementById('warehouse-select-side');
+    if (warehouseSelectSide) {
+        warehouseSelectSide.addEventListener('change', () => {
+            if (productSearchModal && productSearchModal.style.display === 'flex') {
+                renderProducts(modalProductFilter ? modalProductFilter.value : '');
+            }
+        });
+    }
 
     // =========================================================================
     // AUTOCOMPLETADO INLINE PARA CLIENTE (sin necesidad de abrir modal)

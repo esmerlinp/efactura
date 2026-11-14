@@ -14,6 +14,12 @@ MAX_RETRY_ATTEMPTS = 20
 CONTINGENCY_WINDOW_HOURS = 72
 WARNING_THRESHOLD_HOURS = 48
 
+# Caché en memoria (por proceso) para la lista de owner UIDs. El job de
+# reconciliación corre cada minuto; re-leer `users` en cada corrida sería
+# costoso. La lista cambia raramente, así que 5 min de TTL es suficiente.
+_OWNER_UIDS_CACHE = {"data": None, "ts": 0.0}
+_OWNER_UIDS_CACHE_TTL = 300
+
 
 class ContingencySyncService:
 
@@ -191,6 +197,24 @@ class ContingencySyncService:
                         uids.add(doc.id)
         except Exception as e:
             logger.error(f"Error descubriendo Owner UIDs: {e}")
+        return uids
+
+    @classmethod
+    def _cached_owner_uids(cls, company_id=None):
+        """Descubre owner UIDs con caché en memoria (evita re-leer `users` en
+        cada corrida del job de reconciliación de 1 min). Si se filtra por
+        empresa, no se cachea (solo aplica al barrido global)."""
+        if company_id is not None:
+            return cls._discover_all_owner_uids(company_id=company_id)
+
+        import time
+        now = time.monotonic()
+        cached = _OWNER_UIDS_CACHE["data"]
+        if cached is not None and (now - _OWNER_UIDS_CACHE["ts"]) < _OWNER_UIDS_CACHE_TTL:
+            return cached
+        uids = cls._discover_all_owner_uids(company_id=company_id)
+        _OWNER_UIDS_CACHE["data"] = uids
+        _OWNER_UIDS_CACHE["ts"] = now
         return uids
 
     @classmethod
@@ -514,7 +538,7 @@ class ContingencySyncService:
     @classmethod
     def reconcile_all_companies(cls, company_id=None):
         logger.info("Iniciando reconciliación de facturas PENDING (API) para todas las empresas...")
-        owner_uids = cls._discover_all_owner_uids(company_id=company_id)
+        owner_uids = cls._cached_owner_uids(company_id=company_id)
         total_synced = total_rejected = total_pending = 0
         for owner_uid in owner_uids:
             for sandbox in (False, True):
