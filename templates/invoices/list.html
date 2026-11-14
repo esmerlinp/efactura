@@ -374,7 +374,7 @@ endblock %}
                             <i class="fa-solid fa-triangle-exclamation" style="font-size: 0.65rem;"></i> Contingencia
                         </span>
                         {% elif inv.dgiiStatus in ['PENDING', 'PENDIENTE'] or inv.status == 'Pendiente DGII' or (inv.emisionMode == 'API' and not inv.isSyncedWithDGII and inv.encf and inv.status != 'Anulada') %}
-                        <span class="badge" style="font-size: 0.65rem; background-color: rgba(59, 130, 246, 0.15); color: #2563eb; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" title="Comprobante enviado a DGII (esperando confirmación)">
+                        <span class="badge" data-dgii-pending="{{ inv.id }}" style="font-size: 0.65rem; background-color: rgba(59, 130, 246, 0.15); color: #2563eb; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" title="Comprobante enviado a DGII (esperando confirmación)">
                             <i class="fa-solid fa-clock" style="font-size: 0.65rem;"></i> Pendiente
                         </span>
                         {% elif inv.dgiiStatus in ['CONDITIONAL', 'CONDICIONAL', 'ACEPTADO_CONDICIONAL'] %}
@@ -902,6 +902,34 @@ endblock %}
                         cb.checked = selectAllCheckbox.checked;
                     });
                 });
+            }
+
+            // Auto-refresh de filas con estado DGII Pendiente: consulta ligera y
+            // recarga la página cuando alguna resuelve a un estado terminal.
+            const pendingBadges = document.querySelectorAll('[data-dgii-pending]');
+            if (pendingBadges.length > 0) {
+                const pendingIds = Array.from(pendingBadges).map(el => el.getAttribute('data-dgii-pending'));
+                const baseEndpoint = (id) => '/invoices/' + encodeURIComponent(id) + '/dgii-status';
+                let polls = 0;
+                const MAX_POLLS = 12;
+                const timer = setInterval(async () => {
+                    polls += 1;
+                    if (polls > MAX_POLLS) { clearInterval(timer); return; }
+                    try {
+                        for (const id of pendingIds) {
+                            const resp = await fetch(baseEndpoint(id), { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' });
+                            if (!resp.ok) continue;
+                            const data = await resp.json();
+                            if (data && data.terminal) {
+                                clearInterval(timer);
+                                location.reload();
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        // error de red: seguir intentando
+                    }
+                }, 10000);
             }
         });
 </script>

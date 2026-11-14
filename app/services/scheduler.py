@@ -259,7 +259,7 @@ def run_contingency_sync():
 
 
 def run_dgii_pending_reconciliation():
-    """Job cada 30 min: reconcilia facturas emitidas en modo API cuyo estado DGII
+    """Job cada 1 min: reconcilia facturas emitidas en modo API cuyo estado DGII
     quedó PENDING, consultando el resultado final (check_status) sin re-emitir."""
     from app.services.contingency_sync_service import ContingencySyncService
     logger.info("🔄 APScheduler — Iniciando reconciliación de facturas PENDING (API)...")
@@ -619,7 +619,7 @@ def init_scheduler(app):
 
     _scheduler.add_job(
         func=monitored_dgii_pending_reconciliation,
-        trigger=CronTrigger(minute="*/30"),
+        trigger=CronTrigger(minute="*/1"),
         id="dgii_pending_reconciliation",
         name="Reconciliación de Facturas PENDING (API) ante DGII",
         replace_existing=True,
