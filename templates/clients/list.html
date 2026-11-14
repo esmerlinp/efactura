@@ -54,9 +54,9 @@
     </select>
     {% endif %}
     <div class="btn-group">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="openImportModal()">
+        <a href="{{ url_for('web_clients.clients_import') }}" class="btn btn-secondary btn-sm">
             <i class="fa-solid fa-file-import"></i> Importar CSV
-        </button>
+        </a>
         <button type="button" class="btn btn-ghost btn-sm" onclick="exportToCSV()">
             <i class="fa-solid fa-download"></i> Exportar CSV
         </button>

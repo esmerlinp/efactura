@@ -5468,9 +5468,8 @@ def send_quotation_to_client(invoice_id):
             session['pin_missing_client'] = invoice['clientId']
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
-        from app.utils.security import generate_portal_token, build_clients_portal_url
-        token = generate_portal_token(owner_uid, invoice['clientId'], sandbox=sandbox, company_id=company_id, doc_id=invoice_id)
-        portal_link = build_clients_portal_url(token)
+        from app.utils.security import build_clients_portal_url
+        portal_link = build_clients_portal_url()
         brand_color = company.get("colorMarca", "#1e3a8a")
         
         html_body = f"""
@@ -12573,18 +12572,11 @@ def cxc_dashboard():
 
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
 
-    # Enlace tokenizado del portal por factura (para recordatorios por WhatsApp)
-    from app.utils.security import generate_portal_token, build_clients_portal_url
+    # Enlace del portal global por factura (recordatorios por WhatsApp)
+    from app.utils.security import build_clients_portal_url
+    portal_url = build_clients_portal_url()
     for inv in cxc_invoices:
-        try:
-            inv['portalUrl'] = build_clients_portal_url(
-                generate_portal_token(
-                    owner_uid, inv.get('clientId'), sandbox=sandbox,
-                    company_id=company_id, doc_id=inv.get('id')
-                )
-            )
-        except Exception:
-            inv['portalUrl'] = ''
+        inv['portalUrl'] = portal_url
 
     return render_template(
         'cxc/dashboard.html',
@@ -12831,9 +12823,8 @@ def send_invoice_cxc_reminder(invoice_id, method):
         return jsonify({"success": False, "message": "No se especificó contacto de destino."}), 400
         
     from app.services.notifications import NotificationService
-    from app.utils.security import generate_portal_token, build_clients_portal_url
-    token = generate_portal_token(owner_uid, invoice.get('clientId'), sandbox=sandbox, company_id=company_id, doc_id=invoice.get('id'))
-    portal_url = build_clients_portal_url(token)
+    from app.utils.security import build_clients_portal_url
+    portal_url = build_clients_portal_url()
     
     success, message = NotificationService.send_cxc_reminder(
         owner_uid=owner_uid,

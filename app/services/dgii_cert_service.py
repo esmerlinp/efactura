@@ -38,7 +38,7 @@ def _now():
 
 
 def _get_evidence_dir(company_id, step, run_number):
-    return f"uploads/certificacion/{company_id}/step{step}/run{run_number}"
+    return os.path.abspath(f"uploads/certificacion/{company_id}/step{step}/run{run_number}")
 
 
 def _ensure_dir(path):
@@ -724,6 +724,21 @@ class DgiiCertService:
                     f.write(signed_xml)
                 case_result["signed_xml_path"] = signed_path
 
+                # Persist certification evidence outside Cloud Run's ephemeral disk.
+                try:
+                    from app.services import db_service
+                    bucket = db_service.firebase_storage_bucket
+                    if bucket:
+                        prefix = f"certificacion/{company_id}/step2/run{run_number}/xml/"
+                        bucket.blob(prefix + os.path.basename(raw_path)).upload_from_string(
+                            raw_xml, content_type="application/xml"
+                        )
+                        bucket.blob(prefix + os.path.basename(signed_path)).upload_from_string(
+                            signed_xml, content_type="application/xml"
+                        )
+                except Exception as storage_error:
+                    print(f"Warning: no se pudo persistir evidencia de certificacion: {storage_error}")
+
                 if dry_run:
                     case_result["success"] = True
                     case_result["dry_run"] = True
@@ -737,6 +752,15 @@ class DgiiCertService:
                     with open(manual_path, "wb") as f:
                         f.write(full_signed_xml)
                     case_result["signed_xml_path"] = manual_path
+                    try:
+                        from app.services import db_service
+                        bucket = db_service.firebase_storage_bucket
+                        if bucket:
+                            bucket.blob(
+                                f"certificacion/{company_id}/step2/run{run_number}/{os.path.basename(manual_path)}"
+                            ).upload_from_string(full_signed_xml, content_type="application/xml")
+                    except Exception as storage_error:
+                        print(f"Warning: no se pudo persistir XML manual: {storage_error}")
                     case_result["success"] = True
                     case_result["codigo_seguridad"] = codigo_seg
                     nota = "Subir manualmente en portal DGII > Facturas de consumo < 250Mil"

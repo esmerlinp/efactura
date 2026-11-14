@@ -30,10 +30,17 @@ def test_erp_roundtrip_still_works(app):
     assert decoded["company_id"] == "comp-1"
 
 
-def test_build_clients_portal_url_points_to_global_domain(app):
+def test_build_clients_portal_url_returns_base_without_token(app):
+    with app.app_context():
+        url = build_clients_portal_url()
+        base = (app.config.get("CLIENTS_PORTAL_BASE_URL") or "https://clientes.vykcore.com").rstrip("/")
+    assert url == base
+    assert "/portal/p/" not in url
+
+
+def test_build_clients_portal_url_ignores_legacy_token_argument(app):
     with app.app_context():
         token = generate_portal_token("u1", "c1", sandbox=True, company_id="comp-1")
         url = build_clients_portal_url(token)
         base = (app.config.get("CLIENTS_PORTAL_BASE_URL") or "https://clientes.vykcore.com").rstrip("/")
-    assert url.startswith(f"{base}/portal/p/")
-    assert url.endswith(token)
+    assert url == base

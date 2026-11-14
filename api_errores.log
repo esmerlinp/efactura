@@ -4047,3 +4047,129 @@ Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corrie
 Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
 
 ------------------------------------------------------------
+[2026-11-13 17:37:19] ERROR API:
+Ruta: GET /api/v1/certificacion/step-2/download/E320000000011
+HTTP Code: 404
+Payload: 
+Response: {"error":"XML no encontrado para E320000000011","run":"1"}
+
+------------------------------------------------------------
+[2026-11-13 17:38:56] ERROR API:
+Ruta: POST /api/v1/certificacion/step-2/generate
+HTTP Code: 400
+Payload: {"parsed_data":null,"dry_run":false,"groups":[4],"resume_run":true,"force_rerun":true}
+Response: {"error":"Debe subir el Excel primero"}
+
+------------------------------------------------------------
+[2026-11-13 17:39:01] ERROR API:
+Ruta: GET /api/v1/certificacion/step-2/download/E320000000011
+HTTP Code: 404
+Payload: 
+Response: {"error":"XML no encontrado para E320000000011","run":"undefined"}
+
+------------------------------------------------------------
+[2026-11-13 17:40:44] ERROR API:
+Ruta: GET /api/v1/certificacion/step-2/download/E320000000011
+HTTP Code: 404
+Payload: 
+Response: {"error":"XML no encontrado para E320000000011","run":"1"}
+
+------------------------------------------------------------
+[2026-11-13 17:42:33] ERROR API:
+Ruta: GET /api/v1/certificacion/step-2/download/E320000000011
+HTTP Code: 404
+Payload: 
+Response: {"error":"XML no encontrado para E320000000011","run":"1"}
+
+------------------------------------------------------------
+[2026-11-13 17:44:43] ERROR API:
+Ruta: GET /api/v1/certificacion/step-2/download/E320000000011
+HTTP Code: 404
+Payload: 
+Response: {"error":"XML no encontrado para E320000000011","run":"1"}
+
+------------------------------------------------------------
+[2026-11-13 17:46:35] ERROR API:
+Ruta: GET /api/v1/certificacion/step-2/download/E320000000011
+HTTP Code: 404
+Payload: 
+Response: {"error":"XML no encontrado para E320000000011","run":"1"}
+
+------------------------------------------------------------
+[2026-11-13 17:48:11] ERROR API:
+Ruta: GET /api/v1/certificacion/step-2/download/E320000000011
+HTTP Code: 404
+Payload: 
+Response: {"company_id":"456bbc3e-6dca-4c3c-8ba2-94bb7a89a5cf","error":"XML no encontrado para E320000000011","local_company_dir_exists":false,"run":"1","storage_available":true,"upload_root":"/Users/epaniagua/Library/CloudStorage/OneDrive-Personal/VykCore/VykOne/vykone/e-FacturaWeb/uploads"}
+
+------------------------------------------------------------
+[2026-11-13 17:49:12] ERROR API:
+Ruta: GET /api/v1/certificacion/step-2/download/E320000000011
+HTTP Code: 500
+Payload: 
+Response: {"detail":"name '_find_any_step2_xml' is not defined","error":"No se pudo descargar el XML"}
+
+------------------------------------------------------------
+[2026-11-13 18:03:08] ERROR API:
+Ruta: POST /api/v1/certificacion/step-2/generate
+HTTP Code: 400
+Payload: {"parsed_data":null,"dry_run":false,"groups":[1],"resume_run":true,"force_rerun":true}
+Response: {"error":"Debe subir el Excel primero"}
+
+------------------------------------------------------------
+[2026-11-13 18:04:39] ERROR API:
+Ruta: POST /api/v1/certificacion/step-2/generate
+HTTP Code: 400
+Payload: {"parsed_data":null,"dry_run":false,"groups":[1],"resume_run":true,"force_rerun":true}
+Response: {"error":"Debe subir el Excel primero"}
+
+------------------------------------------------------------
+[2026-11-14 07:39:13] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-14 07:39:21] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"bankAccounts": [{"accountNumber": "798123456", "accountType": "Corriente", "bank": "Banco Popular Dominicano", "currency": "DOP", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": "Favor colocar no. de cotizaci\u00f3n como referencia"}, {"accountNumber": "2409876543", "accountType": "Ahorros", "bank": "Banreservas", "currency": "USD", "holderName": "Empresa Dominicana SRL", "holderRnc": "131880681", "notes": ""}], "items": [{"code": "SRV1", "discountRate": 0, "itbisRate": 0.18, "name": "Consultor\u00eda Especializada", "price": 50000.0, "quantity": 1}], "subject": "Implementaci\u00f3n de Sistema ERP"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-14 07:41:06] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-14 07:41:06] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-14 07:41:15] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-14 07:41:27] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD0", "discountRate": 0, "itbisRate": 0, "name": "Servicio Exento", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Exenta"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------
+[2026-11-14 07:41:27] ERROR API:
+Ruta: POST /api/quotations/preview
+HTTP Code: 403
+Payload: {"items": [{"code": "PROD18", "discountRate": 0, "itbisRate": 0.18, "name": "Servicio Gravado", "price": 1000.0, "quantity": 1}], "subject": "Propuesta Gravada"}
+Response: {"code":"PRODUCTION_AGREEMENT_REQUIRED","error":"Debes completar la aceptaci\u00f3n contractual para continuar.","success":false}
+
+------------------------------------------------------------

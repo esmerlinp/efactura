@@ -554,9 +554,8 @@ def contact_detail(contact_id):
     if not client_insight:
         client_insight = {"type": "success", "text": "Contacto sin anomalías detectadas. Perfil estable."}
 
-    from app.utils.security import generate_portal_token, build_clients_portal_url
-    token = generate_portal_token(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
-    portal_url = build_clients_portal_url(token)
+    from app.utils.security import build_clients_portal_url
+    portal_url = build_clients_portal_url()
 
     global_account_id = contact.get("customerId")
     if not global_account_id and contact.get("rnc"):
@@ -901,9 +900,8 @@ def send_contact_portal_credentials(contact_id):
     if not recipient_email:
         return jsonify({"success": False, "error": "Este contacto no tiene un correo registrado."}), 400
 
-    from app.utils.security import generate_portal_token, build_clients_portal_url
-    token = generate_portal_token(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
-    portal_url = build_clients_portal_url(token)
+    from app.utils.security import build_clients_portal_url
+    portal_url = build_clients_portal_url()
 
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     company_name = company.get('tradeName') or company.get('companyName') or get_product_name()

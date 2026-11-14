@@ -457,6 +457,12 @@ def create_app():
                             'web_import_mapper.upload_file',
                             'web_import_mapper.ai_suggest_mapping',
                             'web_import_mapper.process_import',
+                            'web_clients.clients_import',
+                            'web_clients.clients_import_template',
+                            'web_clients.clients_import_upload',
+                            'web_clients.clients_import_ai_suggest',
+                            'web_clients.clients_import_process',
+                            'web_clients.clients_import_status',
                             'web_auth.logout',
                             'web_auth.toggle_sandbox',
                             'web_auth.select_company',
@@ -645,6 +651,12 @@ def create_app():
                         'web_import_mapper.upload_file',
                         'web_import_mapper.ai_suggest_mapping',
                         'web_import_mapper.process_import',
+                        'web_clients.clients_import',
+                        'web_clients.clients_import_template',
+                        'web_clients.clients_import_upload',
+                        'web_clients.clients_import_ai_suggest',
+                        'web_clients.clients_import_process',
+                        'web_clients.clients_import_status',
                         None
                     ]
                     # Incluir endpoints de validación de entornos también para no interferir
@@ -1192,6 +1204,9 @@ def create_app():
     # Registra las rutas del asistente de importación de artículos sobre web_invoices_bp
     # antes de registrar el blueprint (las rutas se adjuntan al importar el módulo).
     from app.web import items_import  # noqa: E402,F401
+
+    # Registra las rutas del asistente de importación de clientes sobre web_clients_bp.
+    from app.web import clients_import  # noqa: E402,F401
 
     app.register_blueprint(web_herramientas_bp)
     app.register_blueprint(web_auth_bp)

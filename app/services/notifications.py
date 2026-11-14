@@ -24,11 +24,10 @@ class NotificationService:
         invoice_number = invoice.get("invoiceNumber", f"ID: {invoice.get('id')}")
         due_date = invoice.get("dueDate", "")
         
-        # Construir URL del portal global si no viene especificado
+        # URL del portal global si no viene especificado
         if not portal_url:
-            from app.utils.security import generate_portal_token, build_clients_portal_url
-            token = generate_portal_token(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
-            portal_url = build_clients_portal_url(token)
+            from app.utils.security import build_clients_portal_url
+            portal_url = build_clients_portal_url()
 
         client_pin = ""
         try:
@@ -570,9 +569,8 @@ class NotificationService:
 
         portal_link = ""
         if client_id:
-            from app.utils.security import generate_portal_token, build_clients_portal_url
-            token = generate_portal_token(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
-            portal_link = build_clients_portal_url(token)
+            from app.utils.security import build_clients_portal_url
+            portal_link = build_clients_portal_url()
 
         is_approved = action == 'aprobado'
         icon = "✅" if is_approved else "❌"

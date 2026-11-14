@@ -60,26 +60,46 @@ class TestRncLookupRegimen:
         monkeypatch.setenv("DGII_RNC_FILE", str(padron))
         response = Mock(status_code=200)
         response.json.return_value = {
-            "exito": True,
-            "data": {
-                "rnc": "131880681",
-                "razon_social": "DOCUMENTOS ELECTRONICOS DE 03",
-                "actividad_economica": "OPERADORAS DE ZONAS FRANCAS",
-                "fecha_inicio": "22/01/2019",
-                "estado": "ACTIVO",
-                "regimen_pago": "NORMAL",
-            },
+            "error": False,
+            "codigo_http": 200,
+            "cedula_rnc": "131-88068-1",
+            "nombre_razon_social": "DOCUMENTOS ELECTRONICOS DE 03",
+            "nombre_comercial": "DOCUMENTOS ELECTRONICOS 03",
+            "categoria": "",
+            "regimen_de_pagos": "NORMAL",
+            "estado": "ACTIVO",
+            "actividad_economica": "OPERADORAS DE ZONAS FRANCAS",
+            "rnc_consultado": "131880681",
         }
 
         with patch("app.services.dgii.requests.get", return_value=response):
             result = DGIIService.validate_and_fetch_rnc("131880681")
 
         assert result["verified"] is True
-        assert result["source"] == "dominicantechnology"
+        assert result["source"] == "megaplus"
         assert result["razon_social"] == "DOCUMENTOS ELECTRONICOS DE 03"
         assert result["regimen"] == "NORMAL"
         assert result["regimen_normalized"] == "ordinary"
         assert result["categoria"] == "NORMAL"
+
+    def test_api_not_found_falls_back_to_checksum_warning(self, tmp_path, monkeypatch):
+        padron = tmp_path / "DGII_RNC.txt"
+        padron.write_text("", encoding="iso-8859-1")
+        monkeypatch.setenv("DGII_RNC_FILE", str(padron))
+        response = Mock(status_code=404)
+        response.json.return_value = {
+            "error": True,
+            "codigo_http": 404,
+            "mensaje": "el rnc/cedula consultado no se encuentra inscrito como contribuyente.",
+            "rnc_consultado": "131880681",
+        }
+
+        with patch("app.services.dgii.requests.get", return_value=response):
+            result = DGIIService.validate_and_fetch_rnc("131880681")
+
+        assert result["error"] is False
+        assert result["verified"] is False
+        assert result["source"] == "local"
 
     def test_api_failure_returns_unverified_checksum(self, tmp_path, monkeypatch):
         padron = tmp_path / "DGII_RNC.txt"
