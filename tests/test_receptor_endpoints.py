@@ -661,6 +661,58 @@ def test_recepcion_ecf_multitenant_resolves_by_comprador_per_request(client):
         assert save.call_count == 2
 
 
+# ── Aprobación Comercial (ACECF) ───────────────────────────────────────────
+
+ACECF_XML = """<?xml version="1.0" encoding="utf-8"?>
+<ACECF><DetalleAprobacionComercial><Version>1.0</Version><RNCEmisor>131880681</RNCEmisor><eNCF>E340000000013</eNCF><FechaEmision>02-04-2020</FechaEmision><MontoTotal>917095.00</MontoTotal><RNCComprador>133753652</RNCComprador><Estado>1</Estado><FechaHoraAprobacionComercial>28-07-2026 18:17:55</FechaHoraAprobacionComercial></DetalleAprobacionComercial></ACECF>"""
+
+
+def _post_acecf(client, xml=ACECF_XML, headers=None):
+    return client.post(
+        "/fe/aprobacioncomercial/api/ecf",
+        data={"xml": (io.BytesIO(xml.encode("utf-8")), "acecf.xml")},
+        content_type="multipart/form-data",
+        headers=headers or _recepcion_headers(),
+    )
+
+
+def test_aprobacion_comercial_resolves_by_emisor_rnc(client):
+    token_doc = {
+        "token": "token-de-prueba",
+        "taxpayer_rnc": "00199999996",
+        "owner_uid": "",
+        "expires_at": "2999-01-01T00:00:00+00:00",
+    }
+    profile = {"companyRNC": "131880681", "companyName": "VENDEDOR SRL",
+               "certificateContent": "", "certificatePassword": ""}
+    with patch("app.api.v1.receptor.ReceptorRepository.get_token_global", return_value=token_doc), \
+            patch.object(ReceptorAuthService, "resolve_company_by_rnc",
+                         return_value=("owner-a", profile)) as resolve, \
+            patch("app.api.v1.receptor.ReceptorRepository.save_received_approval") as save:
+        resp = _post_acecf(client)
+        assert resp.status_code == 200
+        resolve.assert_called_once_with("131880681")
+        saved = save.call_args[0][1]
+        assert saved["sender_rnc"] == "133753652"
+        assert saved["receiver_rnc"] == "131880681"
+        assert saved["approval_rnc_comprador"] == "133753652"
+
+
+def test_aprobacion_comercial_unknown_emisor_returns_404(client):
+    unknown_seller = ACECF_XML.replace("131880681", "999999999")
+    token_doc = {
+        "token": "token-de-prueba",
+        "taxpayer_rnc": "00199999996",
+        "owner_uid": "",
+        "expires_at": "2999-01-01T00:00:00+00:00",
+    }
+    with patch("app.api.v1.receptor.ReceptorRepository.get_token_global", return_value=token_doc), \
+            patch.object(ReceptorAuthService, "resolve_company_by_rnc", return_value=(None, None)):
+        resp = _post_acecf(client, xml=unknown_seller)
+        assert resp.status_code == 404
+        assert "999999999" in resp.get_json()["error"]
+
+
 # ── Formato ARECF contra XSD oficial ───────────────────────────────────────
 
 def _sanitized_arecf_xsd():

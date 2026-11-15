@@ -307,7 +307,7 @@ def aprobacion_comercial():
     if error:
         return jsonify({"success": False, "error": error}), 400
     owner_uid, company, resolve_error = _resolve_receiver(
-        request, parsed.get("rnc_comprador", ""), ctx
+        request, parsed.get("rnc_emisor", ""), ctx
     )
     if resolve_error:
         return jsonify({"success": False, "error": resolve_error}), 404
@@ -316,8 +316,8 @@ def aprobacion_comercial():
     receiver_rnc = _normalize_rnc(company.get("companyRNC")) if company else ""
     receiver_name = company.get("companyName", "") if company else ""
     approval_document = {
-        "sender_rnc": parsed.get("rnc_emisor", ""),
-        "sender_name": parsed.get("razon_social_emisor", ""),
+        "sender_rnc": parsed.get("rnc_comprador", ""),
+        "sender_name": "",
         "receiver_rnc": receiver_rnc,
         "receiver_name": receiver_name,
         "encf": parsed.get("encf", ""),

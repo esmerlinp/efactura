@@ -80,6 +80,41 @@
 
     .tx-income { color: var(--accent-emerald); font-weight: 600; }
     .tx-expense { color: var(--accent-red); font-weight: 600; }
+
+    .movement-filters {
+        display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+        padding: 14px 16px; border-bottom: 1px solid var(--border-color);
+        background: var(--bg-card);
+    }
+    .movement-filter {
+        display: flex; flex-direction: column; gap: 5px; min-width: 150px;
+    }
+    .movement-filter label {
+        color: var(--text-muted); font-size: 0.68rem; font-weight: 700;
+        letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .movement-filter-control {
+        height: 34px; padding: 0 10px; border: 1px solid var(--border-color);
+        border-radius: 7px; background: var(--bg-input); color: var(--text-primary);
+        font-size: 0.82rem; outline: none;
+    }
+    .movement-filter-control:focus {
+        border-color: var(--accent-emerald);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+    }
+    .movement-filter--date { min-width: 145px; }
+    .movement-filter-actions { display: flex; align-items: center; gap: 8px; }
+    .movement-filter-actions .btn {
+        height: 34px; padding: 0 13px; display: inline-flex;
+        align-items: center; gap: 6px; font-size: 0.78rem;
+    }
+
+    @media (max-width: 640px) {
+        .movement-filters { align-items: stretch; }
+        .movement-filter, .movement-filter--date,
+        .movement-filter-actions { width: 100%; min-width: 0; }
+        .movement-filter-actions .btn { flex: 1; justify-content: center; }
+    }
 </style>
 
 <div class="breadcrumb">
@@ -144,11 +179,42 @@
     <div class="card-header">
         <i class="fa-solid fa-arrow-right-arrow-left"></i> Movimientos recientes
     </div>
+    <form method="get" action="{{ url_for('web_banks.bank_detail', account_id=account.id) }}" class="movement-filters">
+        <div class="movement-filter">
+            <label for="movement-type"><i class="fa-solid fa-filter"></i> Tipo</label>
+            <select id="movement-type" name="type" class="movement-filter-control">
+                <option value="" {% if not type_filter %}selected{% endif %}>Todos</option>
+                <option value="income" {% if type_filter == 'income' %}selected{% endif %}>Ingresos</option>
+                <option value="expense" {% if type_filter == 'expense' %}selected{% endif %}>Gastos</option>
+                <option value="transfer_in" {% if type_filter == 'transfer_in' %}selected{% endif %}>Transferencias recibidas</option>
+                <option value="transfer_out" {% if type_filter == 'transfer_out' %}selected{% endif %}>Transferencias enviadas</option>
+            </select>
+        </div>
+        <div class="movement-filter movement-filter--date">
+            <label for="movement-date-from"><i class="fa-regular fa-calendar"></i> Desde</label>
+            <input id="movement-date-from" class="movement-filter-control" type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div class="movement-filter movement-filter--date">
+            <label for="movement-date-to"><i class="fa-regular fa-calendar"></i> Hasta</label>
+            <input id="movement-date-to" class="movement-filter-control" type="date" name="date_to" value="{{ date_to }}">
+        </div>
+        <div class="movement-filter-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-sliders"></i> Aplicar
+            </button>
+            {% if type_filter or date_from or date_to %}
+            <a href="{{ url_for('web_banks.bank_detail', account_id=account.id) }}" class="btn btn-secondary">
+                <i class="fa-solid fa-rotate-left"></i> Limpiar
+            </a>
+            {% endif %}
+        </div>
+    </form>
     <div style="overflow-x:auto;">
         <table class="rpt-table">
             <thead>
                 <tr>
                     <th>Fecha</th>
+                    <th>Tipo</th>
                     <th>Concepto</th>
                     <th>Referencia</th>
                     <th>Monto</th>
@@ -159,6 +225,12 @@
                 {% for tx in transactions %}
                 <tr>
                     <td>{{ tx.date }}</td>
+                    <td>
+                        {% if tx.type == 'income' %}Ingreso
+                        {% elif tx.type == 'expense' %}Gasto
+                        {% elif tx.type == 'transfer_in' %}Transferencia recibida
+                        {% else %}Transferencia enviada{% endif %}
+                    </td>
                     <td>
                         {% if tx.invoiceId and tx.type == 'income' %}
                         <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=tx.invoiceId) }}">{{ tx.concept }}</a>
@@ -176,7 +248,7 @@
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="4" style="padding:24px; text-align:center; color:var(--text-muted);">
+                    <td colspan="5" style="padding:24px; text-align:center; color:var(--text-muted);">
                         No hay movimientos registrados para esta cuenta.
                     </td>
                 </tr>

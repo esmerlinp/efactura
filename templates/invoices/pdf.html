@@ -28,6 +28,8 @@
         });
     </script>
     {% endif %}
+
+    {% set is_draft = not invoice.encf or invoice.status == 'Borrador' %}
     <style>
         @page {
             margin: 8mm 10mm;
@@ -557,6 +559,11 @@
         {% if sandbox %}
         <div class="sandbox-watermark">SIN VALOR COMERCIAL</div>
         {% endif %}
+        {% if is_draft %}
+        <div style="position: absolute; top: 18px; left: 20px; right: 20px; padding: 8px 12px; border: 2px solid #b45309; color: #92400e; background: rgba(254, 243, 199, 0.92); text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 0.08em;">
+            DOCUMENTO BORRADOR - SIN VALIDEZ FISCAL
+        </div>
+        {% endif %}
 
         <!-- Encabezado de Empresa y Número de Documento -->
         {% set _logo = logo_src(company) %}
@@ -580,7 +587,7 @@
                 <p style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><strong>Fecha Emisión:</strong> {{ invoice.date | format_date }}{% if invoice.date|length > 10 %} {{ invoice.date[11:16] }}{% endif %}</p>
             </div>
             <div class="document-block" style="text-align: right;">
-                {% if invoice.encf %}
+                {% if invoice.encf and not is_draft %}
                 <div style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
                     {{ invoice.ecfType | ecf_label }}</div>
                 <div class="doc-number" style="font-size: 13px; font-weight: normal; color: #111827;">e-NCF: {{
@@ -606,12 +613,12 @@
                     invoice.invoiceNumber }}</div>
                 {% endif %}
 
-                {% if invoice.ecfType and (invoice.ecfType | ecf_has_vencimiento) %}
+                {% if invoice.ecfType and (invoice.ecfType | ecf_has_vencimiento) and not is_draft %}
                 <div style="font-size: 11px; color: #111827; margin-top: 4px;">
                     <strong>Fecha Vencimiento:</strong> {{ (invoice.fechaVencimientoSecuencia or invoice.dueDate) | format_date }}
                 </div>
                 {% endif %}
-                {% if invoice.status != 'Emitida' %}
+                {% if invoice.status != 'Emitida' or is_draft %}
                 <div style="margin-top: 8px;">
                     <span class="badge badge-{{ 'voided' if invoice.status == 'Anulada' else 'draft' }}">{{
                         invoice.status }}</span>
@@ -712,7 +719,7 @@
         style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px;">
 
         <!-- Bloque QR DGII (Izquierda) -->
-        {% if invoice.encf %}
+        {% if invoice.encf and not is_draft %}
         <div class="qr-block" style="text-align: left; padding-bottom: 8px;">
             {% if qr_base64 %}
             <div style="padding: 3mm 3mm 3mm 0; background: white; display: inline-block;">
