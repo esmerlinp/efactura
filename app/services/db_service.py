@@ -4788,7 +4788,7 @@ class DatabaseService:
                         cls.save_bank_account(owner_uid, bank_account_id, {
                             **bank_acc,
                             "currentBalance": new_balance
-                        }, sandbox=sandbox)
+                        }, sandbox=sandbox, company_id=company_id)
                 except Exception as bank_err:
                     print(f"⚠️ Error al actualizar saldo de cuenta bancaria: {bank_err}")
 
@@ -4905,7 +4905,7 @@ class DatabaseService:
                         cls.save_bank_account(owner_uid, advance["bankAccountId"], {
                             **bank_acc,
                             "currentBalance": max(0.0, new_balance)
-                        }, sandbox=sandbox)
+                        }, sandbox=sandbox, company_id=company_id)
                 except Exception as bank_err:
                     print(f"⚠️ Error al revertir saldo de cuenta bancaria: {bank_err}")
             _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(advance_id).set(advance)

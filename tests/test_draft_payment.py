@@ -628,3 +628,111 @@ def test_new_invoice_excludes_inactive_catalog_items(client):
     html = response.data.decode('utf-8')
     assert 'Producto activo' in html
     assert 'Producto inactivo' not in html
+
+
+def test_register_invoice_payment_updates_selected_bank_account_with_company_scope():
+    """El cobro debe acreditar el saldo en la cuenta bancaria seleccionada,
+    guardándola en el ámbito de la empresa activa (company_id)."""
+    mock_doc = MagicMock()
+    mock_doc.exists = True
+    mock_doc.to_dict.return_value = {
+        "status": "Emitida",
+        "documentType": "invoice",
+        "netPayable": 1000.0,
+        "remainingBalance": 1000.0,
+        "totalPaid": 0.0,
+        "invoiceNumber": "E3100000001",
+        "isQuotation": False,
+        "dgiiStatus": "ACCEPTED",
+        "isSyncedWithDGII": True,
+        "stockReduced": True,
+        "items": [],
+    }
+    mock_ref = MagicMock()
+    mock_ref.get.return_value = mock_doc
+
+    saved = {}
+
+    def fake_save_bank_account(owner_uid, account_id, account_dict, sandbox=True, company_id=None):
+        saved["account_id"] = account_id
+        saved["company_id"] = company_id
+        saved["currentBalance"] = account_dict["currentBalance"]
+        return account_dict
+
+    with patch('app.services.db_service.firebase_initialized', True), \
+         patch('app.services.db_service._company_coll') as mock_coll, \
+         patch('app.services.db_service.DatabaseService.get_bank_account',
+               return_value={"id": "bank-1", "currentBalance": 500.0}), \
+         patch('app.services.db_service.DatabaseService.save_bank_account',
+               side_effect=fake_save_bank_account):
+        mock_coll.return_value.document.return_value = mock_ref
+
+        DatabaseService.register_invoice_payment(
+            "owner-1",
+            "inv-1",
+            {
+                "amount": 300.0,
+                "paymentMethod": "Transferencia",
+                "bank": "Banco Popular",
+                "referenceNumber": "REF-1",
+                "bankAccountId": "bank-1",
+            },
+            sandbox=True,
+            company_id="company-1",
+        )
+
+    assert saved["account_id"] == "bank-1"
+    assert saved["company_id"] == "company-1"
+    assert saved["currentBalance"] == 800.0
+
+
+def test_bank_detail_reads_payments_without_collection_group_indexes(client):
+    """El detalle de banco obtiene pagos desde cada factura/gasto y no usa
+    consultas collection_group que requieran índices de Firestore."""
+    from app.web import banks as banks_module
+
+    account_id = "bank-1"
+    invoice = {"id": "inv-1", "invoiceNumber": "E3100000001", "clientName": "Cliente Demo"}
+    expense = {"id": "exp-1", "concept": "Compra Demo"}
+    invoice_payment = {
+        "id": "pmt-1", "amount": 300.0, "paymentDate": "2026-11-01",
+        "referenceNumber": "REF-1", "bankAccountId": account_id,
+    }
+    cxp_payment = {
+        "id": "cxp-1", "amount": 125.0, "paymentDate": "2026-11-02",
+        "bankAccountId": account_id,
+    }
+    account = {"id": account_id, "name": "Cuenta Operativa", "type": "banco", "currentBalance": 800.0}
+
+    with patch.object(
+        banks_module.DatabaseService, 'get_invoices', return_value=[invoice]
+    ), patch.object(
+        banks_module.DatabaseService, 'get_invoice_payments', return_value=[invoice_payment]
+    ), patch.object(
+        banks_module.DatabaseService, 'get_expenses', return_value=[expense]
+    ), patch.object(
+        banks_module.DatabaseService, 'get_cxp_payments', return_value=[cxp_payment]
+    ):
+        transactions = banks_module._load_account_payment_transactions(
+            "test-owner", account_id, True, "company-1"
+        )
+
+    assert transactions == [
+        {
+            "date": "2026-11-01",
+            "type": "income",
+            "concept": "Pago E3100000001 — Cliente Demo",
+            "amount": 300.0,
+            "reference": "REF-1",
+            "invoiceId": "inv-1",
+        },
+        {
+            "date": "2026-11-02",
+            "type": "expense",
+            "concept": "Pago CxP: Compra Demo",
+            "amount": -125.0,
+            "reference": "",
+            "expenseId": "exp-1",
+            "invoiceId": "",
+        },
+    ]

@@ -204,6 +204,7 @@ class AccountingService:
 
     @classmethod
     def get_account_balance(cls, company_id, account_id, date_from=None, date_to=None, entries=None):
+        balance = 0.0
         if entries is not None:
             for entry in entries:
                 if entry.get("status") == "voided":
