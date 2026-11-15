@@ -6,12 +6,12 @@ from werkzeug.security import generate_password_hash
 
 from app.services.db_service import db_firestore, firebase_initialized
 
-
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class CustomerAccountService:
     COLLECTION = "customer_accounts"
+    IDENTITY_KEYS_COLLECTION = "customer_identity_keys"
 
     @staticmethod
     def normalize_rnc(value):
@@ -73,13 +73,15 @@ class CustomerAccountService:
         account_ref = db_firestore.collection(cls.COLLECTION)
         account = None
         account_id = None
-        matches = account_ref.where("rncNormalized", "==", rnc).limit(1).stream()
-        for doc in matches:
-            account = doc.to_dict() or {}
-            account_id = doc.id
-            break
-
         now = datetime.now(timezone.utc).isoformat()
+        identity_ref = db_firestore.collection(cls.IDENTITY_KEYS_COLLECTION).document(f"rnc_{rnc}")
+        identity = identity_ref.get()
+        if identity.exists:
+            account_id = (identity.to_dict() or {}).get("accountId")
+            if account_id:
+                account_doc = account_ref.document(account_id).get()
+                if account_doc.exists:
+                    account = account_doc.to_dict() or {}
         if not account:
             account_id = str(uuid.uuid4())
             account = {
@@ -94,14 +96,28 @@ class CustomerAccountService:
                 "createdAt": now,
                 "updatedAt": now,
             }
+            try:
+                identity_ref.create({"accountId": account_id, "identityType": "rnc", "identityValue": rnc, "createdAt": now})
+            except Exception:
+                # A concurrent request won the identity key; reuse its account.
+                identity = identity_ref.get()
+                account_id = (identity.to_dict() or {}).get("accountId") if identity.exists else None
+                if not account_id:
+                    raise
+                account_doc = account_ref.document(account_id).get()
+                account = account_doc.to_dict() if account_doc.exists else None
+                if not account:
+                    raise
+                return cls._ensure_membership(account_ref, account_id, owner_uid, company_id, sandbox, contact, now)
             account_ref.document(account_id).set(account)
         else:
-            account_ref.document(account_id).set({
-                "legalName": contact.get("razonSocial", ""),
-                "updatedAt": now,
-            }, merge=True)
+            account_ref.document(account_id).set({"legalName": contact.get("razonSocial", ""), "updatedAt": now}, merge=True)
 
-        membership_id = f"{company_id}_{contact['id']}_{int(bool(sandbox))}"
+        return cls._ensure_membership(account_ref, account_id, owner_uid, company_id, sandbox, contact, now)
+
+    @classmethod
+    def _ensure_membership(cls, account_ref, account_id, owner_uid, company_id, sandbox, contact, now):
+        membership_id = f"{company_id}_{int(bool(sandbox))}"
         portal_enabled = cls.company_portal_enabled(company_id)
         account_ref.document(account_id).collection("memberships").document(membership_id).set({
             "ownerUid": owner_uid,
@@ -122,9 +138,10 @@ class CustomerAccountService:
         normalized = cls.normalize_rnc(rnc)
         if not normalized:
             return None
-        docs = db_firestore.collection(cls.COLLECTION).where(
-            "rncNormalized", "==", normalized
-        ).limit(1).stream()
+        identity = db_firestore.collection(cls.IDENTITY_KEYS_COLLECTION).document(f"rnc_{normalized}").get()
+        if identity.exists:
+            return (identity.to_dict() or {}).get("accountId")
+        docs = db_firestore.collection(cls.COLLECTION).where("rncNormalized", "==", normalized).limit(1).stream()
         for doc in docs:
             return doc.id
         return None

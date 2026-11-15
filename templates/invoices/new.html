@@ -198,7 +198,7 @@
           <tr class="item-row">
             <td>
               <div style="position:relative;">
-                <input type="text" class="form-input item-catalog-search-input" value="{{ item.name }} ({{ item.code or 'S/C' }})" placeholder="Escriba nombre o código…" autocomplete="off" style="padding-right:30px;">
+                <input type="text" class="form-input item-catalog-search-input" value="{{ item.name }} ({{ item.code or 'S/C' }})" placeholder="Escriba nombre, código o código de barras…" autocomplete="off" style="padding-right:30px;">
                 <input type="hidden" class="item-catalog-id-hidden" name="items[{{ loop.index0 }}][catalog_id]" value="{{ item.code or '' }}">
                 <input type="hidden" class="item-name-input" name="items[{{ loop.index0 }}][name]" value="{{ item.name }}">
                 <button type="button" class="btn-search-product" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><i class="fa-solid fa-magnifying-glass" style="font-size:0.65rem;"></i></button>
@@ -398,7 +398,7 @@
   <div class="modal-content" style="max-width:640px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
     <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-boxes-stacked" style="color:var(--accent-emerald);margin-right:8px;"></i>Buscar Producto / Servicio</h3><button type="button" class="btn-close-modal" id="btn-close-product-modal"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body" style="padding:22px 24px;">
-      <div style="margin-bottom:16px;"><div style="position:relative;"><i class="fa-solid fa-magnifying-glass" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);"></i><input type="text" id="modal-product-filter" class="form-input" placeholder="Filtrar por Nombre, Código…" style="padding-left:40px;"></div></div>
+       <div style="margin-bottom:16px;"><div style="position:relative;"><i class="fa-solid fa-magnifying-glass" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);"></i><input type="text" id="modal-product-filter" class="form-input" placeholder="Filtrar por nombre, código o código de barras…" style="padding-left:40px;"></div></div>
       <div style="max-height:360px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.85rem;"><thead><tr style="border-bottom:2px solid var(--border-color);"><th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--text-muted);">Código</th><th style="padding:10px 14px;text-align:left;color:var(--text-muted);">Nombre</th><th style="padding:10px 14px;text-align:right;color:var(--text-muted);">Precio</th><th style="padding:10px 14px;text-align:center;width:60px;color:var(--text-muted);">ITBIS</th></tr></thead><tbody id="modal-product-list-body"></tbody></table></div>
     </div>
   </div>
