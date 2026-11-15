@@ -316,6 +316,86 @@ document.addEventListener('DOMContentLoaded', () => {
     let rncLookupDebounce = null;
     let lastAutoFilledRazon = '';
     let lastAutoFilledCategory = '';
+    let existingClient = null;
+    let clientLookupSeq = 0;
+    let clientLookupDebounce = null;
+
+    const clientModalFields = () => [
+        'new-client-rnc', 'new-client-razon', 'new-client-email',
+        'new-client-telefono', 'new-client-category', 'new-client-direccion'
+    ].map(id => document.getElementById(id)).filter(Boolean);
+
+    const setClientModalSelectionMode = (client) => {
+        existingClient = client || null;
+        clientModalFields().forEach(field => { field.disabled = !!client; });
+        if (btnSaveNewClientLabel) btnSaveNewClientLabel.textContent = client ? 'Seleccionar Cliente' : 'Guardar Cliente';
+        if (btnSaveNewClient) btnSaveNewClient.disabled = !client && !document.getElementById('new-client-rnc')?.value.trim();
+    };
+
+    const fillExistingClient = (client) => {
+        const values = {
+            'new-client-rnc': client.rnc || '',
+            'new-client-razon': client.razonSocial || client.name || '',
+            'new-client-email': client.email || '',
+            'new-client-telefono': client.telefono || client.phone || '',
+            'new-client-direccion': client.direccion || client.address || ''
+        };
+        Object.entries(values).forEach(([id, value]) => {
+            const field = document.getElementById(id);
+            if (field) field.value = value;
+        });
+        const category = document.getElementById('new-client-category');
+        if (category && client.customer_category) category.value = client.customer_category;
+        const dgiiFields = {
+            'new-client-regimen-dgii': client.regimenDgii || '',
+            'new-client-regimen-dgii-normalized': client.regimenDgiiNormalized || '',
+            'new-client-estado-dgii': client.estadoDgii || '',
+            'new-client-categoria-dgii': client.categoriaDgii || '',
+            'new-client-actividad-dgii': client.actividadDgii || ''
+        };
+        Object.entries(dgiiFields).forEach(([id, value]) => {
+            const field = document.getElementById(id);
+            if (field) field.value = value;
+        });
+        toggleModalForeignFields();
+        existingClient = client;
+        if (clientIdHidden) clientIdHidden.value = client.id || '';
+        const clientNameHidden = document.getElementById('client-name-hidden');
+        if (clientNameHidden) clientNameHidden.value = client.razonSocial || client.name || '';
+        if (clientSearchInput) clientSearchInput.value = `${client.razonSocial || client.name || ''} (${client.rnc || 'Consumidor Final'})`;
+        if (clientRncInput) clientRncInput.value = client.rnc || '';
+        clearTimeout(clientLookupDebounce);
+        clearTimeout(rncLookupDebounce);
+        rncLookupSeq++;
+        clientLookupSeq++;
+        if (typeof validateTaxConstraints === 'function') validateTaxConstraints();
+        closeCreateClientModal();
+    };
+
+    const lookupExistingClient = async () => {
+        const category = document.getElementById('new-client-category');
+        if (!rncCreateInput || (category && category.value === 'FOREIGN')) return;
+        const rnc = rncCreateInput.value.trim();
+        const normalized = rnc.replace(/[^0-9]/g, '');
+        if (normalized.length !== 9 && normalized.length !== 11) return;
+        const seq = ++clientLookupSeq;
+        setRncLookupStatus('loading', 'Buscando cliente registrado...');
+        try {
+            const response = await fetch(`/api/clients/lookup_by_rnc?rnc=${encodeURIComponent(rnc)}`);
+            const data = await response.json();
+            if (seq !== clientLookupSeq) return;
+            if (response.ok && data.success && data.found && data.isClient && data.client) {
+                fillExistingClient(data.client);
+            } else if (!existingClient) {
+                setClientModalSelectionMode(null);
+                if (createClientAlert) createClientAlert.style.display = 'none';
+            }
+        } catch (error) {
+            if (seq === clientLookupSeq) showCreateAlert('No se pudo consultar los clientes registrados.', 'error');
+        } finally {
+            if (seq === clientLookupSeq) setRncLookupStatus('idle');
+        }
+    };
 
     const setRncLookupStatus = (state, message = '') => {
         if (!rncStatus) return;
@@ -365,6 +445,10 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(rncLookupDebounce);
         rncLookupSeq++;
         pendingRnc = '';
+        existingClient = null;
+        clientLookupSeq++;
+        clearTimeout(clientLookupDebounce);
+        setClientModalSelectionMode(null);
         lastLookedUpRnc = '';
         setRncLookupStatus('idle');
         setRncLookupBusy(false);
@@ -452,7 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const rncCreateInput = document.getElementById('new-client-rnc');
-    if (rncCreateInput) {
+        if (rncCreateInput) {
         const razonField = document.getElementById('new-client-razon');
 
         const lookupRncForNewClient = async () => {
@@ -557,6 +641,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         rncCreateInput.addEventListener('input', () => {
+            existingClient = null;
+            setClientModalSelectionMode(null);
             const cleanedVal = rncCreateInput.value.replace(/[^0-9]/g, '');
             if (cleanedVal !== lastLookedUpRnc) {
                 lastLookedUpRnc = '';
@@ -565,19 +651,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 setRncLookupStatus('idle');
                 setRncLookupBusy(false);
                 clearLoadedClientData();
+                if (btnSaveNewClient) btnSaveNewClient.disabled = cleanedVal.length === 0;
                 if (createClientAlert) createClientAlert.style.display = 'none';
             }
             clearTimeout(rncLookupDebounce);
+            clearTimeout(clientLookupDebounce);
+            if (cleanedVal.length === 9 || cleanedVal.length === 11) {
+                clientLookupDebounce = setTimeout(lookupExistingClient, 300);
+            }
             if (cleanedVal.length !== 9 && cleanedVal.length !== 11) {
                 setRncLookupStatus('idle');
                 if (createClientAlert) createClientAlert.style.display = 'none';
                 return;
             }
+            if (btnSaveNewClient) btnSaveNewClient.disabled = true;
             rncLookupDebounce = setTimeout(lookupRncForNewClient, 450);
         });
 
         rncCreateInput.addEventListener('blur', () => {
             clearTimeout(rncLookupDebounce);
+            clearTimeout(clientLookupDebounce);
+            lookupExistingClient();
             lookupRncForNewClient();
         });
 
@@ -591,6 +685,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnSaveNewClient) {
         btnSaveNewClient.addEventListener('click', async () => {
+            if (existingClient) {
+                const selected = existingClient;
+                if (clientIdHidden) clientIdHidden.value = selected.id || '';
+                const clientNameHidden = document.getElementById('client-name-hidden');
+                if (clientNameHidden) clientNameHidden.value = selected.razonSocial || selected.name || '';
+                if (clientSearchInput) clientSearchInput.value = `${selected.razonSocial || selected.name || ''} (${selected.rnc || 'Consumidor Final'})`;
+                if (clientRncInput) clientRncInput.value = selected.rnc || '';
+                closeCreateClientModal();
+                if (typeof validateTaxConstraints === 'function') validateTaxConstraints();
+                return;
+            }
             const rnc = (document.getElementById('new-client-rnc')?.value || '').trim();
             const razonSocial = (document.getElementById('new-client-razon')?.value || '').trim();
             const email = (document.getElementById('new-client-email')?.value || '').trim();
@@ -657,11 +762,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (clientRncInput) clientRncInput.value = newClient.rnc || '';
 
-                    showCreateAlert(`✓ Cliente "${newClient.razonSocial}" registrado y seleccionado.`, false);
+                    showCreateAlert(`✓ Cliente "${newClient.razonSocial}" ${result.created === false ? 'existente y seleccionado' : 'registrado y seleccionado'}.`, false);
                     setTimeout(() => {
                         closeCreateClientModal();
                         validateTaxConstraints && validateTaxConstraints();
                     }, 1200);
+                } else if (response.status === 409 && result.code === 'CLIENT_ALREADY_EXISTS' && result.client) {
+                    const existing = result.client;
+                    if (clientIdHidden) clientIdHidden.value = existing.id;
+                    const clientNameHidden = document.getElementById('client-name-hidden');
+                    if (clientNameHidden) clientNameHidden.value = existing.razonSocial || '';
+                    if (clientSearchInput) clientSearchInput.value = `${existing.razonSocial || ''} (${existing.rnc || 'Consumidor Final'})`;
+                    if (clientRncInput) clientRncInput.value = existing.rnc || '';
+                    showCreateAlert(`Este cliente ya está registrado. Se seleccionó "${existing.razonSocial}" para evitar duplicados.`, 'warning');
+                    setTimeout(() => closeCreateClientModal(), 1400);
                 } else {
                     showCreateAlert(result.error || 'Error al registrar el cliente.', true);
                     if (btnSaveNewClientLabel) btnSaveNewClientLabel.textContent = 'Guardar Cliente';
@@ -737,7 +851,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = filterText.toLowerCase().trim();
         const filtered = catalogItems.filter(p =>
             p.name.toLowerCase().includes(query) ||
-            (p.code || '').toLowerCase().includes(query)
+            (p.code || '').toLowerCase().includes(query) ||
+            (p.barcode || '').toLowerCase().includes(query)
         );
 
         modalProductListBody.innerHTML = filtered.map(p => {
@@ -1096,7 +1211,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         searchInput.removeAttribute('readonly');
         searchInput.style.cursor = 'text';
-        searchInput.setAttribute('placeholder', 'Escriba nombre o código...');
+        searchInput.setAttribute('placeholder', 'Escriba nombre, código o código de barras...');
         searchInput.setAttribute('autocomplete', 'off');
 
         // Evitar que el blur cierre el dropdown cuando se hace clic en él
@@ -1112,7 +1227,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const filtered = catalogItems.filter(p =>
                 (p.name || '').toLowerCase().includes(query) ||
-                (p.code || '').toLowerCase().includes(query)
+                (p.code || '').toLowerCase().includes(query) ||
+                (p.barcode || '').toLowerCase().includes(query)
             ).slice(0, 15);
             if (filtered.length === 0) {
                 dropdown.innerHTML = '<div style="padding:12px 16px; color:var(--text-muted,#999);">No se encontraron productos. <button type="button" id="autocomplete-new-product-link" style="color:var(--accent-emerald); background:none; border:none; cursor:pointer; font-weight:600; padding:0; margin-left:4px;">Crear nuevo producto</button></div>';
@@ -1157,7 +1273,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="flex:1; min-width:0;">
                         <div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}</div>
                         <div style="font-size:0.75rem; color:var(--text-muted,#888); display:flex; align-items:center; gap:8px; margin-top:2px;">
-                            <span>${p.code || 'S/C'}</span>
+                    <span>${p.code || 'S/C'}${p.barcode ? ` · ${p.barcode}` : ''}</span>
                             <span style="color:${stockColor}; font-weight:600;">${stockLabel}</span>
                         </div>
                     </div>
@@ -1182,6 +1298,27 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             positionDropdown();
             dropdown.style.display = 'block';
+        });
+
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            const query = searchInput.value.trim().toLowerCase();
+            if (!query) return;
+            const exact = catalogItems.find(p =>
+                String(p.barcode || '').trim().toLowerCase() === query
+            );
+            if (!exact) return;
+            event.preventDefault();
+            const listPriceData = getPriceListItemData(exact.id);
+            const price = listPriceData !== null ? listPriceData.price : exact.price;
+            selectProductForRow(
+                row,
+                exact.id,
+                `${exact.name} (${exact.code || 'N/A'})`,
+                price,
+                exact.itbisRate,
+                exact
+            );
         });
 
         searchInput.addEventListener('blur', () => {

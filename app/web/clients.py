@@ -267,6 +267,20 @@ def ajax_create_client():
     
     if not razon_social:
         return jsonify({"success": False, "error": "La Razón Social es obligatoria."}), 400
+
+    normalized_rnc = ''.join(ch for ch in rnc if ch.isdigit())
+    existing = None
+    if normalized_rnc:
+        existing = DatabaseService.get_client_by_rnc(
+            owner_uid, normalized_rnc, sandbox=sandbox, company_id=company_id
+        )
+    if existing:
+        return jsonify({
+            "success": False,
+            "code": "CLIENT_ALREADY_EXISTS",
+            "error": "Este cliente ya está registrado en la empresa y ambiente seleccionados.",
+            "client": existing,
+        }), 409
     
     import random
     access_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
@@ -295,7 +309,10 @@ def ajax_create_client():
         "actividadDgii": (data.get('actividadDgii') or '').strip()
     }
     
-    DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
+    try:
+        DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
     
     from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CLIENTES
     AuditService.log_from_request(
