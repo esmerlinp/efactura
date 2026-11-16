@@ -269,6 +269,8 @@ class DgiiXmlBuilder:
                 _da = round(_sr * _dr, 2)
             _rm = float(item.get("recargoMonto", 0.0))
             item_net = _sr - _da + _rm
+            if itbis_rate <= 0.001:
+                continue
             if itbis_rate >= 0.17:
                 gravado_i1 += item_net
             elif itbis_rate >= 0.15:
@@ -277,6 +279,37 @@ class DgiiXmlBuilder:
                 gravado_i3 += item_net
         gravado_total = gravado_i1 + gravado_i2 + gravado_i3
         return {"i1": gravado_i1, "i2": gravado_i2, "i3": gravado_i3, "total": gravado_total}
+
+    @classmethod
+    def _calculate_exento(cls, invoice_data):
+        """Calcula el monto exento desde las mismas líneas que se envían al XML."""
+        total = 0.0
+        for item in invoice_data.get("items", []):
+            itbis_rate = float(item.get("itbisRate", item.get("itbis_rate", 0.18)) or 0.0)
+            if itbis_rate > 0.001:
+                continue
+            price = float(item.get("price", 0.0))
+            quantity = float(item.get("quantity", 1.0))
+            raw = float(item.get("subtotal_raw", 0.0)) or round(price * quantity, 2)
+            discount_rate = float(item.get("discountRate", 0.0) or 0.0)
+            discount = float(item.get("discount_amount", 0.0) or item.get("DescuentoMonto", 0.0) or 0.0)
+            if discount == 0.0 and discount_rate > 0.0:
+                discount = round(raw * discount_rate, 2)
+            total += raw - discount + float(item.get("recargoMonto", 0.0) or 0.0)
+        return round(total, 2)
+
+    @classmethod
+    def validate_totals(cls, invoice_data):
+        """Valida que los totales del payload coincidan con sus líneas fiscales."""
+        bands = cls._calculate_gravado_bands(invoice_data)
+        calculated_exento = cls._calculate_exento(invoice_data)
+        supplied_exento = float(invoice_data.get("montoExento", invoice_data.get("monto_exento", 0.0)) or 0.0)
+        if abs(supplied_exento - calculated_exento) > 0.01:
+            raise ValueError(
+                f"Cuadratura fiscal inválida: MontoExento informado {supplied_exento:.2f}, "
+                f"pero las líneas exentas suman {calculated_exento:.2f}."
+            )
+        return {"bands": bands, "monto_exento": calculated_exento}
 
     @classmethod
     def build_invoice_xml(cls, company_profile, invoice_data):
@@ -498,7 +531,7 @@ class DgiiXmlBuilder:
         subtotal = float(invoice_data.get("subtotal", 0.0))
         total_global = float(invoice_data.get("total", 0.0))
         total_itbis = float(invoice_data.get("totalITBIS", 0.0))
-        monto_exento = float(invoice_data.get("montoExento", 0.0))
+        monto_exento = cls._calculate_exento(invoice_data)
 
         bands = cls._calculate_gravado_bands(invoice_data)
         gravado_i1 = bands["i1"]
@@ -735,21 +768,11 @@ class DgiiXmlBuilder:
             raise ValueError("No se puede construir el XML sin un e-NCF reservado.")
         ET.SubElement(id_doc, "eNCF").text = encf
         ET.SubElement(id_doc, "TipoIngresos").text = cls._income_code(invoice_data)
-        pay_method = invoice_data.get("paymentMethod", "Efectivo")
-        tipo_pago = "2" if "crédito" in pay_method.lower() or "credito" in pay_method.lower() else "1"
-        ET.SubElement(id_doc, "TipoPago").text = tipo_pago
-        fpv = "1"
-        pm = pay_method.lower()
-        if "tarjeta" in pm:
-            fpv = "3"
-        elif "cheque" in pm:
-            fpv = "2"
-        elif any(x in pm for x in ("transferencia", "depósito", "deposito")):
-            fpv = "2"
-        tfp = ET.SubElement(id_doc, "TablaFormasPago")
-        fdp = ET.SubElement(tfp, "FormaDePago")
-        ET.SubElement(fdp, "FormaPago").text = fpv
-        ET.SubElement(fdp, "MontoPago").text = cls._sd(invoice_data.get("total", 0.0))
+        # El XSD RFCE exige TipoPago, pero el resumen no admite el detalle
+        # de cobro TablaFormasPago/MontoPago.
+        ET.SubElement(id_doc, "TipoPago").text = "1"
+        # El RFCE es un resumen de factura de consumo. No admite cobros ni
+        # formas de pago: estas pertenecen al e-CF completo, no al resumen.
 
         # ── Emisor ──
         emisor_elem = ET.SubElement(enc, "Emisor")

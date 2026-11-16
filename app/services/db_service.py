@@ -4217,6 +4217,8 @@ class DatabaseService:
     @classmethod
     def save_invoice(cls, owner_uid, invoice_id, inv_dict, sandbox=True, company_id=None):
         """Guarda o actualiza una factura y sus partidas en Firestore."""
+        if not company_id:
+            raise ValueError("company_id es obligatorio para guardar una factura")
         inv_dict["id"] = invoice_id
         inv_dict["ownerUID"] = owner_uid
         inv_dict["documentType"] = _resolve_document_type(inv_dict)
@@ -4317,7 +4319,10 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
-                existing_doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id).get()
+                coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
+                if coll is None:
+                    raise RuntimeError("company_id requerido para verificar stock de factura")
+                existing_doc = coll.document(invoice_id).get()
                 if existing_doc.exists:
                     doc_data = existing_doc.to_dict()
                     if doc_data.get("stockReduced"):
@@ -4556,7 +4561,10 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id).set(inv_dict)
+                coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
+                if coll is None:
+                    raise ValueError("No se pudo resolver la empresa activa")
+                coll.document(invoice_id).set(inv_dict)
                 _invalidate_invoices(owner_uid, company_id=company_id)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
@@ -8799,7 +8807,10 @@ class DatabaseService:
         accounts = []
         if firebase_initialized:
             try:
-                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("chart_of_accounts").collection("accounts").get()
+                coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config")
+                if coll is None:
+                    return accounts
+                docs = coll.document("chart_of_accounts").collection("accounts").get()
                 for doc in docs:
                     data = doc.to_dict()
                     data["id"] = doc.id
@@ -8813,7 +8824,10 @@ class DatabaseService:
     def get_account(cls, owner_uid, account_id, company_id=None):
         if firebase_initialized:
             try:
-                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("chart_of_accounts").collection("accounts").document(account_id).get()
+                coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config")
+                if coll is None:
+                    return None
+                doc = coll.document("chart_of_accounts").collection("accounts").document(account_id).get()
                 if doc.exists:
                     data = doc.to_dict()
                     data["id"] = doc.id
@@ -8827,10 +8841,14 @@ class DatabaseService:
     def save_account(cls, owner_uid, account_id, account_dict, company_id=None):
         if firebase_initialized:
             try:
+                coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config")
+                if coll is None:
+                    print("⚠️ No se guardó cuenta contable: company_id requerido.")
+                    return None
                 if "createdAt" not in account_dict or not account_dict["createdAt"]:
                     account_dict["createdAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
                 account_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("chart_of_accounts").collection("accounts").document(account_id).set(account_dict)
+                coll.document("chart_of_accounts").collection("accounts").document(account_id).set(account_dict)
 
                 return account_id
             except Exception as e:
@@ -8841,7 +8859,10 @@ class DatabaseService:
     def delete_account(cls, owner_uid, account_id, company_id=None):
         if firebase_initialized:
             try:
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("chart_of_accounts").collection("accounts").document(account_id).delete()
+                coll = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config")
+                if coll is None:
+                    return False
+                coll.document("chart_of_accounts").collection("accounts").document(account_id).delete()
                 return True
             except Exception as e:
 

@@ -16,6 +16,9 @@ class EcfPostAcceptanceService:
                                  company_id=None, sandbox=True):
         if not invoice or str(invoice.get("dgiiStatus", "")).upper() != "ACCEPTED":
             return {"success": False, "status": "not_accepted"}
+        if not company_id:
+            logger.error("No se procesa factura aceptada %s: company_id requerido", invoice_id)
+            return {"success": False, "status": "missing_company_id"}
 
         invoice = dict(invoice)
         invoice["id"] = invoice_id
