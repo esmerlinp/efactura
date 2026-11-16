@@ -7591,6 +7591,35 @@ class DatabaseService:
             print(f"⚠️ Error al actualizar configuración de caja: {e}")
 
     @classmethod
+    def get_pos_payment_account_mappings(cls, owner_uid, company_id=None, sandbox=True):
+        """Obtiene la configuración POS de cuentas por medio de cobro."""
+        if not firebase_initialized:
+            return []
+        try:
+            doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config") \
+                .document("pos_payment_accounts").get()
+            if not doc.exists:
+                return []
+            mappings = (doc.to_dict() or {}).get("mappings", [])
+            return mappings if isinstance(mappings, list) else []
+        except Exception as e:
+            print(f"⚠️ Error al obtener configuración de cuentas POS: {e}")
+            return []
+
+    @classmethod
+    def save_pos_payment_account_mappings(cls, owner_uid, mappings, company_id=None, sandbox=True):
+        """Guarda asignaciones POS a cuentas existentes de /banks."""
+        payload = {
+            "mappings": mappings if isinstance(mappings, list) else [],
+            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "ownerUID": owner_uid,
+        }
+        if firebase_initialized:
+            _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config") \
+                .document("pos_payment_accounts").set(payload)
+        return payload["mappings"]
+
+    @classmethod
     def get_rui_eligible_invoices(cls, owner_uid, business_date, sandbox=True, company_id=None):
         """Retorna facturas elegibles para RUI en una fecha fiscal específica.
         Elegible = Cobrada, includeInRui=True, ruiId vacío, consumidor final, no notas."""

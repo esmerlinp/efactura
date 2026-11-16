@@ -34,6 +34,49 @@
         </a>
     </div>
 
+    <div class="card-table-wrapper">
+        <div style="margin-bottom: 18px;">
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Cuentas por medio de cobro</h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">Asigna cuentas existentes de Bancos a los cobros registrados desde POS.</p>
+        </div>
+        <form action="{{ url_for('web_pos.save_pos_payment_accounts') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% set payment_rows = [
+                ('CASH', 'Efectivo', 'DOP'),
+                ('CASH', 'Efectivo USD', 'USD'),
+                ('TRANSFER', 'Transferencia', 'DOP'),
+                ('CARD', 'Tarjeta', 'DOP'),
+                ('CHECK', 'Cheque', 'DOP')
+            ] %}
+            <div class="table-responsive">
+                <table class="data-grid">
+                    <thead><tr><th>Forma de pago</th><th>Moneda</th><th>Cuenta de Bancos</th></tr></thead>
+                    <tbody>
+                    {% for method, label, currency in payment_rows %}
+                    {% set key = method ~ ':' ~ currency ~ ':' %}
+                    {% set selected = payment_mappings.get(key, {}).get('bankAccountId', '') %}
+                    <tr>
+                        <td style="font-weight: 700;">{{ label }}</td>
+                        <td>{{ currency }}</td>
+                        <td>
+                            <select class="form-input" name="mapping" style="min-width: 280px;">
+                                <option value='{"method":"{{ method }}","currency":"{{ currency }}","bankAccountId":""}'>Sin asignar</option>
+                                {% for account in bank_accounts %}
+                                <option value='{"method":"{{ method }}","currency":"{{ currency }}","bankAccountId":"{{ account.id }}"}' {% if account.id == selected %}selected{% endif %}>
+                                    {{ account.name }}{% if account.accountNumber %} · {{ account.accountNumber }}{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top: 18px;">Guardar asignaciones</button>
+        </form>
+    </div>
+
     <!-- Sección 1: Cajas Registradoras Registradas -->
     <div class="card-table-wrapper">
         <div
