@@ -1023,7 +1023,7 @@
                                     class="btn btn-secondary" title="Imprimir Recibo de Ingreso"
                                     style="font-size: 0.7rem; padding: 4px 10px; height: 28px; display: inline-flex; align-items: center; gap: 4px; border-color: #1e3a8a; color: #1e3a8a;">
                                     <i class="fa-solid fa-print"></i>
-                                    <span>Recibo</span>
+                                     <span>Recibo de Pago</span>
                                 </button>
                                 <button type="button"
                                     onclick="openEmailReceiptModal('{{ p.id }}', '{{ p.paymentDate | format_date }}', '{{ p.paymentMethod }}', '{{ p.bank or '' }}', '{{ p.referenceNumber or '' }}', {{ p.amount }})"
@@ -1444,6 +1444,22 @@
                  <i class="fa-solid fa-print"></i>
                  <span>Imprimir Documento / PDF</span>
              </a>
+
+             {% if invoice.get('posShiftId') or invoice.get('invoiceNumber', '').startswith('POS-') %}
+             <a href="{{ url_for('web_pos.print_receipt', invoice_id=invoice.id) }}" target="_blank"
+                 class="btn btn-secondary"
+                 style="width: 100%; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                 <i class="fa-solid fa-receipt"></i>
+                 <span>Imprimir Ticket POS</span>
+             </a>
+             {% elif not invoice.isQuotation and invoice.status in ('Cobrada', 'Pagada', 'Pago parcial', 'Parcialmente Cobrada') and (invoice.totalPaid|default(invoice.paidAmount|default(0, true), true)|float > 0 or invoice.paymentType in ('01 - Contado', 'Contado')) %}
+             <a href="{{ url_for('web_pos.print_receipt', invoice_id=invoice.id) }}" target="_blank"
+                 class="btn btn-secondary"
+                 style="width: 100%; border-color: var(--accent-blue); color: var(--accent-blue); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                 <i class="fa-solid fa-receipt"></i>
+                 <span>Imprimir Recibo de Venta</span>
+             </a>
+             {% endif %}
 
              {% if invoice.encf and invoice.status not in ['Borrador', 'Rechazado DGII'] %}
              <a href="{{ invoice.firebaseXMLURL or url_for('web_invoices.invoice_xml_download', invoice_id=invoice.id) }}"

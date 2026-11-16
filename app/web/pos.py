@@ -302,6 +302,57 @@ def _pos_normalize_payments(data, total, is_consumer_final):
     }
 
 
+def _pos_resolve_payment_accounts(owner_uid, company_id, sandbox, payments):
+    """Resuelve la cuenta configurada y conserva una fotografía del pago."""
+    method_codes = {
+        "Efectivo": "CASH",
+        "Efectivo USD": "CASH",
+        "Transferencia": "TRANSFER",
+        "Tarjeta": "CARD",
+        "Cheque": "CHECK",
+    }
+    mappings = DatabaseService.get_pos_payment_account_mappings(
+        owner_uid, company_id=company_id, sandbox=sandbox
+    )
+    by_key = {
+        (
+            str(row.get("method") or "").upper(),
+            str(row.get("currency") or "DOP").upper(),
+            str(row.get("processor") or "").upper(),
+        ): row
+        for row in mappings if isinstance(row, dict) and row.get("active", True)
+    }
+    resolved = []
+    for payment in payments:
+        if payment.get("method") == "Crédito":
+            resolved.append(payment)
+            continue
+        method = payment.get("method") or ""
+        method_code = method_codes.get(method, method.upper())
+        currency = "USD" if method == "Efectivo USD" else "DOP"
+        mapping = by_key.get((method_code, currency, ""))
+        if not mapping:
+            # Compatibilidad con asignaciones antiguas guardadas con etiqueta visible.
+            mapping = by_key.get((method.upper(), currency, ""))
+        if not mapping or not mapping.get("bankAccountId"):
+            raise ValueError(f"No hay una cuenta configurada para el medio de cobro '{method}'.")
+        account = DatabaseService.get_bank_account(
+            owner_uid, mapping["bankAccountId"], sandbox=sandbox, company_id=company_id
+        )
+        if not account:
+            raise ValueError(f"La cuenta configurada para '{method}' ya no existe.")
+        accounting_id = account.get("accountingAccountId") or mapping.get("accountingAccountId") or ""
+        enriched = dict(payment)
+        enriched.update({
+            "currency": currency,
+            "bankAccountId": account["id"],
+            "bankAccountName": account.get("name", ""),
+            "accountingAccountId": accounting_id,
+        })
+        resolved.append(enriched)
+    return resolved
+
+
 def _pos_register_credit_client(owner_uid, company_id, sandbox, rnc, name, email="", phone="", address=""):
     """Registra (o reutiliza) el cliente de una venta POS a crédito."""
     existing = DatabaseService.get_client_by_rnc(owner_uid, rnc, company_id=company_id, sandbox=sandbox)
@@ -1953,6 +2004,9 @@ def create_pos_sale():
 
     try:
         payment_info = _pos_normalize_payments(data, calcs['total'], is_consumer_final)
+        payment_info['payments'] = _pos_resolve_payment_accounts(
+            owner_uid, company_id, sandbox, payment_info['payments']
+        )
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
@@ -2168,6 +2222,9 @@ def create_pos_sale():
                 f"Venta POS: {invoice_number} (pago {idx + 1}/{len(payment_info['payments'])})"
             ),
         }
+        for account_field in ("currency", "bankAccountId", "bankAccountName", "accountingAccountId"):
+            if pay.get(account_field):
+                tx_dict[account_field] = pay[account_field]
         if pay.get('reference'):
             tx_dict["reference"] = pay['reference']
         if pay.get('bank'):
@@ -2587,6 +2644,14 @@ def pos_admin_dashboard():
     registers = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox)
     shifts = DatabaseService.get_cash_shifts(owner_uid, company_id=company_id, sandbox=sandbox)
     warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+    payment_mappings = DatabaseService.get_pos_payment_account_mappings(
+        owner_uid, company_id=company_id, sandbox=sandbox
+    )
+    mapping_by_key = {
+        f"{row.get('method')}:{row.get('currency', 'DOP')}:{row.get('processor', '')}": row
+        for row in payment_mappings if isinstance(row, dict)
+    }
     wh_map = {w['id']: w['name'] for w in warehouses}
     
     for r in registers:
@@ -2602,8 +2667,49 @@ def pos_admin_dashboard():
         active_page='pos_admin',
         registers=registers,
         shifts=shifts,
-        warehouses=warehouses
+        warehouses=warehouses,
+        bank_accounts=bank_accounts,
+        payment_mappings=mapping_by_key,
     )
+
+
+@web_pos_bp.route('/pos/admin/payment-accounts', methods=['POST'])
+@require_permission('canManagePOS', 'Administración de Caja')
+def save_pos_payment_accounts():
+    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
+        return jsonify({"success": False, "error": "No autorizado."}), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    accounts = {a.get('id'): a for a in DatabaseService.get_bank_accounts(
+        owner_uid, company_id=company_id, sandbox=sandbox
+    )}
+    normalized = []
+    for raw in request.form.getlist('mapping'):
+        try:
+            row = __import__('json').loads(raw)
+        except (TypeError, ValueError):
+            continue
+        method = str(row.get('method') or '').strip().upper()
+        currency = str(row.get('currency') or 'DOP').strip().upper()
+        account_id = str(row.get('bankAccountId') or '').strip()
+        processor = str(row.get('processor') or '').strip().upper()
+        if not method:
+            continue
+        if not account_id:
+            continue
+        account = accounts.get(account_id)
+        if not account:
+            flash('Una de las cuentas seleccionadas no es válida para esta empresa.', 'error')
+            return redirect(url_for('web_pos.pos_admin_dashboard'))
+        normalized.append({
+            'method': method, 'currency': currency, 'processor': processor,
+            'bankAccountId': account_id, 'bankAccountName': account.get('name', ''),
+            'accountingAccountId': account.get('accountingAccountId', ''), 'active': True,
+        })
+    DatabaseService.save_pos_payment_account_mappings(owner_uid, normalized, company_id=company_id, sandbox=sandbox)
+    flash('Configuración de cuentas POS guardada correctamente.', 'success')
+    return redirect(url_for('web_pos.pos_admin_dashboard'))
 
 
 @web_pos_bp.route('/pos/contingencia')
