@@ -1168,6 +1168,7 @@ def select_company():
             from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_AUTH
             AuditService.log_from_request(
                 owner_uid=session['selected_owner_uid'],
+                company_id=selected_id,
                 action=ACTION_UPDATE,
                 module=MODULE_AUTH,
                 entity_id=selected_id,

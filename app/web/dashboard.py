@@ -71,7 +71,7 @@ def dashboard():
     now = datetime.now(timezone.utc)
     
     # Procesar automáticamente recurrencias programadas al abrir dashboard
-    RecurrenceService.process_pending_recurrences(owner_uid, sandbox=sandbox)
+    RecurrenceService.process_pending_recurrences(owner_uid, sandbox=sandbox, company_id=company_id)
     
     # Procesar automáticamente recordatorios de cobro de CxC programados al abrir dashboard
     try:
@@ -467,7 +467,14 @@ def dashboard():
     # 7. BI: Flujo de Caja Proyectado (6 meses) — vía CashFlowService
     from app.services.cash_flow_service import CashFlowService
     try:
-        projection = CashFlowService.project_cash_flow(owner_uid, months=6, sandbox=sandbox, invoices=real_invoices, expenses=expenses)
+        projection = CashFlowService.project_cash_flow(
+            owner_uid,
+            months=6,
+            sandbox=sandbox,
+            invoices=real_invoices,
+            expenses=expenses,
+            company_id=company_id,
+        )
         months_projection = [
             {"key": p.key, "label": p.label, "inflow": p.inflow,
              "outflow": p.outflow, "net": p.net, "cumulative": p.cumulative}
