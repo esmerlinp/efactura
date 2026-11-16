@@ -127,6 +127,42 @@ def test_convert_quotation_success(app):
             p.stop()
 
 
+def test_proforma_draft_detail_does_not_redirect_to_itself(app):
+    for p in DB_PATCHES:
+        p.start()
+
+    try:
+        proforma_data = {
+            "id": "proforma-123",
+            "invoiceNumber": "PRO-000123",
+            "isQuotation": True,
+            "documentType": "proforma",
+            "status": "Borrador",
+            "total": 1000.0,
+            "items": [],
+        }
+
+        with patch("app.web.invoices.DatabaseService.get_invoice", return_value=proforma_data), \
+             patch("app.web.invoices.DatabaseService.get_invoice_payments", return_value=[]), \
+             patch("app.web.invoices.DatabaseService.get_company_profile", return_value=MOCK_COMPANY), \
+             patch("app.web.invoices.DatabaseService.get_branches", return_value=[]), \
+             patch("app.web.invoices.DatabaseService.get_invoice_comments", return_value=[]), \
+             patch("app.web.invoices.DatabaseService.get_sequence_logs", return_value=[]), \
+             patch("app.web.invoices.DatabaseService.get_user_profile", return_value=None), \
+             patch("app.web.invoices.DatabaseService.get_team_members", return_value=[]), \
+             patch("app.web.invoices.DatabaseService.get_bank_accounts", return_value=[]), \
+             patch("app.web.invoices.check_permission", return_value=True):
+            client = app.test_client()
+            mock_login(client)
+
+            response = client.get("/invoices/proforma-123", follow_redirects=False)
+
+            assert response.status_code == 200
+    finally:
+        for p in DB_PATCHES:
+            p.stop()
+
+
 def test_convert_quotation_alias_route(app):
     for p in DB_PATCHES:
         p.start()
