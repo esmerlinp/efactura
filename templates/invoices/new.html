@@ -142,7 +142,7 @@
           <input type="text" id="client-search-input" class="form-input" placeholder="Buscar cliente por nombre, RNC o email…" autocomplete="off" style="padding-right:34px;"
             value="{% if invoice and invoice.clientName %}{{ invoice.clientName }} ({{ invoice.clientRNC or 'Consumidor Final' }}){% endif %}" {% if is_referencing %}readonly{% endif %}>
           <button type="button" id="btn-clear-client" aria-label="Quitar cliente" title="Quitar cliente" {% if is_referencing %}disabled{% endif %}
-            style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);width:26px;height:26px;border:0;border-radius:50%;background:transparent;color:var(--text-muted);cursor:pointer;align-items:center;justify-content:center;padding:0;">
+             style="display:inline-flex;position:absolute;right:6px;top:50%;transform:translateY(-50%);width:26px;height:26px;border:0;border-radius:50%;background:transparent;color:var(--text-muted);cursor:pointer;align-items:center;justify-content:center;padding:0;">
             <i class="fa-solid fa-xmark" aria-hidden="true"></i>
           </button>
         </div>
@@ -540,6 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const agreementDetailsFields = document.getElementById('agreement-details-fields');
     const ecfTypeSelect = document.getElementById('ecf-type-select');
     const referenceInfoGroup = document.getElementById('reference-info-group');
+    const clientWarning = document.getElementById('client-warning');
     const isReferencing = {{ 'true' if is_referencing else 'false' }};
 
     function handlePaymentTypeChange() {
@@ -588,8 +589,27 @@ document.addEventListener('DOMContentLoaded', () => {
             warningEl.style.display = 'none';
         }
     }
+    function updateE32BuyerWarning() {
+        if (!clientWarning || !ecfTypeSelect) return;
+        const code = extractCodeFromLabel(ecfTypeSelect.value);
+        if (code !== 'E32') return;
+        const totalText = document.getElementById('lbl-total')?.textContent || '0';
+        const total = Number(totalText.replace(/[^0-9.-]/g, '').replace(/,/g, '')) || 0;
+        const rnc = (document.getElementById('client-rnc-input')?.value || '').replace(/[^0-9]/g, '');
+        const required = total >= 250000;
+        const valid = rnc && rnc !== '000000000' && (rnc.length === 9 || rnc.length === 11);
+        if (required && !valid) {
+            clientWarning.textContent = 'Para E32 de RD$250,000.00 o más debe identificar al comprador con RNC o cédula.';
+            clientWarning.style.display = 'block';
+            clientWarning.style.color = '#ef4444';
+            if (submitCobrarBtn) submitCobrarBtn.disabled = true;
+        } else {
+            if (clientWarning.textContent.startsWith('Para E32')) clientWarning.style.display = 'none';
+            if (submitCobrarBtn) submitCobrarBtn.disabled = false;
+        }
+    }
     const _rncInput = document.getElementById('client-rnc-input');
-    if (_rncInput) _rncInput.addEventListener('input', updateE45RncWarning);
+    if (_rncInput) _rncInput.addEventListener('input', () => { updateE45RncWarning(); updateE32BuyerWarning(); });
 
     // --- ECF type filtering by client category + regimen ---
     const ecfRulesEl = document.getElementById('ecf-rules-data');
@@ -624,11 +644,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const ci = document.getElementById('client-search-input');
         const ri = document.getElementById('client-rnc-input');
         const cn = document.getElementById('client-name-hidden');
-        if (ci && ci.value !== 'Consumidor Final') ci.value = 'Consumidor Final';
-        if (ri && ri.value !== '') ri.value = '';
-        if (clientId && clientId.value !== '') clientId.value = '';
-        if (cn) cn.value = 'Consumidor Final';
-        setRncDisabled(true);
+        if (ci && !ci.value) ci.value = 'Consumidor Final';
+        if (cn && !cn.value) cn.value = 'Consumidor Final';
+        setRncDisabled(false);
     }
 
     function enableRncInput() {
@@ -761,6 +779,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (submitCobrarBtn) {
         submitCobrarBtn.addEventListener('click', async (e) => {
+            updateE32BuyerWarning();
+            if (submitCobrarBtn.disabled) { e.preventDefault(); return; }
             const invoiceForm = document.getElementById('invoice-form');
             if (!invoiceForm.checkValidity()) { invoiceForm.reportValidity(); e.preventDefault(); return; }
             const rows = document.querySelectorAll('#invoice-items-body .item-row'); if (rows.length === 0) { alert('Añada al menos una partida.'); e.preventDefault(); return; }
@@ -776,6 +796,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    document.addEventListener('input', (event) => {
+        if (event.target.closest('#invoice-items-body, #discount-global, #isr-rate-select, #itbis-rate-select')) {
+            window.setTimeout(updateE32BuyerWarning, 0);
+        }
+    });
+    window.setTimeout(updateE32BuyerWarning, 0);
     // --- Unsaved changes warning ---
     let formDirty = false;
     const form = document.getElementById('invoice-form');

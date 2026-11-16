@@ -54,6 +54,7 @@ from app.services.recurrence import RecurrenceService
 from app.utils.decorators import check_permission, require_permission
 from app.utils.module_gate import require_module
 from app.utils.ecf_utils import get_ecf_type_short_code
+from app.utils.e32_rules import e32_requires_buyer_identification, has_valid_e32_buyer_identifier
 from app.brand import get_product_name
 from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
 from app.navigation.resolver import resolve_settings_center
@@ -2959,8 +2960,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
             ecf_short = get_ecf_type_short_code(invoice_dict.get("ecfType", ""))
             # E46 no requiere RNC dominicano (usa RNC de la compañía o identificador extranjero)
             # E32 >= 250K requiere RNC; < 250K no
-            is_e32_mayor = ecf_short == "32" and float(invoice_dict.get("total", 0)) >= 250000
-            if (ecf_short in tipos_requieren_rnc or is_e32_mayor) and (not rnc_cliente or len(rnc_cliente) not in (9, 11)):
+            is_e32_mayor = ecf_short == "32" and e32_requires_buyer_identification(invoice_dict.get("total", 0))
+            if (ecf_short in tipos_requieren_rnc or is_e32_mayor) and not has_valid_e32_buyer_identifier(rnc_cliente):
                 flash("Para este tipo de comprobante es obligatorio seleccionar un cliente con RNC válido (9 u 11 dígitos).", "error")
                 return redirect(url_for('web_invoices.list_invoices'))
 
@@ -5268,7 +5269,7 @@ def convert_quotation_route(invoice_id):
         flash('Las facturas de Crédito Fiscal (E31) siempre requieren el RNC/Cédula del cliente. Edita la cotización y agrega un cliente antes de convertir.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
-    if target_code == 'E32' and total >= 250000 and not client_rnc:
+    if target_code == 'E32' and e32_requires_buyer_identification(total) and not has_valid_e32_buyer_identifier(client_rnc):
         flash(f'Por Ley 32-23 de la DGII, las facturas de consumo que superen RD$ 250,000 deben identificar al comprador. El total de esta cotización es RD$ {total:,.2f}. Agrega un cliente con RNC antes de convertir.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 

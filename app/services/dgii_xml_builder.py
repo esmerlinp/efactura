@@ -2,6 +2,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta, date as _datecls
 
 from app.models.fiscal_document_type import get_tipo_config, has_itbis_breakdown, has_retencion_item
+from app.utils.e32_rules import e32_is_rfce
 
 
 class DgiiXmlBuilder:
@@ -446,7 +447,7 @@ class DgiiXmlBuilder:
                 crnc = invoice_data.get("clientRNC", "").replace("-", "").strip()
                 rzs = invoice_data.get("razonSocial", invoice_data.get("clientName", "")).strip()
                 total_amt = float(invoice_data.get("total", 0.0))
-                consumo_250 = tipo_ecf in ("32", "33", "34") and total_amt < 250000.00
+                consumo_250 = tipo_ecf == "32" and e32_is_rfce(total_amt)
 
                 if tipo_ecf == "46":
                     # RNCComprador e IdentificadorExtranjero son mutuamente excluyentes para la DGII:

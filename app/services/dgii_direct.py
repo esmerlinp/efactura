@@ -5,6 +5,7 @@ import tempfile
 import time
 import uuid
 from urllib.parse import urlencode, quote
+from app.utils.e32_rules import e32_is_rfce
 from xml.sax.saxutils import escape
 
 import requests
@@ -302,7 +303,7 @@ class DgiiDirectService:
                 except Exception:
                     pass
 
-        if tipo == "32" and total < 250000.00:
+        if tipo == "32" and e32_is_rfce(total):
             query_params = urlencode({
                 "RncEmisor": company_rnc,
                 "ENCF": encf,

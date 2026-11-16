@@ -18,8 +18,7 @@ from app.services.dgii_xml_builder import DgiiXmlBuilder
 from app.services.supplier_invoice_service import SupplierInvoiceService
 from app.models.certificacion import CertificacionProcess, CertStep, CertRun, CaseResult
 from config import Config
-
-RFCE_THRESHOLD = 250000.00
+from app.utils.e32_rules import e32_is_rfce, to_decimal_amount
 
 DGII_ORDER_GROUP1 = ["31", "32", "41", "43", "44", "45", "46", "47"]
 DGII_ORDER_GROUP2 = ["33", "34"]
@@ -529,7 +528,7 @@ class DgiiCertService:
                     next((c for c, h in headers.items() if h.strip() == "MontoTotal"), ""), "0"
                 ),
             )
-            total = float(total_str) if total_str else 0.0
+            total = to_decimal_amount(total_str)
             casos_map[encf] = {"row_dict": row_dict, "headers": headers, "tipo": tipo, "total": total}
 
         grupos = {"1": [], "2": [], "3": [], "4": []}
@@ -537,7 +536,7 @@ class DgiiCertService:
             tipo = caso["tipo"]
             total = caso["total"]
             is_e32 = tipo == "32"
-            is_rfce = is_e32 and total < RFCE_THRESHOLD
+            is_rfce = is_e32 and e32_is_rfce(total)
 
             if is_rfce:
                 if encf in rfce_map:
@@ -1093,9 +1092,9 @@ class DgiiCertService:
 
             encf = invoice_dict.get("encf", "")
             company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
-            total = float(invoice_dict.get("total", 0.0))
+            total = to_decimal_amount(invoice_dict.get("total", 0.0))
             ecf_type = invoice_dict.get("ecfType", "")
-            is_rfce = "E32" in ecf_type and total < RFCE_THRESHOLD
+            is_rfce = "E32" in ecf_type and e32_is_rfce(total)
 
             if is_rfce and rfce_url:
                 rfce_xml = DgiiXmlBuilder.build_rfce_summary_xml(company_profile, invoice_dict, codigo_seguridad)

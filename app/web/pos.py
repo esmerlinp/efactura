@@ -27,6 +27,7 @@ from app.brand import get_product_name
 from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
 from app.utils.module_gate import module_enabled
 from app.utils.ecf_utils import get_ecf_type_short_code
+from app.utils.e32_rules import e32_requires_buyer_identification, has_valid_e32_buyer_identifier
 
 web_pos_bp = Blueprint('web_pos', __name__)
 
@@ -2001,6 +2002,12 @@ def create_pos_sale():
             "success": False,
             "error": "La Factura de Crédito Fiscal (E31) requiere un cliente registrado con RNC o Cédula válida."
         }), 400
+    if ecf_type == 'Factura de Consumo (E32)' and e32_requires_buyer_identification(calcs['total']):
+        if not has_valid_e32_buyer_identifier(client_rnc):
+            return jsonify({
+                "success": False,
+                "error": "Las facturas E32 de RD$250,000.00 o más requieren RNC o Cédula válida del comprador."
+            }), 400
 
     try:
         payment_info = _pos_normalize_payments(data, calcs['total'], is_consumer_final)
