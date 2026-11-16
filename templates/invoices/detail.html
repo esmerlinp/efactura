@@ -148,26 +148,6 @@
         </div>
         {% endif %}
 
-        <!-- Acciones rápidas del documento: centralizadas en la barra global -->
-        <div class="no-print" style="display:none;">
-            {% if is_proforma and invoice.status == 'Aprobada' and invoice.remainingBalance|default(invoice.netPayable, true)|float > 0.01 %}
-            <a href="{{ url_for('web_invoices.pay_advanced_route', invoice_id=invoice.id) }}" title="Añadir pago" aria-label="Añadir pago" class="btn btn-secondary" style="height:40px;width:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-color:var(--accent-emerald);color:var(--accent-emerald);"><i class="fa-solid fa-money-bill-wave"></i></a>
-            {% endif %}
-            <a href="{{ url_for('web_invoices.invoice_pdf_download', invoice_id=invoice.id, action='print') }}" target="_blank" title="Imprimir documento" aria-label="Imprimir documento" class="btn btn-secondary" style="height:40px;width:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;"><i class="fa-solid fa-print"></i></a>
-            {% if invoice.isQuotation %}
-            <a href="{% if invoice.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?clone={{ invoice.id }}{% else %}{{ url_for('web_invoices.new_quotation_route') }}?clone={{ invoice.id }}{% endif %}" title="Crear copia" aria-label="Crear copia" class="btn btn-secondary" style="height:40px;width:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;"><i class="fa-solid fa-copy"></i></a>
-            <a href="{{ url_for('web_invoices.list_proformas' if is_proforma else 'web_invoices.list_quotations') }}" title="Volver al listado" aria-label="Volver al listado" class="btn btn-secondary" style="height:40px;width:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;"><i class="fa-solid fa-arrow-rotate-left"></i></a>
-            {% else %}
-            <a href="{{ url_for('web_invoices.list_invoices') }}" title="Volver al listado" aria-label="Volver al listado" class="btn btn-secondary" style="height:40px;width:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;"><i class="fa-solid fa-arrow-rotate-left"></i></a>
-            {% endif %}
-            {% if invoice.status == 'Aprobada' and not invoice.isConvertedToContract %}
-            <a href="{{ url_for('web_invoices.prepare_contract_page', invoice_id=invoice.id) }}" title="Crear contrato recurrente" aria-label="Crear contrato recurrente" class="btn btn-secondary" style="height:40px;width:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-color:var(--accent-emerald);color:var(--accent-emerald);"><i class="fa-solid fa-file-contract"></i></a>
-            {% endif %}
-            {% if invoice.status == 'Borrador' or invoice.status == 'Rechazada' or invoice.isQuotation %}
-            <form action="{{ url_for('web_invoices.delete_invoice_route', invoice_id=invoice.id) }}" method="POST" style="margin:0;" onsubmit="return confirm('¿Eliminar este documento?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" title="Eliminar documento" aria-label="Eliminar documento" class="btn btn-secondary" style="height:40px;width:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-color:#ef4444;color:#ef4444;"><i class="fa-solid fa-trash-can"></i></button></form>
-            {% endif %}
-        </div>
-
         <!-- Vista Principal de Factura Premium -->
         <div class="card-table-wrapper document-card-sheet {% if invoice.isQuotation %}quotation-card{% else %}invoice-card{% endif %}" style="padding: 40px; position: relative;">
             <!-- Píldora de Sandbox visual -->
@@ -1456,9 +1436,33 @@
                 <i class="fa-solid fa-pen-to-square"></i>
                 <span>Editar {% if invoice.isQuotation %}{{ document_label }}{% else %}Borrador{% endif %}</span>
             </a>
-            {% endif %}
+             {% endif %}
 
-            {% if invoice.retainedISR|default(0.0) > 0 or invoice.retainedITBIS|default(0.0) > 0 %}
+             <a href="{{ url_for('web_invoices.invoice_pdf_download', invoice_id=invoice.id, action='print') }}" target="_blank"
+                 class="btn btn-secondary"
+                 style="width: 100%; border-color: var(--accent-emerald); color: var(--accent-emerald); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                 <i class="fa-solid fa-print"></i>
+                 <span>Imprimir Documento / PDF</span>
+             </a>
+
+             {% if invoice.encf and invoice.status not in ['Borrador', 'Rechazado DGII'] %}
+             <a href="{{ invoice.firebaseXMLURL or url_for('web_invoices.invoice_xml_download', invoice_id=invoice.id) }}"
+                 target="_blank" class="btn btn-secondary"
+                 style="width: 100%; border-color: var(--accent-emerald); color: var(--accent-emerald); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                 <i class="fa-solid fa-file-code"></i>
+                 <span>Descargar XML</span>
+             </a>
+             {% endif %}
+
+             {% if invoice.encf and not invoice.isQuotation %}
+             <button type="button" onclick="openNotifyEmailModal()" class="btn btn-primary"
+                 style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                 <i class="fa-solid fa-envelope"></i>
+                 <span>Enviar al Cliente</span>
+             </button>
+             {% endif %}
+
+             {% if invoice.retainedISR|default(0.0) > 0 or invoice.retainedITBIS|default(0.0) > 0 %}
             <a href="{{ url_for('web_invoices.invoice_retention_letter', invoice_id=invoice.id) }}?action=download"
                 class="btn btn-secondary"
                 style="width: 100%; border-color: var(--accent-blue); color: var(--accent-blue); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
