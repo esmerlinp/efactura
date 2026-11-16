@@ -256,6 +256,19 @@ class DgiiDirectService:
         }, quote_via=quote)
         return f"https://fc.dgii.gov.do/{Config.DGII_ENVIRONMENT}/ConsultaTimbreFC?{query_params}"
 
+    @staticmethod
+    def _rfce_security_code(invoice_data, fallback=""):
+        """Use the security code from the exact full E32 XML sent to DGII."""
+        xml_content = invoice_data.get("xmlContent") or invoice_data.get("xml_content") or ""
+        if xml_content:
+            try:
+                signature = DgiiSigner.extract_signature_value(xml_content)
+                if signature:
+                    return signature[:6]
+            except Exception:
+                pass
+        return str(invoice_data.get("codigoSeguridad") or fallback or "")[:6]
+
     @classmethod
     def build_qr_url(cls, company_profile, invoice_data, codigo_seguridad):
         """QR oficial DGII (formato CamelCase) con el ambiente del env configurado.
@@ -304,6 +317,7 @@ class DgiiDirectService:
                     pass
 
         if tipo == "32" and e32_is_rfce(total):
+            codigo_seguridad = cls._rfce_security_code(invoice_data, codigo_seguridad)
             query_params = urlencode({
                 "RncEmisor": company_rnc,
                 "ENCF": encf,
@@ -711,6 +725,7 @@ class DgiiDirectService:
                         estado = cls._extract_xml_tag(response_text, "estado") or cls._extract_xml_tag(response_text, "Estado")
 
                 dgii_status = cls._extract_status(response_data, response_text)
+                codigo_seguridad = cls._rfce_security_code(invoice_data, codigo_seguridad)
                 qr_url = cls._build_qr_url_rfce(company_rnc, encf, invoice_data.get("total", 0.0), codigo_seguridad)
                 if status_code >= 200 and status_code < 300:
                     # RFCE: codigo != 1 o estado == "Rechazado" indica rechazo
