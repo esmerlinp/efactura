@@ -940,6 +940,21 @@ def test_list_received_ecf_merged_filters_status_in_memory():
         assert [d["id"] for d in docs] == ["a"]
 
 
+def test_list_received_ecf_merged_filters_company_and_legacy_receiver():
+    from app.repositories.receptor_repository import ReceptorRepository
+    coll = _FakeColl([
+        _doc("company-a", "2026-08-31T12:00:00+00:00", company_id="company-a"),
+        _doc("company-b", "2026-08-31T11:00:00+00:00", company_id="company-b"),
+        _doc("legacy-a", "2026-08-31T10:00:00+00:00", receiver_rnc="131880681"),
+        _doc("legacy-b", "2026-08-31T09:00:00+00:00", receiver_rnc="133753652"),
+    ])
+    with patch.object(ReceptorRepository, "_receptor_collections", return_value=[coll]):
+        docs = ReceptorRepository.list_received_ecf_merged(
+            "owner-1", company_id="company-a", receiver_rnc="131880681"
+        )
+        assert [d["id"] for d in docs] == ["company-a", "legacy-a"]
+
+
 def test_get_received_ecf_merged_finds_across_collections():
     from app.repositories.receptor_repository import ReceptorRepository
     sandbox = _FakeColl([])
@@ -948,6 +963,15 @@ def test_get_received_ecf_merged_finds_across_collections():
         doc = ReceptorRepository.get_received_ecf_merged("owner-1", "p9")
         assert doc is not None and doc["encf"] == "E310000000009"
         assert ReceptorRepository.get_received_ecf_merged("owner-1", "missing") is None
+
+
+def test_get_received_ecf_merged_rejects_other_company():
+    from app.repositories.receptor_repository import ReceptorRepository
+    coll = _FakeColl([_doc("other", "2026-08-31T12:00:00+00:00", company_id="company-b")])
+    with patch.object(ReceptorRepository, "_receptor_collections", return_value=[coll]):
+        assert ReceptorRepository.get_received_ecf_merged(
+            "owner-1", "other", company_id="company-a", receiver_rnc="131880681"
+        ) is None
 
 
 # ── UI /recepcion/ecf/<id> (vista premium del detalle) ──────────────────────
@@ -1273,4 +1297,3 @@ def test_list_received_ecf_export_csv(client):
         assert "RNC Emisor" in text
         assert "EMISOR A SRL" in text
         assert "EMISOR B SRL" not in text
-

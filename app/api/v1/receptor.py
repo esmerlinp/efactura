@@ -248,6 +248,7 @@ def recepcion_ecf():
 
     receiver_name = company.get("companyName", "")
     ecf_document = {
+        "company_id": company.get("id") or owner_uid,
         "sender_rnc": parsed["rnc_emisor"],
         "sender_name": parsed["razon_social_emisor"],
         "receiver_rnc": receiver_rnc,

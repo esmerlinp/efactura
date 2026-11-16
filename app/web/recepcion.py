@@ -58,7 +58,11 @@ def list_received_ecf():
     except ValueError:
         page = 1
 
-    documents = ReceptorRepository.list_received_ecf_merged(owner_uid, limit=None)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    receiver_rnc = str(company.get("companyRNC") or "").replace("-", "").replace(" ", "").strip()
+    documents = ReceptorRepository.list_received_ecf_merged(
+        owner_uid, limit=None, company_id=company_id, receiver_rnc=receiver_rnc
+    )
 
     # Filtros en memoria
     filtered = []
@@ -187,7 +191,11 @@ def detail_received_ecf(ecf_id):
     if guard:
         return guard
     owner_uid, company_id = _get_context()
-    doc = ReceptorRepository.get_received_ecf_merged(owner_uid, ecf_id)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    receiver_rnc = str(company.get("companyRNC") or "").replace("-", "").replace(" ", "").strip()
+    doc = ReceptorRepository.get_received_ecf_merged(
+        owner_uid, ecf_id, company_id=company_id, receiver_rnc=receiver_rnc
+    )
     if not doc:
         flash("Documento no encontrado.", "error")
         return redirect(url_for("web_recepcion.list_received_ecf"))
@@ -215,7 +223,11 @@ def download_received_xml(ecf_id):
     if guard:
         return guard
     owner_uid, company_id = _get_context()
-    doc = ReceptorRepository.get_received_ecf_merged(owner_uid, ecf_id)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    receiver_rnc = str(company.get("companyRNC") or "").replace("-", "").replace(" ", "").strip()
+    doc = ReceptorRepository.get_received_ecf_merged(
+        owner_uid, ecf_id, company_id=company_id, receiver_rnc=receiver_rnc
+    )
     if not doc:
         flash("Documento no encontrado.", "error")
         return redirect(url_for("web_recepcion.list_received_ecf"))
@@ -235,7 +247,11 @@ def download_received_pdf(ecf_id):
     if guard:
         return guard
     owner_uid, company_id = _get_context()
-    doc = ReceptorRepository.get_received_ecf_merged(owner_uid, ecf_id)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    receiver_rnc = str(company.get("companyRNC") or "").replace("-", "").replace(" ", "").strip()
+    doc = ReceptorRepository.get_received_ecf_merged(
+        owner_uid, ecf_id, company_id=company_id, receiver_rnc=receiver_rnc
+    )
     if not doc:
         flash("Documento no encontrado.", "error")
         return redirect(url_for("web_recepcion.list_received_ecf"))
@@ -316,7 +332,11 @@ def download_arecf(ecf_id):
     if guard:
         return guard
     owner_uid, company_id = _get_context()
-    doc = ReceptorRepository.get_received_ecf_merged(owner_uid, ecf_id)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    receiver_rnc = str(company.get("companyRNC") or "").replace("-", "").replace(" ", "").strip()
+    doc = ReceptorRepository.get_received_ecf_merged(
+        owner_uid, ecf_id, company_id=company_id, receiver_rnc=receiver_rnc
+    )
     if not doc:
         flash("Documento no encontrado.", "error")
         return redirect(url_for("web_recepcion.list_received_ecf"))
@@ -372,4 +392,3 @@ def sync_received_to_606():
     except Exception as e:
         flash(f"Error al sincronizar con el Reporte 606: {e}", "error")
     return redirect(url_for("web_recepcion.list_received_ecf"))
-

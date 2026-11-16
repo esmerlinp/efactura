@@ -159,7 +159,7 @@ class ReceptorRepository:
         ]
 
     @staticmethod
-    def list_received_ecf_merged(owner_uid, limit=100, status=None):
+    def list_received_ecf_merged(owner_uid, limit=100, status=None, company_id=None, receiver_rnc=None):
         """Lista e-CF recibidos combinando sandbox y producción.
 
         El filtro por estado se aplica en memoria para no requerir un
@@ -175,6 +175,10 @@ class ReceptorRepository:
                 for doc in query.stream():
                     data = doc.to_dict() or {}
                     data["id"] = doc.id
+                    if company_id and data.get("company_id") and data.get("company_id") != company_id:
+                        continue
+                    if receiver_rnc and not data.get("company_id") and data.get("receiver_rnc") != receiver_rnc:
+                        continue
                     docs.append(data)
             except Exception:
                 continue
@@ -184,13 +188,17 @@ class ReceptorRepository:
         return docs[:limit] if limit else docs
 
     @staticmethod
-    def get_received_ecf_merged(owner_uid, ecf_id):
+    def get_received_ecf_merged(owner_uid, ecf_id, company_id=None, receiver_rnc=None):
         for coll in ReceptorRepository._receptor_collections(owner_uid, COLLECTION_RECEIVED_ECF):
             try:
                 doc = coll.document(ecf_id).get()
                 if doc.exists:
                     data = doc.to_dict() or {}
                     data["id"] = doc.id
+                    if company_id and data.get("company_id") and data.get("company_id") != company_id:
+                        continue
+                    if receiver_rnc and not data.get("company_id") and data.get("receiver_rnc") != receiver_rnc:
+                        continue
                     return data
             except Exception:
                 continue
