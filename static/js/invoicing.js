@@ -42,6 +42,13 @@ document.addEventListener('DOMContentLoaded', () => {
         crmClients = JSON.parse(clientsDataElement.textContent);
     }
 
+    const consumerFinalClient = {
+        id: '',
+        razonSocial: 'Consumidor Final',
+        rnc: '',
+        customer_category: 'NORMAL'
+    };
+
     let priceListPrices = {};
     const priceListDataElement = document.getElementById('price-list-prices-json');
     if (priceListDataElement) {
@@ -143,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateClearClientButton = () => {
         if (!btnClearClient || !clientSearchInput) return;
         const hasSelectedClient = Boolean(clientIdHidden && clientIdHidden.value) ||
-            (clientSearchInput.value.trim() && clientSearchInput.value.trim() !== 'Consumidor Final');
+            Boolean(clientSearchInput.value.trim());
         btnClearClient.style.display = hasSelectedClient ? 'inline-flex' : 'none';
     };
 
@@ -164,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const ecfSelect = document.getElementById('ecf-type-select');
         const code = ecfSelect && typeof extractCodeFromLabel === 'function'
             ? extractCodeFromLabel(ecfSelect.value) : '';
-        if (code === 'E32' && typeof setConsumerClient === 'function') setConsumerClient();
+        if (code === 'E32' && typeof selectClient === 'function') selectClient('', 'Consumidor Final', '', consumerFinalClient);
         else if (typeof enableRncInput === 'function') enableRncInput();
 
         updateClearClientButton();
@@ -1089,7 +1096,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             const exportOnly = isExportE46Selected();
-            const filtered = crmClients.filter(c =>
+            const filtered = (exportOnly ? crmClients : [consumerFinalClient, ...crmClients]).filter(c =>
                 (!exportOnly || c.customer_category === 'FOREIGN') &&
                 ((c.razonSocial || '').toLowerCase().includes(query) ||
                 (c.rnc || '').toLowerCase().includes(query) ||
@@ -1129,7 +1136,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const id = item.getAttribute('data-id');
                     const name = item.getAttribute('data-name');
                     const rnc = item.getAttribute('data-rnc');
-                    const client = crmClients.find(c => c.id === id);
+                    const client = id ? crmClients.find(c => c.id === id) : consumerFinalClient;
                     selectClient(id, name, rnc, client);
                 });
             });
