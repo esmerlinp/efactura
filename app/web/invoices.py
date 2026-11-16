@@ -3499,9 +3499,6 @@ def invoice_detail(invoice_id):
         )
 
     is_proforma = invoice.get('documentType') == 'proforma'
-    if is_proforma and invoice.get('status') not in ('Aprobada', 'Pago parcial', 'Pagada'):
-        flash('La proforma debe estar aprobada antes de registrar pagos.', 'error')
-        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
     
     invoice = _enrich_invoice_totals(invoice)
         
@@ -6050,7 +6047,8 @@ def invoice_pdf_download(invoice_id):
         entity_id=invoice_id,
         entity_label=f"PDF Descargado: {invoice.get('invoiceNumber', '')}",
         user_session=session.get('user', {}),
-        sandbox=sandbox
+        sandbox=sandbox,
+        company_id=company_id,
     )
 
     invoice = _enrich_invoice_totals(invoice)
