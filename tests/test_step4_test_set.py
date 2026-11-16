@@ -625,6 +625,33 @@ def test_build_qr_url_by_type():
     assert "ConsultaTimbre?" in uge
 
 
+def test_rfce_qr_uses_signature_from_persisted_full_e32(monkeypatch):
+    from app.services.dgii_direct import DgiiDirectService
+
+    profile = {"companyRNC": "133753652"}
+    invoice = {
+        "encf": "E320000000196",
+        "ecfType": "Factura de Consumo (E32)",
+        "date": "2026-11-16",
+        "total": 17975.00,
+        "clientRNC": "000000000",
+        "xmlContent": "<FacturaElectronica><ds:Signature><ds:SignatureValue>" \
+                       "Dlysa/firmed-value" \
+                       "</ds:SignatureValue></ds:Signature></FacturaElectronica>",
+    }
+    monkeypatch.setattr(
+        "app.services.dgii_direct.DgiiSigner.extract_signature_value",
+        lambda _: "Dlysa/firmed-value",
+    )
+
+    url = DgiiDirectService.build_qr_url(profile, invoice, "WRONG1")
+
+    assert "fc.dgii.gov.do/" in url
+    assert "ENCF=E320000000196" in url
+    assert "MontoTotal=17975.00" in url
+    assert "CodigoSeguridad=Dlysa%2F" in url
+
+
 def test_send_step4_block_resend():
     """Reenvío intencional: manda los MISMOS eNCF (la DGII reinicia esa prueba)."""
     from unittest.mock import patch
