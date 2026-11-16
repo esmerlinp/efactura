@@ -102,3 +102,62 @@ def test_xml_unit_of_measure_mapping(company_profile, invoice_data):
     root = ET.fromstring(xml_str)
     unidad = root.find(".//UnidadMedida")
     assert unidad is not None and unidad.text == "57"
+
+
+def test_xml_includes_exempt_lines_in_totals(company_profile):
+    data = {
+        "ecfType": "Factura de Consumo (E32)",
+        "encf": "E320000000192",
+        "paymentMethod": "Efectivo",
+        "subtotal": 15275.00,
+        "totalITBIS": 2700.00,
+        "total": 17975.00,
+        "items": [
+            {
+                "name": "Arroz Selecto 5 lb",
+                "quantity": 1,
+                "price": 275.00,
+                "subtotal": 275.00,
+                "itbisRate": 0.0,
+            },
+            {
+                "name": "ASESORIA LEGAL",
+                "quantity": 1,
+                "price": 15000.00,
+                "subtotal": 15000.00,
+                "itbisRate": 0.18,
+            },
+        ],
+    }
+
+    root = ET.fromstring(DgiiXmlBuilder.build_invoice_xml(company_profile, data))
+    totales = root.find(".//Totales")
+    assert totales.findtext("MontoExento") == "275.00"
+    assert totales.findtext("MontoGravadoI1") == "15000.00"
+    assert totales.findtext("MontoTotal") == "17975.00"
+
+
+def test_validate_totals_rejects_stale_exempt_amount(company_profile):
+    data = {
+        "items": [{"price": 275, "quantity": 1, "itbisRate": 0.0}],
+        "montoExento": 0.0,
+    }
+    with pytest.raises(ValueError, match="MontoExento informado 0.00"):
+        DgiiXmlBuilder.validate_totals(data)
+
+
+def test_rfce_summary_does_not_include_payment_collection_fields(company_profile):
+    data = {
+        "encf": "E320000000193",
+        "paymentMethod": "Efectivo",
+        "total": 4405.00,
+        "totalITBIS": 630.00,
+        "items": [
+            {"name": "Arroz", "quantity": 1, "price": 275.00, "subtotal": 275.00, "itbisRate": 0.0},
+            {"name": "Servicio", "quantity": 1, "price": 3500.00, "subtotal": 3500.00, "itbisRate": 0.18},
+        ],
+    }
+    root = ET.fromstring(DgiiXmlBuilder.build_rfce_summary_xml(company_profile, data, "ABC123"))
+    id_doc = root.find(".//IdDoc")
+    assert id_doc.findtext("TipoPago") == "1"
+    assert id_doc.find("TablaFormasPago") is None

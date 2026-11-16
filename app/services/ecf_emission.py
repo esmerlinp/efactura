@@ -1,4 +1,5 @@
 from app.services.dgii_direct import DgiiDirectService
+from app.services.dgii_xml_builder import DgiiXmlBuilder
 
 ECF_CONSUMO_32 = "Factura de Consumo (E32)"
 RFCE_THRESHOLD = 250000.00
@@ -19,6 +20,14 @@ class EcfEmissionService:
         ecf_type = invoice_dict.get("ecfType", ECF_CONSUMO_32)
         client_rnc = str(invoice_dict.get("clientRNC", "")).replace("-", "").strip()
         total = float(invoice_dict.get("total", 0.0))
+
+        # Evita firmar y enviar XML con totales incompatibles con sus líneas.
+        # El builder calcula el exento desde los ítems para no depender de la
+        # persistencia opcional de montoExento/monto_exento.
+        calculated = DgiiXmlBuilder._calculate_exento(invoice_dict)
+        invoice_dict["montoExento"] = calculated
+        invoice_dict["monto_exento"] = calculated
+        DgiiXmlBuilder.validate_totals(invoice_dict)
 
         if "E31" in ecf_type or "fiscal-invoices" in ecf_type or "Crédito Fiscal" in ecf_type:
             if client_rnc == "000000000" or not client_rnc or len(client_rnc) not in [9, 11]:
@@ -46,4 +55,3 @@ class EcfEmissionService:
     @classmethod
     def emit_cancellation(cls, company, cancellation_dict, sandbox=True):
         return DgiiDirectService.cancel_direct(company, cancellation_dict, sandbox=sandbox)
-

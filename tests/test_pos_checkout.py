@@ -561,6 +561,38 @@ def test_sale_returns_dgii_rejection_instead_of_success(app):
     assert failed
 
 
+def test_pos_dgii_success_does_not_reference_disabled_cash_transactions(app):
+    saved = {}
+    mock_shift = {"id": "shift-1", "registerId": "reg-1", "status": "OPEN"}
+
+    with patch("app.web.pos.check_permission", return_value=True), \
+         patch("app.web.pos.DatabaseService.get_open_shift", return_value=mock_shift), \
+         patch("app.web.pos.DatabaseService.get_idempotency_record", return_value=None), \
+         patch("app.web.pos.DatabaseService.get_cash_registers", return_value=[]), \
+         patch("app.web.pos.DatabaseService.get_company_profile", return_value={"consolidationEnabled": False}), \
+         patch("app.web.pos.DatabaseService.get_items", return_value=CATALOG), \
+         patch("app.web.pos.DatabaseService.save_invoice", side_effect=lambda o, i, d, **k: saved.update(d)), \
+         patch("app.web.pos.EcfEmissionService.emit_electronic_comprobante", return_value={
+             "success": True, "encf": "E320000000999", "mode": "RFCE_API",
+             "dgiiStatus": "ACCEPTED", "status": "ACCEPTED",
+         }), \
+         patch("app.services.ecf_post_acceptance_service.EcfPostAcceptanceService.process_accepted_invoice"), \
+         patch("app.services.audit_service.AuditService.log_from_request"), \
+         patch("app.web.pos.DatabaseService.register_sale_cash_transactions"):
+        with app.test_request_context("/pos/invoice/new", method="POST", json={
+            "clientId": "default",
+            "ecfType": "Factura de Consumo (E32)",
+            "items": [{"id": "prod-1", "quantity": 1}],
+            "payments": [{"method": "Efectivo", "amount": 118.0}],
+        }):
+            _session(app)
+            response = app.view_functions["web_pos.create_pos_sale"]()
+
+    body, status = response if isinstance(response, tuple) else (response, 200)
+    assert status == 200
+    assert body.get_json()["success"] is True
+
+
 def test_sale_preserves_rfce_rejection_details(app):
     saved = {}
     mock_shift = {"id": "shift-1", "registerId": "reg-1", "status": "OPEN"}

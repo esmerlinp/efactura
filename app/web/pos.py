@@ -2309,11 +2309,6 @@ def create_pos_sale():
                     owner_uid, invoice_id, invoice_dict,
                     company_id=company_id, sandbox=sandbox,
                 )
-                if cash_txs:
-                    DatabaseService.register_sale_cash_transactions(
-                        owner_uid, open_shift.get('registerId'), open_shift['id'],
-                        cash_txs, company_id=company_id, sandbox=sandbox,
-                    )
 
             # Event Bus: notificar emisión de factura
             try:
@@ -2389,7 +2384,8 @@ def create_pos_sale():
         entity_label=f"Venta POS {invoice_number} (Monto: RD$ {calcs['total']:.2f})",
         user_session=session.get('user', {}),
         after=invoice_dict,
-        sandbox=sandbox
+        sandbox=sandbox,
+        company_id=company_id,
     )
     response_body = {
         "success": True,
