@@ -26,6 +26,40 @@ def _context():
     }
 
 
+def _collect_ir17_items(ctx, period):
+    """Recopila facturas de proveedor con retención y sus pagos aprobados del período."""
+    from app.services.supplier_invoice_service import SupplierInvoiceService
+    from app.services.ir17_build_service import build_ir17_summary
+    from app.countries.do.tax_rules import ISR_RULE_TO_IR17_LINE
+
+    invoices = SupplierInvoiceService.get_all(
+        owner_uid=ctx["owner_uid"], sandbox=ctx["sandbox"], company_id=ctx["company_id"]
+    )
+    items = []
+    unconfirmed = []
+    for inv in invoices:
+        if SupplierInvoiceService.is_voided(inv):
+            continue
+        rule = str(inv.get("retentionIsrRule") or "").strip().lower()
+        if not rule:
+            continue
+        payments = SupplierInvoiceService.get_payments(
+            owner_uid=ctx["owner_uid"], invoice_id=inv.get("id", ""),
+            sandbox=ctx["sandbox"], company_id=ctx["company_id"],
+        )
+        items.append({"invoice": inv, "payments": payments})
+        if rule not in ISR_RULE_TO_IR17_LINE:
+            unconfirmed.append({
+                "invoiceId": inv.get("id", ""),
+                "supplierId": inv.get("supplierId", ""),
+                "supplierName": inv.get("supplierName", ""),
+                "rule": rule,
+            })
+
+    records, grouped = build_ir17_summary(items, period=period)
+    return {"grouped": grouped, "unconfirmed": unconfirmed, "records": records}
+
+
 @web_reports_ir17_bp.before_request
 def restrict_ir17():
     if session.get("company_country", "DO") != "DO":
@@ -69,7 +103,8 @@ def ir17_new():
             return redirect(url_for("web_reports_ir17.ir17_detail", declaration_id=declaration["id"]))
         except Exception as exc:
             flash(str(exc), "error")
-    return render_template("reports/ir17_form.html", declaration=data, is_new=True, active_page="reports")
+    derived = _collect_ir17_items(ctx, period) if request.method == "GET" else None
+    return render_template("reports/ir17_form.html", declaration=data, is_new=True, active_page="reports", derived=derived)
 
 
 @web_reports_ir17_bp.route("/reports/fiscal/ir17/<declaration_id>", methods=["GET", "POST"])

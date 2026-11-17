@@ -448,10 +448,12 @@ B16 = _reg(FiscalDocumentType(
 
 B17 = _reg(FiscalDocumentType(
     code="B17", numeric_code="17",
-    label="Nota de Débito (B17)",
-    family=Family.TRADITIONAL, category=Category.DEBIT_NOTE,
-    description="Nota de débito en papel (formato extendido)",
-    accounting_entry_type="invoice",
+    label="Comprobante para Pagos al Exterior (B17)",
+    family=Family.TRADITIONAL, category=Category.FOREIGN_PAYMENT,
+    description="Comprobante para pagos al exterior en papel",
+    has_itbis=False, has_itbis_breakdown=False, has_retention=True,
+    in_reporte_606=True,
+    accounting_entry_type="expense",
 ))
 
 B18 = _reg(FiscalDocumentType(

@@ -18,7 +18,7 @@ from app.services.dgii_xml_builder import DgiiXmlBuilder
 from app.services.supplier_invoice_service import SupplierInvoiceService
 from app.models.certificacion import CertificacionProcess, CertStep, CertRun, CaseResult
 from config import Config
-from app.utils.e32_rules import e32_is_rfce, to_decimal_amount
+from app.utils.e32_rules import E32_BUYER_IDENTIFICATION_THRESHOLD, e32_is_rfce, to_decimal_amount
 
 DGII_ORDER_GROUP1 = ["31", "32", "41", "43", "44", "45", "46", "47"]
 DGII_ORDER_GROUP2 = ["33", "34"]
@@ -30,6 +30,10 @@ CERT_DGII_ENVIRONMENT = "CerteCF"
 
 ECF_BASE = f"https://ecf.dgii.gov.do/{CERT_DGII_ENVIRONMENT}"
 FC_BASE = f"https://fc.dgii.gov.do/{CERT_DGII_ENVIRONMENT}"
+
+# Umbral E32 RFCE: montos < RD$250,000 son "consumo" (RFCE); >= 250K son e-CF completo.
+# Fuente única: E32_BUYER_IDENTIFICATION_THRESHOLD (app/utils/e32_rules.py).
+RFCE_THRESHOLD = float(E32_BUYER_IDENTIFICATION_THRESHOLD)
 
 
 def _now():
@@ -1828,6 +1832,42 @@ class DgiiCertService:
             print(f"⚠️ No se persistió qrCodeURL de {doc_id}: {e}")
 
     @classmethod
+    def _delete_previous_step4_docs(cls, run_data, owner_uid, sandbox=True, company_id=None):
+        """Borra documentos previos del set y devuelve (eliminados, omitidos).
+
+        Solo cuenta como eliminado lo que el servicio confirma con ``ok=True``.
+        Una factura de proveedor emitida/contabilizada se conserva y se reporta
+        como omitida para no falsear la evidencia de certificación.
+        """
+        deleted_docs = 0
+        skipped_deletions = []
+        for block in (run_data or {}).get("test_set", {}).get("blocks", []):
+            for case in block.get("cases", []):
+                doc_id = case.get("doc_id", "")
+                kind = case.get("kind", "invoice")
+                if not doc_id:
+                    continue
+                try:
+                    if kind in ("invoice", "nota"):
+                        DatabaseService.delete_invoice(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
+                    elif kind == "expense":
+                        DatabaseService.delete_expense(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
+                    elif kind == "supplier_invoice":
+                        ok, del_msg = SupplierInvoiceService.delete(
+                            owner_uid=owner_uid, invoice_id=doc_id,
+                            sandbox=sandbox, company_id=company_id,
+                        )
+                        if not ok:
+                            skipped_deletions.append(f"{doc_id}: {del_msg}")
+                            print(f"⚠️ Factura de proveedor conservada en el set {doc_id}: {del_msg}")
+                            continue
+                    deleted_docs += 1
+                except Exception as del_err:
+                    skipped_deletions.append(f"{doc_id}: {del_err}")
+                    print(f"⚠️ No se pudo eliminar doc previo del set {doc_id}: {del_err}")
+        return deleted_docs, skipped_deletions
+
+    @classmethod
     def generate_step4_test_set(cls, company_id, company_profile, owner_uid, user_email,
                                 sandbox=True, run_number=1, force_rerun=False):
         run_path = _get_run_doc_path(company_id, 4, run_number)
@@ -1837,24 +1877,12 @@ class DgiiCertService:
                     "set": run_data["test_set"], "errors": run_data["test_set"].get("set_errors", [])}
 
         deleted_docs = 0
+        skipped_deletions = []
         seq_skip_info = {}
         if force_rerun and run_data.get("test_set"):
-            for block in run_data["test_set"].get("blocks", []):
-                for case in block.get("cases", []):
-                    doc_id = case.get("doc_id", "")
-                    kind = case.get("kind", "invoice")
-                    if not doc_id:
-                        continue
-                    try:
-                        if kind in ("invoice", "nota"):
-                            DatabaseService.delete_invoice(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
-                        elif kind == "expense":
-                            DatabaseService.delete_expense(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
-                        elif kind == "supplier_invoice":
-                            SupplierInvoiceService.delete(owner_uid=owner_uid, invoice_id=doc_id, sandbox=sandbox, company_id=company_id)
-                        deleted_docs += 1
-                    except Exception as del_err:
-                        print(f"⚠️ No se pudo eliminar doc previo del set {doc_id}: {del_err}")
+            deleted_docs, skipped_deletions = cls._delete_previous_step4_docs(
+                run_data, owner_uid, sandbox=sandbox, company_id=company_id
+            )
 
         seq_info = cls.ensure_cert_sequences(owner_uid, company_id, sandbox=sandbox)
 

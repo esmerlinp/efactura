@@ -50,6 +50,35 @@ FORMA_PAGO_606 = {
     "07": "Mixto",
 }
 
+# Mapeo explícito paymentMethod → código de Forma de Pago del 606 (Norma 08-04).
+PAYMENT_METHOD_TO_FORMA_PAGO = {
+    "efectivo": "01",
+    "cheque": "02",
+    "transferencia": "02",
+    "tarjeta": "03",
+    "tarjeta de crédito": "03",
+    "tarjeta de débito": "03",
+    "tarjeta credito": "03",
+    "tarjeta debito": "03",
+    "nota crédito": "06",
+    "nota de crédito": "06",
+    "nota credito": "06",
+    "nota de credito": "06",
+}
+
+
+def _map_forma_pago(inv):
+    """Resuelve el código de Forma de Pago del 606 a partir de la factura.
+
+    Precedencia: compra a crédito (paymentTerms=credito_*) → 04; de lo contrario
+    se mapea paymentMethod (efectivo/cheque/transferencia/tarjeta/nota de crédito).
+    """
+    terms = str(inv.get("paymentTerms") or "").strip().lower()
+    if terms.startswith("credito"):
+        return "04"
+    method = str(inv.get("paymentMethod") or "").strip().lower()
+    return PAYMENT_METHOD_TO_FORMA_PAGO.get(method, "02")
+
 TIPO_RETENCION_ISR_606 = {
     "01": "Alquileres",
     "02": "Honorarios por Servicios",
@@ -111,7 +140,7 @@ def _get_expenses_for_period(owner_uid, sandbox, year, month):
     try:
         from app.services.supplier_invoice_service import SupplierInvoiceService
         invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
-        for inv in invoices:
+        for inv in SupplierInvoiceService.active_invoices(invoices):
             if inv.get("includeIn606") is False:
                 continue
             if branch_id and inv.get("branchId") != branch_id:
@@ -132,55 +161,91 @@ def _get_expenses_for_period(owner_uid, sandbox, year, month):
                 if key != ("", ""):
                     seen_keys.add(key)
 
-                concept = inv.get("comentario") or inv.get("notes") or ""
-                if not concept and inv.get("supplierInvoiceNumber"):
-                    concept = f"Compra {inv.get('supplierInvoiceNumber', '')} - {inv.get('supplierName', '')}"
-                inv_sub = float(inv.get("subtotal", 0) or 0)
-                inv_disc = float(inv.get("discount", 0) or 0)
-                inv_tot = float(inv.get("total", 0) or 0)
-                inv_itbis = float(inv.get("itbis", 0) or 0)
-                inv_base = max(0.0, (inv_sub - inv_disc) if inv_sub > 0 else (inv_tot - inv_itbis))
-
-                ret_isr_raw = float(inv.get("isrWithheld", 0) or inv.get("retainedISR", 0) or 0)
-                if 0 < ret_isr_raw <= 1.0 and inv_base > 0:
-                    computed_isr_withheld = round(inv_base * ret_isr_raw, 2)
-                else:
-                    computed_isr_withheld = ret_isr_raw
-
-                ret_itbis_raw = float(inv.get("itbisWithheld", 0) or inv.get("retainedITBIS", 0) or 0)
-                if 0 < ret_itbis_raw <= 1.0 and inv_itbis > 0:
-                    computed_itbis_withheld = round(inv_itbis * ret_itbis_raw, 2)
-                else:
-                    computed_itbis_withheld = ret_itbis_raw
-
-                mapped = {
-                    "id": inv.get("id", ""),
-                    "concept": concept,
-                    "amount": float(inv.get("total", 0)),
-                    "itbisAmount": float(inv.get("itbis", 0)),
-                    "date": inv.get("date", ""),
-                    "dueDate": inv.get("dueDate", ""),
-                    "rncEmisor": inv.get("supplierRnc", ""),
-                    "providerName": inv.get("supplierName", ""),
-                    "ncf": inv.get("ncf", ""),
-                    "encf": inv.get("ncf", ""),
-                    "ncfModificado": inv.get("ncfModificado", ""),
-                    "ecfType": inv.get("ecfType", ""),
-                    "tipoGastoDGII": inv.get("tipoGastoDGII", "02"),
-                    "supplierId": inv.get("supplierId", ""),
-                    "isDeductible": inv.get("isDeductible", True),
-                    "isITBISDeductible": inv.get("isITBISDeductible", True),
-                    "isrWithheld": computed_isr_withheld,
-                    "itbisWithheld": computed_itbis_withheld,
-                    "formaPago": inv.get("formaPago", "02"),
-                    "dgiiStatus": inv.get("dgiiStatus", ""),
-                    "createdAt": inv.get("createdAt", ""),
-                }
-                all_items.append(mapped)
+                all_items.append(_map_supplier_invoice(inv))
     except Exception as e:
         print(f"Error al obtener facturas proveedor para 606: {e}")
 
     return all_items
+
+
+def _map_supplier_invoice(inv):
+    """Proyecta una factura de proveedor al shape del 606 (sin adivinar tasas vs montos)."""
+    concept = inv.get("comentario") or inv.get("notes") or ""
+    if not concept and inv.get("supplierInvoiceNumber"):
+        concept = f"Compra {inv.get('supplierInvoiceNumber', '')} - {inv.get('supplierName', '')}"
+
+    # Retención: montos calculados explícitos (3.1); el 606 reporta la obligación
+    # calculada del documento, no la retención aplicada al pagar.
+    isr_withheld = round(float(inv.get("retentionIsrAmount") or inv.get("isrWithheld") or 0), 2)
+    itbis_withheld = round(float(inv.get("retentionItbisAmount") or inv.get("itbisWithheld") or 0), 2)
+
+    tipo_ret_isr = ""
+    if inv.get("retentionIsrRule") == "professional_fees":
+        tipo_ret_isr = "02"  # Honorarios por Servicios
+
+    return {
+        "id": inv.get("id", ""),
+        "concept": concept,
+        "amount": float(inv.get("total", 0)),
+        "itbisAmount": float(inv.get("itbis", 0)),
+        "date": inv.get("date", ""),
+        "dueDate": inv.get("dueDate", ""),
+        "rncEmisor": inv.get("supplierRnc", ""),
+        "providerName": inv.get("supplierName", ""),
+        "ncf": inv.get("ncf", ""),
+        "encf": inv.get("ncf", ""),
+        "ncfModificado": inv.get("ncfModificado", ""),
+        "ecfType": inv.get("ecfType", ""),
+        "tipoGastoDGII": inv.get("tipoGastoDGII", "02"),
+        "supplierId": inv.get("supplierId", ""),
+        "isDeductible": inv.get("isDeductible", True),
+        "isITBISDeductible": inv.get("isITBISDeductible", True),
+        "isrWithheld": isr_withheld,
+        "itbisWithheld": itbis_withheld,
+        "tipoRetencionISR": tipo_ret_isr,
+        "formaPago": _map_forma_pago(inv),
+        "dgiiStatus": inv.get("dgiiStatus", ""),
+        "createdAt": inv.get("createdAt", ""),
+    }
+
+
+def _compute_606_summary(items):
+    """Resumen de conciliación del 606: totales y desglose por proveedor/documento.
+
+    Permite reconciliar el reporte contra los documentos originales: número de
+    registros, monto total, ITBIS, ISR retenido e ITBIS retenido.
+    """
+    by_provider = {}
+    documents = []
+    total_monto = 0.0
+    total_itbis = 0.0
+    total_isr = 0.0
+    total_itbis_ret = 0.0
+    for it in items:
+        monto = float(it.get("amount", 0) or 0)
+        total_monto += monto
+        total_itbis += float(it.get("itbisAmount", 0) or 0)
+        total_isr += float(it.get("isrWithheld", 0) or 0)
+        total_itbis_ret += float(it.get("itbisWithheld", 0) or 0)
+        provider = it.get("rncEmisor") or ""
+        by_provider[provider] = by_provider.get(provider, 0.0) + monto
+        documents.append({
+            "rncEmisor": it.get("rncEmisor", ""),
+            "ncf": it.get("ncf", ""),
+            "amount": monto,
+            "itbis": float(it.get("itbisAmount", 0) or 0),
+            "isrWithheld": float(it.get("isrWithheld", 0) or 0),
+            "itbisWithheld": float(it.get("itbisWithheld", 0) or 0),
+        })
+    return {
+        "count": len(items),
+        "totalMonto": round(total_monto, 2),
+        "totalITBIS": round(total_itbis, 2),
+        "totalISRRetenido": round(total_isr, 2),
+        "totalITBISRetenido": round(total_itbis_ret, 2),
+        "byProvider": {k: round(v, 2) for k, v in by_provider.items()},
+        "documents": documents,
+    }
 
 
 def _filter_expenses(expenses, supplier_id, tipo_gasto, ecf_type, search):
