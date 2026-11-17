@@ -876,6 +876,43 @@ class AccountingService:
         if not accounts:
             cls.seed_default_accounts(company_id, country=country)
             accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
+        rules = AccountingRulesService.get_rules(company_id)
+        advance_acc = AccountingRulesService.resolve(
+            company_id, "anticipo_cliente", "anticipo_recibido", {}, accounts, rules=rules
+        )
+        bank_acc = _resolve_bank_account_account(
+            company_id, payment.get("bankAccountId", ""), accounts, sandbox=sandbox
+        )
+        if not bank_acc:
+            bank_acc = AccountingRulesService.resolve(
+                company_id, "anticipo_cliente", "anticipo_deudor", {}, accounts, rules=rules
+            )
+        if not advance_acc or not bank_acc:
+            return None
+        amount = round(float(payment.get("amount", 0) or 0), 2)
+        if amount <= 0:
+            return None
+        client_name = proforma.get("clientName", "")
+        number = proforma.get("invoiceNumber", "")
+        lines = [
+            {"accountId": bank_acc["id"], "accountCode": bank_acc.get("code", ""), "accountName": bank_acc.get("name", ""), "debit": amount, "credit": 0.0, "description": f"Cobro proforma {number}", "contactId": proforma.get("clientId", ""), "contactName": client_name, "currency": proforma.get("currency", "DOP")},
+            {"accountId": advance_acc["id"], "accountCode": advance_acc.get("code", ""), "accountName": advance_acc.get("name", ""), "debit": 0.0, "credit": amount, "description": f"Anticipo de cliente {client_name}", "contactId": proforma.get("clientId", ""), "contactName": client_name, "currency": proforma.get("currency", "DOP")},
+        ]
+        return cls.generate_entry(company_id, {
+            "entryType": "proforma_payment",
+            "date": str(payment.get("paymentDate", ""))[:10] or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "concept": f"Cobro proforma {number} - {client_name}",
+            "referenceType": "proforma_payment",
+            "referenceId": payment_id,
+            "referenceNumber": payment.get("referenceNumber", ""),
+            "lines": lines,
+            "createdBy": payment.get("registeredBy", "system"),
+            "prefix": "A",
+        }, sandbox=sandbox)
+        accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
+        if not accounts:
+            cls.seed_default_accounts(company_id, country=country)
+            accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
 
         # Resolver cuenta de débito (banco)
         debit_acc = None
@@ -948,6 +985,32 @@ class AccountingService:
             from flask import current_app
             current_app.logger.warning(f"auto_generate_payment_entry desbalanceado ({payment_id}): {e}")
             return None
+
+    @classmethod
+    def auto_generate_proforma_payment_entry(cls, company_id, proforma, payment, sandbox=True, country="DO"):
+        """Post a real proforma collection as bank debit / customer advance credit."""
+        payment_id = payment.get("id", "")
+        if not payment_id or _accounting_entry_exists(company_id, "proforma_payment", payment_id):
+            return None
+        accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
+        if not accounts:
+            cls.seed_default_accounts(company_id, country=country)
+            accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
+        rules = AccountingRulesService.get_rules(company_id)
+        advance_acc = AccountingRulesService.resolve(company_id, "anticipo_cliente", "anticipo_recibido", {}, accounts, rules=rules)
+        bank_acc = _resolve_bank_account_account(company_id, payment.get("bankAccountId", ""), accounts, sandbox=sandbox)
+        if not bank_acc:
+            bank_acc = AccountingRulesService.resolve(company_id, "anticipo_cliente", "anticipo_deudor", {}, accounts, rules=rules)
+        amount = round(float(payment.get("amount", 0) or 0), 2)
+        if not advance_acc or not bank_acc or amount <= 0:
+            return None
+        client_name = proforma.get("clientName", "")
+        number = proforma.get("invoiceNumber", "")
+        lines = [
+            {"accountId": bank_acc["id"], "accountCode": bank_acc.get("code", ""), "accountName": bank_acc.get("name", ""), "debit": amount, "credit": 0.0, "description": f"Cobro proforma {number}", "contactId": proforma.get("clientId", ""), "contactName": client_name, "currency": proforma.get("currency", "DOP")},
+            {"accountId": advance_acc["id"], "accountCode": advance_acc.get("code", ""), "accountName": advance_acc.get("name", ""), "debit": 0.0, "credit": amount, "description": f"Anticipo de cliente {client_name}", "contactId": proforma.get("clientId", ""), "contactName": client_name, "currency": proforma.get("currency", "DOP")},
+        ]
+        return cls.generate_entry(company_id, {"entryType": "proforma_payment", "date": str(payment.get("paymentDate", ""))[:10] or datetime.now(timezone.utc).strftime("%Y-%m-%d"), "concept": f"Cobro proforma {number} - {client_name}", "referenceType": "proforma_payment", "referenceId": payment_id, "referenceNumber": payment.get("referenceNumber", ""), "lines": lines, "createdBy": payment.get("registeredBy", "system"), "prefix": "A"}, sandbox=sandbox)
 
     @classmethod
     def auto_generate_advance_application_entry(cls, company_id, invoice, advances, sandbox=True, country="DO"):

@@ -4694,6 +4694,18 @@ class DatabaseService:
             payment_dict["paymentDate"] = serialize_field(payment_dict["paymentDate"])
             
             inv_ref.collection("payments").document(payment_id).set(payment_dict)
+
+            if document_type == "proforma":
+                try:
+                    from app.services.accounting_service import AccountingService
+                    AccountingService.auto_generate_proforma_payment_entry(
+                        company_id or DatabaseService._resolve_company_id(owner_uid),
+                        {**inv_data, "id": invoice_id},
+                        payment_dict,
+                        sandbox=sandbox,
+                    )
+                except Exception as acc_err:
+                    print(f"⚠️ Error al generar asiento de cobro de proforma: {acc_err}")
             
             # Determinar nuevo estado de factura
             if document_type == "proforma":
