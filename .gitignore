@@ -10,6 +10,7 @@ firebase-adminsdk.json
 *.log
 *.sqlite
 local_vykone.db
+cookies.txt
 
 # Caché de Python
 __pycache__/
