@@ -1,5 +1,6 @@
 import zipfile
 import xml.etree.ElementTree as ET
+import re
 from pathlib import Path
 
 from app.fiscal_forms.ir17_rules import IR17_LINES
@@ -26,5 +27,10 @@ def test_catalog_matches_ir17_2026_template_rates_and_lines():
     assert len(IR17_LINES) == 24
     for number, concept, rate, _ in IR17_LINES:
         row = 26 + number
-        assert values[f"D{row}"].startswith(concept.split(" (")[0])
+        # Comparación estricta de la descripción (sin la referencia legal entre
+        # paréntesis) y de la tasa. Solo se normaliza whitespace para tolerar
+        # diferencias de espaciado del Excel oficial (p. ej. "INTERESES A  PERSONAS").
+        template_desc = re.sub(r"\s+", " ", values[f"D{row}"].split(" (")[0]).strip()
+        catalog_desc = re.sub(r"\s+", " ", concept.split(" (")[0]).strip()
+        assert catalog_desc == template_desc, f"Línea {number}: descripción no coincide"
         assert values[f"AI{row}"] == str(float(rate))
