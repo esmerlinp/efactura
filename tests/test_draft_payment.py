@@ -736,3 +736,150 @@ def test_bank_detail_reads_payments_without_collection_group_indexes(client):
             "invoiceId": "",
         },
     ]
+
+
+def test_bank_detail_includes_proforma_payment():
+    from app.web import banks as banks_module
+
+    payment = {
+        "id": "pmt-proforma",
+        "amount": 450.0,
+        "paymentDate": "2026-11-03",
+        "referenceNumber": "PRO-REF",
+        "bankAccountId": "bank-1",
+    }
+    with patch.object(
+        banks_module.DatabaseService, 'get_invoices', return_value=[{
+            "id": "pro-1",
+            "invoiceNumber": "PRO-0001",
+            "clientName": "Cliente Proforma",
+            "documentType": "proforma",
+        }]
+    ), patch.object(
+        banks_module.DatabaseService, 'get_invoice_payments', return_value=[payment]
+    ):
+        transactions = banks_module._load_account_payment_transactions(
+            "test-owner", "bank-1", True, "company-1"
+        )
+
+    assert transactions == [{
+        "date": "2026-11-03",
+        "type": "income",
+        "concept": "Pago PRO-0001 — Cliente Proforma",
+        "amount": 450.0,
+        "reference": "PRO-REF",
+        "invoiceId": "pro-1",
+        "documentType": "proforma",
+    }]
+
+
+def test_bank_detail_includes_proforma_collection():
+    from app.web import banks as banks_module
+
+    proforma = {
+        "id": "proforma-337272",
+        "invoiceNumber": "PRO-337272",
+        "clientName": "Colectivo Salud Mental (COSALUME)",
+        "documentType": "proforma",
+        "isQuotation": True,
+    }
+    payment = {
+        "amount": 17000.0,
+        "paymentDate": "2026-11-16",
+        "referenceNumber": "Recibo de Caja No. 1",
+        "bankAccountId": "961b1f6b-cc43-4bb6-badc-af176b3659be",
+    }
+
+    with patch.object(
+        banks_module.DatabaseService, 'get_invoices', return_value=[proforma]
+    ) as get_invoices, patch.object(
+        banks_module.DatabaseService, 'get_invoice_payments', return_value=[payment]
+    ):
+        transactions = banks_module._load_account_payment_transactions(
+            "test-owner",
+            "961b1f6b-cc43-4bb6-badc-af176b3659be",
+            False,
+            "company-1",
+        )
+
+    get_invoices.assert_called_once_with(
+        "test-owner",
+        sandbox=False,
+        include_all=True,
+        company_id="company-1",
+    )
+    assert transactions[0]["concept"] == "Pago PRO-337272 — Colectivo Salud Mental (COSALUME)"
+    assert transactions[0]["amount"] == 17000.0
+    assert transactions[0]["type"] == "income"
+
+
+def test_bank_detail_includes_cxp_payment_as_expense():
+    from app.web import banks as banks_module
+
+    payment = {
+        "id": "cxp-2",
+        "amount": 275.0,
+        "paymentDate": "2026-11-04",
+        "bankAccountId": "bank-1",
+    }
+    with patch.object(
+        banks_module.DatabaseService, 'get_invoices', return_value=[]
+    ), patch.object(
+        banks_module.DatabaseService, 'get_expenses', return_value=[{
+            "id": "exp-2", "concept": "Factura proveedor", "bankAccountId": ""
+        }]
+    ), patch.object(
+        banks_module.DatabaseService, 'get_cxp_payments', return_value=[payment]
+    ):
+        transactions = banks_module._load_account_payment_transactions(
+            "test-owner", "bank-1", True, "company-1"
+        )
+
+    assert transactions == [{
+        "date": "2026-11-04",
+        "type": "expense",
+        "concept": "Pago CxP: Factura proveedor",
+        "amount": -275.0,
+        "reference": "",
+        "expenseId": "exp-2",
+        "invoiceId": "",
+    }]
+
+
+def test_bank_detail_includes_supplier_invoice_payment():
+    from app.web import banks as banks_module
+
+    supplier_payment = {
+        "id": "supplier-pmt-1",
+        "amount": 12750.0,
+        "paymentDate": "2026-11-17",
+        "reference": "FI-REF-1",
+        "bankAccountId": "bank-1",
+    }
+    supplier_invoice = {
+        "id": "supplier-inv-1",
+        "invoiceNumber": "FI-2026-0001",
+        "supplierName": "Dargys Sanchez Martinez",
+    }
+    with patch.object(
+        banks_module.DatabaseService, 'get_invoices', return_value=[]
+    ), patch.object(
+        banks_module.DatabaseService, 'get_expenses', return_value=[]
+    ), patch.object(
+        banks_module.SupplierInvoiceService, 'get_all', return_value=[supplier_invoice]
+    ), patch.object(
+        banks_module.SupplierInvoiceService, 'get_payments', return_value=[supplier_payment]
+    ):
+        transactions = banks_module._load_account_payment_transactions(
+            "test-owner", "bank-1", True, "company-1"
+        )
+
+    assert transactions == [{
+        "date": "2026-11-17",
+        "type": "expense",
+        "concept": "Pago proveedor FI-2026-0001 — Dargys Sanchez Martinez",
+        "amount": -12750.0,
+        "reference": "FI-REF-1",
+        "expenseId": "supplier-inv-1",
+        "invoiceId": "",
+    }]

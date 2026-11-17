@@ -58,7 +58,14 @@ def _load_account_payment_transactions(owner_uid, account_id, sandbox, company_i
     transactions = []
 
     if type_filter in ('', 'income'):
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
+        # Include both fiscal invoices and commercial proformas. Payments on a
+        # proforma are real collections and must appear in the bank ledger.
+        invoices = DatabaseService.get_invoices(
+            owner_uid,
+            sandbox=sandbox,
+            include_all=True,
+            company_id=company_id,
+        )
         for inv in invoices:
             inv_id = inv.get('id')
             if not inv_id:
@@ -77,7 +84,37 @@ def _load_account_payment_transactions(owner_uid, account_id, sandbox, company_i
                     "concept": f"Pago {inv.get('invoiceNumber', '')} — {inv.get('clientName', '')}",
                     "amount": float(pmt.get('amount', 0)),
                     "reference": pmt.get('referenceNumber', ''),
-                    "invoiceId": inv_id
+                    "invoiceId": inv_id,
+                    "documentType": inv.get('documentType', ''),
+                })
+
+    if type_filter in ('', 'expense'):
+        from app.services.supplier_invoice_service import SupplierInvoiceService
+
+        supplier_invoices = SupplierInvoiceService.get_all(
+            owner_uid=owner_uid, sandbox=sandbox, company_id=company_id
+        ) or []
+        for inv in supplier_invoices:
+            inv_id = inv.get('id')
+            if not inv_id:
+                continue
+            for pmt in SupplierInvoiceService.get_payments(
+                owner_uid=owner_uid, invoice_id=inv_id,
+                sandbox=sandbox, company_id=company_id
+            ):
+                payment_date = str(pmt.get('paymentDate', ''))[:10]
+                if (pmt.get('bankAccountId') != account_id or
+                        (date_from and payment_date < date_from) or
+                        (date_to and payment_date > date_to)):
+                    continue
+                transactions.append({
+                    "date": payment_date,
+                    "type": "expense",
+                    "concept": f"Pago proveedor {inv.get('invoiceNumber', '')} — {inv.get('supplierName', '')}",
+                    "amount": -float(pmt.get('amount', 0)),
+                    "reference": pmt.get('reference', ''),
+                    "expenseId": inv_id,
+                    "invoiceId": ''
                 })
 
     return transactions

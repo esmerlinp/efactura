@@ -1583,16 +1583,18 @@ def new_supplier_invoice_direct():
                 SupplierInvoiceService.update(owner_uid=owner_uid, invoice_id=inv_data["id"], data={"attachmentUrls": urls}, sandbox=sandbox, company_id=company_id)
 
         if payment_type == 'Contado' and bank_account_id:
-            try:
-                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox, company_id=company_id)
-                if bank_acc:
-                    new_balance = bank_acc["currentBalance"] - round(total, 2)
-                    DatabaseService.save_bank_account(owner_uid, bank_account_id, {
-                        **bank_acc,
-                        "currentBalance": new_balance
-                    }, sandbox=sandbox, company_id=company_id)
-            except Exception as bank_err:
-                print(f"Error al actualizar saldo bancario en factura directa: {bank_err}")
+            SupplierInvoiceService.ensure_cash_payment(
+                owner_uid=owner_uid,
+                invoice_id=inv_data["id"],
+                amount=calc_net_payable,
+                registered_by=inv_data.get("createdBy", "Usuario"),
+                payment_method=inv_data.get("paymentMethod", "transferencia"),
+                payment_reference=inv_data.get("paymentReference", ""),
+                bank_account_id=bank_account_id,
+                payment_date=inv_data.get("date", ""),
+                sandbox=sandbox,
+                company_id=company_id,
+            )
 
         AuditService.log_from_request(
             owner_uid=owner_uid, action=ACTION_CREATE, module=MODULE_SINV,
