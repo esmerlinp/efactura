@@ -1172,12 +1172,14 @@ def pay_invoice(invoice_id):
         return jsonify({"success": False, "error": "El monto excede el saldo pendiente."}), 400
 
     payment_id = str(uuid.uuid4())
+    bank_account_id = str(request.json.get('bankAccountId') or '').strip()
     payment_dict = {
         "id": payment_id,
         "amount": amount,
         "paymentMethod": "Tarjeta en Línea (Portal)",
         "bank": f"Pasarela {get_product_name()}",
         "referenceNumber": f"WEB-{uuid.uuid4().hex[:8].upper()}",
+        "bankAccountId": bank_account_id,
         "paymentDate": datetime.now(timezone.utc).isoformat(),
         "registeredBy": "Cliente (Portal Autogestión)"
     }
@@ -1220,6 +1222,7 @@ def report_invoice_payment(invoice_id):
     payment_method = request.form.get('paymentMethod', '').strip()
     bank = request.form.get('bank', '').strip()
     reference_number = request.form.get('referenceNumber', '').strip()
+    bank_account_id = request.form.get('bankAccountId', '').strip()
     payment_date = request.form.get('paymentDate', '').strip()
     notes = request.form.get('notes', '').strip()
     
@@ -1270,6 +1273,7 @@ def report_invoice_payment(invoice_id):
             "paymentMethod": payment_method,
             "bank": bank,
             "referenceNumber": reference_number,
+            "bankAccountId": bank_account_id,
             "paymentDate": payment_date,
             "fileUrl": file_url,
             "fileName": proof_file.filename,

@@ -399,6 +399,16 @@
                     style="width:100%; font-weight:bold; font-size:1.1rem; text-align:right;">
             </div>
 
+            <div style="margin-bottom: 18px;">
+                <label for="modal-bank-account" style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Cuenta bancaria</label>
+                <select id="modal-bank-account" class="form-select" required style="width:100%;">
+                    <option value="">Seleccionar cuenta</option>
+                    {% for account in bank_accounts %}
+                    <option value="{{ account.id }}">{{ account.name }} — RD$ {{ "{:,.2f}".format(account.currentBalance) }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button type="button" onclick="closePayModal()" class="btn btn-secondary"
                     style="font-size: 0.8rem; padding: 8px 16px;">Cancelar</button>
@@ -426,16 +436,21 @@
         e.preventDefault();
         const expenseId = document.getElementById('modal-expense-id').value;
         const amount = parseFloat(document.getElementById('modal-payment-amount').value);
+        const bankAccountId = document.getElementById('modal-bank-account').value;
 
         if (isNaN(amount) || amount <= 0) {
             alert('Monto de pago inválido.');
+            return;
+        }
+        if (!bankAccountId) {
+            alert('Debe seleccionar la cuenta bancaria del pago.');
             return;
         }
 
         fetch(`/expenses/cxp/${expenseId}/pay`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: amount })
+            body: JSON.stringify({ amount: amount, bankAccountId: bankAccountId })
         })
             .then(res => res.json())
             .then(data => {

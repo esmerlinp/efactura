@@ -335,6 +335,45 @@ class SupplierInvoiceService:
             return False, str(e)
 
     @classmethod
+    def ensure_cash_payment(cls, owner_uid=None, invoice_id=None, amount=0, registered_by="Usuario",
+                            payment_method="", payment_reference="", bank_account_id="",
+                            payment_date=None, sandbox=True, company_id=None):
+        """Create the payment detail for a cash invoice exactly once."""
+        if not firebase_initialized or db_firestore is None:
+            return False, "Firebase no inicializado."
+        try:
+            doc_ref = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(invoice_id)
+            existing = list(doc_ref.collection("cxp_payments").limit(1).stream())
+            if existing:
+                return True, "El pago ya estaba registrado."
+
+            payment_id = f"cash-{invoice_id}"
+            payment_doc = {
+                "id": payment_id,
+                "amount": round(float(amount), 2),
+                "paymentDate": payment_date or datetime.now(timezone.utc).isoformat(),
+                "registeredBy": registered_by,
+                "createdAt": datetime.now(timezone.utc).isoformat(),
+                "method": payment_method or "",
+                "reference": payment_reference or "",
+                "bankAccountId": bank_account_id or "",
+                "source": "cash_invoice_creation",
+            }
+            doc_ref.collection("cxp_payments").document(payment_id).set(payment_doc)
+            bank_acc = DatabaseService.get_bank_account(
+                owner_uid, bank_account_id, sandbox=sandbox, company_id=company_id
+            ) if bank_account_id else None
+            if bank_acc:
+                DatabaseService.save_bank_account(owner_uid, bank_account_id, {
+                    **bank_acc,
+                    "currentBalance": bank_acc["currentBalance"] - round(float(amount), 2),
+                }, sandbox=sandbox, company_id=company_id)
+            return True, "Detalle de pago contado creado."
+        except Exception as e:
+            print(f"⚠️ Error al crear pago contado de factura proveedor {invoice_id}: {e}")
+            return False, str(e)
+
+    @classmethod
     def get_payments(cls, owner_uid=None, invoice_id=None, sandbox=True, company_id=None):
         payments = []
         if not firebase_initialized or db_firestore is None:
@@ -350,6 +389,7 @@ class SupplierInvoiceService:
                     "registeredBy": data.get("registeredBy", ""),
                     "method": data.get("method", ""),
                     "reference": data.get("reference", ""),
+                    "bankAccountId": data.get("bankAccountId", ""),
                     "createdAt": data.get("createdAt", ""),
                 })
             payments.sort(key=lambda p: p.get("createdAt", ""), reverse=True)

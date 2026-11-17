@@ -4739,6 +4739,9 @@ def approve_payment_proof(invoice_id):
     reference_number = request.form.get('referenceNumber', 'Abono Registrado')
     payment_date = request.form.get('paymentDate') or datetime.now(timezone.utc).isoformat()
     bank_account_id = request.form.get('bankAccountId', '')
+    if not bank_account_id:
+        flash('Debe seleccionar la cuenta bancaria donde se recibió el cobro.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
     
     payment_dict = {
         "amount": amount,
@@ -9375,6 +9378,7 @@ def list_cxp():
         'expenses/cxp.html',
         active_page='expenses_cxp',
         cxp_list=filtered_cxp,
+        bank_accounts=DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox),
         total_cxp_pending=total_cxp_pending,
         total_cxp_vencido=total_cxp_vencido,
         today_str=today_str,
@@ -9396,12 +9400,15 @@ def pay_cxp_route(expense_id):
     
     data = request.get_json(silent=True) or {}
     amount = float(data.get("amount", 0.0))
+    bank_account_id = str(data.get("bankAccountId") or "").strip()
     
     if amount <= 0:
         return jsonify({"success": False, "message": "Monto no válido."}), 400
+    if not bank_account_id:
+        return jsonify({"success": False, "message": "Debe seleccionar la cuenta bancaria del pago."}), 400
         
     registered_by = session['user'].get('name', 'Usuario Admin')
-    success, message = DatabaseService.save_cxp_payment(owner_uid, expense_id, amount, company_id=company_id, registered_by=registered_by, sandbox=sandbox)
+    success, message = DatabaseService.save_cxp_payment(owner_uid, expense_id, amount, company_id=company_id, registered_by=registered_by, bank_account_id=bank_account_id, sandbox=sandbox)
     
     if success:
         return jsonify({"success": True, "message": message})
@@ -13319,8 +13326,11 @@ def cxp_batch_pay():
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     eids = request.form.getlist('expense_ids')
+    bank_account_id = request.form.get('bankAccountId', '').strip()
     if not eids:
         return jsonify({"success": False, "message": "Selecciona al menos un gasto"}), 400
+    if not bank_account_id:
+        return jsonify({"success": False, "message": "Selecciona la cuenta bancaria del pago"}), 400
     total, paid = 0.0, 0
     for eid in eids:
         try:
@@ -13329,7 +13339,7 @@ def cxp_batch_pay():
                 continue
             rem = float(exp.get('cxpRemainingBalance', exp.get('amount', 0)))
             total += rem
-            DatabaseService.save_cxp_payment(owner_uid, eid, rem, company_id=company_id, registered_by=session.get('user',{}).get('name',''), sandbox=sandbox)
+            DatabaseService.save_cxp_payment(owner_uid, eid, rem, company_id=company_id, registered_by=session.get('user',{}).get('name',''), bank_account_id=bank_account_id, sandbox=sandbox)
             paid += 1
         except Exception:
             pass
