@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+{% block title %}Reporte 609 — Pagos al Exterior{% endblock %}
+{% block page_header %}Reporte 609 — Pagos por Servicios al Exterior{% endblock %}
+
+{% block content %}
+<div class="card-table-wrapper" style="padding:24px; max-width:760px; margin:0 auto;">
+    <h1 style="font-size:1.4rem; font-weight:800; font-family:var(--font-heading); margin-bottom:8px;">
+        <i class="fa-solid fa-globe" style="color:var(--accent-purple); margin-right:8px;"></i>
+        Formato 609 — Pagos por Servicios al Exterior
+    </h1>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:20px;">
+        Genera el archivo TXT con los pagos al exterior del período, según la Norma General 07-2018 (Anexo D).
+    </p>
+
+    <form method="GET" action="{{ url_for('web_reports_609.reporte_609_export') }}" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;">
+            <label style="font-size:0.78rem; color:var(--text-secondary);">Año</label>
+            <input type="number" name="year" class="form-input" min="2020" max="2100" required style="height:38px;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label style="font-size:0.78rem; color:var(--text-secondary);">Mes</label>
+            <input type="number" name="month" class="form-input" min="1" max="12" required style="height:38px;">
+        </div>
+        <button type="submit" class="btn btn-primary" style="height:38px;">
+            <i class="fa-solid fa-file-arrow-down"></i> Generar TXT
+        </button>
+    </form>
+
+    <div style="margin-top:18px; padding:12px 14px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.35); border-radius:8px; font-size:0.78rem; color:#92400e;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        Los documentos con pagos parciales en <strong>varias fechas de retención</strong> se excluyen del reporte
+        (pendiente de confirmación DGII). Los documentos con datos fiscales incompletos <strong>bloquean</strong> la
+        generación del archivo.
+    </div>
+</div>
+{% endblock %}
