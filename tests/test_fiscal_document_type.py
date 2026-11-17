@@ -125,7 +125,7 @@ class TestTypeMetadata:
     def test_report_606_types(self):
         """606 solo aplica a compras/gastos/gobierno/exterior."""
         codes = {t.code for t in all_types() if t.in_reporte_606}
-        assert codes == {"E41", "E43", "E45", "E47", "E49"}
+        assert codes == {"B17", "E41", "E43", "E45", "E47", "E49"}
 
     def test_report_607_types(self):
         """607 aplica a ventas/export/gobierno."""
@@ -161,10 +161,10 @@ class TestTypeMetadata:
 
     def test_accounting_entry_types(self):
         """Verifica entry_type contable para cada tipo."""
-        expected_expense = {"E41", "E43", "E47", "B05", "B06", "B07", "B10", "B13", "B16"}
+        expected_expense = {"E41", "E43", "E47", "B05", "B06", "B07", "B10", "B13", "B16", "B17"}
         expected_credit_note = {"E34", "B04", "B18"}
         expected_invoice = {"E31", "E32", "E33", "E45", "E46", "E48", "E49",
-                            "B01", "B02", "B03", "B08", "B09", "B12", "B14", "B15", "B17"}
+                            "B01", "B02", "B03", "B08", "B09", "B12", "B14", "B15"}
         for t in all_types():
             if t.code in expected_expense:
                 assert t.accounting_entry_type == "expense", f"{t.code} debe ser expense"
