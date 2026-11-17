@@ -17,6 +17,8 @@ def _merge_supplier_invoices_into_expenses(owner_uid, expenses, sandbox=True):
         from app.services.supplier_invoice_service import SupplierInvoiceService
         invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
         for inv in invoices:
+            if SupplierInvoiceService.is_voided(inv):
+                continue
             if branch_id and inv.get("branchId") != branch_id:
                 continue
             if project_id == '__no_project__':

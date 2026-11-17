@@ -217,7 +217,7 @@ ALL_PERMISSION_KEYS = [
     "canAccounting", "isPosSupervisor", "canViewSubscription",
     "canToggleSandbox", "canManageNotes", "canManageSuppliers",
     "canManagePurchaseCXP", "canUseChatbot", "canManageTools",
-    "canHR", "canVoidInvoice", "canCreateSupplier",
+    "canHR", "canVoidInvoice", "canVoidSupplierInvoice", "canVoidPayment", "canCreateSupplier",
     "canApprovePayments", "canApprovePayroll", "canApproveExpenses",
     "canSupervisePOS", "canAssignApprovers",
     # Permisos granulares de Productos e Inventario
@@ -269,7 +269,7 @@ ROLES_PRESETS = {
         "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
         "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
         "canManageTools": False, "canHR": False,
-        "canVoidInvoice": False, "canCreateSupplier": False,
+        "canVoidInvoice": False, "canVoidSupplierInvoice": False, "canVoidPayment": False, "canCreateSupplier": False,
         "canApprovePayments": False, "canApprovePayroll": False,
         "canApproveExpenses": False, "canSupervisePOS": False,
         "canAssignApprovers": False,
@@ -318,7 +318,7 @@ ROLES_PRESETS = {
         "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
         "canManageSuppliers": True, "canManagePurchaseCXP": True, "canUseChatbot": False,
         "canManageTools": False, "canHR": True,
-        "canVoidInvoice": True, "canCreateSupplier": False,
+        "canVoidInvoice": True, "canVoidSupplierInvoice": True, "canVoidPayment": True, "canCreateSupplier": False,
         "canApprovePayments": False, "canApprovePayroll": False,
         "canApproveExpenses": False, "canSupervisePOS": False,
         "canAssignApprovers": False,
@@ -367,7 +367,7 @@ ROLES_PRESETS = {
         "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
         "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
         "canManageTools": False, "canHR": True,
-        "canVoidInvoice": False, "canCreateSupplier": False,
+        "canVoidInvoice": False, "canVoidSupplierInvoice": False, "canVoidPayment": False, "canCreateSupplier": False,
         "canApprovePayments": False, "canApprovePayroll": False,
         "canApproveExpenses": False, "canSupervisePOS": False,
         "canAssignApprovers": False,
@@ -492,6 +492,8 @@ PERMISSION_GROUPS = [
         "name": "Compras y Proveedores",
         "perms": [
             "canManagePurchaseCXP",
+            "canVoidSupplierInvoice",
+            "canVoidPayment",
             "canManagePurchaseOrders",
             "canApprovePurchaseOrders",
             "canSelfApprovePurchaseOrders",
@@ -505,6 +507,8 @@ PERMISSION_GROUPS = [
         ],
         "labels": {
             "canManagePurchaseCXP": "Facturas de proveedores y cuentas por pagar (CxP)",
+            "canVoidSupplierInvoice": "Anular facturas de proveedores (motivo obligatorio y SoD)",
+            "canVoidPayment": "Anular pagos registrados (aprobados o pendientes)",
             "canManagePurchaseOrders": "Órdenes de compra a proveedores",
             "canApprovePurchaseOrders": "Aprobar órdenes de compra a proveedores",
             "canSelfApprovePurchaseOrders": "Auto-aprobar órdenes de compra creadas por el mismo usuario",
@@ -7984,7 +7988,8 @@ def payments_new_route():
             from app.services.accounting_service import AccountingService
             AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
-            print(f"Error al generar asiento contable del gasto: {acc_err}")
+            from flask import current_app
+            current_app.logger.error("Error al generar asiento contable del gasto: %s", acc_err)
 
         rnc_emisor = request.form.get('rncEmisor', '').strip()
         provider_name = request.form.get('providerName', '').strip()
@@ -8289,7 +8294,8 @@ def minor_new_route():
             from app.services.accounting_service import AccountingService
             AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
-            print(f"Error al generar asiento contable del gasto menor: {acc_err}")
+            from flask import current_app
+            current_app.logger.error("Error al generar asiento contable del gasto menor: %s", acc_err)
 
         try:
             ecf_short = 'E43'
@@ -8646,7 +8652,8 @@ def recurring_new_route():
             from app.services.accounting_service import AccountingService
             AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
-            print(f"Error al generar asiento contable del pago recurrente: {acc_err}")
+            from flask import current_app
+            current_app.logger.error("Error al generar asiento contable del pago recurrente: %s", acc_err)
 
         flash('Pago recurrente programado exitosamente.', 'success')
         return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
@@ -8921,7 +8928,8 @@ def edit_expense_route(expense_id):
                     break
             AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
-            print(f"Error al regenerar asiento contable en edición: {acc_err}")
+            from flask import current_app
+            current_app.logger.error("Error al regenerar asiento contable en edición: %s", acc_err)
 
         # === EMISIÓN e-CF PARA E41/E43 AL EDITAR ===
         # Solo si el gasto aún NO tiene un e-NCF asignado (no re-emisión de documentos ya enviados a la DGII).
@@ -9408,7 +9416,7 @@ def pay_cxp_route(expense_id):
         return jsonify({"success": False, "message": "Debe seleccionar la cuenta bancaria del pago."}), 400
         
     registered_by = session['user'].get('name', 'Usuario Admin')
-    success, message = DatabaseService.save_cxp_payment(owner_uid, expense_id, amount, company_id=company_id, registered_by=registered_by, bank_account_id=bank_account_id, sandbox=sandbox)
+    success, message = DatabaseService.save_cxp_payment(owner_uid, expense_id, amount, company_id=company_id, registered_by=registered_by, bank_account_id=bank_account_id, sandbox=sandbox, requested_by_uid=session['user'].get('uid', ''))
     
     if success:
         return jsonify({"success": True, "message": message})
@@ -13339,7 +13347,7 @@ def cxp_batch_pay():
                 continue
             rem = float(exp.get('cxpRemainingBalance', exp.get('amount', 0)))
             total += rem
-            DatabaseService.save_cxp_payment(owner_uid, eid, rem, company_id=company_id, registered_by=session.get('user',{}).get('name',''), bank_account_id=bank_account_id, sandbox=sandbox)
+            DatabaseService.save_cxp_payment(owner_uid, eid, rem, company_id=company_id, registered_by=session.get('user',{}).get('name',''), bank_account_id=bank_account_id, sandbox=sandbox, requested_by_uid=session.get('user',{}).get('uid',''))
             paid += 1
         except Exception:
             pass
@@ -14091,6 +14099,7 @@ def expense_detail(expense_id):
         taggable_users=taggable_users,
         is_cxp=is_cxp,
         cxp_payments=cxp_payments,
+        can_approve_payments=(session.get('user', {}).get('role') == 'owner') or check_permission('canApprovePayments'),
         format_mentions=format_mentions,
         linked_entry=linked_entry,
         bank_accounts=bank_accounts,
@@ -14098,6 +14107,109 @@ def expense_detail(expense_id):
         qr_base64=qr_base64,
         qr_code_url=qr_code_url,
     )
+
+
+@web_invoices_bp.route('/expenses/<expense_id>/payments/<payment_id>/void', methods=['POST'])
+def void_expense_payment(expense_id, payment_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canVoidPayment'):
+        return render_template('auth/restricted.html', feature_name="Anular pago de gasto", required_permission="canVoidPayment"), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    user = session.get('user', {})
+    reason = request.form.get('reason', '').strip()
+    if not reason:
+        flash('Debe indicar el motivo de la anulación del pago.', 'error')
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
+
+    voided_by = user.get('email') or user.get('name') or 'Usuario'
+    ok, message = DatabaseService.void_cxp_payment(
+        owner_uid, expense_id, payment_id,
+        voided_by=voided_by, reason=reason,
+        company_id=company_id, sandbox=sandbox,
+    )
+    if ok:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_GASTOS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_GASTOS,
+            entity_id=expense_id,
+            entity_label=f"Pago de gasto anulado: {payment_id} - {reason}",
+            user_session=user, sandbox=sandbox,
+        )
+    flash(message, 'success' if ok else 'error')
+    return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
+
+
+@web_invoices_bp.route('/expenses/<expense_id>/payments/<payment_id>/approve', methods=['POST'])
+def approve_expense_payment(expense_id, payment_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    user = session.get('user', {})
+    is_owner = user.get('role') == 'owner'
+    if not (is_owner or check_permission('canApprovePayments')):
+        return render_template('auth/restricted.html', feature_name="Aprobar pago de gasto", required_permission="canApprovePayments"), 403
+    owner_uid = user.get('ownerUID')
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    user_uid = user.get('uid', '')
+    notes = request.form.get('notes', '').strip()
+
+    payments = DatabaseService.get_cxp_payments(owner_uid, expense_id, sandbox=sandbox, company_id=company_id)
+    payment = next((p for p in payments if p.get('id') == payment_id), None)
+    if payment and payment.get('requestedBy') and payment.get('requestedBy') == user_uid:
+        if not (is_owner and notes):
+            flash('No puedes aprobar un pago que tú mismo registraste (segregación de funciones). Solo el propietario puede auto-aprobar, con justificación.', 'error')
+            return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
+
+    approved_by = user.get('email') or user.get('name') or 'Usuario'
+    ok, message = DatabaseService.approve_cxp_payment(
+        owner_uid, expense_id, payment_id,
+        approved_by=approved_by, approved_by_uid=user_uid, notes=notes,
+        company_id=company_id, sandbox=sandbox,
+    )
+    if ok:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_GASTOS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_GASTOS,
+            entity_id=expense_id,
+            entity_label=f"Pago de gasto aprobado: {payment_id}",
+            user_session=user, sandbox=sandbox,
+        )
+    flash(message, 'success' if ok else 'error')
+    return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
+
+
+@web_invoices_bp.route('/expenses/<expense_id>/payments/<payment_id>/reject', methods=['POST'])
+def reject_expense_payment(expense_id, payment_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    user = session.get('user', {})
+    is_owner = user.get('role') == 'owner'
+    if not (is_owner or check_permission('canApprovePayments')):
+        return render_template('auth/restricted.html', feature_name="Rechazar pago de gasto", required_permission="canApprovePayments"), 403
+    owner_uid = user.get('ownerUID')
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    notes = request.form.get('notes', '').strip()
+    rejected_by = user.get('email') or user.get('name') or 'Usuario'
+    ok, message = DatabaseService.reject_cxp_payment(
+        owner_uid, expense_id, payment_id,
+        rejected_by=rejected_by, rejected_by_uid=user.get('uid', ''), notes=notes,
+        company_id=company_id, sandbox=sandbox,
+    )
+    if ok:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_GASTOS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_GASTOS,
+            entity_id=expense_id,
+            entity_label=f"Pago de gasto rechazado: {payment_id}",
+            user_session=user, sandbox=sandbox,
+        )
+    flash(message, 'success' if ok else 'error')
+    return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
 
 @web_invoices_bp.route('/expenses/<expense_id>/attach', methods=['POST'])

@@ -1,8 +1,13 @@
 import uuid
 from datetime import datetime, timezone
 from collections import defaultdict
-from app.services.db_service import DatabaseService
+from app.services.db_service import DatabaseService, firebase_initialized
 from app.services.accounting_rules_service import AccountingRulesService
+
+
+class AccountingPostingError(Exception):
+    """Error al generar un asiento contable. No debe silenciarse."""
+
 
 ACCOUNT_GROUPS = {
     "activos": {"label": "Activos", "order": 1, "nature": "deudora"},
@@ -304,7 +309,21 @@ class AccountingService:
         }
         if entry_data.get("reversalOfEntryId"):
             entry["reversalOfEntryId"] = entry_data["reversalOfEntryId"]
-        DatabaseService.save_accounting_entry(company_id, entry_id, entry, sandbox=sandbox, company_id=company_id)
+        saved_entry_id = DatabaseService.save_accounting_entry(
+            company_id, entry_id, entry, sandbox=sandbox, company_id=company_id
+        )
+        if saved_entry_id is None:
+            persisted = None
+            try:
+                persisted = DatabaseService.get_accounting_entry(
+                    company_id, entry_id, sandbox=sandbox, company_id=company_id
+                )
+            except Exception:
+                persisted = None
+            if persisted is None:
+                raise AccountingPostingError(
+                    "No se pudo persistir el asiento contable. La operación no debe considerarse exitosa."
+                )
         from app.services.ledger_audit_service import LedgerAuditService
         LedgerAuditService.log_entry_creation(
             entry, company_id, performed_by=entry_data.get("createdBy", ""),
@@ -514,11 +533,27 @@ class AccountingService:
         entry = DatabaseService.get_accounting_entry(company_id, entry_id, sandbox=sandbox, company_id=company_id)
         if not entry:
             return None
+        if entry.get("status") == "voided":
+            return entry
         entry["status"] = "voided"
         entry["voidedAt"] = datetime.now(timezone.utc).isoformat()
         entry["voidedBy"] = user_id
         entry["voidReason"] = reason
-        DatabaseService.save_accounting_entry(company_id, entry_id, entry, sandbox=sandbox, company_id=company_id)
+        saved_entry_id = DatabaseService.save_accounting_entry(
+            company_id, entry_id, entry, sandbox=sandbox, company_id=company_id
+        )
+        if saved_entry_id is None:
+            persisted = None
+            try:
+                persisted = DatabaseService.get_accounting_entry(
+                    company_id, entry_id, sandbox=sandbox, company_id=company_id
+                )
+            except Exception:
+                persisted = None
+            if not persisted or persisted.get("status") != "voided":
+                raise AccountingPostingError(
+                    "No se pudo persistir la anulación del asiento contable. La operación no debe considerarse exitosa."
+                )
         from app.services.ledger_audit_service import LedgerAuditService
         LedgerAuditService.log_entry_void(entry, company_id, performed_by=user_id, reason=reason)
         return entry
@@ -987,6 +1022,107 @@ class AccountingService:
             return None
 
     @classmethod
+    def auto_generate_cxp_payment_entry(cls, company_id, payment_id, amount, payment_date,
+                                        bank_account_id=None, payment_method="", concept="",
+                                        supplier_id="", supplier_name="", cost_center_id=None,
+                                        sandbox=True, country="DO"):
+        """Contabiliza el pago de una factura de proveedor o gasto (CxP).
+
+        Asiento: débito a la cuenta por pagar (cxp) y crédito a banco/efectivo
+        (o a la cuenta contable vinculada a la cuenta bancaria). Idempotente por
+        ``(cxp_payment, payment_id)``. Devuelve el asiento o None.
+        """
+        if not payment_id:
+            return None
+        if _accounting_entry_exists(company_id, "cxp_payment", payment_id):
+            return None
+        amount = round(float(amount or 0), 2)
+        if amount <= 0:
+            return None
+        accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
+        if not accounts:
+            cls.seed_default_accounts(company_id, country=country)
+            accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
+        rules = AccountingRulesService.get_rules(company_id)
+
+        debit_acc = AccountingRulesService.resolve(
+            company_id, "pago_cxp", "pago_cxp_proveedor", {}, accounts, rules=rules
+        )
+        if not debit_acc:
+            return None
+
+        credit_acc = _resolve_bank_account_account(
+            company_id, bank_account_id, accounts, sandbox=sandbox
+        )
+        if not credit_acc:
+            ctx = {"payment_type": "Contado", "payment_method": payment_method or "Efectivo"}
+            credit_acc = AccountingRulesService.resolve(
+                company_id, "pago_cxp", "pago_cxp_destino", ctx, accounts, rules=rules
+            )
+        if not credit_acc:
+            return None
+
+        description = concept or "Pago a proveedor"
+        lines = [
+            {
+                "accountId": debit_acc["id"],
+                "accountCode": debit_acc.get("code", ""),
+                "accountName": debit_acc.get("name", ""),
+                "debit": amount,
+                "credit": 0.0,
+                "description": description,
+                "contactId": supplier_id or "",
+                "contactName": supplier_name or "",
+                "costCenterId": cost_center_id or "",
+                "currency": "DOP",
+            },
+            {
+                "accountId": credit_acc["id"],
+                "accountCode": credit_acc.get("code", ""),
+                "accountName": credit_acc.get("name", ""),
+                "debit": 0.0,
+                "credit": amount,
+                "description": description,
+                "contactId": supplier_id or "",
+                "contactName": supplier_name or "",
+                "costCenterId": cost_center_id or "",
+                "currency": "DOP",
+            },
+        ]
+        return cls.generate_entry(company_id, {
+            "entryType": "cxp_payment",
+            "date": str(payment_date or "")[:10] or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "concept": description,
+            "referenceType": "cxp_payment",
+            "referenceId": payment_id,
+            "referenceNumber": payment_id,
+            "lines": lines,
+            "createdBy": "system",
+            "prefix": "A",
+        }, sandbox=sandbox)
+
+    @classmethod
+    def void_cxp_payment_entry(cls, company_id, payment_id, user_id="", reason="", sandbox=True):
+        """Revierte el asiento contable de un pago CxP (idempotente)."""
+        entries = DatabaseService.get_accounting_entries(company_id, company_id=company_id)
+        for e in entries:
+            if (e.get("referenceType") == "cxp_payment"
+                    and e.get("referenceId") == payment_id
+                    and e.get("status") != "voided"):
+                voided = cls.void_entry(
+                    company_id, e["id"],
+                    reason=reason or "Reversión de pago a proveedor",
+                    user_id=user_id,
+                    sandbox=sandbox,
+                )
+                if not voided or voided.get("status") != "voided":
+                    raise AccountingPostingError(
+                        f"No se confirmó la reversión del asiento del pago {payment_id}."
+                    )
+                return e["id"]
+        return None
+
+    @classmethod
     def auto_generate_proforma_payment_entry(cls, company_id, proforma, payment, sandbox=True, country="DO"):
         """Post a real proforma collection as bank debit / customer advance credit."""
         payment_id = payment.get("id", "")
@@ -1366,7 +1502,7 @@ class AccountingService:
         accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
         if not accounts:
             cls.seed_default_accounts(company_id, country=country)
-            accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+            accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
         from app.services.country_provider import CountryProviderFactory
         provider = CountryProviderFactory.create(country)
         mapping = provider.get_account_mapping() if provider else {}
@@ -1429,11 +1565,11 @@ class AccountingService:
                         "accountId": fallback["id"] if fallback else "",
                         "accountCode": fallback.get("code", "-") if fallback else "-",
                         "accountName": fallback.get("name", item.get("concept", "Gasto")) if fallback else item.get("concept", "Gasto"),
-                        "debit": round(item_total, 2),
+                        "debit": round(item_value, 2),
                         "credit": 0.00,
                         "description": item.get("concept", "") or expense.get("concept", ""),
                     })
-                    total_debit_computed += item_total
+                    total_debit_computed += item_value
 
                 if tax_amount > 0 and itbis_credito_acc:
                     lines.append({
@@ -1561,9 +1697,9 @@ class AccountingService:
             }, sandbox=sandbox)
             return entry
         except ValueError as e:
-            from flask import current_app
-            current_app.logger.warning(f"auto_generate_expense_entry desbalanceado ({expense.get('id', '')}): {e}")
-            return None
+            raise AccountingPostingError(
+                f"Asiento de gasto desbalanceado ({expense.get('id', '')}): {e}"
+            ) from e
 
     @classmethod
     def auto_generate_depreciation_entry(cls, company_id, dep_data, sandbox=True):

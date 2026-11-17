@@ -79,11 +79,20 @@ class TaxEngine:
         return self._withholding_vat.get(withholding_type, 0.0)
 
     def get_withholding_isr_rate_for_supplier(self, supplier):
+        """Retención ISR por proveedor.
+
+        Precedencia: tasaRetencionISR (custom) > withholdingCategory > esExtranjero
+        (servicios digitales) > isrWithholding (bienes/servicios) > 0.
+        """
         if not supplier:
             return 0.0
-        tasa = supplier.get("tasaRetencionISR", 0.0)
+        tasa = float(supplier.get("tasaRetencionISR", 0.0) or 0)
         if tasa > 0:
             return tasa / 100.0
+        category = str(supplier.get("withholdingCategory") or "").strip()
+        cat_map, _ = self._category_maps()
+        if category and category in cat_map and cat_map[category].get("isr"):
+            return self.get_withholding_isr_rate(cat_map[category]["isr"])
         if supplier.get("esExtranjero"):
             return self.get_withholding_isr_rate("digital_services_abroad")
         if supplier.get("isrWithholding"):
@@ -91,14 +100,72 @@ class TaxEngine:
         return 0.0
 
     def get_withholding_itbis_rate_for_supplier(self, supplier):
+        """Retención ITBIS por proveedor (% del ITBIS a retener).
+
+        Precedencia: tasaRetencionITBIS (custom) > withholdingCategory > itbisWithholding
+        (bienes a personas jurídicas) > 0.
+        """
         if not supplier:
             return 0.0
-        tasa = supplier.get("tasaRetencionITBIS", 0.0)
+        tasa = float(supplier.get("tasaRetencionITBIS", 0.0) or 0)
         if tasa > 0:
             return tasa / 100.0
+        category = str(supplier.get("withholdingCategory") or "").strip()
+        cat_map, _ = self._category_maps()
+        if category and category in cat_map and cat_map[category].get("itbis"):
+            return self.get_withholding_itbis_rate(cat_map[category]["itbis"])
         if supplier.get("itbisWithholding"):
             return self.get_withholding_itbis_rate("corporate_goods")
         return 0.0
+
+    def _category_maps(self):
+        self._resolve_provider()
+        return (
+            self._rules.get("withholding_category_map", {}),
+            self._rules.get("isr_rule_to_ir17_line", {}),
+        )
+
+    def resolve_withholding(self, supplier):
+        """Resuelve la retención ISR/ITBIS de un proveedor con su regla e IR-17."""
+        if not supplier:
+            supplier = {}
+        isr_rate = self.get_withholding_isr_rate_for_supplier(supplier)
+        itbis_rate = self.get_withholding_itbis_rate_for_supplier(supplier)
+
+        isr_rule = None
+        if float(supplier.get("tasaRetencionISR", 0.0) or 0) > 0:
+            isr_rule = "custom"
+        else:
+            category = str(supplier.get("withholdingCategory") or "").strip()
+            cat_map, _ = self._category_maps()
+            if category and category in cat_map and cat_map[category].get("isr"):
+                isr_rule = cat_map[category]["isr"]
+            elif supplier.get("esExtranjero"):
+                isr_rule = "digital_services_abroad"
+            elif supplier.get("isrWithholding"):
+                isr_rule = "goods_services"
+
+        itbis_rule = None
+        if float(supplier.get("tasaRetencionITBIS", 0.0) or 0) > 0:
+            itbis_rule = "custom"
+        else:
+            category = str(supplier.get("withholdingCategory") or "").strip()
+            cat_map, _ = self._category_maps()
+            if category and category in cat_map and cat_map[category].get("itbis"):
+                itbis_rule = cat_map[category]["itbis"]
+            elif supplier.get("itbisWithholding"):
+                itbis_rule = "corporate_goods"
+
+        _, ir17_map = self._category_maps()
+        ir17_line = ir17_map.get(isr_rule) if isr_rule else None
+
+        return {
+            "isr_rate": round(isr_rate, 6),
+            "isr_rule": isr_rule,
+            "isr_ir17_line": ir17_line,
+            "itbis_rate": round(itbis_rate, 6),
+            "itbis_rule": itbis_rule,
+        }
 
     def get_isc_rate(self, codigo: str) -> float:
         codigo_map = {

@@ -9,10 +9,14 @@ Los NCF tradicionales son documentos en papel pre-impreso que requieren:
 A diferencia de e-CF (E31-E50), NO requieren XML, firma digital ni API DGII.
 """
 import uuid
+import logging
 from datetime import datetime, timezone
 
 from app.models.fiscal_document_type import by_code, Family
 from app.services.db_service import DatabaseService, _company_coll
+
+
+logger = logging.getLogger(__name__)
 
 
 EMITABLE_TRADITIONAL = {
@@ -232,8 +236,8 @@ class NcfTraditionalService:
                 AccountingService.auto_generate_credit_note_entry(
                     company_id, data, sandbox=sandbox
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("No se pudo contabilizar documento tradicional %s: %s", doc.get("ncf", ""), e)
 
     # --- Metadatos ---
 

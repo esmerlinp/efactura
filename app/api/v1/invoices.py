@@ -1577,17 +1577,21 @@ def create_expense():
         
         DatabaseService.save_expense(g.owner_uid, expense_id, expense_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         
+        accounting_error = None
         try:
             from app.services.accounting_service import AccountingService
             AccountingService.auto_generate_expense_entry(g.company_id, expense_dict, sandbox=g.sandbox_mode)
-        except Exception:
-            pass
+        except Exception as e:
+            from flask import current_app
+            current_app.logger.error("Error al contabilizar gasto %s (API): %s", expense_id, e)
+            accounting_error = str(e)
         
         return jsonify({
             "success": True,
             "message": "Gasto registrado exitosamente.",
             "expense_id": expense_id,
-            "expense": expense_dict
+            "expense": expense_dict,
+            "accounting_error": accounting_error,
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

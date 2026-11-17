@@ -188,6 +188,27 @@ TRANSACTIONS = {
             },
         },
     },
+    "pago_cxp": {
+        "label": "Pago a proveedor / CxP",
+        "concepts": {
+            "pago_cxp_proveedor": {
+                "label": "Cuenta por pagar que se salda (debe)",
+                "side": "debit",
+                "fallback_usages": ["cxp"],
+                "conditions": [],
+            },
+            "pago_cxp_destino": {
+                "label": "Origen del pago (banco/efectivo)",
+                "side": "credit",
+                "fallback_usages": ["banco", "efectivo"],
+                "conditions": [
+                    {"key": "pago_tarjeta", "fallback_usages": ["banco", "transferencias_bancarias"]},
+                    {"key": "pago_transferencia", "fallback_usages": ["banco", "transferencias_bancarias"]},
+                    {"key": "pago_efectivo", "fallback_usages": ["efectivo", "banco"]},
+                ],
+            },
+        },
+    },
     "cobro": {
         "label": "Cobro de factura",
         "concepts": {

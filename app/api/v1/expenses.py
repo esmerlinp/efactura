@@ -168,3 +168,71 @@ def classify_minor():
         return jsonify({'success': True, 'code': result.get('code'), 'category': result.get('category')})
     except ImportError:
         return jsonify({'success': True, 'code': '06', 'category': 'Comida y Restaurantes'})
+
+
+def _api_user_uid():
+    company = getattr(g, "company", {}) or {}
+    return str(company.get("userUID") or company.get("uid") or company.get("id") or "api")
+
+
+def _api_user_label():
+    return str(getattr(g, "user_name", "") or "API")
+
+
+def _conflict_status(message):
+    text = (message or "").lower()
+    conflict_markers = (
+        "no se puede", "ya está", "ya fue", "en proceso", "período fiscal",
+        "periodo fiscal", "anulada", "emitida", "contabilizada", "bloqueada",
+        "excede", "pendiente",
+    )
+    return 409 if any(m in text for m in conflict_markers) else 400
+
+
+@api_expenses_bp.route('/expenses/<expense_id>/payments/<payment_id>/approve', methods=['POST'])
+@require_api_module('gastos', 'canApprovePayments')
+def approve_payment(expense_id, payment_id):
+    """Aprueba un pago pendiente de un gasto (con SoD)."""
+    owner_uid = g.owner_uid
+    sandbox = g.sandbox_mode
+    company_id = g.company_id
+    user_uid = _api_user_uid()
+    body = request.json or {}
+    notes = str(body.get("notes", "") or "").strip()
+    is_owner = str(getattr(g, "company", {}).get("role", "")) == "owner"
+    payments = DatabaseService.get_cxp_payments(owner_uid, expense_id, sandbox=sandbox, company_id=company_id)
+    payment = next((p for p in payments if p.get("id") == payment_id), None)
+    if not payment:
+        return jsonify({"success": False, "error": "Pago no encontrado."}), 404
+    if payment.get("requestedBy") and payment.get("requestedBy") == user_uid:
+        if not (is_owner and notes):
+            return jsonify({"success": False, "error": "Conflicto de segregación de funciones: no puedes aprobar un pago que registraste."}), 403
+    ok, msg = DatabaseService.approve_cxp_payment(
+        owner_uid, expense_id, payment_id,
+        approved_by=body.get("approvedBy", _api_user_label()),
+        approved_by_uid=user_uid, notes=notes,
+        company_id=company_id, sandbox=sandbox,
+    )
+    if not ok:
+        return jsonify({"success": False, "error": msg}), _conflict_status(msg)
+    return jsonify({"success": True, "message": msg}), 200
+
+
+@api_expenses_bp.route('/expenses/<expense_id>/payments/<payment_id>/reject', methods=['POST'])
+@require_api_module('gastos', 'canApprovePayments')
+def reject_payment(expense_id, payment_id):
+    """Rechaza un pago pendiente de un gasto."""
+    owner_uid = g.owner_uid
+    sandbox = g.sandbox_mode
+    company_id = g.company_id
+    body = request.json or {}
+    ok, msg = DatabaseService.reject_cxp_payment(
+        owner_uid, expense_id, payment_id,
+        rejected_by=body.get("rejectedBy", _api_user_label()),
+        rejected_by_uid=_api_user_uid(),
+        notes=str(body.get("notes", "") or ""),
+        company_id=company_id, sandbox=sandbox,
+    )
+    if not ok:
+        return jsonify({"success": False, "error": msg}), _conflict_status(msg)
+    return jsonify({"success": True, "message": msg}), 200

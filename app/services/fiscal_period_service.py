@@ -26,7 +26,8 @@ class FiscalPeriodService:
         return f"{year}-{month:02d}"
 
     @classmethod
-    def get_period(cls, owner_uid: str, year: int, month: int, company_id: str = None) -> Optional[dict]:
+    def get_period(cls, owner_uid: str, year: int, month: int, company_id: str = None,
+                   strict: bool = False) -> Optional[dict]:
         try:
             db = cls._get_db()
             doc = db.document(cls._path(owner_uid, cls._period_key(year, month), company_id=company_id)).get()
@@ -34,6 +35,10 @@ class FiscalPeriodService:
                 return doc.to_dict()
         except Exception as e:
             app.logger.warning(f"FiscalPeriodService.get_period error: {e}")
+            if strict:
+                raise ValueError(
+                    "No se pudo verificar el período fiscal; la operación fue bloqueada por seguridad."
+                ) from e
         return None
 
     @classmethod
@@ -96,7 +101,7 @@ class FiscalPeriodService:
         except Exception:
             return False
 
-        period = cls.get_period(owner_uid, dt.year, dt.month, company_id=company_id)
+        period = cls.get_period(owner_uid, dt.year, dt.month, company_id=company_id, strict=True)
         if not period:
             return False
         return period.get("status") == "closed"

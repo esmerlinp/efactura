@@ -159,9 +159,10 @@ class TestUnbalancedEntryLogging:
         mock_logger.warning.assert_called_once()
         assert "auto_generate_inventory_entry desbalanceado" in mock_logger.warning.call_args[0][0]
 
-    def test_expense_unbalanced_logs_warning(self, mock_db, mock_provider, mock_logger,
+    def test_expense_unbalanced_raises_visible_error(self, mock_db, mock_provider, mock_logger,
                                               accounting_service):
-        """When auto_generate_expense_entry produces unbalanced lines, log and return None."""
+        """Cuando auto_generate_expense_entry genera líneas desbalanceadas, lanza un error visible."""
+        from app.services.accounting_service import AccountingPostingError
         mock_db.get_chart_of_accounts.return_value = [
             _make_account("acc-gastos", "6.1.01", "Gastos", "gastos", usage="gastos"),
             # CXP is missing → only debit line, no credit → unbalanced
@@ -177,10 +178,8 @@ class TestUnbalancedEntryLogging:
             "retainedITBIS": 0,
         }
 
-        result = accounting_service.auto_generate_expense_entry("uid", expense)
-        assert result is None
-        mock_logger.warning.assert_called_once()
-        assert "auto_generate_expense_entry desbalanceado" in mock_logger.warning.call_args[0][0]
+        with pytest.raises(AccountingPostingError):
+            accounting_service.auto_generate_expense_entry("uid", expense)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -313,9 +312,57 @@ class TestExpenseFallbackRetentions:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fix #11: seed_default_accounts concurrency
+# Fix: las partidas sin cuenta específica no duplican el ITBIS en el débito
 # ═══════════════════════════════════════════════════════════════════════════════
 
+class TestExpenseAccountItemsNoDoubleItbis:
+    """Con account_items sin concept_id, el débito de la partida es el neto (sin
+    ITBIS) y el ITBIS se registra aparte; el asiento queda balanceado."""
+
+    def test_account_item_without_concept_debits_net_not_gross(self, mock_db, mock_provider,
+                                                               accounting_service):
+        mock_db.get_chart_of_accounts.return_value = list(BASE_ACCOUNTS)
+        expense = {
+            "id": "exp-items",
+            "date": "2025-06-01",
+            "amount": 118.0,
+            "total": 118.0,
+            "itbisAmount": 18.0,
+            "itbis": 18.0,
+            "concept": "Compra con partidas",
+            "paymentType": "Crédito",
+            "retainedISR": 0,
+            "retainedITBIS": 0,
+            "accountItems": [
+                {"concept_id": "", "concept": "Item A", "value": 100.0,
+                 "quantity": 1, "tax": 0.18, "total": 118.0},
+            ],
+        }
+
+        entry_data = {}
+
+        def capture(owner, data, sandbox=True):
+            entry_data.update(data)
+            return {"id": "entry-items", "number": "A-00001"}
+
+        with patch.object(accounting_service, "generate_entry", side_effect=capture):
+            result = accounting_service.auto_generate_expense_entry("uid", expense)
+            assert result is not None
+
+        lines = entry_data.get("lines", [])
+        total_debit = round(sum(l["debit"] for l in lines), 2)
+        total_credit = round(sum(l["credit"] for l in lines), 2)
+        assert total_debit == total_credit == 118.0
+
+        gasto_debit = sum(l["debit"] for l in lines if l.get("accountId") == GASTOS_ACC["id"])
+        itbis_debit = sum(l["debit"] for l in lines if l.get("accountId") == ITBIS_CREDITO["id"])
+        assert gasto_debit == 100.0, "El débito de la partida debe ser el neto, sin ITBIS"
+        assert itbis_debit == 18.0
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Fix #11: seed_default_accounts concurrency
+# ═══════════════════════════════════════════════════════════════════════════════
 def _default_account(code):
     return {"code": code, "name": f"Cuenta {code}", "group": "activos", "type": "movimiento", "nature": "deudora"}
 

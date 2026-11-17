@@ -2360,7 +2360,7 @@ def cxp_report():
 
     from app.services.supplier_invoice_service import SupplierInvoiceService
     
-    purchase_invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
+    purchase_invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox, company_id=company_id)
     all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
 
     cxp_list = []
@@ -2372,6 +2372,8 @@ def cxp_report():
     total_por_pagar = 0.0
 
     for inv in purchase_invoices:
+        if SupplierInvoiceService.is_voided(inv):
+            continue
         status = inv.get('cxpStatus', 'Pendiente')
         if status == 'Saldada' or float(inv.get('cxpRemainingBalance', 0.0)) <= 0.01:
             continue
@@ -2572,12 +2574,14 @@ def cxp_report_export():
 
     from app.services.supplier_invoice_service import SupplierInvoiceService
     
-    purchase_invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
+    purchase_invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox, company_id=company_id)
     all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
 
     cxp_list = []
 
     for inv in purchase_invoices:
+        if SupplierInvoiceService.is_voided(inv):
+            continue
         status = inv.get('cxpStatus', 'Pendiente')
         if status == 'Saldada' or float(inv.get('cxpRemainingBalance', 0.0)) <= 0.01:
             continue
@@ -3064,6 +3068,7 @@ def transactions_report():
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     
     now = datetime.now(timezone.utc)
     try:
@@ -3135,6 +3140,7 @@ def transactions_export():
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     
     now = datetime.now(timezone.utc)
     try:
@@ -3181,6 +3187,7 @@ def purchases_report():
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     
     now = datetime.now(timezone.utc)
     try:
@@ -3206,13 +3213,15 @@ def purchases_report():
         per_page = 10
         
     from app.services.supplier_invoice_service import SupplierInvoiceService
-    invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox) or []
+    invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox, company_id=company_id) or []
     
     filtered_invoices = []
     total_before_tax = 0.0
     total_after_tax = 0.0
     
     for inv in invoices:
+        if SupplierInvoiceService.is_voided(inv):
+            continue
         inv_date = inv.get('date', '')
         if not inv_date:
             continue
@@ -3314,6 +3323,7 @@ def purchases_export():
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     
     now = datetime.now(timezone.utc)
     try:
@@ -3328,10 +3338,12 @@ def purchases_export():
     query = request.args.get('q', '').strip().lower()
     
     from app.services.supplier_invoice_service import SupplierInvoiceService
-    invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox) or []
+    invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox, company_id=company_id) or []
     
     rows_list = []
     for inv in invoices:
+        if SupplierInvoiceService.is_voided(inv):
+            continue
         inv_date = inv.get('date', '')
         if not inv_date:
             continue

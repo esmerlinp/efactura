@@ -438,9 +438,28 @@
             <div style="border-top:1px solid var(--border-color); padding-top:14px; margin-top:14px;">
                 <span style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; display:block; margin-bottom:8px;">Abonos</span>
                 {% for p in cxp_payments %}
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:0.78rem; border-bottom:1px solid rgba(255,255,255,0.03);">
-                    <span style="color:var(--text-secondary);">{{ (p.paymentDate or '')[:10] }} · {{ p.method or '—' }}</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:0.78rem; border-bottom:1px solid rgba(255,255,255,0.03); gap:8px;">
+                    <span style="color:var(--text-secondary);">
+                        {{ (p.paymentDate or '')[:10] }} · {{ p.method or '—' }}
+                        {% if p.approvalStatus == 'pending' %}<span class="badge-pill badge-amber" style="font-size:0.6rem;">Pendiente</span>
+                        {% elif p.approvalStatus == 'approved' %}<span class="badge-pill badge-green" style="font-size:0.6rem;">Aprobado</span>
+                        {% elif p.approvalStatus == 'rejected' %}<span class="badge-pill badge-red" style="font-size:0.6rem;">Rechazado</span>{% endif %}
+                    </span>
                     <span style="color:var(--accent-emerald); font-weight:700; font-family:monospace;">RD$ {{ "{:,.2f}".format(p.amount) }}</span>
+                    {% if p.approvalStatus == 'pending' and can_approve_payments %}
+                    <form method="POST" action="{{ url_for('web_invoices.approve_expense_payment', expense_id=expense.id, payment_id=p.id) }}" style="margin:0;" onsubmit="return confirm('¿Aprobar este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?');">
+                        <button type="submit" style="padding:3px 8px; font-size:0.7rem; background:transparent; border:1px solid var(--accent-emerald); color:var(--accent-emerald); border-radius:4px; cursor:pointer;" title="Aprobar"><i class="fa-solid fa-check"></i></button>
+                    </form>
+                    <form method="POST" action="{{ url_for('web_invoices.reject_expense_payment', expense_id=expense.id, payment_id=p.id) }}" style="margin:0;" onsubmit="return confirm('¿Rechazar este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?');">
+                        <button type="submit" style="padding:3px 8px; font-size:0.7rem; background:transparent; border:1px solid #f59e0b; color:#f59e0b; border-radius:4px; cursor:pointer;" title="Rechazar"><i class="fa-solid fa-xmark"></i></button>
+                    </form>
+                    {% endif %}
+                    <form method="POST" action="{{ url_for('web_invoices.void_expense_payment', expense_id=expense.id, payment_id=p.id) }}" style="display:inline-flex; gap:4px; align-items:center; margin:0;" onsubmit="return confirm('¿Anular este pago? Se revertirá su asiento contable y se restaurará el saldo.');">
+                        <input type="text" name="reason" placeholder="Motivo" required style="width:90px; padding:3px 6px; font-size:0.7rem; border:1px solid var(--border-color); border-radius:4px; background:var(--input-bg); color:var(--text-primary);">
+                        <button type="submit" style="padding:3px 8px; font-size:0.7rem; background:transparent; border:1px solid var(--accent-red); color:var(--accent-red); border-radius:4px; cursor:pointer;">
+                            <i class="fa-solid fa-ban"></i> Anular
+                        </button>
+                    </form>
                 </div>
                 {% endfor %}
             </div>
