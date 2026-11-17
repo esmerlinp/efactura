@@ -95,6 +95,8 @@ def _load_account_payment_transactions(owner_uid, account_id, sandbox, company_i
             owner_uid=owner_uid, sandbox=sandbox, company_id=company_id
         ) or []
         for inv in supplier_invoices:
+            if SupplierInvoiceService.is_voided(inv):
+                continue
             inv_id = inv.get('id')
             if not inv_id:
                 continue
@@ -393,7 +395,8 @@ def new_bank_payment(account_id):
                                                             registered_by=session['user']['email'],
                                                             bank_account_id=account_id,
                                                             sandbox=sandbox,
-                                                            company_id=company_id)
+                                                            company_id=company_id,
+                                                            requested_by_uid=session['user'].get('uid', ''))
             if success:
                 flash(f'✅ Pago registrado: RD$ {amount:,.2f} desde {account["name"]}. {msg}', 'success')
             else:

@@ -162,3 +162,14 @@ def test_cxp_report_export(client):
         csv_data = resp.data.decode('utf-8-sig')
         assert 'Proveedor A' in csv_data
         assert 'E310000000001' in csv_data
+
+
+
+def test_cxp_active_invoices_helper_excludes_voided():
+    from app.services.supplier_invoice_service import SupplierInvoiceService
+    invoices = [
+        {'id': 'voided', 'status': 'anulada', 'cxpStatus': 'Anulada'},
+        {'id': 'completed', 'status': 'registrada', 'voidStatus': 'completed'},
+        {'id': 'valid', 'status': 'registrada', 'cxpStatus': 'Pendiente'},
+    ]
+    assert [inv['id'] for inv in SupplierInvoiceService.active_invoices(invoices)] == ['valid']

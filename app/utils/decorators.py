@@ -11,9 +11,10 @@ from app.utils.module_gate import module_enabled, clients_module_enabled
 
 SOD_CONFLICT_MATRIX = {
     "canCreateSupplier": {"conflicts": ["canApprovePayments"], "label": "crear proveedores"},
-    "canApprovePayments": {"conflicts": ["canCreateSupplier"], "label": "aprobar pagos"},
+    "canApprovePayments": {"conflicts": ["canCreateSupplier", "canManagePurchaseCXP", "canExpenses"], "label": "aprobar pagos"},
     "canInvoice": {"conflicts": ["canVoidInvoice"], "label": "emitir facturas"},
     "canVoidInvoice": {"conflicts": ["canInvoice"], "label": "anular facturas"},
+    "canVoidSupplierInvoice": {"conflicts": ["canManagePurchaseCXP"], "label": "registrar/gestionar cuentas por pagar"},
     "canHR": {"conflicts": ["canApprovePayroll"], "label": "gestionar nómina"},
     "canApprovePayroll": {"conflicts": ["canHR"], "label": "autorizar pagos de nómina"},
     "canExpenses": {"conflicts": ["canApproveExpenses"], "label": "registrar gastos"},
@@ -51,6 +52,12 @@ def check_permission(permission_name):
         'canVoidInternalServiceDocument',
         'canDownloadInternalServiceDocument',
     }:
+        return bool(user_perms.get(permission_name, False))
+
+    if permission_name == 'canVoidSupplierInvoice':
+        return bool(user_perms.get(permission_name, False))
+
+    if permission_name == 'canVoidPayment':
         return bool(user_perms.get(permission_name, False))
 
     # Permisos granulares de CRM (CRM-07)

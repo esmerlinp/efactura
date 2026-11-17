@@ -442,6 +442,7 @@ def purchase_order_detail(po_id):
     order['receipts'] = receipts
     supplier_invoices = SupplierInvoiceService.get_by_po(owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id)
     order['supplier_invoices'] = supplier_invoices
+    traceability = PurchaseOrderService.get_traceability(owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id)
     comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", po_id, sandbox=sandbox, company_id=company_id)
     taggable_users = _get_taggable_users(owner_uid, company_id=company_id)
 
@@ -479,7 +480,32 @@ def purchase_order_detail(po_id):
                            can_self_approve=can_self_approve,
                            approval_allowed=approval_allowed,
                            self_approval_blocked=self_approval_blocked,
+                           can_confirm_service=check_permission('canManagePurchaseCXP'),
+                           traceability=traceability,
                            active_page='purchase_orders')
+
+
+@web_purchase_orders_bp.route('/purchase-orders/<po_id>/confirm-service/<po_item_id>', methods=['POST'])
+def confirm_service(po_id, po_item_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManagePurchaseCXP'):
+        return render_template('auth/restricted.html', active_page='purchase_orders', feature_name="Confirmar servicio", required_permission="canManagePurchaseCXP"), 403
+    user = session.get('user', {})
+    owner_uid = user.get('ownerUID')
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    status = request.form.get('status', 'confirmado').strip()
+    notes = request.form.get('notes', '').strip()
+
+    ok, message = PurchaseOrderService.confirm_service(
+        owner_uid=owner_uid, po_id=po_id, po_item_id=po_item_id, status=status,
+        user=user.get('displayName') or user.get('name') or user.get('email') or 'Usuario',
+        user_uid=user.get('uid', ''), notes=notes,
+        sandbox=sandbox, company_id=company_id,
+    )
+    flash(message, 'success' if ok else 'error')
+    return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
 
 
 @web_purchase_orders_bp.route('/purchase-orders/<po_id>/pdf')
@@ -1124,7 +1150,7 @@ def consolidated_cxp():
     total_overdue = 0.0
 
     # Normalize purchase invoices
-    for inv in purchase_invoices:
+    for inv in SupplierInvoiceService.active_invoices(purchase_invoices):
         due_date = inv.get('dueDate', '')
         rem_bal = float(inv.get('cxpRemainingBalance', inv.get('total', 0)))
         inv['cxpRemainingBalance'] = rem_bal
@@ -1236,6 +1262,8 @@ def list_purchase_cxp():
     this_month = datetime.now(timezone.utc).strftime("%Y-%m")
 
     for inv in invoices:
+        if SupplierInvoiceService.is_voided(inv):
+            continue
         status = inv.get('cxpStatus', 'Pendiente')
         due_date = inv.get('dueDate', '')
         rem_bal = float(inv.get('cxpRemainingBalance', inv.get('total', 0)))
@@ -1267,6 +1295,8 @@ def list_purchase_cxp():
 
     filtered = []
     for inv in invoices:
+        if SupplierInvoiceService.is_voided(inv):
+            continue
         st = inv.get('cxpStatus', 'Pendiente')
         if status_filter and st != status_filter:
             continue
@@ -1511,11 +1541,17 @@ def new_supplier_invoice_direct():
             "costCenterId": request.form.get('costCenterId', ''),
         }
 
-        inv_data["id"] = SupplierInvoiceService.create(owner_uid=owner_uid, data=inv_data, sandbox=sandbox, company_id=company_id)["id"]
+        try:
+            inv_data["id"] = SupplierInvoiceService.create(owner_uid=owner_uid, data=inv_data, sandbox=sandbox, company_id=company_id)["id"]
+            from app.utils.decorators import record_sod_from_session
+            record_sod_from_session('canManagePurchaseCXP', inv_data["id"], 'supplier_invoice')
+        except ValueError as ve:
+            flash(f'❌ {ve}', 'error')
+            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
         # ── Generate accounting entry ──
         try:
-            from app.services.accounting_service import AccountingService
+            from app.services.accounting_service import AccountingService, AccountingPostingError
             account_items = []
             for item in inv_data.get("items", []):
                 line_value = (float(item.get("quantity", 0)) * float(item.get("unitPrice", 0)))
@@ -1548,8 +1584,17 @@ def new_supplier_invoice_direct():
                 "costCenterId": inv_data.get("costCenterId", ""),
             }
             AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
+            accounting_ok = True
+        except AccountingPostingError as acc_err:
+            from flask import current_app
+            current_app.logger.error("Error al contabilizar factura proveedor %s: %s", inv_data["id"], acc_err)
+            SupplierInvoiceService.update(owner_uid=owner_uid, invoice_id=inv_data["id"],
+                                          data={"accountingStatus": "error", "accountingError": str(acc_err)},
+                                          sandbox=sandbox, company_id=company_id)
+            flash(f'⚠️ La factura se guardó pero no se pudo contabilizar: {acc_err}', 'error')
         except Exception as acc_err:
-            print(f"Error al generar asiento contable de factura proveedor: {acc_err}")
+            from flask import current_app
+            current_app.logger.error("Error inesperado al contabilizar factura proveedor %s: %s", inv_data["id"], acc_err)
 
         # ── File upload after save (non-blocking with timeout) ──
         file_upload_error = None
@@ -2098,11 +2143,26 @@ def register_supplier_invoice(po_id):
         subtotal = 0.0
         total_itbis = 0.0
         total_discount = 0.0
-        for item in po_items:
-            qty = float(item.get('receivedQuantity', item.get('quantity', 0)))
-            price = float(item.get('unitPrice', 0))
-            itbis_rate = float(item.get('itbisRate', 0))
-            discount_pct = float(item.get('discount', 0))
+        for idx, item in enumerate(po_items):
+            po_item_id = request.form.get(f"poItemId_{idx}", item.get("id", ""))
+            try:
+                qty = float(request.form.get(f"quantity_{idx}", "0") or 0)
+            except (ValueError, TypeError):
+                qty = 0.0
+            try:
+                price = float(request.form.get(f"unitPrice_{idx}", item.get("unitPrice", 0)) or 0)
+            except (ValueError, TypeError):
+                price = float(item.get("unitPrice", 0) or 0)
+            try:
+                itbis_rate = float(request.form.get(f"itbisRate_{idx}", item.get("itbisRate", 0)) or 0)
+            except (ValueError, TypeError):
+                itbis_rate = float(item.get("itbisRate", 0) or 0)
+            try:
+                discount_pct = float(request.form.get(f"discount_{idx}", item.get("discount", 0)) or 0)
+            except (ValueError, TypeError):
+                discount_pct = float(item.get("discount", 0) or 0)
+            if qty <= 0:
+                continue
             line_sub = qty * price
             line_discount = line_sub * (discount_pct / 100.0)
             line_itbis = (line_sub - line_discount) * itbis_rate
@@ -2111,7 +2171,7 @@ def register_supplier_invoice(po_id):
             total_discount += line_discount
             total_itbis += line_itbis
             items.append({
-                "poItemId": item.get("id", ""),
+                "poItemId": po_item_id,
                 "itemName": item.get("name", ""),
                 "quantity": qty,
                 "unitPrice": price,
@@ -2122,8 +2182,13 @@ def register_supplier_invoice(po_id):
                 "total": round(line_total, 2),
             })
 
+        if not items:
+            flash('❌ Debe facturar al menos una partida con cantidad mayor a cero.', 'error')
+            return render_template('purchase_orders/register_invoice.html', po=po, today=datetime.now(timezone.utc).strftime('%Y-%m-%d'), active_page='purchase_orders')
+
         total = subtotal - total_discount + total_itbis
         sinv_number = SupplierInvoiceService.get_next_invoice_number(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
+        price_justification = request.form.get('priceJustification', '').strip()
 
         inv_data = {
             "invoiceNumber": sinv_number,
@@ -2146,14 +2211,21 @@ def register_supplier_invoice(po_id):
             "items": items,
             "attachmentUrls": [],
             "notes": notes,
+            "priceJustification": price_justification,
             "createdBy": session['user'].get('displayName', 'Usuario'),
         }
 
-        inv_data["id"] = SupplierInvoiceService.create(owner_uid=owner_uid, data=inv_data, sandbox=sandbox, company_id=company_id)["id"]
+        try:
+            inv_data["id"] = SupplierInvoiceService.create(owner_uid=owner_uid, data=inv_data, sandbox=sandbox, company_id=company_id)["id"]
+            from app.utils.decorators import record_sod_from_session
+            record_sod_from_session('canManagePurchaseCXP', inv_data["id"], 'supplier_invoice')
+        except ValueError as ve:
+            flash(f'❌ {ve}', 'error')
+            return render_template('purchase_orders/register_invoice.html', po=po, today=datetime.now(timezone.utc).strftime('%Y-%m-%d'), active_page='purchase_orders')
 
         # ── Generate accounting entry ──
         try:
-            from app.services.accounting_service import AccountingService
+            from app.services.accounting_service import AccountingService, AccountingPostingError
             account_items = []
             for item in inv_data.get("items", []):
                 line_value = (float(item.get("quantity", 0)) * float(item.get("unitPrice", 0)))
@@ -2184,8 +2256,16 @@ def register_supplier_invoice(po_id):
                 "isCost": True,
             }
             AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
+        except AccountingPostingError as acc_err:
+            from flask import current_app
+            current_app.logger.error("Error al contabilizar factura desde OC %s: %s", inv_data["id"], acc_err)
+            SupplierInvoiceService.update(owner_uid=owner_uid, invoice_id=inv_data["id"],
+                                          data={"accountingStatus": "error", "accountingError": str(acc_err)},
+                                          sandbox=sandbox, company_id=company_id)
+            flash(f'⚠️ La factura se guardó pero no se pudo contabilizar: {acc_err}', 'error')
         except Exception as acc_err:
-            print(f"Error al generar asiento contable de factura desde OC: {acc_err}")
+            from flask import current_app
+            current_app.logger.error("Error inesperado al contabilizar factura desde OC %s: %s", inv_data["id"], acc_err)
 
         # ── File upload after save (non-blocking with timeout) ──
         file_upload_error = None
@@ -2245,9 +2325,10 @@ def supplier_invoice_detail(invoice_id):
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
 
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    invoice_is_voided = SupplierInvoiceService.is_voided(invoice)
     status = invoice.get('cxpStatus', 'Pendiente')
     due_date = invoice.get('dueDate', '')
-    if status in ('Pendiente', 'Abonado') and due_date and due_date < today_str:
+    if not invoice_is_voided and status in ('Pendiente', 'Abonado') and due_date and due_date < today_str:
         invoice['cxpStatus'] = 'Vencido'
 
     payments = SupplierInvoiceService.get_payments(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
@@ -2313,6 +2394,12 @@ def supplier_invoice_detail(invoice_id):
                            qr_base64=qr_base64,
                            qr_code_url=qr_code_url,
                            supplier_email=supplier_email,
+                           is_emitted=SupplierInvoiceService.is_emitted(invoice),
+                           invoice_is_voided=invoice_is_voided,
+                           can_void_supplier_invoice=check_permission('canVoidSupplierInvoice'),
+                           can_approve_payments=(session.get('user', {}).get('role') == 'owner') or check_permission('canApprovePayments'),
+                           can_correct_invoice=bool(linked_entry) and not SupplierInvoiceService.is_emitted(invoice) and not invoice_is_voided,
+                           void_block_reason=SupplierInvoiceService.fiscal_void_block_reason(invoice),
                            active_page='purchase_cxp')
 
 
@@ -2453,6 +2540,10 @@ def emit_supplier_invoice(invoice_id):
     if not invoice:
         flash('Factura de proveedor no encontrada.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
+    emission_block = SupplierInvoiceService.emission_block_reason(invoice)
+    if emission_block:
+        flash(emission_block, 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
 
     existing_encf = invoice.get('encf', '')
     is_reemit = bool(existing_encf)
@@ -2604,10 +2695,13 @@ def pay_supplier_invoice(invoice_id):
         owner_uid=owner_uid, invoice_id=invoice_id, payment_amount=amount, registered_by=registered_by,
         sandbox=sandbox, payment_method=payment_method,
         payment_reference=payment_reference,
-        bank_account_id=bank_account_id, company_id=company_id
+        bank_account_id=bank_account_id, company_id=company_id,
+        requested_by_uid=session['user'].get('uid', '')
     )
 
     if success:
+        from app.utils.decorators import record_sod_from_session
+        record_sod_from_session('canManagePurchaseCXP', invoice_id, 'supplier_invoice')
         AuditService.log_from_request(
             owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_SINV,
             entity_id=invoice_id,
@@ -2634,9 +2728,25 @@ def edit_supplier_invoice(invoice_id):
         flash('❌ Factura proveedor no encontrada.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
 
-    is_emitted = invoice.get('status') == 'emitida' or (invoice.get('isSyncedWithDGII') and invoice.get('encf') and not invoice.get('dgiiError'))
-    if is_emitted:
+    if SupplierInvoiceService.is_voided(invoice):
+        flash('❌ No se puede editar una factura anulada.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+    if str(invoice.get('voidStatus') or '').lower() in ('pending', 'failed'):
+        flash('❌ La factura tiene una anulación en proceso; no se puede editar.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+    if SupplierInvoiceService.is_emitted(invoice):
         flash('❌ No se puede editar una factura que ya fue emitida a la DGII.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+    try:
+        if SupplierInvoiceService.has_payments(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id):
+            flash('❌ No se puede editar una factura con pagos registrados. Revierta los pagos primero.', 'error')
+            return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+        if SupplierInvoiceService.has_accounting_entry(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id):
+            flash('❌ La factura está contabilizada. Use «Preparar corrección» para reversar el asiento con trazabilidad antes de editarla.', 'error')
+            return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+    except Exception:
+        flash('❌ No se pudo verificar la factura; edición bloqueada por seguridad.', 'error')
         return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
 
     if request.method == 'POST':
@@ -2658,6 +2768,11 @@ def edit_supplier_invoice(invoice_id):
             return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
         if due_date and due_date < inv_date:
             flash('La fecha de vencimiento no puede ser anterior a la fecha de emisión.', 'error')
+            return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
+        try:
+            SupplierInvoiceService.validate_period(company_id, inv_date)
+        except ValueError as ve:
+            flash(f'❌ {ve}', 'error')
             return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
 
         if ncf and ncf != invoice.get('ncf', ''):
@@ -2798,6 +2913,7 @@ def edit_supplier_invoice(invoice_id):
             "costCenterId": request.form.get('costCenterId', ''),
             "updatedAt": datetime.now(timezone.utc).isoformat(),
         }
+        was_correction = str(invoice.get("correctionStatus") or "") == "in_progress"
 
         SupplierInvoiceService.update(owner_uid=owner_uid, invoice_id=invoice_id, data=updates, sandbox=sandbox, company_id=company_id)
 
@@ -2821,12 +2937,15 @@ def edit_supplier_invoice(invoice_id):
                     except Exception as e:
                         print(f"Error al subir archivo en edición: {e}")
 
+        accounting_ok = False
         try:
-            from app.services.accounting_service import AccountingService
+            from app.services.accounting_service import AccountingService, AccountingPostingError
             all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox, company_id=company_id)
             for entry in all_entries:
                 if entry.get("status") != "voided" and entry.get("referenceId") == invoice_id:
-                    AccountingService.void_entry(company_id, entry["id"], sandbox=sandbox)
+                    voided_entry = AccountingService.void_entry(company_id, entry["id"], sandbox=sandbox)
+                    if not voided_entry or voided_entry.get("status") != "voided":
+                        raise AccountingPostingError("No se confirmó la reversión del asiento contable anterior.")
                     break
             account_items = []
             for item in items:
@@ -2860,8 +2979,26 @@ def edit_supplier_invoice(invoice_id):
                 "costCenterId": request.form.get('costCenterId', ''),
             }
             AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
+        except AccountingPostingError as acc_err:
+            from flask import current_app
+            current_app.logger.error("Error al contabilizar edición de factura %s: %s", invoice_id, acc_err)
+            SupplierInvoiceService.update(owner_uid=owner_uid, invoice_id=invoice_id,
+                                          data={"accountingStatus": "error", "accountingError": str(acc_err)},
+                                          sandbox=sandbox, company_id=company_id)
+            flash(f'⚠️ La factura se actualizó pero no se pudo contabilizar: {acc_err}', 'error')
         except Exception as acc_err:
-            print(f"Error al regenerar asiento contable en edición: {acc_err}")
+            from flask import current_app
+            current_app.logger.error("Error inesperado al contabilizar edición de factura %s: %s", invoice_id, acc_err)
+
+        if was_correction and accounting_ok:
+            SupplierInvoiceService.update(
+                owner_uid=owner_uid, invoice_id=invoice_id,
+                data={
+                    "correctionStatus": "completed",
+                    "correctedAt": datetime.now(timezone.utc).isoformat(),
+                },
+                sandbox=sandbox, company_id=company_id,
+            )
 
         AuditService.log_from_request(
             owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_SINV,
@@ -2938,7 +3075,7 @@ def add_invoice_attachment(invoice_id):
 def void_payment(invoice_id, payment_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    if not check_permission('canManagePurchaseCXP'):
+    if not check_permission('canVoidPayment'):
         flash('❌ No tienes permiso para revertir pagos.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
     owner_uid = session['user']['ownerUID']
@@ -2958,6 +3095,264 @@ def void_payment(invoice_id, payment_id):
     return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
 
 
+@web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/approve-payment/<payment_id>', methods=['POST'])
+def approve_supplier_invoice_payment(invoice_id, payment_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    user = session.get('user', {})
+    is_owner = user.get('role') == 'owner'
+    if not (is_owner or check_permission('canApprovePayments')):
+        flash('❌ No tienes permiso para aprobar pagos.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+    owner_uid = user.get('ownerUID')
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    user_uid = user.get('uid', '')
+    notes = request.form.get('notes', '').strip()
+
+    payments = SupplierInvoiceService.get_payments(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
+    payment = next((p for p in payments if p.get('id') == payment_id), None)
+    if payment and payment.get('requestedBy') and payment.get('requestedBy') == user_uid:
+        if not (is_owner and notes):
+            flash('❌ No puedes aprobar un pago que tú mismo registraste (segregación de funciones). Solo el propietario puede auto-aprobar, con justificación.', 'error')
+            return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+    approved_by = user.get('email') or user.get('name') or user.get('displayName') or 'Usuario'
+    success, message = SupplierInvoiceService.approve_payment(
+        owner_uid=owner_uid, invoice_id=invoice_id, payment_id=payment_id,
+        approved_by=approved_by, approved_by_uid=user_uid, notes=notes,
+        sandbox=sandbox, company_id=company_id,
+    )
+    if success:
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_SINV,
+            entity_id=invoice_id,
+            entity_label=f"Pago aprobado en factura {invoice_id}",
+            sandbox=sandbox,
+        )
+    flash(message, 'success' if success else 'error')
+    return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/reject-payment/<payment_id>', methods=['POST'])
+def reject_supplier_invoice_payment(invoice_id, payment_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    user = session.get('user', {})
+    is_owner = user.get('role') == 'owner'
+    if not (is_owner or check_permission('canApprovePayments')):
+        flash('❌ No tienes permiso para aprobar pagos.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+    owner_uid = user.get('ownerUID')
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    notes = request.form.get('notes', '').strip()
+    rejected_by = user.get('email') or user.get('name') or user.get('displayName') or 'Usuario'
+    success, message = SupplierInvoiceService.reject_payment(
+        owner_uid=owner_uid, invoice_id=invoice_id, payment_id=payment_id,
+        rejected_by=rejected_by, rejected_by_uid=user.get('uid', ''), notes=notes,
+        sandbox=sandbox, company_id=company_id,
+    )
+    if success:
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_SINV,
+            entity_id=invoice_id,
+            entity_label=f"Pago rechazado en factura {invoice_id}",
+            sandbox=sandbox,
+        )
+    flash(message, 'success' if success else 'error')
+    return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/pay-multiple', methods=['GET'])
+def pay_multiple_invoices_form():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManagePurchaseCXP'):
+        return render_template('auth/restricted.html', feature_name="Pagar varias facturas", required_permission="canManagePurchaseCXP"), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
+    pending = []
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    for inv in invoices:
+        if SupplierInvoiceService.is_voided(inv):
+            continue
+        st = inv.get('cxpStatus', 'Pendiente')
+        rem = float(inv.get('cxpRemainingBalance', inv.get('total', 0)))
+        if rem <= 0.01 or st == 'Pagado':
+            continue
+        due = inv.get('dueDate', '')
+        if st in ('Pendiente', 'Abonado') and due and due < today_str:
+            st = 'Vencido'
+        pending.append({
+            'id': inv.get('id'),
+            'invoiceNumber': inv.get('invoiceNumber') or inv.get('ncf', ''),
+            'supplierId': inv.get('supplierId', ''),
+            'supplierName': inv.get('supplierName', ''),
+            'supplierRnc': inv.get('supplierRnc', ''),
+            'total': float(inv.get('total', 0)),
+            'balance': rem,
+            'status': st,
+            'dueDate': due,
+        })
+
+    bank_accounts = []
+    try:
+        bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
+    except Exception:
+        pass
+
+    suppliers = {}
+    for inv in pending:
+        sid = inv.get('supplierId') or ''
+        if sid and sid not in suppliers:
+            suppliers[sid] = inv.get('supplierName', '') or sid
+    supplier_list = [{'id': k, 'name': v} for k, v in suppliers.items()]
+
+    return render_template('purchase_orders/pay_multiple.html',
+                           active_page='purchase_cxp',
+                           invoices=pending,
+                           suppliers=supplier_list,
+                           bank_accounts=bank_accounts)
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/pay-multiple', methods=['POST'])
+def pay_multiple_invoices():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManagePurchaseCXP'):
+        flash('❌ No tienes permiso para registrar pagos.', 'error')
+        return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+    user = session.get('user', {})
+    owner_uid = user.get('ownerUID')
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    body = request.get_json(silent=True) or {}
+    supplier_id = (body.get('supplier_id') or request.form.get('supplier_id') or '').strip()
+    allocations = body.get('allocations') or []
+    if request.form.get('allocations'):
+        try:
+            import json as _json
+            allocations = _json.loads(request.form.get('allocations'))
+        except Exception:
+            allocations = []
+    payment_method = body.get('paymentMethod') or request.form.get('paymentMethod', '').strip()
+    payment_reference = body.get('paymentReference') or request.form.get('paymentReference', '').strip()
+    bank_account_id = body.get('bankAccountId') or request.form.get('bankAccountId', '').strip()
+
+    registered_by = user.get('displayName') or user.get('name') or 'Usuario'
+    ok, message, group_id = SupplierInvoiceService.register_multi_invoice_payment(
+        owner_uid=owner_uid, supplier_id=supplier_id, allocations=allocations,
+        registered_by=registered_by, requested_by_uid=user.get('uid', ''),
+        payment_method=payment_method, payment_reference=payment_reference,
+        bank_account_id=bank_account_id, company_id=company_id, sandbox=sandbox,
+    )
+    if ok:
+        from app.utils.decorators import record_sod_from_session
+        record_sod_from_session('canManagePurchaseCXP', group_id, 'supplier_invoice_payment_group')
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_SINV,
+            entity_id=group_id,
+            entity_label=f"Pago multi-factura registrado: {message}",
+            sandbox=sandbox,
+        )
+    flash(message, 'success' if ok else 'error')
+    return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/pay-multiple/<group_id>/approve', methods=['POST'])
+def approve_multi_invoice_payment(group_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    user = session.get('user', {})
+    is_owner = user.get('role') == 'owner'
+    if not (is_owner or check_permission('canApprovePayments')):
+        flash('❌ No tienes permiso para aprobar pagos.', 'error')
+        return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+    owner_uid = user.get('ownerUID')
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    user_uid = user.get('uid', '')
+    notes = request.form.get('notes', '').strip()
+
+    group = SupplierInvoiceService.get_multi_invoice_payment(owner_uid=owner_uid, group_id=group_id, company_id=company_id, sandbox=sandbox)
+    if group and group.get('requestedBy') and group.get('requestedBy') == user_uid:
+        if not (is_owner and notes):
+            flash('❌ No puedes aprobar un pago que tú mismo registraste (segregación de funciones).', 'error')
+            return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+
+    approved_by = user.get('email') or user.get('name') or user.get('displayName') or 'Usuario'
+    ok, message = SupplierInvoiceService.approve_multi_invoice_payment(
+        owner_uid=owner_uid, group_id=group_id, approved_by=approved_by,
+        approved_by_uid=user_uid, notes=notes, company_id=company_id, sandbox=sandbox,
+    )
+    if ok:
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_SINV,
+            entity_id=group_id, entity_label=f"Pago multi-factura aprobado: {group_id}",
+            sandbox=sandbox,
+        )
+    flash(message, 'success' if ok else 'error')
+    return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/pay-multiple/<group_id>/reject', methods=['POST'])
+def reject_multi_invoice_payment(group_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    user = session.get('user', {})
+    is_owner = user.get('role') == 'owner'
+    if not (is_owner or check_permission('canApprovePayments')):
+        flash('❌ No tienes permiso para aprobar pagos.', 'error')
+        return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+    owner_uid = user.get('ownerUID')
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    notes = request.form.get('notes', '').strip()
+    rejected_by = user.get('email') or user.get('name') or user.get('displayName') or 'Usuario'
+    ok, message = SupplierInvoiceService.reject_multi_invoice_payment(
+        owner_uid=owner_uid, group_id=group_id, rejected_by=rejected_by,
+        rejected_by_uid=user.get('uid', ''), notes=notes, company_id=company_id, sandbox=sandbox,
+    )
+    if ok:
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_SINV,
+            entity_id=group_id, entity_label=f"Pago multi-factura rechazado: {group_id}",
+            sandbox=sandbox,
+        )
+    flash(message, 'success' if ok else 'error')
+    return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/pay-multiple/<group_id>/void', methods=['POST'])
+def void_multi_invoice_payment(group_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canVoidPayment'):
+        flash('❌ No tienes permiso para anular pagos.', 'error')
+        return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+    user = session.get('user', {})
+    owner_uid = user.get('ownerUID')
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    reason = request.form.get('reason', '').strip()
+    if not reason:
+        flash('Debe indicar el motivo de la anulación.', 'error')
+        return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+    ok, message = SupplierInvoiceService.void_multi_invoice_payment(
+        owner_uid=owner_uid, group_id=group_id,
+        voided_by=user.get('email') or user.get('name') or 'Usuario',
+        reason=reason, company_id=company_id, sandbox=sandbox,
+    )
+    flash(message, 'success' if ok else 'error')
+    return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+
+
 @web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/delete', methods=['POST'])
 def delete_supplier_invoice(invoice_id):
     if 'user' not in session:
@@ -2970,25 +3365,110 @@ def delete_supplier_invoice(invoice_id):
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    inv = None
-    try:
-        invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
-        inv = next((i for i in invoices if i['id'] == invoice_id), None)
-    except Exception:
-        pass
+    inv = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
 
-    SupplierInvoiceService.delete(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
+    ok, message = SupplierInvoiceService.delete(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
 
-    AuditService.log_from_request(
-        owner_uid=owner_uid, action=ACTION_DELETE, module=MODULE_SINV,
-        entity_id=invoice_id,
-        entity_label=f"Factura proveedor eliminada: {inv.get('invoiceNumber', 'N/A')} (Proveedor: {inv.get('supplierName', 'N/A')})" if inv else f"Factura proveedor eliminada: {invoice_id}",
-        user_session=session.get('user', {}),
-        before=inv or {},
-        sandbox=sandbox
-    )
-    flash('Factura de proveedor eliminada.', 'success')
+    if ok:
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_DELETE, module=MODULE_SINV,
+            entity_id=invoice_id,
+            entity_label=f"Factura proveedor eliminada: {inv.get('invoiceNumber', 'N/A')} (Proveedor: {inv.get('supplierName', 'N/A')})" if inv else f"Factura proveedor eliminada: {invoice_id}",
+            user_session=session.get('user', {}),
+            before=inv or {},
+            sandbox=sandbox
+        )
+    flash(message, 'success' if ok else 'error')
     return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/void', methods=['POST'])
+def void_supplier_invoice(invoice_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canVoidSupplierInvoice'):
+        flash('No tienes permiso para anular facturas de proveedor.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    user = session.get('user', {})
+
+    reason = request.form.get('reason', '').strip()
+    if not reason:
+        flash('Debe indicar el motivo de la anulación.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+    from app.utils.decorators import check_sod as check_sod_func, record_sod_from_session
+    sod_ok, sod_msg = check_sod_func(
+        owner_uid, user.get('uid', ''), 'canVoidSupplierInvoice',
+        invoice_id, 'supplier_invoice', company_id=company_id,
+    )
+    if not sod_ok:
+        flash(sod_msg, 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+    before_invoice = SupplierInvoiceService.get(
+        owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id
+    )
+    voided_by = user.get('email') or user.get('displayName', 'Usuario')
+
+    ok, message = SupplierInvoiceService.void(
+        owner_uid=owner_uid, invoice_id=invoice_id, reason=reason,
+        voided_by=voided_by, sandbox=sandbox, company_id=company_id,
+    )
+
+    if ok:
+        record_sod_from_session('canVoidSupplierInvoice', invoice_id, 'supplier_invoice')
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_SINV,
+            entity_id=invoice_id,
+            entity_label=f"Factura proveedor anulada: {invoice_id} - {reason}",
+            user_session=user, before=before_invoice or {},
+            after=SupplierInvoiceService.get(
+                owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id
+            ) or {},
+            sandbox=sandbox
+        )
+    flash(message, 'success' if ok else 'error')
+    return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/correction', methods=['POST'])
+def prepare_supplier_invoice_correction(invoice_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManagePurchaseCXP'):
+        flash('No tienes permiso para corregir facturas de proveedor.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    user = session.get('user', {})
+    reason = request.form.get('reason', '').strip()
+    if not reason:
+        flash('Debe indicar el motivo de la corrección.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+    before_invoice = SupplierInvoiceService.get(
+        owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id
+    )
+    ok, message = SupplierInvoiceService.prepare_correction(
+        owner_uid=owner_uid, invoice_id=invoice_id, reason=reason,
+        corrected_by=user.get('email') or user.get('displayName', 'Usuario'),
+        sandbox=sandbox, company_id=company_id,
+    )
+    if ok:
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_SINV,
+            entity_id=invoice_id,
+            entity_label=f"Corrección de factura preparada: {reason}",
+            user_session=user, before=before_invoice or {}, sandbox=sandbox,
+        )
+        flash(message, 'success')
+        return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
+    flash(message, 'error')
+    return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
 
 
 @web_purchase_orders_bp.route('/purchase-orders/cxp/delete-expense/<expense_id>', methods=['POST'])
@@ -3130,7 +3610,12 @@ def new_credit_note():
             )
         return redirect(url_for('web_purchase_orders.list_credit_notes'))
 
-    invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
+    invoices = [
+        inv for inv in SupplierInvoiceService.get_all(
+            owner_uid=owner_uid, sandbox=sandbox, company_id=company_id
+        )
+        if not SupplierInvoiceService.is_voided(inv)
+    ]
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     return render_template('purchase_orders/credit_note_form.html',
                            invoices=invoices, today_str=today_str,

@@ -444,10 +444,25 @@
             <div style="border-top:1px solid var(--border-color); padding-top:14px; margin-top:14px;">
                 <span style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; display:block; margin-bottom:8px;">Abonos</span>
                 {% for p in payments %}
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:0.78rem; border-bottom:1px solid rgba(255,255,255,0.03);">
-                    <span style="color:var(--text-secondary);">{{ (p.paymentDate or '')[:10] }} · {{ p.method or '—' }}</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:0.78rem; border-bottom:1px solid rgba(255,255,255,0.03); gap:6px;">
+                    <span style="color:var(--text-secondary);">
+                        {{ (p.paymentDate or '')[:10] }} · {{ p.method or '—' }}
+                        {% if p.approvalStatus == 'pending' %}<span class="badge-pill badge-amber" style="font-size:0.6rem;">Pendiente</span>
+                        {% elif p.approvalStatus == 'approved' %}<span class="badge-pill badge-green" style="font-size:0.6rem;">Aprobado</span>
+                        {% elif p.approvalStatus == 'rejected' %}<span class="badge-pill badge-red" style="font-size:0.6rem;">Rechazado</span>{% endif %}
+                    </span>
                     <span style="color:var(--accent-emerald); font-weight:700; font-family:monospace;">RD$ {{ "{:,.2f}".format(p.amount) }}</span>
-                    <form method="POST" action="{{ url_for('web_purchase_orders.void_payment', invoice_id=invoice.id, payment_id=p.id) }}" style="flex-shrink:0; margin-left:6px;" onsubmit="return confirm('¿Revertir este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?')">
+                    {% if p.approvalStatus == 'pending' and can_approve_payments %}
+                    <form method="POST" action="{{ url_for('web_purchase_orders.approve_supplier_invoice_payment', invoice_id=invoice.id, payment_id=p.id) }}" style="flex-shrink:0;" onsubmit="return confirm('¿Aprobar este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" style="font-size:0.6rem; padding:2px 6px; background:transparent; border:1px solid #10b981; color:#10b981; border-radius:3px; cursor:pointer;" title="Aprobar"><i class="fa-solid fa-check"></i></button>
+                    </form>
+                    <form method="POST" action="{{ url_for('web_purchase_orders.reject_supplier_invoice_payment', invoice_id=invoice.id, payment_id=p.id) }}" style="flex-shrink:0;" onsubmit="return confirm('¿Rechazar este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" style="font-size:0.6rem; padding:2px 6px; background:transparent; border:1px solid #f59e0b; color:#f59e0b; border-radius:3px; cursor:pointer;" title="Rechazar"><i class="fa-solid fa-xmark"></i></button>
+                    </form>
+                    {% endif %}
+                    <form method="POST" action="{{ url_for('web_purchase_orders.void_payment', invoice_id=invoice.id, payment_id=p.id) }}" style="flex-shrink:0;" onsubmit="return confirm('¿Revertir este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?')">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" style="font-size:0.6rem; padding:1px 5px; background:transparent; border:1px solid #ef4444; color:#ef4444; border-radius:3px; cursor:pointer;" title="Revertir"><i class="fa-solid fa-rotate-left"></i></button>
                     </form>
@@ -487,6 +502,30 @@
             <a href="{{ url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice.id) }}" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 16px; background:linear-gradient(135deg,#8b5cf6,#7c3aed); border:none; border-radius:var(--radius-sm); color:#fff; font-size:0.88rem; font-weight:600; text-decoration:none; cursor:pointer;">
                 <i class="fa-solid fa-pen-to-square"></i> Editar
             </a>
+            {% endif %}
+
+            {% if can_correct_invoice %}
+            <form method="POST" action="{{ url_for('web_purchase_orders.prepare_supplier_invoice_correction', invoice_id=invoice.id) }}" style="display:flex; gap:8px; align-items:center;">
+                <input type="text" name="reason" class="form-input" placeholder="Motivo de la corrección (obligatorio)" required style="flex:1; font-size:0.82rem;">
+                <button type="submit" class="btn btn-secondary" style="font-size:0.82rem;" onclick="return confirm('Se reversará el asiento contable activo para poder corregir la factura. ¿Continuar?');">
+                    <i class="fa-solid fa-rotate-left"></i> Preparar corrección
+                </button>
+            </form>
+            {% endif %}
+
+            {% if can_void_supplier_invoice and not invoice_is_voided %}
+                {% if void_block_reason %}
+                <div style="padding:10px 12px; border-radius:var(--radius-sm); background:rgba(245,158,11,.12); color:#92400e; font-size:0.78rem; line-height:1.35;">
+                    <i class="fa-solid fa-lock"></i> {{ void_block_reason }}
+                </div>
+                {% else %}
+                <form method="POST" action="{{ url_for('web_purchase_orders.void_supplier_invoice', invoice_id=invoice.id) }}" style="display:flex; gap:8px; align-items:center;">
+                    <input type="text" name="reason" class="form-input" placeholder="Motivo de la anulación (obligatorio)" required style="flex:1; font-size:0.82rem;">
+                    <button type="submit" class="btn btn-secondary" style="font-size:0.82rem; color:var(--danger); border-color:var(--danger);" onclick="return confirm('La factura quedará anulada, se sacará de CxP/606 y se reversará su asiento. Esta acción conserva trazabilidad. ¿Continuar?');">
+                        <i class="fa-solid fa-ban"></i> Anular
+                    </button>
+                </form>
+                {% endif %}
             {% endif %}
 
             <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" class="btn btn-primary" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 16px; font-size:0.88rem; font-weight:600;">

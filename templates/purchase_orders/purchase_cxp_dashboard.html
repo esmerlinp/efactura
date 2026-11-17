@@ -13,7 +13,10 @@
             Registra las compras que realizas a tus proveedores y actualiza tu inventario automáticamente.
         </p>
     </div>
-    <div style="position: relative; display: inline-flex;">
+    <div style="position: relative; display: inline-flex; gap:8px;">
+        <a href="{{ url_for('web_purchase_orders.pay_multiple_invoices_form') }}" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px;">
+            <i class="fa-solid fa-layer-group"></i> Pagar varias facturas
+        </a>
         <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px 0 12px; display: inline-flex; align-items: center; gap: 4px; border-top-right-radius: 0; border-bottom-right-radius: 0;">
             <i class="fa-solid fa-plus"></i> Nueva Factura de Compra
         </a>

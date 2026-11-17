@@ -10,12 +10,33 @@ WITHHOLDING_ISR_RATES = {
     "professional_fees": 0.15,
     "digital_services_abroad": 0.15,
     "payments_abroad": 0.27,
+    "royalties": 0.15,
 }
 
 WITHHOLDING_ITBIS_RATES = {
     "corporate_goods": 0.30,
     "legal_services": 0.75,
     "independent_professionals": 1.00,
+}
+
+# Categoría de retención del proveedor → (clave ISR, clave ITBIS).
+# Solo conecta categorías YA definidas en los diccionarios anteriores.
+# None significa "no aplica" para ese impuesto.
+WITHHOLDING_CATEGORY_MAP = {
+    "goods_services": {"isr": "goods_services", "itbis": "corporate_goods"},
+    "professional_fees": {"isr": "professional_fees", "itbis": "independent_professionals"},
+    "legal_services": {"isr": None, "itbis": "legal_services"},
+    "digital_services_abroad": {"isr": "digital_services_abroad", "itbis": None},
+    "payments_abroad": {"isr": "payments_abroad", "itbis": None},
+    "royalties": {"isr": "royalties", "itbis": None},
+}
+
+# Línea IR-17 correspondiente a cada regla de retención ISR (solo confirmadas en ir17_rules).
+ISR_RULE_TO_IR17_LINE = {
+    "professional_fees": 2,
+    "digital_services_abroad": 23,
+    "payments_abroad": 10,
+    "royalties": 22,
 }
 
 RST_TAX_BRACKETS_2026 = [
@@ -57,6 +78,8 @@ DEFAULT_TAX_RULES = {
     },
     "withholding_isr": WITHHOLDING_ISR_RATES,
     "withholding_itbis": WITHHOLDING_ITBIS_RATES,
+    "withholding_category_map": WITHHOLDING_CATEGORY_MAP,
+    "isr_rule_to_ir17_line": ISR_RULE_TO_IR17_LINE,
     "rst": {
         "limit": RST_ANNUAL_LIMIT_2026,
         "brackets": RST_TAX_BRACKETS_2026,

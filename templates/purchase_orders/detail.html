@@ -750,6 +750,56 @@
         </div>
     </div>
 
+    {% if traceability %}
+    <div class="card-form-body" style="padding:18px 20px; margin-bottom:20px; border-left:4px solid var(--accent-purple, #8b5cf6);">
+        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+            <i class="fa-solid fa-route" style="margin-right:6px;"></i> Trazabilidad de la obligación
+        </h4>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:16px;">
+            <div style="background:var(--bg-card, #1a1a2e); border:1px solid var(--border-color); border-radius:8px; padding:10px 12px;">
+                <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Solicitado</div>
+                <div style="font-size:1rem; font-weight:700; color:var(--text-primary);">RD$ {{ "{:,.2f}".format(traceability.requested) }}</div>
+            </div>
+            <div style="background:var(--bg-card, #1a1a2e); border:1px solid var(--border-color); border-radius:8px; padding:10px 12px;">
+                <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Recibido</div>
+                <div style="font-size:1rem; font-weight:700; color:var(--accent-blue, #3b82f6);">RD$ {{ "{:,.2f}".format(traceability.receivedAmount) }}</div>
+            </div>
+            <div style="background:var(--bg-card, #1a1a2e); border:1px solid var(--border-color); border-radius:8px; padding:10px 12px;">
+                <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Facturado</div>
+                <div style="font-size:1rem; font-weight:700; color:var(--accent-purple, #8b5cf6);">RD$ {{ "{:,.2f}".format(traceability.invoiced) }}</div>
+            </div>
+            <div style="background:var(--bg-card, #1a1a2e); border:1px solid var(--border-color); border-radius:8px; padding:10px 12px;">
+                <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Pagado</div>
+                <div style="font-size:1rem; font-weight:700; color:var(--accent-emerald, #10b981);">RD$ {{ "{:,.2f}".format(traceability.paid) }}</div>
+            </div>
+            <div style="background:var(--bg-card, #1a1a2e); border:1px solid var(--border-color); border-radius:8px; padding:10px 12px;">
+                <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Pendiente de pago</div>
+                <div style="font-size:1rem; font-weight:800; color:var(--accent-orange, #f59e0b);">RD$ {{ "{:,.2f}".format(traceability.pending) }}</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.82rem;">
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:6px;">Facturas vinculadas</div>
+            {% if traceability.invoices %}
+                {% for inv in traceability.invoices %}
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+                    <span style="color:var(--text-secondary);">
+                        {{ inv.invoiceNumber or inv.supplierInvoiceNumber or inv.ncf or inv.id }}
+                        {% if inv.ncf %}<span style="color:var(--text-muted);"> · NCF {{ inv.ncf }}</span>{% endif %}
+                    </span>
+                    <span style="font-family:monospace;">
+                        RD$ {{ "{:,.2f}".format(inv.total) }}
+                        {% if inv.paidAmount > 0 %}<span style="color:var(--accent-emerald, #10b981);"> · pagado RD$ {{ "{:,.2f}".format(inv.paidAmount) }}</span>{% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="color:var(--text-muted);">Sin facturas registradas.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Main Detail Grid: 3fr Content / 1fr Sidebar -->
     <div class="detail-grid">
 
@@ -898,7 +948,31 @@
                                     {% if item.isInventoriable is false %}
                                     <div style="font-size:0.7rem; color:var(--accent-blue, #3b82f6); margin-top:2px; display:inline-flex; align-items:center; gap:4px;">
                                         <i class="fa-solid fa-handshake"></i> Servicio / No inventariable
+                                        {% if item.serviceStatus == 'confirmado' %}
+                                        <span class="badge-pill badge-green" style="font-size:0.6rem;">Confirmado</span>
+                                        {% elif item.serviceStatus == 'rechazado' %}
+                                        <span class="badge-pill badge-red" style="font-size:0.6rem;">Rechazado</span>
+                                        {% else %}
+                                        <span class="badge-pill badge-amber" style="font-size:0.6rem;">Pendiente</span>
+                                        {% endif %}
+                                        {% if item.serviceConfirmedBy %}<span style="color:var(--text-muted);">· por {{ item.serviceConfirmedBy }}</span>{% endif %}
                                     </div>
+                                    {% if can_confirm_service and item.serviceStatus not in ('confirmado', 'rechazado') %}
+                                    <div style="display:flex; gap:4px; margin-top:4px;">
+                                        <form method="POST" action="{{ url_for('web_purchase_orders.confirm_service', po_id=order.id, po_item_id=item.id) }}" style="margin:0; display:inline-flex; gap:4px; align-items:center;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="status" value="confirmado">
+                                            <input type="text" name="notes" placeholder="Observaciones" style="width:130px; height:26px; font-size:0.68rem; padding:2px 6px; border:1px solid var(--border-color); border-radius:4px;">
+                                            <button type="submit" style="height:26px; font-size:0.68rem; padding:0 8px; background:transparent; border:1px solid var(--accent-emerald, #10b981); color:var(--accent-emerald, #10b981); border-radius:4px; cursor:pointer;">Confirmar</button>
+                                        </form>
+                                        <form method="POST" action="{{ url_for('web_purchase_orders.confirm_service', po_id=order.id, po_item_id=item.id) }}" style="margin:0; display:inline-flex; gap:4px; align-items:center;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="status" value="rechazado">
+                                            <input type="text" name="notes" placeholder="Motivo rechazo" style="width:130px; height:26px; font-size:0.68rem; padding:2px 6px; border:1px solid var(--border-color); border-radius:4px;">
+                                            <button type="submit" style="height:26px; font-size:0.68rem; padding:0 8px; background:transparent; border:1px solid var(--accent-red, #ef4444); color:var(--accent-red, #ef4444); border-radius:4px; cursor:pointer;">Rechazar</button>
+                                        </form>
+                                    </div>
+                                    {% endif %}
                                     {% endif %}
                                 </td>
                                 <td style="text-align:center; font-weight:700;" class="mono">{{ oqty }}</td>

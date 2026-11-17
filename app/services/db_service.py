@@ -1140,6 +1140,24 @@ def _company_coll(*, company_id=None, coll_name=None, owner_uid=None):
     return None
 
 
+def run_firestore_transaction(func, *args, **kwargs):
+    """Ejecuta ``func(transaction, *args, **kwargs)`` dentro de una transacción Firestore.
+
+    Firestore reintenta automáticamente la transacción ante conflictos de
+    concurrencia (``Aborted``), garantizando que lecturas y escrituras sobre los
+    mismos documentos sean atómicas.
+    """
+    from google.cloud.firestore import transactional
+
+    transaction = db_firestore.transaction()
+
+    @transactional
+    def _run(tx):
+        return func(tx, *args, **kwargs)
+
+    return _run(transaction)
+
+
 # =========================================================================
 # CAJA / POS — constantes, excepciones y helpers monetarios
 # =========================================================================
@@ -1437,6 +1455,8 @@ class DatabaseService:
                     "canManageTools": True,
                     "canHR": True,
                     "canVoidInvoice": False,
+                    "canVoidSupplierInvoice": False,
+                    "canVoidPayment": False,
                     "canCreateSupplier": True,
                     "canCreateClient": True,
                     "canDeleteClient": False,
@@ -1604,6 +1624,8 @@ class DatabaseService:
                         "canManageTools": bool(perms.get("canManageTools", True)),
                         "canHR": bool(perms.get("canHR", True)),
                         "canVoidInvoice": bool(perms.get("canVoidInvoice", False)),
+                        "canVoidSupplierInvoice": bool(perms.get("canVoidSupplierInvoice", False)),
+                        "canVoidPayment": bool(perms.get("canVoidPayment", False)),
                         "canCreateSupplier": bool(perms.get("canCreateSupplier", True)),
                         "canApprovePayments": bool(perms.get("canApprovePayments", False)),
                         "canApprovePayroll": bool(perms.get("canApprovePayroll", False)),
@@ -1673,7 +1695,7 @@ class DatabaseService:
                             "canManageContracts", "canManageCommissions", "canViewBI", "canViewAuditLog", "isPosSupervisor",
                             "canViewSubscription", "canToggleSandbox", "canManageNotes", "canManageSuppliers",
                             "canManagePurchaseCXP", "canUseChatbot", "canAccounting", "canManageTools", "canHR",
-                            "canVoidInvoice", "canCreateSupplier", "canApprovePayments", "canApprovePayroll",
+                            "canVoidInvoice", "canVoidSupplierInvoice", "canVoidPayment", "canCreateSupplier", "canApprovePayments", "canApprovePayroll",
                             "canApproveExpenses", "canSupervisePOS", "canAssignApprovers",
                             "canManageCatalog", "canViewInventoryDashboard", "canInventoryKardex", "canInventoryReceipts",
                             "canInventoryTransfers", "canInventoryCounts", "canInventoryLots", "canManageWarehouses",
@@ -1740,6 +1762,7 @@ class DatabaseService:
                         "canManageTools": True,
                         "canHR": True,
                         "canVoidInvoice": False,
+                        "canVoidSupplierInvoice": False,
                         "canCreateSupplier": True,
                         "canCreateClient": True,
                         "canDeleteClient": True,
@@ -5074,7 +5097,7 @@ class DatabaseService:
                 from app.services.fiscal_period_service import FiscalPeriodService
                 exp_date = exp_dict.get("date", "")
                 if exp_date:
-                    FiscalPeriodService.validate_period_open(owner_uid, exp_date)
+                    FiscalPeriodService.validate_period_open(owner_uid, exp_date, company_id=company_id)
             except ImportError:
                 pass
 
@@ -5197,8 +5220,8 @@ class DatabaseService:
         return exp_dict
 
     @classmethod
-    def save_cxp_payment(cls, owner_uid, expense_id, payment_amount, registered_by="Usuario", bank_account_id=None, sandbox=True, company_id=None):
-        """Registra un abono/pago a una cuenta por pagar (gasto a crédito)."""
+    def save_cxp_payment(cls, owner_uid, expense_id, payment_amount, registered_by="Usuario", bank_account_id=None, sandbox=True, company_id=None, requested_by_uid=""):
+        """Registra un abono/pago a una cuenta por pagar (gasto a crédito), pendiente de aprobación."""
         if not firebase_initialized:
             return False, "Firebase no inicializado."
         try:
@@ -5207,40 +5230,231 @@ class DatabaseService:
             doc = doc_ref.get()
             if not doc.exists:
                 return False, "Gasto/Factura no encontrado."
-                
+
             data = doc.to_dict()
             amount = float(data.get("amount", 0.0))
             current_rem = float(data.get("cxpRemainingBalance", amount))
-            
-            new_rem = max(0.0, current_rem - payment_amount)
-            new_status = "Pagado" if new_rem <= 0.01 else "Abonado"
-            
-            # Registrar el pago en una subcolección del gasto
+            payment_amount = float(payment_amount or 0)
+            if payment_amount <= 0:
+                return False, "El monto del pago debe ser mayor a cero."
+            pending_sum = 0.0
+            for pdoc in doc_ref.collection("cxp_payments").get():
+                pd = pdoc.to_dict() or {}
+                if str(pd.get("approvalStatus") or "").lower() == "pending":
+                    pending_sum += float(pd.get("amount", 0) or 0)
+            available = round(current_rem - pending_sum, 2)
+            if payment_amount > available:
+                return False, f"El monto (RD$ {payment_amount:,.2f}) excede el saldo disponible (RD$ {available:,.2f}) considerando pagos pendientes de aprobación."
+
+            now = datetime.now(timezone.utc)
+            payment_date_str = now.strftime("%Y-%m-%d")
+            try:
+                from app.services.fiscal_period_service import FiscalPeriodService
+                FiscalPeriodService.validate_period_open(company_id, payment_date_str, company_id=company_id)
+            except ValueError as ve:
+                return False, str(ve)
+
             payment_id = str(uuid.uuid4())
             payment_doc = {
                 "id": payment_id,
                 "amount": payment_amount,
-                "paymentDate": datetime.now(timezone.utc).isoformat(),
+                "paymentDate": now.isoformat(),
                 "registeredBy": registered_by,
                 "ownerUID": owner_uid,
-                "bankAccountId": bank_account_id or ""
+                "bankAccountId": bank_account_id or "",
+                "approvalStatus": "pending",
+                "requestedBy": requested_by_uid or "",
+                "requestedByName": registered_by,
+                "requestedAt": now.isoformat(),
             }
             doc_ref.collection("cxp_payments").document(payment_id).set(payment_doc)
-            
-            # Actualizar gasto principal
-            doc_ref.update({
-                "cxpRemainingBalance": new_rem,
-                "cxpStatus": new_status
-            })
+
             _invalidate_expenses(owner_uid, company_id=company_id)
-            return True, f"Pago de RD$ {payment_amount:,.2f} registrado con éxito. Nuevo balance: RD$ {new_rem:,.2f}."
+            return True, f"Pago de RD$ {payment_amount:,.2f} registrado y pendiente de aprobación."
         except Exception as e:
             print(f"⚠️ Error en save_cxp_payment: {e}")
+            return False, str(e)
+
+    @classmethod
+    def _approve_cxp_payment_tx(cls, transaction, owner_uid, expense_id, payment_id,
+                                approved_by, approved_by_uid, notes, sandbox, company_id):
+        coll_name = "sandbox_expenses" if sandbox else "expenses"
+        doc_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id)
+        doc = transaction.get(doc_ref)
+        if not doc.exists:
+            raise ValueError("Gasto no encontrado.")
+        data = doc.to_dict() or {}
+        pay_ref = doc_ref.collection("cxp_payments").document(payment_id)
+        pay_doc = transaction.get(pay_ref)
+        if not pay_doc.exists:
+            raise ValueError("Pago no encontrado.")
+        pay_data = pay_doc.to_dict() or {}
+        status = str(pay_data.get("approvalStatus") or "").lower()
+        if status == "approved":
+            return "already_approved"
+        if status != "pending":
+            raise ValueError("Solo se puede aprobar un pago pendiente de aprobación.")
+
+        payment_amount = round(float(pay_data.get("amount", 0) or 0), 2)
+        total = float(data.get("amount", 0.0))
+        current_rem = float(data.get("cxpRemainingBalance", total))
+        if payment_amount > current_rem:
+            raise ValueError(f"El monto (RD$ {payment_amount:,.2f}) excede el saldo pendiente (RD$ {current_rem:,.2f}).")
+
+        new_rem = max(0.0, current_rem - payment_amount)
+        new_status = "Pagado" if new_rem <= 0.01 else "Abonado"
+
+        # Aplicar retención proporcional al pago (gastos usan isrWithheld/itbisWithheld)
+        ret_isr_applied = 0.0
+        ret_itbis_applied = 0.0
+        if total > 0:
+            ret_isr_calc = float(data.get("retentionIsrAmount") or data.get("isrWithheld") or 0)
+            ret_itbis_calc = float(data.get("retentionItbisAmount") or data.get("itbisWithheld") or 0)
+            factor = payment_amount / total
+            ret_isr_applied = round(ret_isr_calc * factor, 2)
+            ret_itbis_applied = round(ret_itbis_calc * factor, 2)
+
+        expense_update = {
+            "cxpRemainingBalance": new_rem,
+            "cxpStatus": new_status,
+        }
+        if ret_isr_applied or ret_itbis_applied:
+            expense_update["retentionIsrApplied"] = round(
+                float(data.get("retentionIsrApplied", 0) or 0) + ret_isr_applied, 2
+            )
+            expense_update["retentionItbisApplied"] = round(
+                float(data.get("retentionItbisApplied", 0) or 0) + ret_itbis_applied, 2
+            )
+            expense_update["retentionStatus"] = "applied" if new_rem <= 0.01 else "partial"
+
+        transaction.update(doc_ref, expense_update)
+        transaction.update(pay_ref, {
+            "approvalStatus": "approved",
+            "approvedBy": approved_by,
+            "approvedByUid": approved_by_uid or "",
+            "approvedAt": datetime.now(timezone.utc).isoformat(),
+            "approvalNotes": notes or "",
+            "retentionIsrApplied": ret_isr_applied,
+            "retentionItbisApplied": ret_itbis_applied,
+        })
+        return "approved"
+
+    @classmethod
+    def approve_cxp_payment(cls, owner_uid, expense_id, payment_id, approved_by="Usuario", approved_by_uid="", notes="", sandbox=True, company_id=None):
+        """Aprueba un pago de gasto de forma atómica (estado + saldo) y lo contabiliza."""
+        if not firebase_initialized:
+            return False, "Firebase no inicializado."
+        try:
+            coll_name = "sandbox_expenses" if sandbox else "expenses"
+            doc_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id)
+            pay_ref = doc_ref.collection("cxp_payments").document(payment_id)
+            pay_snap = pay_ref.get()
+            if not pay_snap.exists:
+                return False, "Pago no encontrado."
+            payment_date_str = str((pay_snap.to_dict() or {}).get("paymentDate", "") or "")[:10] or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            try:
+                from app.services.fiscal_period_service import FiscalPeriodService
+                FiscalPeriodService.validate_period_open(company_id, payment_date_str, company_id=company_id)
+            except ValueError as ve:
+                return False, str(ve)
+
+            result = run_firestore_transaction(
+                cls._approve_cxp_payment_tx, owner_uid, expense_id, payment_id,
+                approved_by, approved_by_uid, notes, sandbox, company_id,
+            )
+            if result == "already_approved":
+                return True, "El pago ya estaba aprobado."
+
+            data = doc_ref.get().to_dict() or {}
+            pay_data = pay_ref.get().to_dict() or {}
+            payment_amount = round(float(pay_data.get("amount", 0) or 0), 2)
+
+            bank_account_id = pay_data.get("bankAccountId", "")
+            if bank_account_id:
+                try:
+                    bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox, company_id=company_id)
+                    if bank_acc:
+                        new_balance = bank_acc["currentBalance"] - payment_amount
+                        DatabaseService.save_bank_account(owner_uid, bank_account_id, {**bank_acc, "currentBalance": new_balance}, sandbox=sandbox, company_id=company_id)
+                except Exception as bank_err:
+                    print(f"⚠️ Error al actualizar saldo bancario al aprobar pago de gasto: {bank_err}")
+
+            accounting_entry_id = ""
+            accounting_error = ""
+            try:
+                from app.services.accounting_service import AccountingService, AccountingPostingError
+                provider_name = data.get("providerName") or data.get("supplierName") or ""
+                entry = AccountingService.auto_generate_cxp_payment_entry(
+                    company_id=company_id,
+                    payment_id=payment_id,
+                    amount=payment_amount,
+                    payment_date=payment_date_str,
+                    bank_account_id=bank_account_id,
+                    payment_method=data.get("paymentMethod", ""),
+                    concept=f"Pago gasto {data.get('documentNumber') or data.get('ncf') or ''} - {provider_name}",
+                    supplier_id=data.get("supplierId", ""),
+                    supplier_name=provider_name,
+                    cost_center_id=data.get("costCenterId"),
+                    sandbox=sandbox,
+                )
+                if entry:
+                    accounting_entry_id = entry.get("id", "")
+            except AccountingPostingError as acc_err:
+                accounting_error = str(acc_err)
+            except Exception as acc_err:
+                accounting_error = str(acc_err)
+
+            pay_ref.update({
+                "accountingStatus": "posted" if accounting_entry_id else ("error" if accounting_error else "pending"),
+                "accountingEntryId": accounting_entry_id or "",
+                "accountingError": accounting_error or "",
+            })
+            _invalidate_expenses(owner_uid, company_id=company_id)
+            msg = f"Pago de RD$ {payment_amount:,.2f} aprobado."
+            if accounting_error:
+                msg += " ⚠️ El pago no se pudo contabilizar; revise el módulo de contabilidad."
+            return True, msg
+        except Exception as e:
+            print(f"⚠️ Error en approve_cxp_payment: {e}")
+            return False, str(e)
+
+    @classmethod
+    def reject_cxp_payment(cls, owner_uid, expense_id, payment_id, rejected_by="Usuario", rejected_by_uid="", notes="", sandbox=True, company_id=None):
+        """Rechaza un pago de gasto pendiente de aprobación (sin aplicar saldo ni contabilización)."""
+        if not firebase_initialized:
+            return False, "Firebase no inicializado."
+        try:
+            coll_name = "sandbox_expenses" if sandbox else "expenses"
+            doc_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id)
+            doc = doc_ref.get()
+            if not doc.exists:
+                return False, "Gasto no encontrado."
+            pay_ref = doc_ref.collection("cxp_payments").document(payment_id)
+            pay_doc = pay_ref.get()
+            if not pay_doc.exists:
+                return False, "Pago no encontrado."
+            pay_data = pay_doc.to_dict() or {}
+            status = str(pay_data.get("approvalStatus") or "").lower()
+            if status == "rejected":
+                return True, "El pago ya estaba rechazado."
+            if status != "pending":
+                return False, "Solo se puede rechazar un pago pendiente de aprobación."
+            pay_ref.update({
+                "approvalStatus": "rejected",
+                "rejectedBy": rejected_by,
+                "rejectedByUid": rejected_by_uid or "",
+                "rejectedAt": datetime.now(timezone.utc).isoformat(),
+                "rejectionNotes": notes or "",
+            })
+            _invalidate_expenses(owner_uid, company_id=company_id)
+            return True, "Pago rechazado."
+        except Exception as e:
+            print(f"⚠️ Error en reject_cxp_payment: {e}")
             return False, str(e)
             
     @classmethod
     def get_cxp_payments(cls, owner_uid, expense_id, sandbox=True, company_id=None):
-        """Retorna todos los abonos realizados a una cuenta por pagar."""
+        """Retorna los abonos activos (no anulados) de una cuenta por pagar."""
         payments = []
         if firebase_initialized:
             try:
@@ -5248,17 +5462,136 @@ class DatabaseService:
                 docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id).collection("cxp_payments").get()
                 for doc in docs:
                     data = doc.to_dict()
+                    if str(data.get("status") or "").lower() == "voided":
+                        continue
                     payments.append({
                         "id": doc.id,
                         "amount": float(data.get("amount", 0.0)),
                         "paymentDate": data.get("paymentDate", ""),
                         "registeredBy": data.get("registeredBy", ""),
-                        "bankAccountId": data.get("bankAccountId", "")
+                        "bankAccountId": data.get("bankAccountId", ""),
+                        "method": data.get("method", ""),
+                        "status": data.get("status", ""),
+                        "accountingStatus": data.get("accountingStatus", ""),
+                        "accountingEntryId": data.get("accountingEntryId", ""),
+                        "approvalStatus": data.get("approvalStatus", ""),
+                        "requestedBy": data.get("requestedBy", ""),
+                        "requestedByName": data.get("requestedByName", ""),
+                        "approvedBy": data.get("approvedBy", ""),
+                        "approvedAt": data.get("approvedAt", ""),
                     })
                 payments.sort(key=lambda x: x["paymentDate"], reverse=True)
             except Exception as e:
                 print(f"⚠️ Error al obtener pagos de CxP: {e}")
         return payments
+
+    @classmethod
+    def void_cxp_payment(cls, owner_uid, expense_id, payment_id, voided_by="Usuario", reason="",
+                         sandbox=True, company_id=None):
+        """Anula un pago de gasto, revierte su asiento contable y restaura el saldo.
+
+        - Reversa el asiento contable ANTES de tocar el pago; si falla, no se anula.
+        - Marca el pago como ``voided`` (trazabilidad) en lugar de borrarlo.
+        - Idempotente: un pago ya anulado devuelve ok sin duplicar la reversión.
+        """
+        if not firebase_initialized:
+            return False, "Firebase no inicializado."
+        try:
+            coll_name = "sandbox_expenses" if sandbox else "expenses"
+            doc_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id)
+            doc = doc_ref.get()
+            if not doc.exists:
+                return False, "Gasto no encontrado."
+            data = doc.to_dict() or {}
+            pay_ref = doc_ref.collection("cxp_payments").document(payment_id)
+            pay_doc = pay_ref.get()
+            if not pay_doc.exists:
+                return False, "Pago no encontrado."
+            pay_data = pay_doc.to_dict() or {}
+            if str(pay_data.get("status") or "").lower() == "voided":
+                return True, "El pago ya estaba anulado."
+
+            amount = round(float(pay_data.get("amount", 0) or 0), 2)
+            # Pagos legacy (sin approvalStatus) se consideran aplicados.
+            applied = str(pay_data.get("approvalStatus") or "approved").lower() == "approved"
+
+            if not applied:
+                # Pago pendiente/rechazado: no se aplicó saldo ni contabilización.
+                pay_ref.update({
+                    "status": "voided",
+                    "voidedAt": datetime.now(timezone.utc).isoformat(),
+                    "voidedBy": voided_by,
+                    "voidReason": reason or "",
+                })
+                _invalidate_expenses(owner_uid, company_id=company_id)
+                return True, f"Pago pendiente de RD$ {amount:,.2f} cancelado."
+
+            # 1. Reversión contable (antes de tocar el pago)
+            try:
+                from app.services.accounting_service import AccountingService, AccountingPostingError
+                AccountingService.void_cxp_payment_entry(
+                    company_id, payment_id,
+                    user_id=voided_by,
+                    reason=reason or "Anulación de pago de gasto",
+                    sandbox=sandbox,
+                )
+            except AccountingPostingError as acc_err:
+                return False, f"No se pudo revertir el asiento contable del pago: {acc_err}"
+            except Exception as acc_err:
+                return False, f"No se pudo revertir el asiento contable del pago: {acc_err}"
+
+            # Restaurar saldo bancario (crédito)
+            bank_account_id = pay_data.get("bankAccountId", "")
+            if bank_account_id:
+                try:
+                    bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox, company_id=company_id)
+                    if bank_acc:
+                        new_balance = bank_acc["currentBalance"] + amount
+                        DatabaseService.save_bank_account(owner_uid, bank_account_id, {**bank_acc, "currentBalance": new_balance}, sandbox=sandbox, company_id=company_id)
+                except Exception as bank_err:
+                    print(f"⚠️ Error al restaurar saldo bancario al anular pago de gasto: {bank_err}")
+
+            # 2. Restaurar saldo y estado CxP
+            total = float(data.get("amount", 0.0))
+            current_rem = float(data.get("cxpRemainingBalance", total))
+            new_rem = round(current_rem + amount, 2)
+            if new_rem >= total - 0.01:
+                new_status = "Pendiente"
+            else:
+                new_status = "Abonado"
+            due_date = data.get("dueDate", "")
+            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            if new_status in ("Pendiente", "Abonado") and due_date and due_date < today_str:
+                new_status = "Vencido"
+
+            # 3. Marcar voided (trazabilidad) y restaurar saldo + revertir retención
+            ret_isr_applied = float(pay_data.get("retentionIsrApplied", 0) or 0)
+            ret_itbis_applied = float(pay_data.get("retentionItbisApplied", 0) or 0)
+            expense_update = {
+                "cxpRemainingBalance": new_rem,
+                "cxpStatus": new_status,
+                "updatedAt": datetime.now(timezone.utc).isoformat(),
+            }
+            if ret_isr_applied or ret_itbis_applied:
+                expense_update["retentionIsrApplied"] = round(
+                    float(data.get("retentionIsrApplied", 0) or 0) - ret_isr_applied, 2
+                )
+                expense_update["retentionItbisApplied"] = round(
+                    float(data.get("retentionItbisApplied", 0) or 0) - ret_itbis_applied, 2
+                )
+                expense_update["retentionStatus"] = "calculated" if new_rem >= total - 0.01 else "partial"
+            doc_ref.update(expense_update)
+            pay_ref.update({
+                "status": "voided",
+                "voidedAt": datetime.now(timezone.utc).isoformat(),
+                "voidedBy": voided_by,
+                "voidReason": reason or "",
+            })
+            _invalidate_expenses(owner_uid, company_id=company_id)
+            return True, f"Pago de RD$ {amount:,.2f} anulado y asiento contable revertido. Nuevo saldo: RD$ {new_rem:,.2f}."
+        except Exception as e:
+            print(f"⚠️ Error al anular pago de gasto {payment_id}: {e}")
+            return False, str(e)
 
     @classmethod
     def delete_expense(cls, owner_uid, expense_id, sandbox=True, company_id=None):

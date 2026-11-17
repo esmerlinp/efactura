@@ -220,3 +220,151 @@ class PurchaseOrderService:
             po["receivedAt"] = now
         cls.save_purchase_order(owner_uid=owner_uid, po_id=po_id, po_dict=po, sandbox=sandbox, company_id=company_id)
         return po
+
+    @classmethod
+    def _confirm_service_tx(cls, transaction, owner_uid, po_id, po_item_id, status,
+                            user, user_uid, notes, sandbox, company_id):
+        po_ref = _company_coll(
+            company_id=company_id, owner_uid=owner_uid,
+            coll_name="sandbox_purchase_orders" if sandbox else "purchase_orders",
+        ).document(po_id)
+        po_doc = transaction.get(po_ref)
+        if not po_doc.exists:
+            raise ValueError("Orden de compra no encontrada.")
+        po = po_doc.to_dict() or {}
+        item = next((i for i in po.get("items", []) if i.get("id") == po_item_id), None)
+        if not item:
+            raise ValueError("Partida no encontrada en la orden de compra.")
+        if item.get("isInventoriable", True):
+            raise ValueError("Solo se pueden confirmar servicios (partidas no inventariables).")
+        if status not in ("confirmado", "rechazado"):
+            raise ValueError("Estado de confirmación inválido.")
+
+        item["serviceStatus"] = status
+        item["serviceConfirmedBy"] = user or ""
+        item["serviceConfirmedByUid"] = user_uid or ""
+        item["serviceConfirmedAt"] = serialize_field(datetime.now(timezone.utc))
+        item["serviceConfirmationNotes"] = notes or ""
+
+        transaction.set(po_ref, po)
+        return True
+
+    @classmethod
+    def confirm_service(cls, owner_uid=None, po_id=None, po_item_id=None, status="confirmado",
+                        user="", user_uid="", notes="", sandbox=True, company_id=None):
+        """Confirma o rechaza la realización de un servicio (partida no inventariable).
+
+        Devuelve ``(ok, mensaje)``. La lectura y escritura de la OC se hacen en
+        una transacción Firestore, de modo que confirmaciones concurrentes de
+        partidas distintas no se sobrescriben entre sí.
+        """
+        if not firebase_initialized or db_firestore is None:
+            return False, "Firebase no inicializado."
+        status = str(status or "").strip().lower()
+        try:
+            from app.services.db_service import run_firestore_transaction
+            run_firestore_transaction(
+                cls._confirm_service_tx, owner_uid, po_id, po_item_id, status,
+                user, user_uid, notes, sandbox, company_id,
+            )
+            return True, f"Servicio {status}."
+        except ValueError as e:
+            return False, str(e)
+        except Exception as e:
+            print(f"⚠️ Error al confirmar servicio {po_item_id}: {e}")
+            return False, "No se pudo confirmar el servicio."
+
+    @classmethod
+    def get_traceability(cls, owner_uid=None, po_id=None, sandbox=True, company_id=None):
+        """Construye la trazabilidad completa OC → recepción → factura → pago.
+
+        Consulta los registros originales (no duplica información financiera) y
+        devuelve importes solicitados, recibidos, facturados, pagados y
+        pendientes, junto con el detalle de recepciones, facturas y pagos.
+
+        Definición de importes (todos BRUTOS, incluyen ITBIS cuando aplica):
+          - ``requested``: total de la OC (subtotal − descuento + ITBIS).
+          - ``receivedAmount``: Σ recibido × precio × (1 − descuento%) × (1 + ITBIS).
+          - ``invoiced``: Σ total de facturas no anuladas.
+          - ``paid``: Σ pagos aprobados (aplicados).
+          - ``pending``: facturado − pagado.
+        """
+        po = cls.get_purchase_order(owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id)
+        if not po:
+            return None
+
+        requested = round(float(po.get("total", 0) or 0), 2)
+        received_amount = 0.0
+        for item in po.get("items", []):
+            qty = float(item.get("receivedQuantity", 0) or 0)
+            price = float(item.get("unitPrice", 0) or 0)
+            discount = float(item.get("discount", 0) or 0)
+            itbis_rate = float(item.get("itbisRate", 0) or 0)
+            net = qty * price * (1.0 - discount / 100.0)
+            received_amount += net * (1.0 + itbis_rate)
+        received_amount = round(received_amount, 2)
+
+        receipts = []
+        try:
+            from app.services.goods_receipt_service import GoodsReceiptService
+            receipts = GoodsReceiptService.get_receipts_by_po(company_id=company_id, po_id=po_id, sandbox=sandbox)
+        except Exception as e:
+            print(f"⚠️ Error al obtener recepciones para trazabilidad {po_id}: {e}")
+
+        invoices = []
+        try:
+            from app.services.supplier_invoice_service import SupplierInvoiceService
+            all_invoices = SupplierInvoiceService.get_by_po(owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id)
+            invoices = [inv for inv in all_invoices if not SupplierInvoiceService.is_voided(inv)]
+        except Exception as e:
+            print(f"⚠️ Error al obtener facturas para trazabilidad {po_id}: {e}")
+
+        total_invoiced = 0.0
+        total_paid = 0.0
+        invoice_details = []
+        for inv in invoices:
+            inv_total = round(float(inv.get("total", 0) or 0), 2)
+            total_invoiced += inv_total
+            payments = []
+            paid_amount = 0.0
+            try:
+                from app.services.supplier_invoice_service import SupplierInvoiceService
+                all_payments = SupplierInvoiceService.get_payments(
+                    owner_uid=owner_uid, invoice_id=inv.get("id", ""), sandbox=sandbox, company_id=company_id
+                )
+                for p in all_payments:
+                    if str(p.get("approvalStatus") or "").lower() != "approved":
+                        continue
+                    amt = round(float(p.get("amount", 0) or 0), 2)
+                    paid_amount += amt
+                    payments.append(p)
+            except Exception as e:
+                print(f"⚠️ Error al obtener pagos para trazabilidad {inv.get('id')}: {e}")
+            total_paid += paid_amount
+            invoice_details.append({
+                "id": inv.get("id", ""),
+                "invoiceNumber": inv.get("invoiceNumber", ""),
+                "supplierInvoiceNumber": inv.get("supplierInvoiceNumber", ""),
+                "ncf": inv.get("ncf", ""),
+                "total": inv_total,
+                "cxpStatus": inv.get("cxpStatus", ""),
+                "paidAmount": round(paid_amount, 2),
+                "payments": payments,
+            })
+
+        total_invoiced = round(total_invoiced, 2)
+        total_paid = round(total_paid, 2)
+
+        return {
+            "poId": po_id,
+            "poNumber": po.get("poNumber", ""),
+            "supplierName": po.get("supplierName", ""),
+            "status": po.get("status", ""),
+            "requested": requested,
+            "receivedAmount": received_amount,
+            "invoiced": total_invoiced,
+            "paid": total_paid,
+            "pending": round(total_invoiced - total_paid, 2),
+            "receipts": receipts,
+            "invoices": invoice_details,
+        }
