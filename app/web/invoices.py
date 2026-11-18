@@ -11824,59 +11824,6 @@ def report_607_export():
     return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", as_attachment=True, download_name=filename)
 
 
-@web_invoices_bp.route('/reports/609/export')
-def report_609_export():
-    if 'user' not in session:
-        return redirect(url_for('web_auth.login'))
-    if not check_permission('canReportsFiscal'):
-        return render_template('auth/restricted.html', feature_name="Reporte 609", required_permission="canReportsFiscal"), 403
-
-    owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
-    sandbox = session.get('is_sandbox_mode', True)
-    year, month = _parse_period_args()
-
-    invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
-    contingencia = [
-        inv for inv in invoices
-        if inv.get('emisionMode') == 'FALLBACK' and not inv.get('isSyncedWithDGII', False)
-    ]
-    filtered = _filter_docs_by_period(contingencia, year, month)
-
-    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
-    owner_rnc = (company.get('companyRNC') or '').replace('-', '')
-
-    output = io.StringIO()
-    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
-    writer.writerow([
-        "RNC Emisor",
-        "Periodo",
-        "NCF/e-CF",
-        "Fecha Emisión",
-        "Monto",
-        "ITBIS",
-        "Estado"
-    ])
-    period = f"{year:04d}{month:02d}"
-    for inv in filtered:
-        writer.writerow([
-            owner_rnc,
-            period,
-            inv.get('encf', ''),
-            (inv.get('date') or '')[:10],
-            f"{float(inv.get('total', 0.0)):.2f}",
-            f"{float(inv.get('totalITBIS', 0.0)):.2f}",
-            inv.get('status', 'Pendiente DGII')
-        ])
-
-    dest = io.BytesIO()
-    dest.write(b"\xef\xbb\xbf")
-    dest.write(output.getvalue().encode('utf-8'))
-    dest.seek(0)
-    filename = f"reporte_609_{year:04d}{month:02d}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
-    return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
-
-
 @web_invoices_bp.route('/reports/dgii-tools', methods=['GET'])
 def dgii_tools():
     if 'user' not in session: return redirect(url_for('web_auth.login'))

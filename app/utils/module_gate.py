@@ -101,6 +101,7 @@ BLUEPRINT_MODULE_MAP = {
     'web_reports_606': 'e_cf',
     'web_reports_607': 'e_cf',
     'web_reports_608': 'e_cf',
+    'web_reports_609': 'e_cf',
     'web_reports_623': 'e_cf',
     'web_reports_ir17': 'e_cf',
     'web_reports_sales': 'e_cf',

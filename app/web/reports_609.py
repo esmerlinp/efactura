@@ -7,6 +7,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
+from app.utils.module_gate import module_enabled, report_group_enabled
 from app.services.dgii_609_service import (
     is_foreign_payment_invoice,
     build_609_record_from_invoice,
@@ -21,8 +22,18 @@ web_reports_609_bp = Blueprint('web_reports_609', __name__)
 def restrict_to_do():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
+    if not report_group_enabled('fiscales') and not module_enabled('gastos') and not module_enabled('cxp_compras'):
+        return render_template(
+            'auth/restricted.html',
+            feature_name="Reporte 609 DGII",
+            required_permission="module_reporte_609",
+            custom_message="El módulo <strong>Reporte 609 DGII</strong> no está incluido en tu plan actual. "
+                           "Contacta a soporte para información sobre mejoras de plan."
+        ), 403
     if session.get('company_country', 'DO') != 'DO':
-        return render_template('auth/restricted.html', feature_name="Reporte 609"), 403
+        return render_template('auth/restricted.html',
+            feature_name="Reporte 609 (solo disponible para República Dominicana)",
+            required_permission=""), 403
 
 
 @web_reports_609_bp.route('/reports/609/export')
