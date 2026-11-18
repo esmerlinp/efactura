@@ -1,8 +1,8 @@
-"""Control de acceso del Reporte 609 — module-gate + permiso + aislamiento.
+"""Control de acceso del Reporte 609 — module-gate e_cf + permiso + aislamiento.
 
-Verifica la paridad con reports_606: el before_request exige el grupo de
-reportes 'fiscales' (fallback e_cf) o los módulos gastos/cxp_compras, además
-del permiso canReportsFiscal y el país DO. Aplica igual a /reports/609 y a
+Regla de negocio: 609 exige obligatoriamente el módulo e_cf (como 607/608/623/
+IR-17). Tener gastos o cxp_compras sin e_cf NO habilita el reporte. Además exige
+el permiso canReportsFiscal y el país DO. Aplica igual a /reports/609 y a
 /reports/609/export (navegación normal y URL directa).
 """
 
@@ -149,10 +149,16 @@ class TestModuleGate:
         with patch("app.services.supplier_invoice_service.SupplierInvoiceService.get_all", return_value=[]):
             assert client.get("/reports/609/export").status_code == 403
 
-    def test_gastos_module_grants_access(self, client):
-        # Paridad con 606: gastos (sin e_cf) también habilita 609.
+    def test_gastos_without_e_cf_denied(self, client):
+        # Decisión de negocio: 609 exige e_cf (gastos sin e_cf NO habilita).
         _login(client, can_reports_fiscal=True, modules=_mod("gastos", True))
-        assert client.get("/reports/609").status_code == 200
+        assert client.get("/reports/609").status_code == 403
+
+    def test_cxp_without_e_cf_denied(self, client):
+        _login(client, can_reports_fiscal=True, modules=_mod("cxp_compras", True))
+        assert client.get("/reports/609").status_code == 403
+        with patch("app.services.supplier_invoice_service.SupplierInvoiceService.get_all", return_value=[]):
+            assert client.get("/reports/609/export").status_code == 403
 
 
 class TestCompanyIsolation:
