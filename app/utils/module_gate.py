@@ -105,6 +105,7 @@ BLUEPRINT_MODULE_MAP = {
     'web_reports_623': 'e_cf',
     'web_reports_ir17': 'e_cf',
     'web_reports_sales': 'e_cf',
+    'recurring_contracts_admin': 'contratos',
     'web_rrhh': 'nomina',
     'web_rui': 'pos',
     'web_suppliers': 'cxp_compras',
