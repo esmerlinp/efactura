@@ -115,7 +115,7 @@ PUBLIC_AND_GLOBAL_WHITELIST_BLUEPRINTS = {
     'web_auth', 'flasgger', 'metadata', 'api_auth', 'api_receptor',
     'web_company', 'web_dashboard', 'web_herramientas', 'web_i18n',
     'web_import_mapper', 'web_notifications', 'web_system_jobs',
-    'web_vykcore', 'web_workflows'
+    'web_vykcore', 'web_workflows', 'web_production_agreement'
 }
 
 PUBLIC_EXEMPT_ENDPOINTS = {
