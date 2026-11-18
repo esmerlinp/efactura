@@ -267,7 +267,7 @@ class DgiiDirectService:
                     return signature[:6]
             except Exception:
                 pass
-        return str(invoice_data.get("codigoSeguridad") or fallback or "")[:6]
+        return str(invoice_data.get("codigoSeguridad") or fallback or "")
 
     @classmethod
     def build_qr_url(cls, company_profile, invoice_data, codigo_seguridad):
