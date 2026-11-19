@@ -118,7 +118,8 @@ class TestPaymentFormVisibility:
         pay = [{"id": "p1", "amount": 10000.0, "paymentDate": "2026-01-10", "method": "Efectivo", "approvalStatus": "approved"}]
         resp = _get_detail(client, _invoice(cxpRemainingBalance=10600.0), payments=pay)
         body = resp.get_data(as_text=True)
-        assert "Abonos" in body
+        assert "Efectivo" in body
+        assert "Aprobado" in body
         assert "Registrar Pago de RD$" in body
 
     def test_fully_paid_hides_form(self, app, client):

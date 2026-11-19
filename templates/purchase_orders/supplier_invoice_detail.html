@@ -295,6 +295,107 @@
             </div>
         </div>
 
+        <!-- ── CxP PAYMENT STATUS ─────────────────────────────────────────── -->
+        {% if is_cxp %}
+        <div class="card-table-wrapper" style="padding: 24px; text-align: left;">
+            <h4 style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-credit-card" style="color: var(--accent-emerald);"></i>
+                <span>Estado Cuentas por Pagar</span>
+            </h4>
+
+            {% set st = invoice.cxpStatus|default('Pendiente') %}
+            {% set ns = namespace(abonado=0.0) %}
+            {% for p in payments %}
+            {% if (p.approvalStatus or 'approved') == 'approved' %}
+            {% set ns.abonado = ns.abonado + (p.amount|float) %}
+            {% endif %}
+            {% endfor %}
+
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px; flex-wrap:wrap;">
+                {% if st == 'Pagado' %}<span class="badge-pill badge-green">CxP Saldada</span>
+                {% elif st == 'Abonado' %}<span class="badge-pill badge-amber">Abonada</span>
+                {% elif st == 'Vencido' %}<span class="badge-pill badge-red">Vencida</span>
+                {% else %}<span class="badge-pill badge-yellow">Pendiente</span>{% endif %}
+                {% if invoice.dueDate %}<span style="font-size: 0.72rem; color: var(--text-muted);">Vencimiento: {{ (invoice.dueDate or '')[:10] }}</span>{% endif %}
+            </div>
+
+            <div style="margin-top: 8px; font-size:0.75rem;">
+                <div style="display:grid; grid-template-columns:1fr 110px 110px; gap:8px; border-bottom: 1px solid var(--border-color); padding: 4px 0; font-weight:600; color:var(--text-muted); text-transform:uppercase; font-size:0.65rem;">
+                    <span>Resumen</span><span style="text-align:right;">Abonado</span><span style="text-align:right;">Balance</span>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 110px 110px; gap:8px; padding:6px 0; font-size:0.72rem;">
+                    <span style="color:var(--text-secondary);">Total: <strong style="color:var(--text-primary);">RD$ {{ "{:,.2f}".format(invoice.total|default(0)) }}</strong></span>
+                    <span style="text-align:right; font-family:monospace; color:var(--accent-purple);">RD$ {{ "{:,.2f}".format(ns.abonado) }}</span>
+                    <span style="text-align:right; font-family:monospace; color:{% if st == 'Pagado' %}var(--accent-emerald){% else %}#ef4444{% endif %};">RD$ {{ "{:,.2f}".format(invoice.cxpRemainingBalance|default(invoice.total|default(0))) }}</span>
+                </div>
+            </div>
+
+            {% if payments %}
+            <div style="margin-top: 12px; font-size:0.75rem;">
+                <div style="display:grid; grid-template-columns:80px 1fr 1.2fr 110px 90px auto; gap:8px; border-bottom: 1px solid var(--border-color); padding: 4px 0; font-weight:600; color:var(--text-muted); text-transform:uppercase; font-size:0.65rem;">
+                    <span>Fecha</span><span>Método</span><span>Referencia</span><span style="text-align:right;">Monto</span><span>Estado</span><span></span>
+                </div>
+                {% for p in payments %}
+                <div style="display:grid; grid-template-columns:80px 1fr 1.2fr 110px 90px auto; gap:8px; padding:6px 0; font-size:0.72rem; align-items:center; border-bottom:1px solid rgba(255,255,255,0.02);">
+                    <span style="color:var(--text-muted);">{{ (p.paymentDate or '')[:10] }}</span>
+                    <span style="color:var(--text-primary);">{{ p.method or '—' }}</span>
+                    <span style="color:var(--text-secondary); font-size:0.68rem; min-width:0;">
+                        {% if p.reference %}<span style="font-family:monospace;">{{ p.reference }}</span>{% else %}—{% endif %}
+                        {% if p.bankAccountId %}
+                        {% for acc in bank_accounts %}{% if acc.id == p.bankAccountId %}
+                        <span style="display:block; font-size:0.62rem; color:var(--text-muted);">{{ acc.name }}</span>
+                        {% endif %}{% endfor %}
+                        {% endif %}
+                    </span>
+                    <span style="text-align:right; font-family:monospace; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(p.amount) }}</span>
+                    <span>
+                        {% if p.approvalStatus == 'pending' %}<span class="badge-pill badge-amber" style="font-size:0.6rem;">Pendiente</span>
+                        {% elif p.approvalStatus == 'approved' %}<span class="badge-pill badge-green" style="font-size:0.6rem;">Aprobado</span>
+                        {% elif p.approvalStatus == 'rejected' %}<span class="badge-pill badge-red" style="font-size:0.6rem;">Rechazado</span>
+                        {% else %}<span class="badge-pill badge-green" style="font-size:0.6rem;">Aprobado</span>{% endif %}
+                    </span>
+                    <span style="display:flex; align-items:center; justify-content:flex-end; gap:4px;">
+                        {% if p.approvalStatus == 'pending' and can_approve_payments %}
+                        <form method="POST" action="{{ url_for('web_purchase_orders.approve_supplier_invoice_payment', invoice_id=invoice.id, payment_id=p.id) }}" onsubmit="return confirm('¿Aprobar este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" style="font-size:0.66rem; padding:2px 8px; border-radius:99px; border:1px solid #10b981; color:#10b981; background:transparent; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-weight:600;">
+                                <i class="fa-solid fa-check"></i> Aprobar
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('web_purchase_orders.reject_supplier_invoice_payment', invoice_id=invoice.id, payment_id=p.id) }}" onsubmit="return confirm('¿Rechazar este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" style="font-size:0.66rem; padding:2px 8px; border-radius:99px; border:1px solid #f59e0b; color:#f59e0b; background:transparent; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-weight:600;">
+                                <i class="fa-solid fa-xmark"></i> Rechazar
+                            </button>
+                        </form>
+                        {% endif %}
+                        <div class="action-menu" style="text-align:right;">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <form method="POST" action="{{ url_for('web_purchase_orders.void_payment', invoice_id=invoice.id, payment_id=p.id) }}" onsubmit="return confirm('¿Revertir este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="action-menu-item text-danger"><i class="fa-solid fa-rotate-left"></i> Revertir</button>
+                                </form>
+                            </div>
+                        </div>
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% set rem_bal = invoice.cxpRemainingBalance|default(invoice.total|default(0))|float %}
+            {% if (not invoice_is_voided) and rem_bal > 0 %}
+            <button type="button" onclick="openSupplierPayModal({{ rem_bal }})" class="btn" style="width:100%; margin-top:14px; background:linear-gradient(135deg,#059669,#10b981); border:none; color:white; font-size:0.9rem; padding:12px 16px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:var(--radius-sm);">
+                <i class="fa-solid fa-money-bill-transfer"></i>
+                <span>Registrar Pago de RD$ {{ "{:,.2f}".format(rem_bal) }}</span>
+            </button>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <!-- ── ACCOUNTING ENTRY ───────────────────────────────────────────── -->
         {% if linked_entry %}
         <div class="card-table-wrapper" style="padding: 24px; text-align: left;">
@@ -411,105 +512,6 @@
             </div>
             {% endif %}
         </div>
-
-        <!-- ── CxP PAYMENT STATUS ─────────────────────────────────────────── -->
-        {% if is_cxp %}
-        <div class="card-table-wrapper" style="padding: 24px;">
-            <h4 style="font-size: 1rem; font-family: var(--font-heading); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-credit-card" style="color: var(--accent-blue);"></i>
-                <span>Estado Cuentas por Pagar</span>
-            </h4>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center; margin-bottom: 16px;">
-                <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px;">
-                    <span style="font-size:0.7rem; color:var(--text-muted); display:block; text-transform:uppercase; font-weight:700; margin-bottom:4px;">Total</span>
-                    <strong style="font-size:0.95rem; color:var(--text-primary);">RD$ {{ "{:,.2f}".format(invoice.total|default(0)) }}</strong>
-                </div>
-                <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px;">
-                    <span style="font-size:0.7rem; color:var(--text-muted); display:block; text-transform:uppercase; font-weight:700; margin-bottom:4px;">Balance</span>
-                    {% set st = invoice.cxpStatus|default('Pendiente') %}
-                    <strong style="font-size:0.95rem; color:{% if st == 'Pagado' %}var(--accent-emerald){% else %}#ef4444{% endif %};">
-                        RD$ {{ "{:,.2f}".format(invoice.cxpRemainingBalance|default(invoice.total|default(0))) }}
-                    </strong>
-                </div>
-            </div>
-            {% set st = invoice.cxpStatus|default('Pendiente') %}
-            <span style="display:block; text-align:center; margin-bottom:4px;">
-                {% if st == 'Pagado' %}<span class="badge-pill badge-green">CxP Saldada</span>
-                {% elif st == 'Abonado' %}<span class="badge-pill badge-amber">Abonada</span>
-                {% elif st == 'Vencido' %}<span class="badge-pill badge-red">Vencida</span>
-                {% else %}<span class="badge-pill badge-yellow">Pendiente</span>{% endif %}
-            </span>
-
-            {% if payments %}
-            <div style="border-top:1px solid var(--border-color); padding-top:14px; margin-top:14px;">
-                <span style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; display:block; margin-bottom:10px;">Abonos</span>
-                <div style="display:flex; flex-direction:column; gap:12px;">
-                    {% for p in payments %}
-                    <div style="background:rgba(255,255,255,0.01); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:14px; font-size:0.82rem; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
-                        <div style="flex:1; min-width:0;">
-                            <strong style="color:var(--text-primary); display:block; margin-bottom:2px;">{{ p.method or '—' }}</strong>
-                            <span style="font-size:0.74rem; color:var(--text-muted); display:block;">Fecha: {{ (p.paymentDate or '')[:10] }}</span>
-                            {% if p.bankAccountId %}
-                            {% for acc in bank_accounts %}
-                            {% if acc.id == p.bankAccountId %}
-                            <span style="font-size:0.72rem; color:var(--text-secondary); display:block; margin-top:3px;">{{ acc.name }}</span>
-                            {% endif %}
-                            {% endfor %}
-                            {% endif %}
-                            {% if p.reference %}
-                            <span style="font-family:monospace; font-size:0.72rem; color:var(--text-muted); display:block;">Ref: {{ p.reference }}</span>
-                            {% endif %}
-                            <span style="display:inline-flex; align-items:center; gap:4px; margin-top:5px;">
-                                {% if p.approvalStatus == 'pending' %}<span class="badge-pill badge-amber" style="font-size:0.65rem;">Pendiente</span>
-                                {% elif p.approvalStatus == 'approved' %}<span class="badge-pill badge-green" style="font-size:0.65rem;">Aprobado</span>
-                                {% elif p.approvalStatus == 'rejected' %}<span class="badge-pill badge-red" style="font-size:0.65rem;">Rechazado</span>{% endif %}
-                            </span>
-                        </div>
-                        <div style="text-align:right; flex-shrink:0;">
-                            <strong style="color:var(--accent-emerald); font-size:0.95rem; display:block; margin-bottom:8px;">RD$ {{ "{:,.2f}".format(p.amount) }}</strong>
-                            {% if p.approvalStatus == 'pending' and can_approve_payments %}
-                            <div style="display:flex; gap:6px; justify-content:flex-end; margin-bottom:8px;">
-                                <form method="POST" action="{{ url_for('web_purchase_orders.approve_supplier_invoice_payment', invoice_id=invoice.id, payment_id=p.id) }}" onsubmit="return confirm('¿Aprobar este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" style="font-size:0.68rem; padding:3px 10px; border-radius:99px; border:1px solid #10b981; color:#10b981; background:transparent; cursor:pointer; display:inline-flex; align-items:center; gap:4px; font-weight:600;">
-                                        <i class="fa-solid fa-check"></i> Aprobar
-                                    </button>
-                                </form>
-                                <form method="POST" action="{{ url_for('web_purchase_orders.reject_supplier_invoice_payment', invoice_id=invoice.id, payment_id=p.id) }}" onsubmit="return confirm('¿Rechazar este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" style="font-size:0.68rem; padding:3px 10px; border-radius:99px; border:1px solid #f59e0b; color:#f59e0b; background:transparent; cursor:pointer; display:inline-flex; align-items:center; gap:4px; font-weight:600;">
-                                        <i class="fa-solid fa-xmark"></i> Rechazar
-                                    </button>
-                                </form>
-                            </div>
-                            {% endif %}
-                            <div class="action-menu" style="text-align:right;">
-                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
-                                    <i class="fa-solid fa-ellipsis-vertical"></i>
-                                </button>
-                                <div class="action-menu-dropdown">
-                                    <form method="POST" action="{{ url_for('web_purchase_orders.void_payment', invoice_id=invoice.id, payment_id=p.id) }}" onsubmit="return confirm('¿Revertir este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?')">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="action-menu-item text-danger"><i class="fa-solid fa-rotate-left"></i> Revertir</button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            {% set rem_bal = invoice.cxpRemainingBalance|default(invoice.total|default(0))|float %}
-            {% if (not invoice_is_voided) and rem_bal > 0 %}
-            <button type="button" onclick="openSupplierPayModal({{ rem_bal }})" class="btn" style="width:100%; margin-top:14px; background:linear-gradient(135deg,#059669,#10b981); border:none; color:white; font-size:0.9rem; padding:12px 16px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:var(--radius-sm);">
-                <i class="fa-solid fa-money-bill-transfer"></i>
-                <span>Registrar Pago de RD$ {{ "{:,.2f}".format(rem_bal) }}</span>
-            </button>
-            {% endif %}
-        </div>
-        {% endif %}
 
         <!-- ── ACTIONS ────────────────────────────────────────────────────── -->
         <div class="card-table-wrapper" style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
