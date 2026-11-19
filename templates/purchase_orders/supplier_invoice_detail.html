@@ -468,8 +468,13 @@
                     </form>
                 </div>
                 {% endfor %}
+            </div>
+            {% endif %}
 
-                <form method="POST" action="{{ url_for('web_purchase_orders.pay_supplier_invoice', invoice_id=invoice.id) }}" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+            {% set rem_bal = invoice.cxpRemainingBalance|default(invoice.total|default(0))|float %}
+            {% if (not invoice_is_voided) and rem_bal > 0 %}
+            <div style="border-top:1px solid var(--border-color); padding-top:14px; margin-top:14px;">
+                <form method="POST" action="{{ url_for('web_purchase_orders.pay_supplier_invoice', invoice_id=invoice.id) }}" style="display:flex; flex-direction:column; gap:8px;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="number" name="amount" class="form-input" step="0.01" min="0.01" max="{{ invoice.cxpRemainingBalance|default(invoice.total|default(0)) }}" placeholder="Monto RD$" required style="font-size:0.82rem; height:36px;">
                     <select name="paymentMethod" class="form-input" style="font-size:0.78rem; height:36px;">
