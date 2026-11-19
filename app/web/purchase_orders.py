@@ -3110,13 +3110,6 @@ def approve_supplier_invoice_payment(invoice_id, payment_id):
     user_uid = user.get('uid', '')
     notes = request.form.get('notes', '').strip()
 
-    payments = SupplierInvoiceService.get_payments(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
-    payment = next((p for p in payments if p.get('id') == payment_id), None)
-    if payment and payment.get('requestedBy') and payment.get('requestedBy') == user_uid:
-        if not (is_owner and notes):
-            flash('❌ No puedes aprobar un pago que tú mismo registraste (segregación de funciones). Solo el propietario puede auto-aprobar, con justificación.', 'error')
-            return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
-
     approved_by = user.get('email') or user.get('name') or user.get('displayName') or 'Usuario'
     success, message = SupplierInvoiceService.approve_payment(
         owner_uid=owner_uid, invoice_id=invoice_id, payment_id=payment_id,
@@ -3279,12 +3272,6 @@ def approve_multi_invoice_payment(group_id):
     sandbox = session.get('is_sandbox_mode', True)
     user_uid = user.get('uid', '')
     notes = request.form.get('notes', '').strip()
-
-    group = SupplierInvoiceService.get_multi_invoice_payment(owner_uid=owner_uid, group_id=group_id, company_id=company_id, sandbox=sandbox)
-    if group and group.get('requestedBy') and group.get('requestedBy') == user_uid:
-        if not (is_owner and notes):
-            flash('❌ No puedes aprobar un pago que tú mismo registraste (segregación de funciones).', 'error')
-            return redirect(url_for('web_purchase_orders.consolidated_cxp'))
 
     approved_by = user.get('email') or user.get('name') or user.get('displayName') or 'Usuario'
     ok, message = SupplierInvoiceService.approve_multi_invoice_payment(

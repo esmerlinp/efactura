@@ -14103,13 +14103,6 @@ def approve_expense_payment(expense_id, payment_id):
     user_uid = user.get('uid', '')
     notes = request.form.get('notes', '').strip()
 
-    payments = DatabaseService.get_cxp_payments(owner_uid, expense_id, sandbox=sandbox, company_id=company_id)
-    payment = next((p for p in payments if p.get('id') == payment_id), None)
-    if payment and payment.get('requestedBy') and payment.get('requestedBy') == user_uid:
-        if not (is_owner and notes):
-            flash('No puedes aprobar un pago que tú mismo registraste (segregación de funciones). Solo el propietario puede auto-aprobar, con justificación.', 'error')
-            return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
-
     approved_by = user.get('email') or user.get('name') or 'Usuario'
     ok, message = DatabaseService.approve_cxp_payment(
         owner_uid, expense_id, payment_id,

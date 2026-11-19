@@ -199,14 +199,10 @@ def approve_payment(expense_id, payment_id):
     user_uid = _api_user_uid()
     body = request.json or {}
     notes = str(body.get("notes", "") or "").strip()
-    is_owner = str(getattr(g, "company", {}).get("role", "")) == "owner"
     payments = DatabaseService.get_cxp_payments(owner_uid, expense_id, sandbox=sandbox, company_id=company_id)
     payment = next((p for p in payments if p.get("id") == payment_id), None)
     if not payment:
         return jsonify({"success": False, "error": "Pago no encontrado."}), 404
-    if payment.get("requestedBy") and payment.get("requestedBy") == user_uid:
-        if not (is_owner and notes):
-            return jsonify({"success": False, "error": "Conflicto de segregación de funciones: no puedes aprobar un pago que registraste."}), 403
     ok, msg = DatabaseService.approve_cxp_payment(
         owner_uid, expense_id, payment_id,
         approved_by=body.get("approvedBy", _api_user_label()),
