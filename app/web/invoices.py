@@ -9285,7 +9285,7 @@ def approve_expense_route(expense_id):
 def list_cxp():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageCXP'):
-        return render_template('auth/restricted.html', feature_name="Cuentas por Pagar (CxP)", required_permission="canManageCXP"), 403
+        return render_template('auth/restricted.html', feature_name="Cuentas por Pagar (Gastos)", required_permission="canManageCXP"), 403
         
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
