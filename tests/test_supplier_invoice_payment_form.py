@@ -144,15 +144,15 @@ class TestPaymentFormVisibility:
         assert "Registrar Pago de RD$ 20,600.00" in body
         assert "23,600.00" in body  # el total original sigue visible
 
-    def test_pending_payment_has_contextual_menu(self, app, client):
+    def test_pending_payment_has_approval_pills_and_revert_menu(self, app, client):
         _login(client, role="owner", modules=self._modules())
         pay = [{"id": "p1", "amount": 10000.0, "paymentDate": "2026-01-10", "method": "Efectivo", "approvalStatus": "pending"}]
         resp = _get_detail(client, _invoice(cxpRemainingBalance=10600.0), payments=pay)
         body = resp.get_data(as_text=True)
-        assert "action-menu" in body
         assert "Aprobar" in body
         assert "Rechazar" in body
         assert "Revertir" in body
+        assert "action-menu" in body
 
     def test_user_without_permission_gets_403(self, app, client):
         _login(client, role="employee", perms={}, modules=self._modules())
