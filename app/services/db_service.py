@@ -5280,12 +5280,12 @@ class DatabaseService:
                                 approved_by, approved_by_uid, notes, sandbox, company_id):
         coll_name = "sandbox_expenses" if sandbox else "expenses"
         doc_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id)
-        doc = transaction.get(doc_ref)
+        doc = doc_ref.get(transaction=transaction)
         if not doc.exists:
             raise ValueError("Gasto no encontrado.")
         data = doc.to_dict() or {}
         pay_ref = doc_ref.collection("cxp_payments").document(payment_id)
-        pay_doc = transaction.get(pay_ref)
+        pay_doc = pay_ref.get(transaction=transaction)
         if not pay_doc.exists:
             raise ValueError("Pago no encontrado.")
         pay_data = pay_doc.to_dict() or {}

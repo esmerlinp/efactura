@@ -644,7 +644,7 @@ class SupplierInvoiceService:
                 company_id=company_id, owner_uid=owner_uid,
                 coll_name="sandbox_purchase_orders" if sandbox else "purchase_orders",
             ).document(po_id)
-            po_doc = transaction.get(po_ref)
+            po_doc = po_ref.get(transaction=transaction)
             if po_doc.exists:
                 po = po_doc.to_dict() or {}
                 ok, errors = cls.validate_invoice_against_po(po, data.get("items", []))
@@ -804,14 +804,14 @@ class SupplierInvoiceService:
                             approved_by, approved_by_uid, notes, company_id, sandbox):
         """Cuerpo atómico de la aprobación (estado + saldo) dentro de una transacción."""
         inv_ref = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(invoice_id)
-        inv_doc = transaction.get(inv_ref)
+        inv_doc = inv_ref.get(transaction=transaction)
         if not inv_doc.exists:
             raise ValueError("Factura proveedor no encontrada.")
         data = inv_doc.to_dict() or {}
         if cls.is_voided(data):
             raise ValueError("No se puede aprobar un pago sobre una factura anulada.")
         pay_ref = inv_ref.collection("cxp_payments").document(payment_id)
-        pay_doc = transaction.get(pay_ref)
+        pay_doc = pay_ref.get(transaction=transaction)
         if not pay_doc.exists:
             raise ValueError("Pago no encontrado.")
         pay_data = pay_doc.to_dict() or {}
@@ -1104,7 +1104,7 @@ class SupplierInvoiceService:
                                   approved_by_uid, notes, company_id, sandbox):
         """Cuerpo atómico de aprobación multi-factura (estado + saldos) dentro de una transacción."""
         group_ref = cls._group_coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(group_id)
-        group_doc = transaction.get(group_ref)
+        group_doc = group_ref.get(transaction=transaction)
         if not group_doc.exists:
             raise ValueError("Pago multi-factura no encontrado.")
         group = group_doc.to_dict() or {}
@@ -1117,7 +1117,7 @@ class SupplierInvoiceService:
         allocations = group.get("allocations", [])
         for a in allocations:
             inv_ref = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(a["invoiceId"])
-            inv_doc = transaction.get(inv_ref)
+            inv_doc = inv_ref.get(transaction=transaction)
             if not inv_doc.exists:
                 raise ValueError(f"Factura {a['invoiceId']} no encontrada.")
             data = inv_doc.to_dict() or {}

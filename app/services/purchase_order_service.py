@@ -228,7 +228,7 @@ class PurchaseOrderService:
             company_id=company_id, owner_uid=owner_uid,
             coll_name="sandbox_purchase_orders" if sandbox else "purchase_orders",
         ).document(po_id)
-        po_doc = transaction.get(po_ref)
+        po_doc = po_ref.get(transaction=transaction)
         if not po_doc.exists:
             raise ValueError("Orden de compra no encontrada.")
         po = po_doc.to_dict() or {}

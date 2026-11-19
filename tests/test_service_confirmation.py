@@ -39,7 +39,7 @@ def _stateful_po_ref(po):
     state = {"po": dict(po)}
     ref = MagicMock()
 
-    def _get():
+    def _get(transaction=None):
         s = MagicMock()
         s.exists = True
         s.to_dict.return_value = dict(state["po"])
