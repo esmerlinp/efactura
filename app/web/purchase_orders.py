@@ -197,6 +197,10 @@ def _resolve_supplier_email(owner_uid, invoice, sandbox, company_id):
 def _check_purchase_module():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
+    # El consolidado gestiona su propio control de permiso+módulo por origen
+    # (cxp_compras para proveedores, gastos para gastos).
+    if request.endpoint == 'web_purchase_orders.consolidated_cxp':
+        return None
     if not module_enabled('cxp_compras'):
         if request.is_json or request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({
@@ -1130,116 +1134,116 @@ def api_supplier_items():
 
 @web_purchase_orders_bp.route('/purchase-orders/cxp/consolidado')
 def consolidated_cxp():
-    """Vista consolidada de Cuentas por Pagar (Compras + Gastos)."""
+    """Vista consolidada de Cuentas por Pagar (Compras + Gastos), solo lectura."""
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
-    owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
+
+    from app.services.cxp_consolidation_service import (
+        CxpConsolidationService, SOURCE_PROVIDER, SOURCE_EXPENSE,
+        STATUS_VOIDED,
+    )
+
+    user = session.get('user', {})
+    is_owner = user.get('role') == 'owner'
+
+    # Permiso + módulo por origen (backend, no solo UI)
+    show_provider = (is_owner or check_permission('canManagePurchaseCXP')) and module_enabled('cxp_compras')
+    show_expense = (is_owner or check_permission('canManageCXP')) and module_enabled('gastos')
+    if not show_provider and not show_expense:
+        return render_template(
+            'auth/restricted.html',
+            feature_name="Cuentas por Pagar",
+            required_permission="canManagePurchaseCXP o canManageCXP",
+        ), 403
+
+    owner_uid = user.get('ownerUID')
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    data = CxpConsolidationService.build(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
 
-    # 1. Purchase invoices
-    purchase_invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
-    # 2. Expense CxP
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
+    obligations = data['obligations']
+    pending_documents = data['pending_documents']
+    payments = data['payments']
+    kpis = data['kpis']
 
-    unified = []
-    total_pending = 0.0
-    total_overdue = 0.0
+    # Visibilidad por origen
+    if not show_provider:
+        obligations = [o for o in obligations if o['source'] != SOURCE_PROVIDER]
+    if not show_expense:
+        obligations = [o for o in obligations if o['source'] != SOURCE_EXPENSE]
+        pending_documents = []
 
-    # Normalize purchase invoices
-    for inv in SupplierInvoiceService.active_invoices(purchase_invoices):
-        due_date = inv.get('dueDate', '')
-        rem_bal = float(inv.get('cxpRemainingBalance', inv.get('total', 0)))
-        inv['cxpRemainingBalance'] = rem_bal
-        status = inv.get('cxpStatus', 'Pendiente')
-        if status in ('Pendiente', 'Abonado') and due_date and due_date < today_str:
-            status = 'Vencido'
-            inv['cxpStatus'] = 'Vencido'
-        if status in ('Pendiente', 'Abonado', 'Vencido'):
-            total_pending += rem_bal
-            if status == 'Vencido' or (due_date and due_date < today_str):
-                total_overdue += rem_bal
-        unified.append({
-            "id": inv["id"],
-            "type": "compra",
-            "documentNumber": inv.get("invoiceNumber", ""),
-            "referenceNumber": inv.get("poNumber", ""),
-            "supplierName": inv.get("supplierName", ""),
-            "supplierRnc": inv.get("supplierRnc", ""),
-            "ncf": inv.get("ncf", ""),
-            "concept": f"Factura {inv.get('invoiceNumber', '')}" + (f" (OC {inv.get('poNumber', '')})" if inv.get('poNumber') else ""),
-            "date": str(inv.get("date", ""))[:10],
-            "dueDate": str(inv.get("dueDate", ""))[:10] if inv.get("dueDate") else "",
-            "total": float(inv.get("total", 0)),
-            "balance": rem_bal,
-            "status": inv.get("cxpStatus", "Pendiente"),
-            "detail_url": url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv["id"]),
-        })
+    # URLs de detalle
+    for o in obligations:
+        if o['source'] == SOURCE_PROVIDER:
+            o['detail_url'] = url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=o['id'])
+        else:
+            o['detail_url'] = url_for('web_invoices.expense_detail', expense_id=o['id'])
+    for d in pending_documents:
+        d['detail_url'] = url_for('web_invoices.expense_detail', expense_id=d['id'])
 
-    # Normalize expense CxP
-    for exp in all_expenses:
-        if exp.get('approvalStatus') == 'Pendiente':
-            continue
-        if exp.get('paymentType') != 'Crédito':
-            continue
-        due_date = exp.get('dueDate', '')
-        rem_bal = float(exp.get('cxpRemainingBalance', exp.get('amount', 0.0)))
-        status = exp.get('cxpStatus', 'Pendiente')
-        if status in ('Pendiente', 'Abonado') and due_date and due_date < today_str:
-            status = 'Vencido'
-        if status in ('Pendiente', 'Abonado', 'Vencido'):
-            total_pending += rem_bal
-            if status == 'Vencido' or (due_date and due_date < today_str):
-                total_overdue += rem_bal
-        unified.append({
-            "id": exp["id"],
-            "type": "gasto",
-            "documentNumber": exp.get("ncf", ""),
-            "referenceNumber": "",
-            "supplierName": exp.get("providerName", ""),
-            "supplierRnc": exp.get("rncEmisor", ""),
-            "ncf": exp.get("ncf", ""),
-            "concept": exp.get("concept", ""),
-            "date": str(exp.get("date", ""))[:10],
-            "dueDate": str(exp.get("dueDate", ""))[:10] if exp.get("dueDate") else "",
-            "total": float(exp.get("amount", 0)),
-            "balance": rem_bal,
-            "status": status,
-            "detail_url": url_for('web_invoices.expense_detail', expense_id=exp["id"]),
-        })
+    # Tablas derivadas
+    pending_payments = [p for p in payments if p.get('approval_status') == 'pending']
+    approved_payments = [p for p in payments if p.get('approval_status') == 'approved']
+    voided_obligations = [o for o in obligations if o['status'] == STATUS_VOIDED]
 
-    # Sort by date descending
-    unified.sort(key=lambda x: x["date"], reverse=True)
-
-    # Filters
+    tab = request.args.get('tab', '').strip()
     status_filter = request.args.get('status', '').strip()
+    approval_filter = request.args.get('approval', '').strip()
+    currency_filter = request.args.get('currency', '').strip().upper()
     search_query = request.args.get('search', '').strip().lower()
-    type_filter = request.args.get('type', '').strip()
 
-    filtered = []
-    for item in unified:
-        if status_filter and item["status"] != status_filter:
-            continue
-        if type_filter and item["type"] != type_filter:
-            continue
+    def _match_obligation(o):
+        if status_filter and o['status'] != status_filter:
+            return False
+        if approval_filter and o['document_approval'] != approval_filter and o['payment_approval'] != approval_filter:
+            return False
+        if currency_filter and o['currency'] != currency_filter:
+            return False
         if search_query:
-            haystack = f"{item['supplierName']} {item['supplierRnc']} {item['ncf']} {item['concept']} {item['documentNumber']}".lower()
-            if search_query not in haystack:
-                continue
-        filtered.append(item)
+            hay = f"{o['supplier_name']} {o['supplier_tax_id']} {o['ncf']} {o['document_number']} {o['description']}".lower()
+            if search_query not in hay:
+                return False
+        return True
 
-    return render_template('purchase_orders/consolidated_cxp.html',
-                           active_page='consolidated_cxp',
-                           items=filtered,
-                           total_pending=total_pending,
-                           total_overdue=total_overdue,
-                           today_str=today_str,
-                           status_filter=status_filter,
-                           search_query=search_query,
-                           type_filter=type_filter)
+    def _match_payment(p):
+        if currency_filter and p.get('currency') != currency_filter:
+            return False
+        if search_query:
+            hay = f"{p.get('supplier_name','')} {p.get('obligation_number','')}".lower()
+            if search_query not in hay:
+                return False
+        return True
+
+    if tab == 'proveedores':
+        items = [o for o in obligations if o['source'] == SOURCE_PROVIDER and _match_obligation(o)]
+    elif tab == 'gastos':
+        items = [o for o in obligations if o['source'] == SOURCE_EXPENSE and _match_obligation(o)]
+    elif tab == 'anuladas':
+        items = [o for o in voided_obligations if _match_obligation(o)]
+    elif tab == 'aprobacion':
+        items = []
+        pending_documents = [d for d in pending_documents if _match_obligation(d)]
+        pending_payments = [p for p in pending_payments if _match_payment(p)]
+    elif tab == 'pagos':
+        items = [p for p in approved_payments if _match_payment(p)]
+    else:
+        items = [o for o in obligations if _match_obligation(o)]
+
+    return render_template(
+        'purchase_orders/consolidated_cxp.html',
+        active_page='consolidated_cxp',
+        tab=tab,
+        items=items,
+        pending_documents=pending_documents if tab in ('aprobacion', '') else [],
+        pending_payments=pending_payments,
+        kpis=kpis,
+        status_filter=status_filter,
+        approval_filter=approval_filter,
+        currency_filter=currency_filter,
+        search_query=search_query,
+    )
 
 
 @web_purchase_orders_bp.route('/purchase-orders/invoices')

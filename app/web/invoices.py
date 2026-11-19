@@ -9255,7 +9255,9 @@ def api_expenses_ocr_upload():
 @web_invoices_bp.route('/expenses/<expense_id>/approve', methods=['POST'])
 def approve_expense_route(expense_id):
     if 'user' not in session: return jsonify({'success': False, 'message': 'No autenticado'}), 401
-    # Asume que si puede ver/gestionar gastos puede aprobar, ideal sería un permiso específico
+    user = session.get('user', {})
+    if user.get('role') != 'owner' and not check_permission('canApproveExpenses'):
+        return jsonify({'success': False, 'message': 'No tienes permiso para aprobar gastos'}), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -9276,7 +9278,10 @@ def approve_expense_route(expense_id):
             owner_uid=owner_uid,
             action=ACTION_UPDATE,
             module=MODULE_GASTOS,
-            description=f"Se aprobó rápidamente el gasto {expense.get('concept', '')}"
+            entity_id=expense_id,
+            entity_label=f"Se aprobó rápidamente el gasto {expense.get('concept', '')}",
+            sandbox=sandbox,
+            company_id=company_id,
         )
         return jsonify({'success': True, 'message': 'Gasto aprobado correctamente'})
     return jsonify({'success': False, 'message': msg})

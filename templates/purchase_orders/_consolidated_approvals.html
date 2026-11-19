@@ -1,0 +1,60 @@
+<div style="padding:14px 18px; border-bottom:1px solid var(--border-color);">
+    <h3 style="font-size:0.9rem; font-weight:700; margin:0 0 4px;"><i class="fa-solid fa-file-circle-exclamation"></i> Documentos de gasto pendientes de aprobación</h3>
+    <span style="font-size:0.72rem; color:var(--text-muted);">Requieren permiso <code>canApproveExpenses</code> (aprobación del documento, distinta de la del pago).</span>
+</div>
+<div class="table-responsive" style="margin-bottom:18px;">
+    <table class="data-grid">
+        <thead>
+            <tr><th>Beneficiario</th><th>Documento</th><th>Concepto</th><th>Fecha</th><th>Moneda</th><th>Importe</th><th style="width:50px;"></th></tr>
+        </thead>
+        <tbody>
+            {% if pending_documents %}
+            {% for d in pending_documents %}
+            <tr>
+                <td><strong>{{ d.supplier_name or '—' }}</strong><br><span class="mono" style="font-size:0.7rem;color:var(--text-muted);">{{ d.supplier_tax_id or '' }}</span></td>
+                <td class="mono">{{ d.document_number or d.ncf or '—' }}</td>
+                <td>{{ d.description or '—' }}</td>
+                <td>{{ d.issue_date or '—' }}</td>
+                <td class="mono">{{ d.currency }}</td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(d.total) }}</td>
+                <td style="text-align:right;"><a href="{{ d.detail_url }}" class="btn btn-secondary" style="padding:3px 8px;font-size:0.72rem;"><i class="fa-solid fa-eye"></i></a></td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">No hay documentos pendientes de aprobación.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<div style="padding:14px 18px; border-bottom:1px solid var(--border-color);">
+    <h3 style="font-size:0.9rem; font-weight:700; margin:0 0 4px;"><i class="fa-solid fa-clock"></i> Pagos pendientes de aprobación</h3>
+    <span style="font-size:0.72rem; color:var(--text-muted);">Requieren permiso <code>canApprovePayments</code> (aprobación del pago).</span>
+</div>
+<div class="table-responsive">
+    <table class="data-grid">
+        <thead>
+            <tr><th>Fecha</th><th>Beneficiario</th><th>Documento</th><th>Origen</th><th>Importe</th><th>Moneda</th><th style="width:50px;"></th></tr>
+        </thead>
+        <tbody>
+            {% if pending_payments %}
+            {% for p in pending_payments %}
+            <tr>
+                <td>{{ p.payment_date or '—' }}</td>
+                <td><strong>{{ p.supplier_name or '—' }}</strong></td>
+                <td class="mono">{{ p.obligation_number or '—' }}</td>
+                <td>
+                    {% if p.source == 'provider' %}<span class="badge-pill badge-blue">Proveedor</span>
+                    {% else %}<span class="badge-pill badge-amber">Gasto</span>{% endif %}
+                </td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(p.amount) }}</td>
+                <td class="mono">{{ p.currency }}</td>
+                <td style="text-align:right;"><a href="{{ p.detail_url }}" class="btn btn-secondary" style="padding:3px 8px;font-size:0.72rem;"><i class="fa-solid fa-eye"></i></a></td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">No hay pagos pendientes de aprobación.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>

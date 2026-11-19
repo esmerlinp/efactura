@@ -1,0 +1,46 @@
+<div class="table-responsive">
+    <table class="data-grid">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Beneficiario</th>
+                <th>Documento</th>
+                <th>Origen</th>
+                <th>Importe</th>
+                <th>Moneda</th>
+                <th>Método</th>
+                <th>Cuenta bancaria</th>
+                <th>Aprobador</th>
+                <th style="width:50px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if items %}
+            {% for p in items %}
+            <tr>
+                <td>{{ p.payment_date or '—' }}</td>
+                <td><strong>{{ p.supplier_name or '—' }}</strong></td>
+                <td class="mono">{{ p.obligation_number or '—' }}</td>
+                <td>
+                    {% if p.source == 'provider' %}
+                    <span class="badge-pill badge-blue">Proveedor</span>
+                    {% else %}
+                    <span class="badge-pill badge-amber">Gasto</span>
+                    {% endif %}
+                </td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(p.amount) }}</td>
+                <td class="mono">{{ p.currency }}</td>
+                <td>{{ p.method or '—' }}</td>
+                <td class="mono" style="font-size:0.75rem;">{{ p.bank_account_id or '—' }}</td>
+                <td>{{ p.approved_by or '—' }}</td>
+                <td style="text-align:right;white-space:nowrap;">
+                    <a href="{{ p.detail_url }}" class="btn btn-secondary" style="padding:3px 8px;font-size:0.72rem;" title="Ver documento"><i class="fa-solid fa-eye"></i></a>
+                </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-check-circle" style="font-size:2rem;display:block;margin-bottom:10px;opacity:0.3;"></i>No hay pagos aprobados.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,65 @@
+<div class="table-responsive">
+    <table class="data-grid">
+        <thead>
+            <tr>
+                <th>Origen</th>
+                <th>Proveedor</th>
+                <th>Documento</th>
+                <th>Descripción</th>
+                <th>Emisión</th>
+                <th>Vence</th>
+                <th>Moneda</th>
+                <th>Total</th>
+                <th>Pagado</th>
+                <th>Saldo</th>
+                <th>Estado</th>
+                <th>Aprobación</th>
+                <th style="width:50px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if items %}
+            {% for item in items %}
+            <tr>
+                <td>
+                    {% if item.source == 'provider' %}
+                    <span class="badge-pill badge-blue"><i class="fa-solid fa-cart-shopping"></i> Proveedor</span>
+                    {% else %}
+                    <span class="badge-pill badge-amber"><i class="fa-solid fa-receipt"></i> Gasto</span>
+                    {% endif %}
+                </td>
+                <td><strong>{{ item.supplier_name or '—' }}</strong><br><span class="mono" style="font-size:0.7rem;color:var(--text-muted);">{{ item.supplier_tax_id or '' }}</span></td>
+                <td class="mono">{{ item.document_number or item.ncf or '—' }}</td>
+                <td>{{ item.description or '—' }}</td>
+                <td>{{ item.issue_date or '—' }}</td>
+                <td style="{% if item.status=='vencida' %}color:var(--accent-red);font-weight:600;{% endif %}">{{ item.due_date or '—' }}</td>
+                <td class="mono">{{ item.currency }}</td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(item.total) }}</td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(item.paid) }}</td>
+                <td style="text-align:right;font-weight:600;">{{ "{:,.2f}".format(item.balance) }}</td>
+                <td>
+                    {% if item.status == 'pendiente' %}<span class="badge-pill badge-amber">Pendiente</span>
+                    {% elif item.status == 'parcial' %}<span class="badge-pill badge-blue">Parcial</span>
+                    {% elif item.status == 'pagada' %}<span class="badge-pill badge-green">Pagada</span>
+                    {% elif item.status == 'vencida' %}<span class="badge-pill badge-red">Vencida</span>
+                    {% elif item.status == 'anulada' %}<span class="badge-pill badge-gray">Anulada</span>
+                    {% else %}<span class="badge-pill badge-gray">{{ item.status }}</span>{% endif %}
+                    {% if item.balance_mismatch %}<span class="badge-pill badge-red" title="Diferencia entre saldo persistido y pagos aprobados"><i class="fa-solid fa-triangle-exclamation"></i></span>{% endif %}
+                </td>
+                <td>
+                    {% if item.payment_approval == 'pendiente' %}<span class="badge-pill badge-amber">Pago pend.</span>
+                    {% elif item.payment_approval == 'mixta' %}<span class="badge-pill badge-blue">Pagos mixtos</span>
+                    {% elif item.payment_approval == 'aprobada' %}<span class="badge-pill badge-green">Pago aprob.</span>
+                    {% else %}<span class="badge-pill badge-gray">Sin pagos</span>{% endif %}
+                </td>
+                <td style="text-align:right;white-space:nowrap;">
+                    <a href="{{ item.detail_url }}" class="btn btn-secondary" style="padding:3px 8px;font-size:0.72rem;" title="Ver detalle"><i class="fa-solid fa-eye"></i></a>
+                </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td colspan="13" style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-credit-card" style="font-size:2rem;display:block;margin-bottom:10px;opacity:0.3;"></i>No hay obligaciones para los filtros seleccionados.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
