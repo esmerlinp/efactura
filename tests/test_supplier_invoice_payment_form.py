@@ -107,8 +107,11 @@ class TestPaymentFormVisibility:
     def test_credit_no_payments_shows_form(self, app, client):
         _login(client, role="owner", modules=self._modules())
         resp = _get_detail(client, _invoice(), payments=[])
+        body = resp.get_data(as_text=True)
         assert resp.status_code == 200
-        assert "Registrar Pago" in resp.get_data(as_text=True)
+        assert "Registrar Pago de RD$" in body
+        assert 'id="supplier-pay-modal"' in body
+        assert 'name="amount"' in body
 
     def test_partial_payments_show_history_and_form(self, app, client):
         _login(client, role="owner", modules=self._modules())
@@ -116,32 +119,58 @@ class TestPaymentFormVisibility:
         resp = _get_detail(client, _invoice(cxpRemainingBalance=10600.0), payments=pay)
         body = resp.get_data(as_text=True)
         assert "Abonos" in body
-        assert "Registrar Pago" in body
+        assert "Registrar Pago de RD$" in body
 
     def test_fully_paid_hides_form(self, app, client):
         _login(client, role="owner", modules=self._modules())
         pay = [{"id": "p1", "amount": 20600.0, "paymentDate": "2026-01-10", "method": "Efectivo", "approvalStatus": "approved"}]
         resp = _get_detail(client, _invoice(cxpRemainingBalance=0.0), payments=pay)
-        assert "Registrar Pago" not in resp.get_data(as_text=True)
+        assert "Registrar Pago de RD$" not in resp.get_data(as_text=True)
 
     def test_voided_hides_form(self, app, client):
         _login(client, role="owner", modules=self._modules())
         resp = _get_detail(client, _invoice(status="anulada"), payments=[])
-        assert "Registrar Pago" not in resp.get_data(as_text=True)
+        assert "Registrar Pago de RD$" not in resp.get_data(as_text=True)
 
     def test_contado_no_form(self, app, client):
         _login(client, role="owner", modules=self._modules())
         resp = _get_detail(client, _invoice(paymentType="Contado"), payments=[])
-        assert "Registrar Pago" not in resp.get_data(as_text=True)
+        assert "Registrar Pago de RD$" not in resp.get_data(as_text=True)
 
-    def test_form_max_uses_net_balance_after_retention(self, app, client):
+    def test_button_shows_net_balance_after_retention(self, app, client):
         _login(client, role="owner", modules=self._modules())
         resp = _get_detail(client, _invoice(cxpRemainingBalance=20600.0), payments=[])
         body = resp.get_data(as_text=True)
-        assert 'name="amount"' in body
-        assert 'max="20600.0"' in body
+        assert "Registrar Pago de RD$ 20,600.00" in body
+        assert "23,600.00" in body  # el total original sigue visible
+
+    def test_pending_payment_has_contextual_menu(self, app, client):
+        _login(client, role="owner", modules=self._modules())
+        pay = [{"id": "p1", "amount": 10000.0, "paymentDate": "2026-01-10", "method": "Efectivo", "approvalStatus": "pending"}]
+        resp = _get_detail(client, _invoice(cxpRemainingBalance=10600.0), payments=pay)
+        body = resp.get_data(as_text=True)
+        assert "action-menu" in body
+        assert "Aprobar" in body
+        assert "Rechazar" in body
+        assert "Revertir" in body
 
     def test_user_without_permission_gets_403(self, app, client):
         _login(client, role="employee", perms={}, modules=self._modules())
         resp = _get_detail(client, _invoice(), payments=[])
         assert resp.status_code == 403
+
+
+class TestPayMultiple:
+    def test_nota_credito_option_present(self, app, client):
+        _login(client, role="owner", modules={"cxp_compras": {"enabled": True}})
+        inv = {
+            "id": "i1", "invoiceNumber": "F-1", "supplierId": "s1", "supplierName": "Prov",
+            "supplierRnc": "123", "total": 23600.0, "cxpRemainingBalance": 20600.0,
+            "cxpStatus": "Pendiente", "dueDate": "2026-02-01",
+        }
+        with patch.object(SupplierInvoiceService, "get_all", return_value=[inv]), \
+             patch.object(DatabaseService, "get_bank_accounts", return_value=[]):
+            resp = client.get("/purchase-orders/invoices/pay-multiple")
+        body = resp.get_data(as_text=True)
+        assert resp.status_code == 200
+        assert "Nota Crédito" in body

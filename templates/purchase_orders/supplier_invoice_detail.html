@@ -442,61 +442,65 @@
 
             {% if payments %}
             <div style="border-top:1px solid var(--border-color); padding-top:14px; margin-top:14px;">
-                <span style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; display:block; margin-bottom:8px;">Abonos</span>
-                {% for p in payments %}
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:0.78rem; border-bottom:1px solid rgba(255,255,255,0.03); gap:6px;">
-                    <span style="color:var(--text-secondary);">
-                        {{ (p.paymentDate or '')[:10] }} · {{ p.method or '—' }}
-                        {% if p.approvalStatus == 'pending' %}<span class="badge-pill badge-amber" style="font-size:0.6rem;">Pendiente</span>
-                        {% elif p.approvalStatus == 'approved' %}<span class="badge-pill badge-green" style="font-size:0.6rem;">Aprobado</span>
-                        {% elif p.approvalStatus == 'rejected' %}<span class="badge-pill badge-red" style="font-size:0.6rem;">Rechazado</span>{% endif %}
-                    </span>
-                    <span style="color:var(--accent-emerald); font-weight:700; font-family:monospace;">RD$ {{ "{:,.2f}".format(p.amount) }}</span>
-                    {% if p.approvalStatus == 'pending' and can_approve_payments %}
-                    <form method="POST" action="{{ url_for('web_purchase_orders.approve_supplier_invoice_payment', invoice_id=invoice.id, payment_id=p.id) }}" style="flex-shrink:0;" onsubmit="return confirm('¿Aprobar este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" style="font-size:0.6rem; padding:2px 6px; background:transparent; border:1px solid #10b981; color:#10b981; border-radius:3px; cursor:pointer;" title="Aprobar"><i class="fa-solid fa-check"></i></button>
-                    </form>
-                    <form method="POST" action="{{ url_for('web_purchase_orders.reject_supplier_invoice_payment', invoice_id=invoice.id, payment_id=p.id) }}" style="flex-shrink:0;" onsubmit="return confirm('¿Rechazar este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" style="font-size:0.6rem; padding:2px 6px; background:transparent; border:1px solid #f59e0b; color:#f59e0b; border-radius:3px; cursor:pointer;" title="Rechazar"><i class="fa-solid fa-xmark"></i></button>
-                    </form>
-                    {% endif %}
-                    <form method="POST" action="{{ url_for('web_purchase_orders.void_payment', invoice_id=invoice.id, payment_id=p.id) }}" style="flex-shrink:0;" onsubmit="return confirm('¿Revertir este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?')">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" style="font-size:0.6rem; padding:1px 5px; background:transparent; border:1px solid #ef4444; color:#ef4444; border-radius:3px; cursor:pointer;" title="Revertir"><i class="fa-solid fa-rotate-left"></i></button>
-                    </form>
+                <span style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; display:block; margin-bottom:10px;">Abonos</span>
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    {% for p in payments %}
+                    <div style="background:rgba(255,255,255,0.01); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:14px; font-size:0.82rem; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:0;">
+                            <strong style="color:var(--text-primary); display:block; margin-bottom:2px;">{{ p.method or '—' }}</strong>
+                            <span style="font-size:0.74rem; color:var(--text-muted); display:block;">Fecha: {{ (p.paymentDate or '')[:10] }}</span>
+                            {% if p.bankAccountId %}
+                            {% for acc in bank_accounts %}
+                            {% if acc.id == p.bankAccountId %}
+                            <span style="font-size:0.72rem; color:var(--text-secondary); display:block; margin-top:3px;">{{ acc.name }}</span>
+                            {% endif %}
+                            {% endfor %}
+                            {% endif %}
+                            {% if p.reference %}
+                            <span style="font-family:monospace; font-size:0.72rem; color:var(--text-muted); display:block;">Ref: {{ p.reference }}</span>
+                            {% endif %}
+                            <span style="display:inline-flex; align-items:center; gap:4px; margin-top:5px;">
+                                {% if p.approvalStatus == 'pending' %}<span class="badge-pill badge-amber" style="font-size:0.65rem;">Pendiente</span>
+                                {% elif p.approvalStatus == 'approved' %}<span class="badge-pill badge-green" style="font-size:0.65rem;">Aprobado</span>
+                                {% elif p.approvalStatus == 'rejected' %}<span class="badge-pill badge-red" style="font-size:0.65rem;">Rechazado</span>{% endif %}
+                            </span>
+                        </div>
+                        <div style="text-align:right; flex-shrink:0;">
+                            <strong style="color:var(--accent-emerald); font-size:0.95rem; display:block; margin-bottom:8px;">RD$ {{ "{:,.2f}".format(p.amount) }}</strong>
+                            <div class="action-menu" style="text-align:right;">
+                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                                <div class="action-menu-dropdown">
+                                    {% if p.approvalStatus == 'pending' and can_approve_payments %}
+                                    <form method="POST" action="{{ url_for('web_purchase_orders.approve_supplier_invoice_payment', invoice_id=invoice.id, payment_id=p.id) }}" onsubmit="return confirm('¿Aprobar este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="action-menu-item"><i class="fa-solid fa-check"></i> Aprobar</button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('web_purchase_orders.reject_supplier_invoice_payment', invoice_id=invoice.id, payment_id=p.id) }}" onsubmit="return confirm('¿Rechazar este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="action-menu-item"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+                                    </form>
+                                    {% endif %}
+                                    <form method="POST" action="{{ url_for('web_purchase_orders.void_payment', invoice_id=invoice.id, payment_id=p.id) }}" onsubmit="return confirm('¿Revertir este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="action-menu-item text-danger"><i class="fa-solid fa-rotate-left"></i> Revertir</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
             {% endif %}
 
             {% set rem_bal = invoice.cxpRemainingBalance|default(invoice.total|default(0))|float %}
             {% if (not invoice_is_voided) and rem_bal > 0 %}
-            <div style="border-top:1px solid var(--border-color); padding-top:14px; margin-top:14px;">
-                <form method="POST" action="{{ url_for('web_purchase_orders.pay_supplier_invoice', invoice_id=invoice.id) }}" style="display:flex; flex-direction:column; gap:8px;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="number" name="amount" class="form-input" step="0.01" min="0.01" max="{{ invoice.cxpRemainingBalance|default(invoice.total|default(0)) }}" placeholder="Monto RD$" required style="font-size:0.82rem; height:36px;">
-                    <select name="paymentMethod" class="form-input" style="font-size:0.78rem; height:36px;">
-                        <option value="">Método</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Cheque">Cheque</option>
-                        <option value="Transferencia">Transferencia</option>
-                        <option value="Tarjeta">Tarjeta</option>
-                        <option value="Nota Crédito">Nota Crédito</option>
-                    </select>
-                    <input type="text" name="paymentReference" class="form-input" placeholder="Referencia" style="font-size:0.78rem; height:36px;">
-                    <select name="bankAccountId" class="form-input" style="font-size:0.78rem; height:36px;">
-                        <option value="">-- Cuenta --</option>
-                        {% for acc in bank_accounts %}
-                        <option value="{{ acc.id }}">{{ acc.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" class="btn btn-primary" style="width:100%; font-size:0.82rem; padding:8px; background:linear-gradient(135deg,var(--accent-emerald),#059669); border:none; color:white; font-weight:600;">
-                        <i class="fa-solid fa-check"></i> Registrar Pago
-                    </button>
-                </form>
-            </div>
+            <button type="button" onclick="openSupplierPayModal({{ rem_bal }})" class="btn" style="width:100%; margin-top:14px; background:linear-gradient(135deg,#059669,#10b981); border:none; color:white; font-size:0.9rem; padding:12px 16px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:var(--radius-sm);">
+                <i class="fa-solid fa-money-bill-transfer"></i>
+                <span>Registrar Pago de RD$ {{ "{:,.2f}".format(rem_bal) }}</span>
+            </button>
             {% endif %}
         </div>
         {% endif %}
@@ -699,6 +703,61 @@
     </div>
 </div>
 
+<!-- ─── MODAL: REGISTRAR PAGO ─────────────────────────────────────────── -->
+<div class="search-modal" id="supplier-pay-modal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1200; align-items: center; justify-content: center;">
+    <div class="modal-backdrop" onclick="closeSupplierPayModal()"
+        style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);">
+    </div>
+    <div class="modal-content"
+        style="max-width: 520px; width: calc(100% - 32px); background: var(--bg-card); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: var(--radius-md); position: relative; z-index: 2; box-shadow: var(--shadow-lg); animation: floatIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; color: var(--text-primary); text-align: left; overflow: hidden;">
+        <div class="modal-header"
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding: 20px 24px;">
+            <h3 style="font-size: 1rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 800; margin: 0;">
+                <i class="fa-solid fa-money-bill-transfer" style="color: var(--accent-emerald);"></i>
+                <span>Registrar Pago</span>
+            </h3>
+            <button type="button" onclick="closeSupplierPayModal()" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form method="POST" action="{{ url_for('web_purchase_orders.pay_supplier_invoice', invoice_id=invoice.id) }}" id="supplier-pay-form" style="display:flex; flex-direction:column; gap:12px; padding:22px 24px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="inp-group" style="margin-bottom:0;">
+                <label for="supplier-pay-amount" style="font-size:0.78rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Monto a Pagar (RD$)</label>
+                <input type="number" id="supplier-pay-amount" name="amount" class="form-input" min="0.01" step="0.01" required style="width:100%; padding:9px 12px; font-size:0.85rem; height:40px;">
+            </div>
+            <div class="inp-group" style="margin-bottom:0;">
+                <label for="supplier-pay-method" style="font-size:0.78rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Método de Pago</label>
+                <select id="supplier-pay-method" name="paymentMethod" class="form-select" style="width:100%; padding:9px 12px; font-size:0.85rem; height:40px;">
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                    <option value="Nota Crédito">Nota Crédito</option>
+                </select>
+            </div>
+            <div class="inp-group" style="margin-bottom:0;">
+                <label for="supplier-pay-ref" style="font-size:0.78rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Referencia</label>
+                <input type="text" id="supplier-pay-ref" name="paymentReference" class="form-input" placeholder="Referencia" style="width:100%; padding:9px 12px; font-size:0.85rem; height:40px;">
+            </div>
+            <div class="inp-group" style="margin-bottom:0;">
+                <label for="supplier-pay-account" style="font-size:0.78rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Cuenta Bancaria</label>
+                <select id="supplier-pay-account" name="bankAccountId" class="form-select" style="width:100%; padding:9px 12px; font-size:0.85rem; height:40px;">
+                    <option value="">-- Cuenta --</option>
+                    {% for acc in bank_accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; border-top:1px solid var(--border-color); padding-top:16px; margin-top:4px;">
+                <button type="button" onclick="closeSupplierPayModal()" class="btn btn-secondary">Cancelar</button>
+                <button type="submit" class="btn btn-primary" style="background:linear-gradient(135deg,var(--accent-emerald),#059669); border:none; color:white; font-weight:600;">
+                    <i class="fa-solid fa-square-check"></i> Confirmar Pago
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- ─── MODAL: ENVIAR CARTA DE RETENCIÓN ─────────────────────────────── -->
 <div class="search-modal" id="retention-email-modal"
     style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1200; align-items: center; justify-content: center;">
@@ -788,6 +847,21 @@
 
     function openAttachmentPanelFromDetail() {
         openAttachmentPanel(detailInvoiceId, detailAttachments);
+    }
+
+    function openSupplierPayModal(amount) {
+        const modal = document.getElementById('supplier-pay-modal');
+        const amountInput = document.getElementById('supplier-pay-amount');
+        if (modal && amountInput) {
+            amountInput.value = (parseFloat(amount) || 0).toFixed(2);
+            amountInput.max = (parseFloat(amount) || 0).toFixed(2);
+            modal.style.display = 'flex';
+        }
+    }
+
+    function closeSupplierPayModal() {
+        const modal = document.getElementById('supplier-pay-modal');
+        if (modal) modal.style.display = 'none';
     }
 
     function openRetentionEmailModal() {
