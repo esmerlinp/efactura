@@ -7689,7 +7689,7 @@ def _build_supplier_invoice_ecf_payload(inv_data):
             "subtotal":  item_subtotal,
             "itbisRate": itbis_rate,
             "unit":      item.get("unit", "Unidad"),
-            "type":      "Servicio" if item.get("accountingAccountId", "") else "producto",
+            "type":      item.get("type") or ("Servicio" if item.get("accountingAccountId", "") else "producto"),
         }
         if is_e47:
             item_isr_rate = float(inv_data.get("retainedISR", 0.27))

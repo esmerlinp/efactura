@@ -1431,6 +1431,7 @@ def new_supplier_invoice_direct():
             itbis_rate = float(request.form.get(f'items[{idx}][itbisRate]', 0.0) or 0.0)
             discount_pct = float(request.form.get(f'items[{idx}][discount]', 0.0) or 0.0)
             accounting_account_id = request.form.get(f'items[{idx}][accountingAccountId]', '')
+            item_type = request.form.get(f'items[{idx}][type]', '') or 'producto'
 
             line_sub = qty * price
             line_discount = line_sub * (discount_pct / 100.0)
@@ -1453,6 +1454,7 @@ def new_supplier_invoice_direct():
                 "total": round(line_total, 2),
                 "receivedQuantity": 0,
                 "accountingAccountId": accounting_account_id,
+                "type": item_type,
             })
             idx += 1
 
@@ -2809,6 +2811,7 @@ def edit_supplier_invoice(invoice_id):
             itbis_rate = float(request.form.get(f'items[{idx}][itbisRate]', 0.0) or 0.0)
             discount_pct = float(request.form.get(f'items[{idx}][discount]', 0.0) or 0.0)
             accounting_account_id = request.form.get(f'items[{idx}][accountingAccountId]', '')
+            item_type = request.form.get(f'items[{idx}][type]', '') or 'producto'
 
             line_sub = qty * price
             line_discount = line_sub * (discount_pct / 100.0)
@@ -2831,6 +2834,7 @@ def edit_supplier_invoice(invoice_id):
                 "total": round(line_total, 2),
                 "receivedQuantity": 0,
                 "accountingAccountId": accounting_account_id,
+                "type": item_type,
             })
             idx += 1
 

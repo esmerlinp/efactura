@@ -121,6 +121,62 @@ def test_e41_xml_builder_cuadratura_retenciones():
     assert round(item_itbis_sum, 2) == total_itbis_ret, f"Suma ítems ITBIS ({item_itbis_sum}) ≠ TotalITBISRetenido ({total_itbis_ret})"
 
 
+def test_e41_indicador_bien_servicio_from_item_type():
+    """Un ítem marcado como servicio (type=servicio) debe emitir
+    IndicadorBienoServicio=2 aunque su unidad sea 'Unidad' y no tenga
+    cuenta contable (regresión del rechazo DGII por 'Bien' en honorarios)."""
+    company = {
+        "companyRNC": "133753652",
+        "companyName": "EMPRESA DE PRUEBA SRL",
+        "municipality": "010100",
+        "province": "010000",
+    }
+    inv_data = {
+        "id": "test-e41-type", "ecfType": "E41", "encf": "E410000000003",
+        "supplierName": "Consultor", "supplierRnc": "00111111111",
+        "date": "2026-11-19", "dueDate": "2026-11-19", "paymentType": "Crédito",
+        "subtotal": 20000.0, "discount": 0.0, "itbis": 3600.0, "total": 23600.0,
+        "retainedISR": 0.15, "retainedITBIS": 0.0,
+        "items": [
+            {
+                "name": "Asesoria", "quantity": 1.0, "unitPrice": 20000.0,
+                "subtotal": 20000.0, "itbisRate": 0.18, "unit": "Unidad",
+                "type": "servicio",
+            }
+        ],
+    }
+    payload = _build_supplier_invoice_ecf_payload(inv_data)
+    xml_bytes = DgiiXmlBuilder.build_invoice_xml(company, payload)
+    root = ET.fromstring(xml_bytes)
+    assert root.findtext(".//DetallesItems/Item/IndicadorBienoServicio") == "2"
+
+
+def test_e41_province_normalized_from_municipality():
+    """Si el municipio es del Distrito Nacional (01) pero la provincia viene
+    como 'Santo Domingo' (32), el XML debe emitir Provincia=010000 (Distrito Nacional)."""
+    company = {
+        "companyRNC": "133753652",
+        "companyName": "EMPRESA DE PRUEBA SRL",
+        "municipality": "Santo Domingo de Guzmán",
+        "province": "Santo Domingo",
+    }
+    inv_data = {
+        "id": "test-e41-prov", "ecfType": "E41", "encf": "E410000000004",
+        "supplierName": "Consultor", "supplierRnc": "00111111111",
+        "date": "2026-11-19", "dueDate": "2026-11-19", "paymentType": "Contado",
+        "subtotal": 10000.0, "discount": 0.0, "itbis": 1800.0, "total": 11800.0,
+        "retainedISR": 0.0, "retainedITBIS": 0.0,
+        "items": [{"name": "Item", "quantity": 1.0, "unitPrice": 10000.0,
+                   "subtotal": 10000.0, "itbisRate": 0.18, "unit": "Unidad"}],
+    }
+    payload = _build_supplier_invoice_ecf_payload(inv_data)
+    xml_bytes = DgiiXmlBuilder.build_invoice_xml(company, payload)
+    root = ET.fromstring(xml_bytes)
+    assert root.findtext(".//Emisor/Municipio") == "010100"
+    assert root.findtext(".//Emisor/Provincia") == "010000"
+    assert root.findtext(".//Comprador/ProvinciaComprador") == "010000"
+
+
 def test_e41_cuadratura_centavos_20000():
     """Verifica el caso de 20,000 con ITBIS 18% incluido:
     Subtotal: 16,949.15

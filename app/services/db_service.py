@@ -63,7 +63,7 @@ def _cached_company_profile(owner_uid, company_id=None):
         "companyRNC": "132109122",
         "companyType": "associated",
         "companyAddress": "Santo Domingo, RD",
-        "province": "Santo Domingo",
+        "province": "Distrito Nacional",
         "municipality": "Santo Domingo de Guzmán",
         "companyPhone": "809-555-0199",
         "companyEmail": "factura@miempresa.com.do",

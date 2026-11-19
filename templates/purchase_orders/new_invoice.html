@@ -205,13 +205,14 @@
                 <table class="items-table" id="items-table">
                     <thead>
                         <tr>
-                            <th style="width:21%;">Descripción *</th>
-                            <th style="width:8%;text-align:center;">Cant.</th>
-                            <th style="width:12%;text-align:right;">Precio U.</th>
-                            <th style="width:10%;text-align:center;">ITBIS</th>
-                <th style="width:9%;text-align:right;">Desc%</th>
-                <th style="width:22%;">Cuenta Contable</th>
-                            <th style="width:12%;text-align:right;">Total</th>
+                            <th style="width:17%;">Descripción *</th>
+                            <th style="width:8%;text-align:center;">Tipo</th>
+                            <th style="width:7%;text-align:center;">Cant.</th>
+                            <th style="width:11%;text-align:right;">Precio U.</th>
+                            <th style="width:9%;text-align:center;">ITBIS</th>
+                <th style="width:8%;text-align:right;">Desc%</th>
+                <th style="width:18%;">Cuenta Contable</th>
+                            <th style="width:11%;text-align:right;">Total</th>
                             <th style="width:2%;"></th>
                         </tr>
                     </thead>
@@ -219,6 +220,12 @@
                         <tr class="item-row">
                             <td>
                                 <input type="text" class="form-input item-name" name="items[0][name]" placeholder="Descripción del producto/servicio" required style="width:100%;">
+                            </td>
+                            <td style="text-align:center;">
+                                <select class="form-select item-type" name="items[0][type]" style="width:100%;font-size:0.75rem;padding:6px 2px;">
+                                    <option value="producto" selected>Bien</option>
+                                    <option value="servicio">Servicio</option>
+                                </select>
                             </td>
                             <td style="text-align:center;">
                                 <input type="number" class="form-input item-qty" name="items[0][quantity]" value="1" min="0.01" step="0.01" required style="width:100%;min-width:40px;text-align:center;" oninput="recalculateTotals()">
@@ -537,6 +544,12 @@
         tr.innerHTML = `
             <td>
                 <input type="text" class="form-input item-name" name="items[${idx}][name]" placeholder="Descripción del producto/servicio" required style="width:100%;">
+            </td>
+            <td style="text-align:center;">
+                <select class="form-select item-type" name="items[${idx}][type]" style="width:100%;font-size:0.75rem;padding:6px 2px;">
+                    <option value="producto" selected>Bien</option>
+                    <option value="servicio">Servicio</option>
+                </select>
             </td>
             <td style="text-align:center;">
                 <input type="number" class="form-input item-qty" name="items[${idx}][quantity]" value="1" min="0.01" step="0.01" required style="width:100%;min-width:40px;text-align:center;" oninput="recalculateTotals()">

@@ -403,6 +403,8 @@ class DgiiXmlBuilder:
             ET.SubElement(emisor, "DireccionEmisor").text = direccion
         mu = cls.map_province_or_municipality(company_profile.get("municipality", ""), is_province=False)
         pr = cls.map_province_or_municipality(company_profile.get("province", ""), is_province=True)
+        if len(mu) == 6 and mu.isdigit() and not pr.startswith(mu[:2]):
+            pr = mu[:2] + "0000"
         ET.SubElement(emisor, "Municipio").text = mu
         ET.SubElement(emisor, "Provincia").text = pr
         tel = company_profile.get("companyPhone", "")
