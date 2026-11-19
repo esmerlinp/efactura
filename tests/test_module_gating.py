@@ -546,33 +546,35 @@ def test_tenant_isolation_company_a_cannot_access_company_b(client):
 
 
 def test_ui_sidebar_renders_only_entitled_modules(app):
-    """Verifica que el sidebar solo renderice los enlaces de módulos contratados."""
+    """Verifica que _sidebar_modules.html solo renderice los módulos contratados.
+
+    La plantilla actual (selector de módulos de los layouts de contabilidad/RRHH)
+    renderiza únicamente "Nómina y RRHH" y "Contabilidad". Se comprueba que:
+      - no aparezcan cuando sus módulos están deshabilitados;
+      - aparezcan cuando sus módulos están habilitados.
+    """
     with app.test_request_context():
         from flask import session, render_template
+
+        # Escenario 1: módulos deshabilitados → no aparecen
         session.clear()
         session['user'] = {'role': 'owner', 'email': 'owner@test.com', 'permissions': {}}
         session['company_modules'] = {
-            'e_cf': {'enabled': True},
             'nomina': {'enabled': False},
             'contabilidad': {'enabled': False},
-            'pos': {'enabled': False},
-            'banks': {'enabled': False},
-            'crm': {'enabled': False},
-            'ia_bi': {'enabled': False},
-            'portal_cliente': {'enabled': False},
-            'certificacion': {'enabled': False},
         }
-        session['company_profile_pos_enabled'] = False
-
         html = render_template('_sidebar_modules.html')
-        # e_cf está contratado
-        assert 'Facturación' in html
-        # Módulos deshabilitados no deben aparecer
         assert 'Nómina y RRHH' not in html
         assert 'Contabilidad' not in html
-        assert 'Punto de Venta (POS)' not in html
-        assert 'Portal de Clientes' not in html
-        assert 'BI Drill-down' not in html
+
+        # Escenario 2: módulos habilitados → aparecen
+        session['company_modules'] = {
+            'nomina': {'enabled': True},
+            'contabilidad': {'enabled': True},
+        }
+        html = render_template('_sidebar_modules.html')
+        assert 'Nómina y RRHH' in html
+        assert 'Contabilidad' in html
 
 
 # ═══════════════════════════════════════════════════════════════════════════

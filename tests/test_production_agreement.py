@@ -18,6 +18,8 @@ from app.services.production_agreement_access_service import (
     AccessDecision,
 )
 
+pytestmark = pytest.mark.real_production_agreement
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Sanitización y hash (funciones puras)

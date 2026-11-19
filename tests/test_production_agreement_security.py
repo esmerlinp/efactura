@@ -6,6 +6,8 @@ propietario, manipulación de solicitudes, CSRF, idempotencia y caché.
 
 from unittest.mock import patch, DEFAULT
 
+import pytest
+
 from app.services.production_agreement_service import (
     ProductionAgreementService,
     compute_content_hash,
@@ -18,6 +20,8 @@ from app.services.production_agreement_access_service import (
     ProductionAgreementAccessService,
     AccessDecision,
 )
+
+pytestmark = pytest.mark.real_production_agreement
 
 
 # ─────────────────────────────────────────────────────────────────────────────

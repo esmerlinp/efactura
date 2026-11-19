@@ -45,6 +45,13 @@ _sys_modules_patch = patch.dict('sys.modules', {
 _sys_modules_patch.start()
 
 
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "real_production_agreement: no mockear evaluate_web_access (test del flujo real de contrato de producción)",
+    )
+
+
 
 @pytest.fixture(scope='session')
 def app():
@@ -147,3 +154,81 @@ def sample_invoice_dict(sample_company_profile, sample_invoice_items):
         "discountRate": 0.0,
         "items": calcs["items"],
     }
+
+
+@pytest.fixture(autouse=True)
+def _mock_company_access_from_session(request):
+    """Harness de autorización: deriva CompanyAccess desde la sesión de test.
+
+    En producción ``check_permission()`` resuelve el acceso vía
+    ``get_company_access()`` (lectura de membresía/empresa en Firestore). En los
+    tests no hay Firestore, así que esta fixture sustituye la FUENTE de datos
+    (no la lógica): construye un ``CompanyAccess`` real a partir de
+    ``session['user']`` (uid, company_id, role, permissions, ownerUID). La lógica
+    de ``check_permission`` (rol owner, fallbacks granulares, denegaciones)
+    permanece intacta y bajo prueba.
+
+    Solo se parchea la referencia usada por ``app.utils.decorators``; la función
+    original de ``app.services.company_authorization`` (y sus tests directos)
+    no se ven afectados.
+    """
+    from flask import session as flask_session
+    from app.services.company_authorization import CompanyAccess
+    import app.utils.decorators as decorators_module
+
+    def _fake_get_company_access(uid, company_id):
+        user = flask_session.get("user") or {}
+        if not uid:
+            uid = user.get("uid", "")
+        cid = (
+            company_id
+            or flask_session.get("selected_company_id")
+            or user.get("company_id")
+            or user.get("ownerUID")
+            or ""
+        )
+        if not uid or not cid:
+            return None
+        owner_uid = user.get("ownerUID", "") or ""
+        role = user.get("role", "employee")
+        if owner_uid == uid:
+            role = "owner"
+        perms = dict(user.get("permissions") or {})
+        return CompanyAccess(
+            uid=uid,
+            company_id=cid,
+            owner_uid=owner_uid,
+            role=role,
+            permissions=perms,
+            membership={
+                "uid": uid,
+                "company_id": cid,
+                "role": role,
+                "permissions": perms,
+                "status": "active",
+            },
+            company={"id": cid, "owner_uid": owner_uid, "status": "active"},
+        )
+
+    with patch.object(decorators_module, "get_company_access", side_effect=_fake_get_company_access):
+        # El guard del contrato de producción bloquea (302 → /production-agreement)
+        # antes del chequeo de permisos cuando no hay aceptación en Firestore. En
+        # tests se hace que la FUENTE de decisión devuelva "allowed" (no se toca la
+        # lógica del guard). Los tests que prueban evaluate_web_access / el guard
+        # directamente usan el marcador ``real_production_agreement`` para saltarse
+        # este mock y ejercer la lógica real.
+        if "real_production_agreement" in request.node.keywords:
+            yield
+            return
+
+        from app.services.production_agreement_access_service import (
+            AccessDecision,
+            ProductionAgreementAccessService,
+        )
+
+        with patch.object(
+            ProductionAgreementAccessService,
+            "evaluate_web_access",
+            return_value=AccessDecision(allowed=True, reason="ok"),
+        ):
+            yield

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 def _login_session(client, company_id="company-download-test"):
     with client.session_transaction() as session:
-        session["user"] = {"ownerUID": "owner-1"}
+        session["user"] = {"uid": "owner-1", "ownerUID": "owner-1"}
         session["selected_owner_uid"] = "owner-1"
         session["selected_company_id"] = company_id
 
