@@ -630,10 +630,14 @@ class DgiiXmlBuilder:
         if cfg["retenciones"]:
             ritbis = float(invoice_data.get("retainedITBIS", 0.0))
             risr = float(invoice_data.get("retainedISR", 0.0))
-            if ritbis > 0:
+            if tipo_ecf == "41":
                 ET.SubElement(totales, "TotalITBISRetenido").text = cls._sd(ritbis)
-            if risr > 0:
                 ET.SubElement(totales, "TotalISRRetencion").text = cls._sd(risr)
+            else:
+                if ritbis > 0:
+                    ET.SubElement(totales, "TotalITBISRetenido").text = cls._sd(ritbis)
+                if risr > 0:
+                    ET.SubElement(totales, "TotalISRRetencion").text = cls._sd(risr)
 
         # OtraMoneda (foreign currency)
         currency = invoice_data.get("currency", "DOP")
@@ -674,12 +678,8 @@ class DgiiXmlBuilder:
                     item_isr = float(item.get("retainedISR", item.get("isrRetenido", 0.0)))
                     ET.SubElement(ret_elem, "MontoISRRetenido").text = cls._sd(item_isr)
                 elif tipo_ecf == "41":
-                    item_ritbis = float(item.get("retainedITBIS", 0.0))
-                    item_risr = float(item.get("retainedISR", 0.0))
-                    if item_ritbis > 0:
-                        ET.SubElement(ret_elem, "MontoITBISRetenido").text = cls._sd(item_ritbis)
-                    if item_risr > 0:
-                        ET.SubElement(ret_elem, "MontoISRRetenido").text = cls._sd(item_risr)
+                    ET.SubElement(ret_elem, "MontoITBISRetenido").text = cls._sd(item.get("retainedITBIS", 0.0))
+                    ET.SubElement(ret_elem, "MontoISRRetenido").text = cls._sd(item.get("retainedISR", 0.0))
             ET.SubElement(item_elem, "NombreItem").text = item.get("name", "Artículo")
             is_service = "servicio" in item.get("unit", "").lower() or "service" in item.get("unit", "").lower() or item.get("type", "").lower() == "servicio"
             is_service = is_service or tipo_ecf == "47"
