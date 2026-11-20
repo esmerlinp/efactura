@@ -2491,6 +2491,12 @@ def reemit_supplier_invoice_e41(invoice_id):
         res = EcfEmissionService.emit_electronic_comprobante(company, ecf_payload, sandbox=sandbox)
 
         try:
+            from app.web.invoices import _resolve_pending_dgii_inline
+            res = _resolve_pending_dgii_inline(company, res, sandbox, invoice_id)
+        except Exception as poll_err:
+            print(f"No se pudo resolver el estado DGII inline para reemisión E41 {invoice_id}: {poll_err}")
+
+        try:
             from app.web.invoices import _log_dgii_emission_to_audit
             _log_dgii_emission_to_audit(
                 owner_uid, invoice, res,
@@ -2587,6 +2593,14 @@ def emit_supplier_invoice(invoice_id):
                 datetime.now(timezone.utc).replace(year=datetime.now(timezone.utc).year + 2, month=12, day=31).strftime("%Y-%m-%d")
 
         res = EcfEmissionService.emit_electronic_comprobante(company, ecf_payload, sandbox=sandbox)
+
+        # Resolver el estado real DGII cuando la emisión API quedó PENDING
+        # (la DGII valida asíncrono y puede rechazar después del 202 inicial).
+        try:
+            from app.web.invoices import _resolve_pending_dgii_inline
+            res = _resolve_pending_dgii_inline(company, res, sandbox, invoice_id)
+        except Exception as poll_err:
+            print(f"No se pudo resolver el estado DGII inline para factura proveedor {invoice_id}: {poll_err}")
 
         try:
             from app.web.invoices import _log_dgii_emission_to_audit
