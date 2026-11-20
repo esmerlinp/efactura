@@ -177,6 +177,40 @@ def test_e41_province_normalized_from_municipality():
     assert root.findtext(".//Comprador/ProvinciaComprador") == "010000"
 
 
+def test_e41_indicador_monto_gravado_itbis_incluido():
+    """E41 (Comprobante de Compras) debe emitir IndicadorMontoGravado=1 (ITBIS
+    incluido) y reportar el MontoGravado/MontoItem como el total con ITBIS."""
+    company = {
+        "companyRNC": "133753652",
+        "companyName": "EMPRESA DE PRUEBA SRL",
+        "municipality": "010100",
+        "province": "010000",
+    }
+    inv_data = {
+        "id": "test-e41-mg", "ecfType": "E41", "encf": "E410000000005",
+        "supplierName": "Consultor", "supplierRnc": "00111111111",
+        "date": "2026-11-20", "dueDate": "2026-11-20", "paymentType": "Crédito",
+        "subtotal": 15000.0, "discount": 0.0, "itbis": 2700.0, "total": 17700.0,
+        "retainedISR": 0.15, "retainedITBIS": 0.0,
+        "items": [
+            {
+                "name": "Manejo de Redes Sociales", "quantity": 1.0,
+                "unitPrice": 15000.0, "subtotal": 15000.0, "itbisRate": 0.18,
+                "unit": "Unidad", "type": "servicio",
+            }
+        ],
+    }
+    payload = _build_supplier_invoice_ecf_payload(inv_data)
+    xml_bytes = DgiiXmlBuilder.build_invoice_xml(company, payload)
+    root = ET.fromstring(xml_bytes)
+    assert root.findtext(".//IdDoc/IndicadorMontoGravado") == "1"
+    assert root.findtext(".//Totales/MontoGravadoTotal") == "17700.00"
+    assert root.findtext(".//Totales/TotalITBIS") == "2700.00"
+    assert root.findtext(".//Totales/MontoTotal") == "17700.00"
+    assert root.findtext(".//Item/MontoItem") == "17700.00"
+    assert root.findtext(".//Item/PrecioUnitarioItem") == "17700.00"
+
+
 def test_e41_cuadratura_centavos_20000():
     """Verifica el caso de 20,000 con ITBIS 18% incluido:
     Subtotal: 16,949.15

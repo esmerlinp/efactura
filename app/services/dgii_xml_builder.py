@@ -359,7 +359,7 @@ class DgiiXmlBuilder:
             ET.SubElement(id_doc, "IndicadorEnvioDiferido").text = "1"
 
         if cfg["monto_gravado"]:
-            ET.SubElement(id_doc, "IndicadorMontoGravado").text = "0" if tipo_ecf in ("31", "32", "33", "34", "41", "45") else "1"
+            ET.SubElement(id_doc, "IndicadorMontoGravado").text = "0" if tipo_ecf in ("31", "32", "33", "34", "45") else "1"
 
         if cfg["ingresos"]:
             ET.SubElement(id_doc, "TipoIngresos").text = cls._income_code(invoice_data)
@@ -541,7 +541,33 @@ class DgiiXmlBuilder:
         gravado_i2 = bands["i2"]
         gravado_i3 = bands["i3"]
         gravado_total = bands["total"]
-        if tipo_ecf == "46":
+        if tipo_ecf == "41":
+            # E41 (Comprobante de Compras) usa IndicadorMontoGravado=1 (ITBIS
+            # incluido): el monto gravado reportado es el total (subtotal + ITBIS).
+            gravado_i1 = 0.0
+            gravado_i2 = 0.0
+            gravado_i3 = 0.0
+            for item in invoice_data.get("items", []):
+                itbis_rate = float(item.get("itbisRate", 0.18))
+                if itbis_rate <= 0.001:
+                    continue
+                _p = float(item.get('price', 0.0))
+                _q = float(item.get('quantity', 1.0))
+                _sr = float(item.get('subtotal_raw', 0.0)) or round(_p * _q, 2)
+                _dr = float(item.get('discountRate', 0.0))
+                _da = float(item.get("discount_amount", 0.0) or item.get("DescuentoMonto", 0.0))
+                if _da == 0.0 and _dr > 0.0:
+                    _da = round(_sr * _dr, 2)
+                _rm = float(item.get("recargoMonto", 0.0))
+                item_net = round((_sr - _da + _rm) * (1.0 + itbis_rate), 2)
+                if itbis_rate >= 0.17:
+                    gravado_i1 += item_net
+                elif itbis_rate >= 0.15:
+                    gravado_i2 += item_net
+                else:
+                    gravado_i3 += item_net
+            gravado_total = round(gravado_i1 + gravado_i2 + gravado_i3, 2)
+        elif tipo_ecf == "46":
             gravado_total = sum(
                 float(item.get("subtotal") or item.get("subtotal_raw") or
                       float(item.get("price", 0.0)) * float(item.get("quantity", 1.0)))
@@ -657,7 +683,8 @@ class DgiiXmlBuilder:
             _price = float(item.get('price', 0.0))
             _quantity = float(item.get('quantity', 1.0))
             _subtotal_raw = float(item.get('subtotal_raw', 0.0)) or round(_price * _quantity, 2)
-            ET.SubElement(item_elem, "PrecioUnitarioItem").text = cls._sd(_price)
+            _emit_price = round(_price * (1.0 + itbis_rate), 2) if tipo_ecf == "41" else _price
+            ET.SubElement(item_elem, "PrecioUnitarioItem").text = cls._sd(_emit_price)
             _discount_rate = float(item.get('discountRate', 0.0))
             desc_monto = float(item.get("discount_amount", 0.0) or item.get("DescuentoMonto", 0.0))
             if desc_monto == 0.0 and _discount_rate > 0.0:
@@ -674,7 +701,10 @@ class DgiiXmlBuilder:
             _subtotal = float(item.get('subtotal', 0.0))
             if _subtotal == 0.0:
                 _subtotal = _subtotal_raw - desc_monto
-            ET.SubElement(item_elem, "MontoItem").text = cls._sd(_subtotal + rec_monto)
+            _monto_item = _subtotal + rec_monto
+            if tipo_ecf == "41":
+                _monto_item = round(_monto_item * (1.0 + itbis_rate), 2)
+            ET.SubElement(item_elem, "MontoItem").text = cls._sd(_monto_item)
 
         # ======================== DescuentosORecargos ========================
         descuentos_recargos = invoice_data.get("descuentosRecargos", [])
