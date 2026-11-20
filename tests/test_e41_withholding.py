@@ -174,7 +174,33 @@ def test_e41_province_normalized_from_municipality():
     root = ET.fromstring(xml_bytes)
     assert root.findtext(".//Emisor/Municipio") == "010100"
     assert root.findtext(".//Emisor/Provincia") == "010000"
-    assert root.findtext(".//Comprador/ProvinciaComprador") == "010000"
+
+
+def test_e41_comprador_es_proveedor():
+    """E41 (Comprobante de Compras): el Comprador debe ser el proveedor
+    (informal/formal), no la propia empresa emisora."""
+    company = {
+        "companyRNC": "133753652",
+        "companyName": "VYKCORE AUTOMATIONS SRL",
+        "municipality": "010100",
+        "province": "010000",
+    }
+    inv_data = {
+        "id": "test-e41-comp", "ecfType": "E41", "encf": "E410000000006",
+        "supplierName": "Johanny Espinosa", "supplierRnc": "22301048983",
+        "date": "2026-11-20", "dueDate": "2026-11-20", "paymentType": "Crédito",
+        "subtotal": 20000.0, "discount": 0.0, "itbis": 3600.0, "total": 23600.0,
+        "retainedISR": 0.15, "retainedITBIS": 0.0,
+        "items": [{"name": "Manejo de redes sociales", "quantity": 1.0,
+                   "unitPrice": 20000.0, "subtotal": 20000.0, "itbisRate": 0.18,
+                   "unit": "Unidad", "type": "servicio"}],
+    }
+    payload = _build_supplier_invoice_ecf_payload(inv_data)
+    xml_bytes = DgiiXmlBuilder.build_invoice_xml(company, payload)
+    root = ET.fromstring(xml_bytes)
+    assert root.findtext(".//Emisor/RNCEmisor") == "133753652"
+    assert root.findtext(".//Comprador/RNCComprador") == "22301048983"
+    assert root.findtext(".//Comprador/RazonSocialComprador") == "Johanny Espinosa"
 
 
 def test_e41_indicador_monto_gravado_itbis_incluido():

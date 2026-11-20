@@ -434,17 +434,19 @@ class DgiiXmlBuilder:
                 ET.SubElement(comp, "RazonSocialComprador").text = rz
                 comp_children += 1
             elif cfg["expense"]:
-                crnc = company_profile.get("companyRNC", "").replace("-", "").strip()
-                if crnc and crnc != "000000000":
-                    ET.SubElement(comp, "RNCComprador").text = crnc
+                # E41 (Comprobante de Compras): el Comprador es el PROVEEDOR
+                # (informal o formal), no la propia empresa emisora.
+                supplier_rnc = invoice_data.get("clientRNC", "").replace("-", "").strip()
+                supplier_name = invoice_data.get("razonSocial", invoice_data.get("clientName", "")).strip()
+                if supplier_rnc and supplier_rnc not in ("000000000", "0"):
+                    ET.SubElement(comp, "RNCComprador").text = supplier_rnc
                     comp_children += 1
-                rzs_expense = company_profile.get("companyName", "")
-                if rzs_expense:
-                    ET.SubElement(comp, "RazonSocialComprador").text = rzs_expense
+                if supplier_name:
+                    ET.SubElement(comp, "RazonSocialComprador").text = supplier_name
                     comp_children += 1
-                ET.SubElement(comp, "MunicipioComprador").text = mu
-                ET.SubElement(comp, "ProvinciaComprador").text = pr
-                comp_children += 2
+                else:
+                    ET.SubElement(comp, "RazonSocialComprador").text = "Proveedor Informal"
+                    comp_children += 1
             else:
                 crnc = invoice_data.get("clientRNC", "").replace("-", "").strip()
                 rzs = invoice_data.get("razonSocial", invoice_data.get("clientName", "")).strip()
@@ -623,14 +625,10 @@ class DgiiXmlBuilder:
         if cfg["retenciones"]:
             ritbis = float(invoice_data.get("retainedITBIS", 0.0))
             risr = float(invoice_data.get("retainedISR", 0.0))
-            if tipo_ecf == "41":
+            if ritbis > 0:
                 ET.SubElement(totales, "TotalITBISRetenido").text = cls._sd(ritbis)
+            if risr > 0:
                 ET.SubElement(totales, "TotalISRRetencion").text = cls._sd(risr)
-            else:
-                if ritbis > 0:
-                    ET.SubElement(totales, "TotalITBISRetenido").text = cls._sd(ritbis)
-                if risr > 0:
-                    ET.SubElement(totales, "TotalISRRetencion").text = cls._sd(risr)
 
         # OtraMoneda (foreign currency)
         currency = invoice_data.get("currency", "DOP")
@@ -671,8 +669,12 @@ class DgiiXmlBuilder:
                     item_isr = float(item.get("retainedISR", item.get("isrRetenido", 0.0)))
                     ET.SubElement(ret_elem, "MontoISRRetenido").text = cls._sd(item_isr)
                 elif tipo_ecf == "41":
-                    ET.SubElement(ret_elem, "MontoITBISRetenido").text = cls._sd(item.get("retainedITBIS", 0.0))
-                    ET.SubElement(ret_elem, "MontoISRRetenido").text = cls._sd(item.get("retainedISR", 0.0))
+                    item_ritbis = float(item.get("retainedITBIS", 0.0))
+                    item_risr = float(item.get("retainedISR", 0.0))
+                    if item_ritbis > 0:
+                        ET.SubElement(ret_elem, "MontoITBISRetenido").text = cls._sd(item_ritbis)
+                    if item_risr > 0:
+                        ET.SubElement(ret_elem, "MontoISRRetenido").text = cls._sd(item_risr)
             ET.SubElement(item_elem, "NombreItem").text = item.get("name", "Artículo")
             is_service = "servicio" in item.get("unit", "").lower() or "service" in item.get("unit", "").lower() or item.get("type", "").lower() == "servicio"
             is_service = is_service or tipo_ecf == "47"

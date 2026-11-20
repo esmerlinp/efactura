@@ -32,10 +32,9 @@ def assert_retencion_itbis_no_mayor(r):
     total_itbis = float(r["doc"].findtext(".//TotalITBIS", "0"))
     assert ret_itbis <= total_itbis + 1.0, f"Retención ITBIS {ret_itbis} > ITBIS {total_itbis}"
 
-def assert_comprador_es_misma_empresa(r):
-    rnc_emisor = r["doc"].findtext(".//RNCEmisor", "")
-    rnc_comp = r["doc"].findtext(".//RNCComprador", "")
-    assert rnc_emisor == rnc_comp, f"E41 Comprador RNC {rnc_comp} ≠ Emisor RNC {rnc_emisor}"
+def assert_comprador_es_proveedor(r):
+    rz_comp = r["doc"].findtext(".//RazonSocialComprador", "")
+    assert rz_comp, "E41 requiere RazonSocialComprador del proveedor"
 
 def assert_has_totales_retencion(r):
     has_isr = r["doc"].find(".//TotalISRRetencion") is not None
@@ -50,14 +49,14 @@ cases.append({
     "name": "Proveedor informal (sin RNC)",
     "expected": "accept",
     "invoice_overrides": {"clientRNC": "", "razonSocial": "VENDEDOR INFORMAL"},
-    "assertions": [assert_xsd_ok, assert_comprador_es_misma_empresa],
+    "assertions": [assert_xsd_ok, assert_comprador_es_proveedor],
 })
 
 cases.append({
     "name": "Compra local con RNC",
     "expected": "accept",
     "invoice_overrides": {"clientRNC": "131111111", "razonSocial": "PROVEEDOR LOCAL SRL"},
-    "assertions": [assert_xsd_ok, assert_comprador_es_misma_empresa],
+    "assertions": [assert_xsd_ok, assert_comprador_es_proveedor],
 })
 
 cases.append({

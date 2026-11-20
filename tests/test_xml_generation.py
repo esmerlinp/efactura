@@ -85,15 +85,16 @@ def test_xml_receptor_omitted_for_low_consumption(company_profile, invoice_data)
     assert razon is None
 
 
-def test_xml_zero_retentions_present(company_profile, invoice_data):
+def test_xml_zero_retentions_omitted(company_profile, invoice_data):
     e41_data = dict(invoice_data, ecfType="Factura de Compras (E41)", encf="E410000000001")
     xml_bytes = DgiiXmlBuilder.build_invoice_xml(company_profile, e41_data)
     xml_str = xml_bytes.decode('utf-8')
     root = ET.fromstring(xml_str)
     ret_itbis = root.find(".//Totales/TotalITBISRetenido")
     ret_isr = root.find(".//Totales/TotalISRRetencion")
-    assert ret_itbis is not None and ret_itbis.text == "0.00"
-    assert ret_isr is not None and ret_isr.text == "0.00"
+    # Campos opcionales: con retención 0 se omiten (no "0.00").
+    assert ret_itbis is None
+    assert ret_isr is None
 
 
 def test_xml_unit_of_measure_mapping(company_profile, invoice_data):
