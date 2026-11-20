@@ -577,6 +577,9 @@ class DgiiDirectService:
                 if isinstance(response_data, dict):
                     error_msg = response_data.get("error") or response_data.get("mensaje") or ""
 
+                print(f"\n📨 [DGII RECEPCIÓN] HTTP {status_code} | dgii_status={dgii_status} | trackId={track_id}", flush=True)
+                print(f"📨 [DGII RECEPCIÓN] body: {str(response_text)[:2000]}", flush=True)
+
                 qr_url = cls.build_qr_url(company_profile, invoice_data, codigo_seguridad)
 
                 if status_code >= 200 and status_code < 300:
@@ -888,6 +891,9 @@ class DgiiDirectService:
 
             track_id_found = cls._extract_track_id(response_data, response_text) or track_id
             dgii_status = cls._extract_status(response_data, response_text)
+
+            print(f"\n🔍 [DGII CONSULTA ESTADO] HTTP {status_code} | dgii_status={dgii_status} | trackId={track_id}", flush=True)
+            print(f"🔍 [DGII CONSULTA ESTADO] body: {str(response_text)[:2000]}", flush=True)
 
             codigo_num = None
             rnc = None
