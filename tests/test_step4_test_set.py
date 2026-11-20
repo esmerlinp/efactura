@@ -579,11 +579,17 @@ def test_build_qr_url_by_type():
     assert "FechaEmision=16-08-2026" in url
     assert "CodigoSeguridad=ABC123" in url
 
-    # E41 → RncComprador = RNC de la empresa (Comprador del XML = emisor)
+    # E41 → RncComprador = RNC/cédula del PROVEEDOR (Comprador del XML = proveedor)
     url41 = DgiiDirectService.build_qr_url(
         profile, dict(base, ecfType="Comprobante de Compras (E41)", encf="E410000000001"), "SIG123")
-    assert "RncComprador=133753652" in url41
+    assert "RncComprador=131880681" in url41
     assert "ConsultaTimbre?" in url41
+
+    # E41 con proveedor informal sin RNC → sin RncComprador (el XML no lo lleva)
+    url41_informal = DgiiDirectService.build_qr_url(
+        profile, dict(base, ecfType="Comprobante de Compras (E41)", encf="E410000000001",
+                      clientRNC=""), "SIG123")
+    assert "RncComprador" not in url41_informal
 
     # E43 / E47 → sin RncComprador (sus XML no llevan RNCComprador)
     for tipo in ["E43", "Comprobante para Gastos Menores (E43)", "Pagos al Exterior (E47)"]:

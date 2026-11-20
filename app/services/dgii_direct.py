@@ -275,7 +275,7 @@ class DgiiDirectService:
 
         Reglas por tipo:
           - E32 < RD$250,000 → fc.dgii.gov.do/{env}/ConsultaTimbreFC (4 params, sin comprador).
-          - E41 → RncComprador = RNC de la empresa (el Comprador del XML es el emisor).
+          - E41 → RncComprador = RNC/cédula del PROVEEDOR (si es informal sin RNC, se omite).
           - E43/E46/E47 → sin RncComprador (el XML no lleva RNCComprador).
           - Demás tipos → RncComprador = RNC del comprador (fallback 000000000).
         """
@@ -337,7 +337,12 @@ class DgiiDirectService:
             "CodigoSeguridad": codigo_seguridad or "",
         }
         if tipo == "41":
-            rnc_comprador = company_rnc
+            # El Comprador del E41 es el PROVEEDOR. Debe coincidir con el XML:
+            # si el proveedor tiene RNC/cédula, va ese; si es informal sin RNC, se omite.
+            if client_rnc and client_rnc not in ("000000000", "0"):
+                rnc_comprador = client_rnc
+            else:
+                rnc_comprador = None
         elif tipo in ("43", "47"):
             rnc_comprador = None  # sin RNCComprador en el XML → se omite del QR
         elif tipo == "46":
