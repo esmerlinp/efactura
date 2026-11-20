@@ -1706,6 +1706,12 @@ def new_supplier_invoice_direct():
                     )
 
                     try:
+                        from app.web.invoices import _resolve_pending_dgii_inline
+                        res_41 = _resolve_pending_dgii_inline(company_41, res_41, sandbox, inv_data["id"])
+                    except Exception as poll_err:
+                        print(f"No se pudo resolver el estado DGII inline para E41 {inv_data['id']}: {poll_err}")
+
+                    try:
                         from app.web.invoices import _log_dgii_emission_to_audit
                         _log_dgii_emission_to_audit(
                             owner_uid, inv_data, res_41,
