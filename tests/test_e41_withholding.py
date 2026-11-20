@@ -203,6 +203,26 @@ def test_e41_comprador_es_proveedor():
     assert root.findtext(".//Comprador/RazonSocialComprador") == "Johanny Espinosa"
 
 
+def test_e41_fecha_limite_pago_credito():
+    """E41 a crédito (TipoPago=2) debe emitir FechaLimitePago (la DGII lo exige)."""
+    company = {"companyRNC": "133753652", "companyName": "EMPRESA DE PRUEBA SRL",
+               "municipality": "010100", "province": "010000"}
+    inv_data = {
+        "id": "test-e41-flp", "ecfType": "E41", "encf": "E410000000007",
+        "supplierName": "Consultor", "supplierRnc": "00111111111",
+        "date": "2026-11-20", "dueDate": "2026-12-20", "paymentType": "Crédito",
+        "subtotal": 10000.0, "discount": 0.0, "itbis": 1800.0, "total": 11800.0,
+        "retainedISR": 0.15, "retainedITBIS": 0.0,
+        "items": [{"name": "Servicio", "quantity": 1.0, "unitPrice": 10000.0,
+                   "subtotal": 10000.0, "itbisRate": 0.18, "unit": "Unidad", "type": "servicio"}],
+    }
+    payload = _build_supplier_invoice_ecf_payload(inv_data)
+    xml_bytes = DgiiXmlBuilder.build_invoice_xml(company, payload)
+    root = ET.fromstring(xml_bytes)
+    assert root.findtext(".//IdDoc/TipoPago") == "2"
+    assert root.findtext(".//IdDoc/FechaLimitePago") == "20-12-2026"
+
+
 def test_e41_indicador_monto_gravado_itbis_incluido():
     """E41 (Comprobante de Compras) debe emitir IndicadorMontoGravado=1 (ITBIS
     incluido) y reportar el MontoGravado/MontoItem como el total con ITBIS."""

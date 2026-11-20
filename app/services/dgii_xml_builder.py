@@ -369,6 +369,11 @@ class DgiiXmlBuilder:
             tipo_pago = "2" if "crédito" in pay_method.lower() or "credito" in pay_method.lower() else "1"
             ET.SubElement(id_doc, "TipoPago").text = tipo_pago
 
+            if tipo_pago == "2":
+                fecha_limite = invoice_data.get("dueDate") or invoice_data.get("fechaLimitePago") or invoice_data.get("fechaVencimiento") or ""
+                if fecha_limite:
+                    ET.SubElement(id_doc, "FechaLimitePago").text = cls._fmt_date(fecha_limite)
+
             if cfg["tabla_pagos"] and tipo_ecf not in ("34", "41"):
                 tabla_fp = ET.SubElement(id_doc, "TablaFormasPago")
                 fdp = ET.SubElement(tabla_fp, "FormaDePago")
