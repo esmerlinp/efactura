@@ -84,14 +84,9 @@ class DgiiSigner:
         sn_attrs = certificate.subject.get_attributes_for_oid(x509.oid.NameOID.SERIAL_NUMBER)
         if not sn_attrs:
             raise ValueError("El certificado digital no tiene campo SN en el Subject.")
-        cert_sn = sn_attrs[0].value.strip()
-        cert_sn_clean = cert_sn[6:] if cert_sn.upper().startswith('IDCDO-') else cert_sn
-        company_rnc = (company_profile.get("companyRNC") or company_profile.get("rnc") or company_profile.get("company_rnc") or "").replace("-", "").strip()
-        if cert_sn_clean != company_rnc:
-            import logging
-            logging.warning(
-                f"El SN del certificado ({cert_sn}) no coincide con el RNC de la empresa ({company_rnc})."
-            )
+        # No se compara el SN del certificado con el RNC de la empresa: la DGII
+        # permite firmar con un certificado distinto al RNC del emisor cuando ya
+        # lo autorizó previamente (p. ej. certificado del representante legal).
 
     @classmethod
     def sign_xml(cls, xml_data, company_profile):
