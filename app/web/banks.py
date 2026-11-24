@@ -154,6 +154,34 @@ def bank_detail(account_id):
         type_filter = ''
     date_from = request.args.get('date_from', '').strip()
     date_to = request.args.get('date_to', '').strip()
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    quick_filter = request.args.get('quick', 'today').strip().lower()
+    if quick_filter in ('today', 'week', 'month', 'year') and not request.args.get('date_from') and not request.args.get('date_to'):
+        base = datetime.now(timezone.utc)
+        if quick_filter == 'today':
+            date_from = date_to = today
+        elif quick_filter == 'week':
+            start = base - timedelta(days=base.weekday())
+            date_from, date_to = start.strftime('%Y-%m-%d'), today
+        elif quick_filter == 'month':
+            date_from, date_to = base.strftime('%Y-%m-01'), today
+        else:
+            date_from, date_to = base.strftime('%Y-01-01'), today
+    origin_filter = request.args.get('origin', '').strip().lower()
+    movement_query = request.args.get('q', '').strip().lower()
+    if not date_from and not date_to:
+        date_from = date_to = today
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+    except ValueError:
+        page = 1
+    page_size = 25
+    refresh = request.args.get('refresh') == '1'
+    from app.services.cache_service import CacheService
+    cache_key = CacheService.domain_key('bank_movements', company_id, sandbox, account_id, type_filter, date_from, date_to, origin_filter, movement_query)
+    if refresh:
+        CacheService.invalidate_bank_movements(company_id, sandbox=sandbox)
+    cached_transactions = None if refresh else CacheService.get_cache().get(cache_key)
     try:
         if date_from:
             datetime.strptime(date_from, '%Y-%m-%d')
@@ -172,108 +200,102 @@ def bank_detail(account_id):
         flash('Cuenta no encontrada.', 'error')
         return redirect(url_for('web_banks.list_banks'))
 
-    transactions = []
-
-    # 1-2. Pagos de facturas y CxP. Se leen las subcolecciones directamente
-    # para no depender de índices COLLECTION_GROUP de Firestore.
-    try:
-        transactions.extend(_load_account_payment_transactions(
-            owner_uid, account_id, sandbox, company_id,
-            type_filter, date_from, date_to
-        ))
-    except Exception as e:
-        print(f"⚠️ Error al cargar pagos de facturas/CxP: {e}")
-
-    # 3. Gastos directos con esta cuenta bancaria
-    try:
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id)
-        for exp in expenses:
-            expense_date = str(exp.get('date', ''))[:10]
-            if (type_filter not in ('', 'expense') or
-                    exp.get('bankAccountId') != account_id or
-                    (date_from and expense_date < date_from) or
-                    (date_to and expense_date > date_to)):
-                continue
-            transactions.append({
-                "date": expense_date,
-                "type": "expense",
-                "concept": f"Gasto: {exp.get('concept', '')}",
-                "amount": -float(exp.get('amount', 0)),
-                "reference": exp.get('ncf', '') or exp.get('ecfNumber', ''),
-                "expenseId": exp.get('id', ''),
-                "invoiceId": ''
-            })
-            if type_filter == 'expense' or type_filter == '':
-                exp_id = exp.get('id')
-                if not exp_id:
+    transactions = cached_transactions or []
+    if cached_transactions is None:
+        try:
+            transactions.extend(_load_account_payment_transactions(owner_uid, account_id, sandbox, company_id, type_filter, date_from, date_to))
+        except Exception as e:
+            print(f"⚠️ Error al cargar pagos de facturas/CxP: {e}")
+        try:
+            expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id)
+            for exp in expenses:
+                expense_date = str(exp.get('date', ''))[:10]
+                if (type_filter not in ('', 'expense') or exp.get('bankAccountId') != account_id or (date_from and expense_date < date_from) or (date_to and expense_date > date_to)):
                     continue
-                for pmt in DatabaseService.get_cxp_payments(
-                    owner_uid, exp_id, sandbox=sandbox, company_id=company_id
-                ):
-                    payment_date = str(pmt.get('paymentDate', ''))[:10]
-                    if (pmt.get('bankAccountId') != account_id or
-                            (date_from and payment_date < date_from) or
-                            (date_to and payment_date > date_to)):
-                        continue
-                    transactions.append({
-                        "date": payment_date,
-                        "type": "expense",
-                        "concept": f"Pago CxP: {exp.get('concept', '')}",
-                        "amount": -float(pmt.get('amount', 0)),
-                        "reference": '',
-                        "expenseId": exp_id,
-                        "invoiceId": ''
-                    })
-    except Exception as e:
-        print(f"⚠️ Error al cargar gastos directos: {e}")
+                transactions.append({"date": expense_date, "type": "expense", "concept": f"Gasto: {exp.get('concept', '')}", "amount": -float(exp.get('amount', 0)), "reference": exp.get('ncf', '') or exp.get('ecfNumber', ''), "expenseId": exp.get('id', ''), "invoiceId": ''})
+                if type_filter in ('', 'expense') and exp.get('id'):
+                    for pmt in DatabaseService.get_cxp_payments(owner_uid, exp['id'], sandbox=sandbox, company_id=company_id):
+                        payment_date = str(pmt.get('paymentDate', ''))[:10]
+                        if pmt.get('bankAccountId') == account_id and (not date_from or payment_date >= date_from) and (not date_to or payment_date <= date_to):
+                            transactions.append({"date": payment_date, "type": "expense", "concept": f"Pago CxP: {exp.get('concept', '')}", "amount": -float(pmt.get('amount', 0)), "reference": '', "expenseId": exp['id'], "invoiceId": ''})
+        except Exception as e:
+            print(f"⚠️ Error al cargar gastos directos: {e}")
+        try:
+            transfers = DatabaseService.get_bank_transfers(owner_uid, sandbox=sandbox, company_id=company_id)
+            for t in transfers:
+                t_date = str(t.get('date', ''))[:10]
+                if (date_from and t_date < date_from) or (date_to and t_date > date_to): continue
+                if t.get('fromAccountId') == account_id and type_filter in ('', 'transfer_out'):
+                    transactions.append({"date": t_date, "type": "transfer_out", "concept": f"Transferencia enviada: {t.get('description', '')}", "amount": -float(t.get('amount', 0)), "reference": t.get('expenseNumbering', ''), "invoiceId": ''})
+                elif t.get('toAccountId') == account_id and type_filter in ('', 'transfer_in'):
+                    transactions.append({"date": t_date, "type": "transfer_in", "concept": f"Transferencia recibida: {t.get('description', '')}", "amount": float(t.get('amount', 0)), "reference": t.get('incomeNumbering', ''), "invoiceId": ''})
+        except Exception as e:
+            print(f"⚠️ Error al cargar transferencias: {e}")
 
-    # 4. Transferencias bancarias
-    try:
-        transfers = DatabaseService.get_bank_transfers(owner_uid, sandbox=sandbox, company_id=company_id)
-        for t in transfers:
-            t_date = str(t.get('date', ''))[:10]
-            if ((date_from and t_date < date_from) or
-                    (date_to and t_date > date_to)):
-                continue
-            if t.get('fromAccountId') == account_id:
-                if type_filter not in ('', 'transfer_out'):
-                    continue
-                transactions.append({
-                    "date": t_date,
-                    "type": "transfer_out",
-                    "concept": f"Transferencia enviada: {t.get('description', '')}",
-                    "amount": -float(t.get('amount', 0)),
-                    "reference": t.get('expenseNumbering', ''),
-                    "invoiceId": ''
-                })
-            elif t.get('toAccountId') == account_id:
-                if type_filter not in ('', 'transfer_in'):
-                    continue
-                transactions.append({
-                    "date": t_date,
-                    "type": "transfer_in",
-                    "concept": f"Transferencia recibida: {t.get('description', '')}",
-                    "amount": float(t.get('amount', 0)),
-                    "reference": t.get('incomeNumbering', ''),
-                    "invoiceId": ''
-                })
-    except Exception as e:
-        print(f"⚠️ Error al cargar transferencias: {e}")
-
-    transactions.sort(key=lambda x: x.get('date', ''), reverse=True)
+        transactions.sort(key=lambda x: x.get('date', ''), reverse=True)
+        CacheService.get_cache().set(cache_key, transactions, timeout=60)
     from app.services.bank_reconciliation_service import reconcile_account
     reconciliation = reconcile_account(account, transactions)
+    account_reconciliations = DatabaseService.get_reconciliations(owner_uid, sandbox=sandbox, company_id=company_id)
+    last_reconciliation = next((item for item in account_reconciliations if item.get("accountId") == account_id), None)
     adjustments = DatabaseService.get_bank_adjustments(
         owner_uid, account_id, sandbox=sandbox, company_id=company_id
     )
     ledger_movements = DatabaseService.get_bank_movements(
         owner_uid, account_id, sandbox=sandbox, company_id=company_id
     )
+    unified_movements = []
+    for movement in ledger_movements:
+        amount = float(movement.get("amount", 0) or 0)
+        unified_movements.append({
+            "date": str(movement.get("createdAt", ""))[:10],
+            "type": movement.get("sourceType", "movement"),
+            "origin": movement.get("sourceType", "Movimiento"),
+            "reference": movement.get("sourceId", ""),
+            "description": movement.get("description", ""),
+            "inflow": amount if amount > 0 else 0.0,
+            "outflow": abs(amount) if amount < 0 else 0.0,
+            "status": "Registrado",
+            "source_id": movement.get("sourceId", ""),
+            "document_url": "",
+            "reversal_of": movement.get("reversalOf", ""),
+        })
+    for movement in transactions:
+        if any(row["reference"] == movement.get("reference") and row["date"] == movement.get("date") for row in unified_movements):
+            continue
+        amount = float(movement.get("amount", 0) or 0)
+        unified_movements.append({
+            "date": movement.get("date", ""),
+            "type": movement.get("type", "movement"),
+            "origin": movement.get("type", "Movimiento"),
+            "reference": movement.get("reference", ""),
+            "description": movement.get("concept", ""),
+            "inflow": amount if amount > 0 else 0.0,
+            "outflow": abs(amount) if amount < 0 else 0.0,
+            "status": "Pendiente de migración",
+            "source_id": movement.get("reference", ""),
+            "document_url": url_for("web_invoices.invoice_detail", invoice_id=movement.get("invoiceId")) if movement.get("invoiceId") else (url_for("web_invoices.expense_detail", expense_id=movement.get("expenseId")) if movement.get("expenseId") else ""),
+            "reversal_of": "",
+        })
+    unified_movements.sort(key=lambda row: row.get("date", ""), reverse=True)
+    if origin_filter:
+        unified_movements = [row for row in unified_movements if origin_filter in row.get("origin", "").lower()]
+    if movement_query:
+        unified_movements = [row for row in unified_movements if movement_query in f"{row.get('description', '')} {row.get('reference', '')}".lower()]
+    running_balance = float(account.get("initialBalance", 0.0) or 0.0)
+    for movement in reversed(unified_movements):
+        movement["balance"] = round(running_balance + movement["inflow"] - movement["outflow"], 2)
+        running_balance = movement["balance"]
+        movement["reconciliation_status"] = "Conciliable" if movement.get("status") == "Registrado" else "Pendiente"
+    total_movements = len(unified_movements)
+    total_pages = max(1, (total_movements + page_size - 1) // page_size)
+    page = min(page, total_pages)
+    visible_movements = unified_movements[(page - 1) * page_size:page * page_size]
 
     return render_template('banks/detail.html', active_page='banks',
                            account=account, account_types=ACCOUNT_TYPES,
-                           transactions=transactions, adjustments=adjustments, ledger_movements=ledger_movements, reconciliation=reconciliation, type_filter=type_filter,
-                           date_from=date_from, date_to=date_to)
+                           transactions=transactions, adjustments=adjustments, ledger_movements=ledger_movements, unified_movements=visible_movements, reconciliation=reconciliation, last_reconciliation=last_reconciliation, type_filter=type_filter, page=page, total_pages=total_pages, total_movements=total_movements, quick_filter=quick_filter,
+                           date_from=date_from, date_to=date_to, origin_filter=origin_filter, movement_query=movement_query)
 
 @web_banks_bp.route('/banks/<account_id>/adjustment', methods=['POST'])
 def bank_adjustment(account_id):
@@ -577,9 +599,14 @@ def reconcile_list():
 
     accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
     reconciliations = DatabaseService.get_reconciliations(owner_uid, sandbox=sandbox, company_id=company_id)
+    last_by_account = {}
+    for reconciliation in reconciliations:
+        current = last_by_account.get(reconciliation.get("accountId"))
+        if not current or reconciliation.get("createdAt", "") > current.get("createdAt", ""):
+            last_by_account[reconciliation.get("accountId")] = reconciliation
 
     return render_template('banks/reconcile_list.html', active_page='bank_reconcile',
-                           accounts=accounts, reconciliations=reconciliations,
+                           accounts=accounts, reconciliations=reconciliations, last_by_account=last_by_account,
                            account_types=ACCOUNT_TYPES)
 
 @web_banks_bp.route('/banks/reconcile/<account_id>/new', methods=['GET', 'POST'])
@@ -627,7 +654,8 @@ def reconcile_new(account_id):
             "status": "en_curso",
             "transactions": [],
             "transactionCount": 0,
-            "reconciledCount": 0
+            "reconciledCount": 0,
+            "status": "pendiente",
         }
 
         # Auto-poblar transacciones del período (pagos recibidos en esta cuenta)

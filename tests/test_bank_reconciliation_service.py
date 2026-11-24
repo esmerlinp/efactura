@@ -1,10 +1,12 @@
 from app.services.bank_reconciliation_service import reconcile_account
 
 
-def test_reconcile_account_includes_adjustment_movements():
+def test_reconcile_account_uses_statement_balance_when_available():
     result = reconcile_account(
-        {"initialBalance": 100000, "currentBalance": 102500},
-        [{"amount": 1800}, {"amount": -300}, {"amount": 1000}],
+        {"initialBalance": 100, "currentBalance": 125, "statementBalance": 130},
+        [{"amount": 25}],
     )
-    assert result["calculated_balance"] == 102500
-    assert result["difference"] == 0
+    assert result["calculated_balance"] == 125
+    assert result["statement_balance"] == 130
+    assert result["difference"] == 5
+    assert result["status"] == "diferencias_detectadas"

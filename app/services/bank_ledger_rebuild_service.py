@@ -3,6 +3,30 @@
 
 class BankLedgerRebuildService:
     @staticmethod
+    def persist_candidates(db, owner_uid, company_id, movements, sandbox=True, registered_by="historical_migration", apply=False):
+        created = 0
+        skipped = 0
+        if not apply:
+            return {"created": 0, "skipped": len(movements), "dry_run": True}
+        for movement in movements:
+            try:
+                db.save_bank_movement(
+                    owner_uid,
+                    movement["accountId"],
+                    movement["amount"],
+                    movement["type"],
+                    movement["sourceType"],
+                    movement["sourceId"],
+                    movement.get("description", ""),
+                    sandbox=sandbox,
+                    company_id=company_id,
+                    registered_by=registered_by,
+                )
+                created += 1
+            except Exception:
+                skipped += 1
+        return {"created": created, "skipped": skipped, "dry_run": False}
+    @staticmethod
     def build_candidates(db, owner_uid, company_id, account_id, sandbox=True):
         movements = []
         invoices = db.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id, include_all=True) or []

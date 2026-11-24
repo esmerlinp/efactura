@@ -188,6 +188,11 @@ class CacheService:
         if company_id:
             CacheService.bump_version(company_id, True, "sales")
 
+    @classmethod
+    def invalidate_bank_movements(cls, company_id, sandbox=True):
+        if company_id:
+            cls.bump_version(company_id, bool(sandbox), "bank_movements")
+
     @staticmethod
     def invalidate_accounting(owner_uid: str, company_id=None):
         CacheService.invalidate_pattern("web_accounting")
