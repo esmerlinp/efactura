@@ -556,6 +556,9 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all, company_i
 
             for doc in docs:
                 data = doc.to_dict()
+                document_company_id = data.get("companyId") or data.get("company_id")
+                if company_id and document_company_id and document_company_id != company_id:
+                    continue
                 if data.get("isDeleted") and not include_all:
                     continue
 
@@ -569,8 +572,11 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all, company_i
                         "price": float(it.get("price", 0.0)),
                         "quantity": int(it.get("quantity", 1)),
                         "itbisRate": float(it.get("itbisRate") if it.get("itbisRate") is not None and str(it.get("itbisRate")).strip() != "" else 0.18),
-                        "discountRate": float(it.get("discountRate", 0.0)),
-                        "subtotal": float(it.get("subtotal", 0.0)),
+                         "discountRate": float(it.get("discountRate", 0.0)),
+                         "originalCost": float(it.get("originalCost", 0.0) or 0.0),
+                         "unitCost": float(it.get("unitCost", 0.0) or 0.0),
+                         "costPrice": float(it.get("costPrice", 0.0) or 0.0),
+                         "subtotal": float(it.get("subtotal", 0.0)),
                         "itbisAmount": float(it.get("itbisAmount", it.get("itbis_amount", 0.0))),
                         "total": float(it.get("total", 0.0)),
                         "codigoImpuesto": it.get("codigoImpuesto", ""),
@@ -741,8 +747,11 @@ def _cached_contingency_invoices(owner_uid, sandbox, company_id=None):
                         "price": float(it.get("price", 0.0)),
                         "quantity": int(it.get("quantity", 1)),
                         "itbisRate": float(it.get("itbisRate") if it.get("itbisRate") is not None and str(it.get("itbisRate")).strip() != "" else 0.18),
-                        "discountRate": float(it.get("discountRate", 0.0)),
-                        "subtotal": float(it.get("subtotal", 0.0)),
+                    "discountRate": float(it.get("discountRate", 0.0)),
+                    "originalCost": float(it.get("originalCost", 0.0) or 0.0),
+                    "unitCost": float(it.get("unitCost", 0.0) or 0.0),
+                    "costPrice": float(it.get("costPrice", 0.0) or 0.0),
+                    "subtotal": float(it.get("subtotal", 0.0)),
                         "itbisAmount": float(it.get("itbisAmount", it.get("itbis_amount", 0.0))),
                         "total": float(it.get("total", 0.0)),
                         "codigoImpuesto": it.get("codigoImpuesto", ""),
@@ -4728,6 +4737,8 @@ class DatabaseService:
             payment_dict["paymentDate"] = serialize_field(payment_dict["paymentDate"])
             
             inv_ref.collection("payments").document(payment_id).set(payment_dict)
+            if payment_dict.get("bankAccountId"):
+                cls.save_bank_movement(owner_uid, payment_dict["bankAccountId"], amount, "income", "invoice_payment", payment_id, f"Cobro {inv_data.get('invoiceNumber', '')}", sandbox=sandbox, company_id=company_id, registered_by=payment_dict.get("registeredBy", ""))
 
             if document_type == "proforma":
                 try:
@@ -5222,6 +5233,8 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_expenses" if sandbox else "expenses"
                 _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id).set(exp_dict)
+                if exp_dict.get("paymentType") == "Contado" and exp_dict.get("bankAccountId") and exp_dict.get("approvalStatus") not in ("Pendiente", "Rechazado"):
+                    cls.save_bank_movement(owner_uid, exp_dict["bankAccountId"], -float(exp_dict["amount"]), "expense", "cash_expense", expense_id, f"Gasto {exp_dict.get('concept', '')}", sandbox=sandbox, company_id=company_id, registered_by=exp_dict.get("createdBy", ""))
                 _invalidate_expenses(owner_uid, company_id=company_id)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar gasto en Firestore: {e}")
@@ -5387,6 +5400,7 @@ class DatabaseService:
                     if bank_acc:
                         new_balance = bank_acc["currentBalance"] - payment_amount
                         DatabaseService.save_bank_account(owner_uid, bank_account_id, {**bank_acc, "currentBalance": new_balance}, sandbox=sandbox, company_id=company_id)
+                        DatabaseService.save_bank_movement(owner_uid, bank_account_id, -payment_amount, "expense", "cxp_payment", payment_id, f"Pago CxP {data.get('concept', '')}", sandbox=sandbox, company_id=company_id, registered_by=approved_by)
                 except Exception as bank_err:
                     print(f"⚠️ Error al actualizar saldo bancario al aprobar pago de gasto: {bank_err}")
 
@@ -8901,6 +8915,72 @@ class DatabaseService:
             except Exception as e:
                 print(f"⚠️ Fallo al borrar cuenta bancaria de Firestore: {e}")
 
+    @classmethod
+    def save_bank_adjustment(cls, owner_uid, account_id, amount, reason, sandbox=True, company_id=None, registered_by=""):
+        """Registra un ajuste auditable y actualiza el saldo de la cuenta."""
+        amount = float(amount)
+        reason = str(reason or "").strip()
+        if not company_id or not reason or amount == 0:
+            raise ValueError("empresa, motivo y monto distinto de cero son obligatorios")
+        account = cls.get_bank_account(owner_uid, account_id, sandbox=sandbox, company_id=company_id)
+        if not account:
+            raise ValueError("cuenta bancaria no encontrada")
+        adjustment_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        adjustment = {
+            "id": adjustment_id, "accountId": account_id, "amount": amount,
+            "reason": reason, "registeredBy": registered_by, "createdAt": now,
+            "ownerUID": owner_uid, "companyId": company_id,
+        }
+        coll_name = "sandbox_bank_adjustments" if sandbox else "bank_adjustments"
+        _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(adjustment_id).set(adjustment)
+        cls.save_bank_movement(owner_uid, account_id, amount, "adjustment", "bank_adjustment", adjustment_id, reason, sandbox=sandbox, company_id=company_id, registered_by=registered_by)
+        cls.save_bank_account(owner_uid, account_id, {**account, "currentBalance": account["currentBalance"] + amount}, sandbox=sandbox, company_id=company_id)
+        return adjustment
+
+    @classmethod
+    def save_bank_movement(cls, owner_uid, account_id, amount, movement_type, source_type, source_id, description="", sandbox=True, company_id=None, registered_by=""):
+        """Registra un movimiento bancario idempotente para nuevas operaciones."""
+        if not company_id or not account_id or not source_type or not source_id:
+            raise ValueError("empresa, cuenta y origen son obligatorios")
+        movement_id = hashlib.sha256(f"{account_id}:{source_type}:{source_id}".encode()).hexdigest()
+        coll_name = "sandbox_bank_movements" if sandbox else "bank_movements"
+        ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(movement_id)
+        if ref.get().exists:
+            return ref.get().to_dict()
+        movement = {
+            "id": movement_id, "accountId": account_id, "amount": float(amount),
+            "type": movement_type, "sourceType": source_type, "sourceId": source_id,
+            "description": description, "registeredBy": registered_by,
+            "createdAt": datetime.now(timezone.utc).isoformat(), "ownerUID": owner_uid,
+            "companyId": company_id,
+        }
+        ref.set(movement)
+        return movement
+
+    @classmethod
+    def get_bank_movements(cls, owner_uid, account_id, sandbox=True, company_id=None):
+        coll_name = "sandbox_bank_movements" if sandbox else "bank_movements"
+        try:
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where(filter=firestore.FieldFilter("accountId", "==", account_id)).stream()
+            return sorted([doc.to_dict() for doc in docs], key=lambda row: row.get("createdAt", ""), reverse=True)
+        except Exception as exc:
+            print(f"⚠️ Error al obtener movimientos bancarios: {exc}")
+            return []
+
+    @classmethod
+    def get_bank_adjustments(cls, owner_uid, account_id, sandbox=True, company_id=None):
+        coll_name = "sandbox_bank_adjustments" if sandbox else "bank_adjustments"
+        try:
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where(
+                filter=firestore.FieldFilter("accountId", "==", account_id)
+            ).stream()
+            rows = [doc.to_dict() for doc in docs]
+            return sorted(rows, key=lambda row: row.get("createdAt", ""), reverse=True)
+        except Exception as exc:
+            print(f"⚠️ Error al obtener ajustes bancarios: {exc}")
+            return []
+
     # =========================================================================
     # ENTIDADES BANCARIAS (CATÁLOGO DE BANCOS)
     # =========================================================================
@@ -9063,12 +9143,14 @@ class DatabaseService:
                     cls.save_bank_account(owner_uid, transfer_dict["fromAccountId"], {
                         **from_account,
                         "currentBalance": from_account["currentBalance"] - transfer_dict["amount"]
-                    }, sandbox=sandbox)
+                    }, sandbox=sandbox, company_id=company_id)
                 if to_account:
                     cls.save_bank_account(owner_uid, transfer_dict["toAccountId"], {
                         **to_account,
                         "currentBalance": to_account["currentBalance"] + transfer_dict["amount"]
-                    }, sandbox=sandbox)
+                    }, sandbox=sandbox, company_id=company_id)
+                cls.save_bank_movement(owner_uid, transfer_dict["fromAccountId"], -transfer_dict["amount"], "transfer_out", "bank_transfer", transfer_id, transfer_dict.get("description", "Transferencia"), sandbox=sandbox, company_id=company_id)
+                cls.save_bank_movement(owner_uid, transfer_dict["toAccountId"], transfer_dict["amount"], "transfer_in", "bank_transfer", transfer_id, transfer_dict.get("description", "Transferencia"), sandbox=sandbox, company_id=company_id)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar transferencia en Firestore: {e}")
         return transfer_dict

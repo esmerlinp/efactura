@@ -7,6 +7,7 @@ from app.utils.decorators import check_permission
 from app.utils.module_gate import gate_blueprint_module
 from collections import defaultdict
 from app.models.fiscal_document_type import by_code as _by_code
+from app.services.profitability_service import build_profitability
 
 web_reports_sales_bp = Blueprint('web_reports_sales', __name__)
 gate_blueprint_module(web_reports_sales_bp, 'e_cf')
@@ -91,6 +92,7 @@ def ventas_generales():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
@@ -545,74 +547,9 @@ def ventas_por_cliente_export():
 
 def get_profitability_data(owner_uid, sandbox, year, month, item_type=None, company_id=None):
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
-    real = [inv for inv in invoices
-            if not inv.get('isQuotation')
-            and inv.get('status') not in ('Anulada', 'Borrador', 'Consolidada')]
-    if not real:
-        return [], 0, 0, 0
-
-    filtered = []
-    for inv in real:
-        inv_date = (inv.get('date') or inv.get('createdAt') or '')[:7]
-        if inv_date and inv_date >= f"{year:04d}-01" and inv_date <= f"{year:04d}-12":
-            if f"{year:04d}-{month:02d}" == inv_date:
-                filtered.append(inv)
-            elif month == 0:
-                filtered.append(inv)
-
-    if not filtered:
-        return [], 0, 0, 0
-
     catalog_items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
-    cost_by_code = {}
-    for item in catalog_items:
-        code = item.get('code', '') or item.get('id', '')
-        if code:
-            cost_by_code[code] = float(item.get('costPrice', 0))
-            if item.get('id'):
-                cost_by_code[item['id']] = float(item.get('costPrice', 0))
-
-    products = defaultdict(lambda: {"code": "", "name": "", "type": "", "quantity": 0, "total_sold": 0.0, "total_cost": 0.0})
-
-    for inv in filtered:
-        for item in inv.get('items', []):
-            code = item.get('code', '') or item.get('id', '')
-            name = item.get('name', 'Sin nombre')
-            it_type = item.get('type', 'Bien')
-            if item_type and it_type != item_type:
-                continue
-            key = code or name
-            qty = int(item.get('quantity', 1))
-            total = float(item.get('total', 0))
-            cost_price = cost_by_code.get(code, 0)
-            p = products[key]
-            p["code"] = code
-            p["name"] = name
-            p["type"] = it_type
-            p["quantity"] += qty
-            p["total_sold"] += total
-            p["total_cost"] += cost_price * qty
-
-    result = []
-    for key, p in products.items():
-        profit = p["total_sold"] - p["total_cost"]
-        margin = (profit / p["total_sold"] * 100) if p["total_sold"] else 0
-        result.append({
-            "code": p["code"],
-            "name": p["name"],
-            "type": p["type"],
-            "quantity": p["quantity"],
-            "total_sold": round(p["total_sold"], 2),
-            "total_cost": round(p["total_cost"], 2),
-            "profit": round(profit, 2),
-            "margin": round(margin, 2),
-        })
-
-    result.sort(key=lambda x: x["total_sold"], reverse=True)
-    total_sold = round(sum(r["total_sold"] for r in result), 2)
-    total_cost = round(sum(r["total_cost"] for r in result), 2)
-    total_profit = round(total_sold - total_cost, 2)
-    return result, total_sold, total_cost, total_profit
+    rows, total_sold, total_cost, total_profit = build_profitability(invoices, catalog_items, year, month, item_type)
+    return [{**row, "total_sold": row["revenue"], "total_cost": row["cost"]} for row in rows], total_sold, total_cost, total_profit
 
 
 @web_reports_sales_bp.route('/reports/ventas/rentabilidad')
@@ -625,6 +562,7 @@ def ventas_rentabilidad():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -648,7 +586,9 @@ def ventas_rentabilidad():
     if per_page < 1:
         per_page = 10
 
-    all_products, total_sold, total_cost, total_profit = get_profitability_data(owner_uid, sandbox, year, month, item_type)
+    all_products, total_sold, total_cost, total_profit = get_profitability_data(
+        owner_uid, sandbox, year, month, item_type, company_id=company_id
+    )
 
     total_items = len(all_products)
     total_pages = max(1, (total_items + per_page - 1) // per_page)
@@ -714,7 +654,9 @@ def ventas_rentabilidad_export():
         month = 0
     item_type = request.args.get('type', '')
 
-    all_products, total_sold, total_cost, total_profit = get_profitability_data(owner_uid, sandbox, year, month, item_type)
+    all_products, total_sold, total_cost, total_profit = get_profitability_data(
+        owner_uid, sandbox, year, month, item_type, company_id=company_id
+    )
 
     if not all_products:
         return render_template('auth/restricted.html', feature_name="Rentabilidad por producto/servicio",
@@ -3744,9 +3686,13 @@ def cash_flow_projection():
 
     try:
         from app.services.cash_flow_service import CashFlowService
-        projection = CashFlowService.project_cash_flow(owner_uid, months=proj_months, sandbox=sandbox)
+        projection = CashFlowService.project_cash_flow(
+            owner_uid, months=proj_months, sandbox=sandbox, company_id=company_id
+        )
         deficit_alerts = CashFlowService.get_deficit_alerts(projection)
-        current_liquidity = CashFlowService.get_current_liquidity(owner_uid, sandbox=sandbox)
+        current_liquidity = CashFlowService.get_current_liquidity(
+            owner_uid, sandbox=sandbox, company_id=company_id
+        )
     except Exception as e:
         flash(f'Error al generar proyección: {str(e)}', 'error')
         projection = []

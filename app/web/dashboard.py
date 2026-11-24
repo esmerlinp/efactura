@@ -111,7 +111,7 @@ def dashboard():
     sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox, company_id=company_id)
     profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
-    from app.services.dashboard_metrics_service import get_dashboard_metrics
+    from app.services.dashboard_metrics_service import get_dashboard_metrics, _cxc_balance
     cached_metrics = get_dashboard_metrics(
         company_id, sandbox, g.get('branch_id'), g.get('project_id'), scale,
         selected_date, kpi_period, invoices, expenses,
@@ -129,19 +129,41 @@ def dashboard():
     total_cxc = cached_metrics["total_cxc"]
     
     # CxC breakdown
-    cxc_vigentes = sum(inv['netPayable'] for inv in real_invoices if inv['status'] == 'Emitida')
-    cxc_vencidas = sum(inv['netPayable'] for inv in real_invoices if inv['status'] == 'Vencida')
-    cxc_docs_vigentes = sum(1 for inv in real_invoices if inv['status'] == 'Emitida')
-    cxc_docs_vencidas = sum(1 for inv in real_invoices if inv['status'] == 'Vencida')
+    cxc_invoices = cached_metrics["cxc_invoices"]
+    cxc_vigentes = sum(
+        _cxc_balance(inv)
+        for inv in cxc_invoices
+        if inv['status'] in ('Emitida', 'Parcialmente Cobrada', 'Revisión de Pago')
+    )
+    cxc_vencidas = sum(
+        _cxc_balance(inv)
+        for inv in cxc_invoices if inv['status'] == 'Vencida'
+    )
+    cxc_docs_vigentes = sum(
+        1 for inv in cxc_invoices
+        if inv['status'] in ('Emitida', 'Parcialmente Cobrada', 'Revisión de Pago')
+    )
+    cxc_docs_vencidas = sum(1 for inv in cxc_invoices if inv['status'] == 'Vencida')
     
     # Pagos Recibidos (total de netPayable que ya han sido pagados)
-    pagos_recibidos = sum(inv.get('netPayable', 0.0) - inv.get('remainingBalance', 0.0) 
-                         for inv in real_invoices if inv['status'] == 'Pagado')
-    pagos_parciales = sum(inv.get('netPayable', 0.0) - inv.get('remainingBalance', 0.0)
-                         for inv in real_invoices if inv['status'] == 'Parcialmente Cobrada')
+    pagos_recibidos = sum(
+        max(0.0, float(inv.get('netPayable', 0.0) or 0.0) - float(inv.get('remainingBalance', 0.0) or 0.0))
+        for inv in real_invoices
+        if inv['status'] in ('Pagado', 'Parcialmente Cobrada')
+    )
+    pagos_parciales = sum(
+        max(0.0, float(inv.get('netPayable', 0.0) or 0.0) - float(inv.get('remainingBalance', 0.0) or 0.0))
+        for inv in real_invoices if inv['status'] == 'Parcialmente Cobrada'
+    )
     
     # Cuentas por Pagar (CxP): Gastos de crédito no pagados
-    cxp_expenses = [exp for exp in expenses if exp.get('paymentType') == 'Crédito' and exp.get('cxpStatus') != 'Pagado']
+    cxp_expenses = [
+        exp for exp in expenses
+        if exp.get('paymentType') == 'Crédito'
+        and exp.get('cxpStatus') != 'Pagado'
+        and exp.get('approvalStatus') != 'Pendiente'
+        and float(exp.get('cxpRemainingBalance', exp.get('amount', 0.0)) or 0.0) > 0
+    ]
     total_cxp = sum(exp.get('cxpRemainingBalance', 0.0) for exp in cxp_expenses)
     cxp_vigentes = sum(exp.get('cxpRemainingBalance', 0.0) for exp in cxp_expenses if exp.get('cxpStatus') != 'Vencido')
     cxp_vencidas = sum(exp.get('cxpRemainingBalance', 0.0) for exp in cxp_expenses if exp.get('cxpStatus') == 'Vencido')
@@ -190,10 +212,10 @@ def dashboard():
             buckets[label] = {"invoiced": 0.0, "expenses": 0.0, "order": h}
             labels.append(label)
     elif scale == 'day':
-        days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
-        for idx, day in enumerate(days):
-            buckets[day] = {"invoiced": 0.0, "expenses": 0.0, "order": idx}
-            labels.append(day)
+        for day_number in range(1, selected_date.day + 1):
+            label = f"{day_number:02d}"
+            buckets[label] = {"invoiced": 0.0, "expenses": 0.0, "order": day_number}
+            labels.append(label)
     elif scale == 'week':
         for w in range(1, 6):
             label = f"Sem. {w}"
@@ -221,10 +243,12 @@ def dashboard():
         if scale == 'hour':
             return doc_date.date() == selected_date.date()
         elif scale == 'day':
-            return doc_date.isocalendar()[1] == selected_date.isocalendar()[1] and doc_date.year == selected_date.year
+            return doc_date.month == selected_date.month and doc_date.year == selected_date.year
         elif scale == 'week':
             return doc_date.month == selected_date.month and doc_date.year == selected_date.year
-        elif scale == 'month' or scale == 'quarter':
+        elif scale == 'month':
+            return doc_date.year == selected_date.year
+        elif scale == 'quarter':
             return doc_date.year == selected_date.year
         elif scale == 'year':
             return (current_year - 4) <= doc_date.year <= current_year
@@ -235,8 +259,7 @@ def dashboard():
             h = (doc_date.hour // 2) * 2
             return f"{h:02d}:00"
         elif scale == 'day':
-            days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
-            return days[doc_date.weekday()]
+            return f"{doc_date.day:02d}"
         elif scale == 'week':
             w = min(5, (doc_date.day - 1) // 7 + 1)
             return f"Sem. {w}"
@@ -329,7 +352,10 @@ def dashboard():
     for c in clients:
         c_id = c['id']
         c_sales = [inv for inv in real_invoices if inv['clientId'] == c_id]
-        c['total_cxc'] = sum(inv['netPayable'] for inv in c_sales if inv['status'] in ['Emitida', 'Vencida'])
+        c['total_cxc'] = sum(
+            _cxc_balance(inv) for inv in c_sales
+            if inv in cxc_invoices
+        )
 
     crm_contacts = [
         c for c in clients 
@@ -404,53 +430,36 @@ def dashboard():
     }
 
     # 5. BI: Margen por Producto
-    catalog_cost = {}
-    for it in items:
-        cost = float(it.get('costPrice', 0.0))
-        name_key = it.get('name', '').lower().strip()
-        code_key = it.get('code', '').lower().strip()
-        if name_key:
-            catalog_cost[name_key] = cost
-        if code_key:
-            catalog_cost[code_key] = cost
-
-    product_stats = {}
-    for inv in real_invoices:
-        for it in inv.get('items', []):
-            name = it.get('name', '')
-            code = it.get('code', '')
-            price = float(it.get('price', 0.0))
-            qty = int(it.get('quantity', 1))
-            subtotal = float(it.get('subtotal', price * qty))
-            cost = catalog_cost.get(code.lower().strip()) or catalog_cost.get(name.lower().strip()) or 0.0
-            total_cost = cost * qty
-            key = name or code or "Producto Desconocido"
-            if key not in product_stats:
-                product_stats[key] = {"name": key, "qty": 0, "revenue": 0.0, "cost": 0.0}
-            product_stats[key]["qty"] += qty
-            product_stats[key]["revenue"] += subtotal
-            product_stats[key]["cost"] += total_cost
-
-    for key, ps in product_stats.items():
-        rev = ps["revenue"]
-        cst = ps["cost"]
-        ps["profit"] = rev - cst
-        ps["margin"] = ((rev - cst) / rev * 100) if rev > 0 else 0.0
-
-    products_by_profit = sorted(product_stats.values(), key=lambda x: x["profit"], reverse=True)
+    from app.services.profitability_service import build_profitability
+    profit_rows, _, _, _ = build_profitability(real_invoices, items, selected_year, selected_month)
+    products_by_profit = [
+        {"name": row["name"], "revenue": row["revenue"], "profit": row["profit"], "margin": row["margin"], "cost_known": row["cost_known"]}
+        for row in profit_rows
+    ]
 
     # 6. BI: Clientes más rentables
     client_stats = {}
+    client_cost_known = {}
+    catalog_cost = {}
+    for item in items:
+        cost = float(item.get('costPrice', 0.0) or 0.0)
+        for key in (item.get('id'), item.get('code'), item.get('name')):
+            if key:
+                catalog_cost[str(key).strip().lower()] = cost
     for inv in real_invoices:
         client_id = inv.get('clientId') or 'Consumidor Final'
         client_name = inv.get('clientName') or 'Consumidor Final'
-        subtotal = float(inv.get('subtotal', 0.0))
+        subtotal = sum(float(line.get('total', line.get('subtotal', 0.0)) or 0.0) for line in inv.get('items', []))
         inv_cost = 0.0
         for it in inv.get('items', []):
             name = it.get('name', '')
             code = it.get('code', '')
             qty = int(it.get('quantity', 1))
-            cost = catalog_cost.get(code.lower().strip()) or catalog_cost.get(name.lower().strip()) or 0.0
+            cost_key = code.lower().strip() or name.lower().strip()
+            cost = float(it.get('originalCost') or it.get('unitCost') or it.get('costPrice') or 0.0)
+            if cost <= 0:
+                cost = catalog_cost.get(cost_key, 0.0)
+            client_cost_known[client_id] = True
             inv_cost += cost * qty
         if client_id not in client_stats:
             client_stats[client_id] = {"name": client_name, "revenue": 0.0, "cost": 0.0, "invoice_count": 0}
@@ -462,9 +471,14 @@ def dashboard():
         rev = cs["revenue"]
         cst = cs["cost"]
         cs["profit"] = rev - cst
-        cs["margin"] = (rev - cst) / rev * 100 if rev > 0 else 0.0
+        cs["margin"] = (cs["profit"] / rev * 100) if rev > 0 else 0.0
+        cs["cost_known"] = True
 
-    clients_by_profit = sorted(client_stats.values(), key=lambda x: x["profit"], reverse=True)
+    clients_by_profit = sorted(
+        client_stats.values(),
+        key=lambda x: (x["profit"] is not None, x["profit"] or 0.0),
+        reverse=True,
+    )
 
     # 7. BI: Flujo de Caja Proyectado (6 meses) — vía CashFlowService
     from app.services.cash_flow_service import CashFlowService
@@ -489,14 +503,16 @@ def dashboard():
         liquidity_warning_month = None
 
     # 8. BI: Indicadores Tributarios
-    total_itbis_sales = sum(float(inv.get('totalITBIS', 0.0)) for inv in real_invoices)
-    total_itbis_expenses = sum(float(exp.get('itbisAmount', 0.0)) for exp in expenses if exp.get('isITBISDeductible', True))
-    itbis_to_pay = total_itbis_sales - total_itbis_expenses
-
-    total_sales_net = sum(inv.get('subtotal', 0.0) for inv in real_invoices)
-    total_expenses_net = sum(exp.get('amount', 0.0) - exp.get('itbisAmount', 0.0) for exp in expenses)
-    isr_base = max(0.0, total_sales_net - total_expenses_net)
-    isr_estimated = isr_base * 0.27
+    from app.services.tax_dashboard_service import build_tax_estimate
+    tax_estimate = build_tax_estimate(real_invoices, expenses, selected_year, selected_month)
+    tax_invoices = tax_estimate["invoices"]
+    total_itbis_sales = tax_estimate["itbis_sales"]
+    total_itbis_expenses = tax_estimate["itbis_expenses"]
+    itbis_to_pay = tax_estimate["itbis_to_pay"]
+    total_sales_net = tax_estimate["sales_net"]
+    total_expenses_net = tax_estimate["expenses_net"]
+    isr_base = tax_estimate["isr_base"]
+    isr_estimated = tax_estimate["isr_estimated"]
     anticipos_estimated = isr_estimated / 12.0
 
     rst_taxable_base = total_sales_net * 0.60
@@ -555,7 +571,10 @@ def dashboard():
             "text": f"Alerta de liquidez: Proyección de flujo de caja neto acumulado negativo detectado para el mes de {liquidity_warning_month}."
         })
 
-    low_margin_count = sum(1 for ps in product_stats.values() if ps["cost"] > 0 and ps["margin"] < 15.0)
+    low_margin_count = sum(
+        1 for ps in profit_rows
+        if ps["cost_known"] and ps["margin"] is not None and ps["margin"] < 15.0
+    )
     if low_margin_count > 0:
         insights.append({
             "type": "info",

@@ -150,11 +150,53 @@
         </div>
     </div>
     <div class="acc-balance">
+        <div class="bal-label">Saldo inicial</div>
+        <div style="font-size:0.95rem; color:var(--text-secondary); margin-bottom:8px;">RD$ {{ "{:,.2f}".format(account.initialBalance) }}</div>
         <div class="bal-label">Saldo actual</div>
         <div class="bal-value {% if account.currentBalance >= 0 %}positive{% else %}negative{% endif %}">
             RD$ {{ "{:,.2f}".format(account.currentBalance) }}
         </div>
     </div>
+</div>
+
+<div class="rpt-table-card" style="padding:16px;">
+    <div class="card-header" style="padding:0 0 12px 0; border-bottom:1px solid #e2e8f0;"><i class="fa-solid fa-scale-balanced"></i> Conciliación informativa</div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; padding-top:14px; font-size:0.82rem;">
+        <div>Entradas<br><strong style="color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(reconciliation.inflows) }}</strong></div>
+        <div>Salidas<br><strong style="color:var(--accent-red);">RD$ {{ "{:,.2f}".format(reconciliation.outflows) }}</strong></div>
+        <div>Saldo calculado<br><strong>RD$ {{ "{:,.2f}".format(reconciliation.calculated_balance) }}</strong></div>
+        <div>Saldo guardado<br><strong>RD$ {{ "{:,.2f}".format(reconciliation.stored_balance) }}</strong></div>
+        <div>Diferencia<br><strong style="color:{% if reconciliation.difference == 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">RD$ {{ "{:,.2f}".format(reconciliation.difference) }}</strong></div>
+    </div>
+    <div style="margin-top:12px; color:var(--text-muted); font-size:0.75rem;">{{ reconciliation.transaction_count }} movimientos visibles según los filtros aplicados. Esta conciliación no modifica el saldo.</div>
+</div>
+
+<div class="rpt-table-card">
+    <div class="card-header"><i class="fa-solid fa-clipboard-list"></i> Ajustes auditables</div>
+    {% if adjustments %}
+    <table class="rpt-table">
+        <thead><tr><th>Fecha</th><th>Motivo</th><th>Usuario</th><th>Monto</th></tr></thead>
+        <tbody>
+        {% for adjustment in adjustments %}
+        <tr>
+            <td>{{ adjustment.createdAt[:19] if adjustment.createdAt else '—' }}</td>
+            <td>{{ adjustment.reason }}</td>
+            <td>{{ adjustment.registeredBy or '—' }}</td>
+            <td class="{% if adjustment.amount >= 0 %}tx-income{% else %}tx-expense{% endif %}">RD$ {{ "{:,.2f}".format(adjustment.amount) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}<div style="padding:16px; color:var(--text-muted); font-size:.8rem;">No hay ajustes registrados.</div>{% endif %}
+</div>
+
+<div class="rpt-table-card">
+    <div class="card-header"><i class="fa-solid fa-book"></i> Libro único de movimientos</div>
+    {% if ledger_movements %}
+    <table class="rpt-table"><thead><tr><th>Fecha</th><th>Origen</th><th>Descripción</th><th>Monto</th></tr></thead><tbody>
+    {% for movement in ledger_movements %}<tr><td>{{ movement.createdAt[:19] if movement.createdAt else '—' }}</td><td>{{ movement.sourceType }}</td><td>{{ movement.description or '—' }}</td><td class="{% if movement.amount >= 0 %}tx-income{% else %}tx-expense{% endif %}">RD$ {{ "{:,.2f}".format(movement.amount) }}</td></tr>{% endfor %}
+    </tbody></table>
+    {% else %}<div style="padding:16px;color:var(--text-muted);font-size:.8rem;">No hay movimientos en el libro nuevo.</div>{% endif %}
 </div>
 
 <div class="action-bar">
@@ -173,6 +215,17 @@
     <a href="{{ url_for('web_banks.new_bank_receipt', account_id=account.id) }}" class="btn btn-primary">
         <i class="fa-solid fa-arrow-left-to-bracket"></i> Pago recibido
     </a>
+</div>
+
+<div class="rpt-table-card" style="padding:16px;">
+    <div class="card-header">Ajuste de saldo</div>
+    <form method="POST" action="{{ url_for('web_banks.bank_adjustment', account_id=account.id) }}" style="display:flex; gap:10px; flex-wrap:wrap; align-items:end; padding-top:14px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Monto (+ entrada / - salida)<input name="amount" type="number" step="0.01" required></label>
+        <label style="min-width:280px;">Motivo obligatorio<input name="reason" maxlength="300" required></label>
+        <button class="btn btn-secondary" type="submit">Registrar ajuste</button>
+    </form>
+    <div style="margin-top:10px; color:var(--text-muted); font-size:.75rem;">El ajuste modifica el saldo y queda guardado con usuario, fecha y motivo.</div>
 </div>
 
 <div class="rpt-table-card">

@@ -510,7 +510,7 @@
                             <td style="text-align: right;">RD$ {{ "{:,.2f}".format(prod.revenue) }}</td>
                             <td style="text-align: right;">
                                 <span class="badge {% if prod.margin >= 25 %}badge-success{% elif prod.margin >= 10 %}badge-warning{% else %}badge-danger{% endif %}">
-                                    {{ "{:,.1f}".format(prod.margin) }}%
+                                    {{ "{:,.1f}".format(prod.margin or 0) }}%
                                 </span>
                             </td>
                         </tr>
@@ -534,7 +534,7 @@
                         <tr>
                             <th>Cliente</th>
                             <th style="text-align: right;">Ventas Totales</th>
-                            <th style="text-align: right;">Ganancia Neta Est.</th>
+                            <th style="text-align: right;">Utilidad bruta estimada</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -543,7 +543,7 @@
                         <tr>
                             <td>{{ cl.name }}</td>
                             <td style="text-align: right;">RD$ {{ "{:,.2f}".format(cl.revenue) }}</td>
-                            <td style="text-align: right; color: var(--accent-emerald); font-weight: 500;">RD$ {{ "{:,.2f}".format(cl.profit) }}</td>
+                            <td style="text-align: right; color: var(--accent-emerald); font-weight: 500;">RD$ {{ "{:,.2f}".format(cl.profit or 0) }}</td>
                         </tr>
                         {% endfor %}
                         {% else %}
@@ -562,7 +562,7 @@
 <div id="tab-cash-flow" class="dashboard-tab">
     <div class="card-table-wrapper" style="padding: 24px;">
         <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
-            <span><i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i> Proyección de Flujo de Caja (Próximos 4 Meses)</span>
+            <span><i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i> Proyección de Flujo de Caja (Próximos 6 Meses)</span>
             <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal;">Basado en fechas de vencimiento de CxC y CxP corrientes</span>
         </h4>
         <div style="height: 300px; margin-bottom: 30px; position: relative;">
@@ -600,18 +600,18 @@
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
         <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
             <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-receipt" style="color: var(--accent-emerald);"></i> Régimen General / Ordinario Est.
+                <i class="fa-solid fa-receipt" style="color: var(--accent-emerald);"></i> Tributarios estimados
             </h4>
             <p style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4; margin-bottom: 8px;">
-                Cálculo proyectado del Impuesto Sobre la Renta (ISR) para sociedades en la República Dominicana (Tasa de 27% sobre la base imponible real).
+                Estimación informativa para {{ current_month_name }} {{ selected_year }}. Los valores definitivos deben validarse en IT-1, IR-17 e IR-2.
             </p>
             <div style="display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.01); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
                 <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
-                    <span>Ventas del Periodo (Netas):</span>
+                    <span>Ventas del período (netas):</span>
                     <span>RD$ {{ "{:,.2f}".format(total_sales_net) }}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
-                    <span>Gastos del Periodo:</span>
+                    <span>Gastos aprobados del período:</span>
                     <span style="color: var(--text-secondary);">- RD$ {{ "{:,.2f}".format(total_expenses_net) }}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-size: 0.9rem; border-top: 1px dashed var(--border-color); padding-top: 8px;">
@@ -619,7 +619,7 @@
                     <span>RD$ {{ "{:,.2f}".format(total_sales_net - total_expenses_net if total_sales_net - total_expenses_net > 0 else 0.0) }}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 500; color: var(--accent-red); border-top: 1px solid var(--border-color); padding-top: 8px;">
-                    <span>ISR Estimado (27%):</span>
+                    <span>ISR estimado (27%):</span>
                     <span>RD$ {{ "{:,.2f}".format(isr_estimated) }}</span>
                 </div>
             </div>

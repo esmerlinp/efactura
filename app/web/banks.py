@@ -261,11 +261,39 @@ def bank_detail(account_id):
         print(f"⚠️ Error al cargar transferencias: {e}")
 
     transactions.sort(key=lambda x: x.get('date', ''), reverse=True)
+    from app.services.bank_reconciliation_service import reconcile_account
+    reconciliation = reconcile_account(account, transactions)
+    adjustments = DatabaseService.get_bank_adjustments(
+        owner_uid, account_id, sandbox=sandbox, company_id=company_id
+    )
+    ledger_movements = DatabaseService.get_bank_movements(
+        owner_uid, account_id, sandbox=sandbox, company_id=company_id
+    )
 
     return render_template('banks/detail.html', active_page='banks',
                            account=account, account_types=ACCOUNT_TYPES,
-                           transactions=transactions, type_filter=type_filter,
+                           transactions=transactions, adjustments=adjustments, ledger_movements=ledger_movements, reconciliation=reconciliation, type_filter=type_filter,
                            date_from=date_from, date_to=date_to)
+
+@web_banks_bp.route('/banks/<account_id>/adjustment', methods=['POST'])
+def bank_adjustment(account_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageBanks'):
+        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canManageBanks"), 403
+    try:
+        amount = float(request.form.get('amount', 0))
+        reason = request.form.get('reason', '')
+        DatabaseService.save_bank_adjustment(
+            session['user']['ownerUID'], account_id, amount, reason,
+            sandbox=session.get('is_sandbox_mode', True),
+            company_id=session.get('selected_company_id'),
+            registered_by=session['user'].get('email', ''),
+        )
+        flash('Ajuste bancario registrado correctamente.', 'success')
+    except (TypeError, ValueError) as exc:
+        flash(f'No se pudo registrar el ajuste: {exc}', 'error')
+    return redirect(url_for('web_banks.bank_detail', account_id=account_id))
 
 
 @web_banks_bp.route('/banks/new', methods=['GET', 'POST'])

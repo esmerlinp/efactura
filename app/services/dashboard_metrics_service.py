@@ -30,6 +30,23 @@ def _in_kpi_period(value, selected_date, kpi_period):
     return True
 
 
+def _cxc_balance(invoice):
+    return float(invoice.get("remainingBalance", invoice.get("netPayable", 0)) or 0)
+
+
+def _is_cxc_invoice(invoice):
+    return (
+        invoice.get("status") in ("Emitida", "Parcialmente Cobrada", "Vencida", "Revisión de Pago")
+        and invoice.get("clientId")
+        and "consumidor final" not in str(invoice.get("clientName", "")).lower()
+        and _cxc_balance(invoice) > 0
+    )
+
+
+def _is_approved_expense(expense):
+    return expense.get("approvalStatus") != "Pendiente"
+
+
 def build_dashboard_metrics(invoices, expenses, selected_date, kpi_period):
     """Build values that depend only on invoice and expense snapshots."""
     real_invoices = [
@@ -44,26 +61,27 @@ def build_dashboard_metrics(invoices, expenses, selected_date, kpi_period):
     kpi_expenses = [
         expense for expense in expenses
         if _in_kpi_period(expense.get("date"), selected_date, kpi_period)
+        and _is_approved_expense(expense)
     ]
 
     total_invoiced = sum(float(invoice.get("total", 0)) for invoice in kpi_invoices)
     total_expenses = sum(float(expense.get("amount", 0)) for expense in kpi_expenses)
     total_itbis = sum(float(invoice.get("totalITBIS", 0)) for invoice in kpi_invoices)
-    total_cxc = sum(
-        float(invoice.get("netPayable", 0))
-        for invoice in real_invoices
-        if invoice.get("status") in ("Emitida", "Vencida")
-    )
+    cxc_invoices = [invoice for invoice in real_invoices if _is_cxc_invoice(invoice)]
+    total_cxc = sum(_cxc_balance(invoice) for invoice in cxc_invoices)
     cxp_expenses = [
         expense for expense in expenses
         if expense.get("paymentType") == "Crédito"
         and expense.get("cxpStatus") != "Pagado"
+        and _is_approved_expense(expense)
+        and float(expense.get("cxpRemainingBalance", expense.get("amount", 0)) or 0) > 0
     ]
     total_cxp = sum(float(expense.get("cxpRemainingBalance", 0)) for expense in cxp_expenses)
     margin_net = ((total_invoiced - total_expenses) / total_invoiced * 100) if total_invoiced else 0.0
 
     return {
         "real_invoices": real_invoices,
+        "cxc_invoices": cxc_invoices,
         "total_invoiced": total_invoiced,
         "total_expenses": total_expenses,
         "total_cxc": total_cxc,

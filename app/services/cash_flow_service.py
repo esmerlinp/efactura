@@ -122,11 +122,15 @@ class CashFlowService:
         for inv in invoices:
             if inv.get("isQuotation") or inv.get("documentType") in ("quotation", "proforma") or inv.get("status") in ("Anulada", "Borrador", "Pagado", "Consolidada"):
                 continue
+            if not inv.get("clientId") or "consumidor final" in str(inv.get("clientName", "")).lower():
+                continue
             remaining = float(inv.get("remainingBalance", 0.0))
             if remaining <= 0:
                 continue
             due_str = inv.get("dueDate", "")
             due_date = cls._parse_date(due_str)
+            if due_date < today:
+                due_date = today
             key = f"{due_date.year}-{due_date.month:02d}"
             if key in projections:
                 projections[key].inflow += remaining
@@ -143,7 +147,7 @@ class CashFlowService:
         # ── CxP: Gastos a crédito pendientes de pago ──
         expenses = expenses if expenses is not None else (DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id) or [])
         for exp in expenses:
-            if exp.get("approvalStatus") == "Rechazado":
+            if exp.get("approvalStatus") in ("Rechazado", "Pendiente"):
                 continue
             if exp.get("paymentType") != "Crédito":
                 continue
@@ -154,6 +158,8 @@ class CashFlowService:
                 continue
             due_str = exp.get("dueDate", "") or exp.get("date", "")
             due_date = cls._parse_date(due_str)
+            if due_date < today:
+                due_date = today
             key = f"{due_date.year}-{due_date.month:02d}"
             if key in projections:
                 projections[key].outflow += remaining
