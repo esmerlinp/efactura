@@ -230,13 +230,16 @@ def emit_invoice():
         }
         
         # Consumir el siguiente consecutivo del rango fiscal DGII si no se ha asignado y no es cotización
-        if not invoice_dict.get("encf"):
-            ecf_short = get_ecf_type_short_code(invoice_dict["ecfType"])
-            user_email = g.company.get("companyEmail", "api@vykcore.com")
-            
-            # Bloquear secuencia y generar consecutivo transaccionalmente en Firestore
-            encf, log_id = DatabaseService.consume_next_sequence(g.owner_uid, ecf_short, user_email, company_id=g.company_id, sandbox=g.sandbox_mode)
-            invoice_dict["encf"] = encf
+        if EcfEmissionService.should_emit_ecf(g.company):
+            if not invoice_dict.get("encf"):
+                ecf_short = get_ecf_type_short_code(invoice_dict["ecfType"])
+                user_email = g.company.get("companyEmail", "api@vykcore.com")
+
+                # Bloquear secuencia y generar consecutivo transaccionalmente en Firestore
+                encf, log_id = DatabaseService.consume_next_sequence(g.owner_uid, ecf_short, user_email, company_id=g.company_id, sandbox=g.sandbox_mode)
+                invoice_dict["encf"] = encf
+        else:
+            invoice_dict["encf"] = ""
 
         # 1. Guardar localmente / Firebase
         DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
@@ -257,6 +260,7 @@ def emit_invoice():
             invoice_dict["firebaseXMLURL"] = res.get("xmlUrl", "")
             invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
             invoice_dict["emisionMode"] = res.get("mode", "API")
+            invoice_dict["isEcf"] = res.get("isEcf", res.get("mode") != "NO_ECF")
             invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             invoice_dict["trackId"] = res.get("trackId", "")
             invoice_dict["inventoryStatus"] = "RESERVED" if pending_dgii else "COMMITTED"
@@ -286,10 +290,16 @@ def emit_invoice():
             if not pending_dgii:
                 try:
                     from app.services.ecf_post_acceptance_service import EcfPostAcceptanceService
-                    EcfPostAcceptanceService.process_accepted_invoice(
-                        g.owner_uid, invoice_id, invoice_dict,
-                        company_id=g.company_id, sandbox=g.sandbox_mode,
-                    )
+                    if res.get("mode") == "NO_ECF":
+                        EcfPostAcceptanceService.process_no_ecf_invoice(
+                            g.owner_uid, invoice_id, invoice_dict,
+                            company_id=g.company_id, sandbox=g.sandbox_mode,
+                        )
+                    else:
+                        EcfPostAcceptanceService.process_accepted_invoice(
+                            g.owner_uid, invoice_id, invoice_dict,
+                            company_id=g.company_id, sandbox=g.sandbox_mode,
+                        )
                 except Exception as auto_email_err:
                     import logging
                     logging.getLogger(__name__).warning(f"Error aplicando efectos post-aceptación API {invoice_id}: {auto_email_err}")

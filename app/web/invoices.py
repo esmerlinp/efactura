@@ -178,10 +178,14 @@ def _log_dgii_emission_to_audit(owner_uid, invoice, res, performed_by_email, per
         eid = entity_id or invoice.get("id", "")
 
         if success:
-            action = "DGII_ACEPTADO"
-            details = f"e-NCF: {encf} | TrackID: {track_id} | Modo: {mode}"
-            if mode == "FALLBACK":
-                details += " | Emitido en contingencia (pendiente sincronización)"
+            if mode == "NO_ECF":
+                action = "EMITIDO_SIN_ECF"
+                details = f"Documento emitido sin e-CF (sin conexión a DGII). Doc. Interno: {invoice.get('invoiceNumber', '')}"
+            else:
+                action = "DGII_ACEPTADO"
+                details = f"e-NCF: {encf} | TrackID: {track_id} | Modo: {mode}"
+                if mode == "FALLBACK":
+                    details += " | Emitido en contingencia (pendiente sincronización)"
         else:
             action = "DGII_RECHAZADO"
             details = f"e-NCF: {encf} | Motivo: {error}" if error else f"e-NCF: {encf} | Rechazado por DGII"
@@ -2971,11 +2975,14 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
 
             log_id = None
             try:
-                if not invoice_dict.get("encf"):
-                    ecf_short = get_ecf_type_short_code(invoice_dict["ecfType"])
-                    user_email = session['user']['email']
-                    encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, company_id=company_id, sandbox=sandbox)
-                    invoice_dict["encf"] = encf
+                if EcfEmissionService.should_emit_ecf(company):
+                    if not invoice_dict.get("encf"):
+                        ecf_short = get_ecf_type_short_code(invoice_dict["ecfType"])
+                        user_email = session['user']['email']
+                        encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, company_id=company_id, sandbox=sandbox)
+                        invoice_dict["encf"] = encf
+                else:
+                    invoice_dict["encf"] = ""
                     
                 res = EcfEmissionService.emit_electronic_comprobante(company, invoice_dict, sandbox=sandbox)
                 
@@ -2990,6 +2997,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
                     # FALLBACK = emitido offline, aún pendiente de sincronizar con la DGII
                     invoice_dict["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
                     invoice_dict["emisionMode"] = res.get("mode", "API")
+                    invoice_dict["isEcf"] = res.get("isEcf", res.get("mode") != "NO_ECF")
                     pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
                     invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
                     invoice_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
@@ -5009,13 +5017,16 @@ def sign_invoice_route(invoice_id):
     
     try:
         # Consumir el siguiente consecutivo del rango fiscal DGII si no se ha asignado
-        if not invoice.get("encf"):
+        emit_ecf = EcfEmissionService.should_emit_ecf(company)
+        if emit_ecf and not invoice.get("encf"):
             ecf_short = get_ecf_type_short_code(invoice["ecfType"])
             user_email = session['user']['email']
             
             # Bloquear secuencia y generar consecutivo
             encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, company_id=company_id, sandbox=sandbox)
             invoice["encf"] = encf
+        elif not emit_ecf:
+            invoice["encf"] = ""
             
         # Emitir a través de DGII Direct (con Fallback de contingencia)
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
@@ -5040,6 +5051,7 @@ def sign_invoice_route(invoice_id):
             # FALLBACK = emitido offline, aún pendiente de sincronizar con la DGII
             invoice["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
             invoice["emisionMode"] = res.get("mode", "API")
+            invoice["isEcf"] = res.get("isEcf", res.get("mode") != "NO_ECF")
             invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             invoice["inventoryStatus"] = "RESERVED" if pending_dgii else "COMMITTED"
             invoice["accountingStatus"] = "PENDING" if pending_dgii else "POSTED"
@@ -5093,18 +5105,25 @@ def sign_invoice_route(invoice_id):
                 }, company_id=company_id, sandbox=sandbox)
                 
             msg = f"¡Comprobante firmado digitalmente con éxito! e-NCF: {res.get('encf')} (Modo: {res.get('mode', 'API')})"
-            if res.get("mode") == "FALLBACK":
+            if res.get("mode") == "NO_ECF":
+                msg = f"✅ Factura emitida sin e-CF (sin conexión a DGII). Doc. Interno: {invoice.get('invoiceNumber', '')}"
+            elif res.get("mode") == "FALLBACK":
                 msg = f"⚠️ ¡Comprobante firmado en modalidad de contingencia (sin conexión a DGII)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
             flash(msg, "success")
 
             # Efectos posteriores y notificación solo después de aceptación explícita
             if not pending_dgii:
                 from app.services.ecf_post_acceptance_service import EcfPostAcceptanceService
-                post_result = EcfPostAcceptanceService.process_accepted_invoice(
-                    owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox
-                )
-                if post_result.get("effects", {}).get("email"):
-                    flash("📧 Factura enviada automáticamente al cliente por correo.", "info")
+                if res.get("mode") == "NO_ECF":
+                    EcfPostAcceptanceService.process_no_ecf_invoice(
+                        owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox
+                    )
+                else:
+                    post_result = EcfPostAcceptanceService.process_accepted_invoice(
+                        owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox
+                    )
+                    if post_result.get("effects", {}).get("email"):
+                        flash("📧 Factura enviada automáticamente al cliente por correo.", "info")
         else:
             error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
             invoice["status"] = "Rechazado DGII"
@@ -11582,7 +11601,9 @@ def report_607_export():
     real_invoices = [
         inv for inv in invoices
         if inv.get('status') not in ['Borrador', 'Anulada', 'Consolidada', 'Pagado pero no emitido']
-        and inv.get('dgiiStatus') in ['ACCEPTED', 'ACCEPTED_CONDITIONAL']
+        and (inv.get('emisionMode') == 'NO_ECF'
+             or inv.get('isEcf') is False
+             or inv.get('dgiiStatus') in ['ACCEPTED', 'ACCEPTED_CONDITIONAL'])
     ]
     filtered = _filter_docs_by_period(real_invoices, year, month)
 

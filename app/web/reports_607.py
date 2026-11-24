@@ -46,7 +46,9 @@ def _get_invoices_for_period(owner_uid, sandbox, year, month, company_id=None):
     real = [inv for inv in invoices
             if not inv.get('isQuotation')
             and inv.get('status') not in ('Anulada', 'Borrador', 'Consolidada')
-            and inv.get('dgiiStatus', '') in ('ACCEPTED', 'ACCEPTED_CONDITIONAL')]
+            and (inv.get('emisionMode') == 'NO_ECF'
+                 or inv.get('isEcf') is False
+                 or inv.get('dgiiStatus', '') in ('ACCEPTED', 'ACCEPTED_CONDITIONAL'))]
     prefix = f"{year:04d}-{month:02d}"
     filtered = []
     for inv in real:

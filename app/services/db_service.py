@@ -2399,6 +2399,7 @@ class DatabaseService:
             "consolidationThreshold": company.get("consolidation_threshold", 250000.0),
             "contribuyenteTipo": company.get("contribuyente_tipo", "empresa"),
             "useSimulation": company.get("use_simulation", False),
+            "emitEcf": bool(company.get("emit_ecf", company.get("emitEcf", True))),
             "defaultEcfType": company.get("default_ecf_type", ""),
             "defaultItbisRate": company.get("default_itbis_rate", 0.18),
             "openaiApiKey": company.get("openai_api_key", ""),
@@ -3732,6 +3733,16 @@ class DatabaseService:
 
         coll_seq = "sandbox_sequences" if sandbox else "sequences"
         coll_log = "sandbox_sequence_logs" if sandbox else "sequence_logs"
+
+        # Cuando la empresa está configurada para emitir sin e-CF, no se consume
+        # secuencia fiscal DGII (no se requiere una secuencia autorizada por la DGII).
+        try:
+            resolved_cid = company_id or _resolve_company_id(owner_uid)
+            comp = cls.get_company(resolved_cid) if resolved_cid else None
+            if comp is not None and not bool(comp.get("emit_ecf", True)):
+                return "", None
+        except Exception:
+            pass
 
         # Validar que exista un período fiscal abierto para el mes actual
         try:

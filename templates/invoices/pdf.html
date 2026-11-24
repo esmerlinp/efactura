@@ -29,7 +29,8 @@
     </script>
     {% endif %}
 
-    {% set is_draft = not invoice.encf or invoice.status == 'Borrador' %}
+    {% set is_no_ecf = invoice.emisionMode == 'NO_ECF' %}
+    {% set is_draft = (not invoice.encf and not is_no_ecf) or invoice.status == 'Borrador' %}
     <style>
         @page {
             margin: 8mm 10mm;
@@ -606,6 +607,12 @@
                 </div>
                 {% endif %}
                 {% endif %}
+                {% elif is_no_ecf %}
+                <div style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
+                    {{ document_label }}</div>
+                <div class="doc-number" style="font-size: 13px; font-weight: normal; color: #111827;">Doc. Interno: {{
+                    invoice.invoiceNumber }}</div>
+                <div style="font-size: 10px; color: #b45309; margin-top: 4px;">Documento emitido sin e-CF (no fiscal)</div>
                 {% else %}
                 <div style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
                     {% if invoice.isQuotation %}{{ document_label }}{% else %}Borrador de Factura{% endif %}</div>
@@ -743,6 +750,10 @@
                 e-CF emitido en modalidad de contingencia
             </div>
             {% endif %}
+        </div>
+        {% elif is_no_ecf %}
+        <div style="text-align: left; padding-bottom: 8px; font-size: 10px; color: #b45309;">
+            Documento emitido sin e-CF (no fiscal)
         </div>
         {% else %}
         <div></div> <!-- Espaciador -->
@@ -1138,7 +1149,7 @@
             {% if invoice.get('isProfessional') %}{{ document_label }} profesional generada en {{ product_name }}.{% endif %}
             {% else %}
             *Este modelo de RI cumple con la Ley 32-23 de la República Dominicana.<br>
-            {% if invoice.encf %}Valide este documento en: <strong>https://dgii.gov.do/validaecf</strong>{% endif %}
+            {% if invoice.encf %}Valide este documento en: <strong>https://dgii.gov.do/validaecf</strong>{% elif is_no_ecf %}Documento emitido sin e-CF (no fiscal){% endif %}
             {% endif %}
         </div>
         <div style="text-align: right; font-weight: bold; font-size: 10px;">

@@ -97,3 +97,35 @@ class EcfPostAcceptanceService:
             invoice["postAcceptanceError"] = "Error aplicando efectos posteriores a la aceptación DGII"
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox, company_id=company_id)
             return {"success": False, "status": "failed", "effects": effects}
+
+    @classmethod
+    def process_no_ecf_invoice(cls, owner_uid, invoice_id, invoice,
+                               company_id=None, sandbox=True):
+        """Aplica efectos posteriores a facturas emitidas sin e-CF.
+
+        El inventario ya se descuenta en save_invoice(); aquí solo se genera el
+        asiento contable automático, que no depende de la aceptación de la DGII.
+        """
+        if not invoice or not company_id:
+            logger.error("No se procesa factura sin e-CF %s: datos incompletos", invoice_id)
+            return {"success": False, "status": "missing_data"}
+
+        invoice = dict(invoice)
+        invoice["id"] = invoice_id
+        effects = {"inventory": False, "accounting": False, "email": False}
+
+        try:
+            if not invoice.get("accountingPosted"):
+                from app.services.accounting_service import AccountingService
+                entry = AccountingService.auto_generate_invoice_entry(company_id, invoice, sandbox=sandbox)
+                invoice["accountingPosted"] = bool(entry) or bool(invoice.get("accountingPosted"))
+                effects["accounting"] = bool(entry) or bool(invoice.get("accountingPosted"))
+
+            invoice["inventoryStatus"] = "COMMITTED"
+            invoice["accountingStatus"] = "POSTED" if invoice.get("accountingPosted") else invoice.get("accountingStatus", "PENDING")
+            invoice["postAcceptanceStatus"] = "COMPLETED"
+            DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox, company_id=company_id)
+            return {"success": True, "status": "completed", "effects": effects}
+        except Exception:
+            logger.exception("Error aplicando efectos a factura sin e-CF %s", invoice_id)
+            return {"success": False, "status": "failed", "effects": effects}

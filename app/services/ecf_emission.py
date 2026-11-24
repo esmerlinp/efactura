@@ -19,7 +19,30 @@ class EcfEmissionService:
         return cls._is_consumo_32(ecf_type) and e32_is_rfce(total)
 
     @classmethod
+    def should_emit_ecf(cls, company):
+        return bool(company.get("emitEcf", True)) if isinstance(company, dict) else True
+
+    @classmethod
+    def _no_ecf_result(cls, invoice_dict):
+        return {
+            "success": True,
+            "encf": "",
+            "trackId": "",
+            "xmlSignature": "",
+            "codigoSeguridad": "",
+            "qrCodeURL": "",
+            "mode": "NO_ECF",
+            "status": "NO_ECF",
+            "dgiiStatus": "NO_ECF",
+            "isEcf": False,
+            "message": "Emisión sin e-CF (sin conexión a DGII).",
+        }
+
+    @classmethod
     def emit_electronic_comprobante(cls, company, invoice_dict, sandbox=True):
+        if not cls.should_emit_ecf(company):
+            return cls._no_ecf_result(invoice_dict)
+
         ecf_type = invoice_dict.get("ecfType", ECF_CONSUMO_32)
         client_rnc = normalized_buyer_identifier(invoice_dict.get("clientRNC", ""))
         total = invoice_dict.get("total", 0.0)
