@@ -296,6 +296,7 @@ def new_contact():
             "creditDays": int(request.form.get('creditDays', 0) or 0),
             "creditLimit": float(request.form.get('creditLimit', 0) or 0),
             "paymentMethod": request.form.get('paymentMethod', 'Efectivo'),
+            "defaultIncomeBankAccountId": request.form.get('defaultIncomeBankAccountId', ''),
             "currency": request.form.get('currency', 'DOP'),
             "itbisWithholding": request.form.get('itbisWithholding') == 'on',
             "isrWithholding": request.form.get('isrWithholding') == 'on',
@@ -347,6 +348,7 @@ def new_contact():
     collaborators = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
     projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=g.get('branch_id'), sandbox=sandbox) if g.get('branch_id') else DatabaseService.get_projects(owner_uid, company_id=company_id, sandbox=sandbox)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
     _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
     return render_template('contacts/form.html',
                            active_page='contacts',
@@ -354,6 +356,7 @@ def new_contact():
                            collaborators=collaborators,
                            price_lists=price_lists,
                            projects=projects,
+                           bank_accounts=bank_accounts,
                            ecf_types=_ecf_types)
 
 
@@ -722,6 +725,7 @@ def edit_contact(contact_id):
             "creditDays": int(request.form.get('creditDays', 0) or 0),
             "creditLimit": float(request.form.get('creditLimit', 0) or 0),
             "paymentMethod": request.form.get('paymentMethod', 'Efectivo'),
+            "defaultIncomeBankAccountId": request.form.get('defaultIncomeBankAccountId', contact.get('defaultIncomeBankAccountId', '')),
             "currency": request.form.get('currency', 'DOP'),
             "itbisWithholding": request.form.get('itbisWithholding') == 'on',
             "isrWithholding": request.form.get('isrWithholding') == 'on',
@@ -761,6 +765,7 @@ def edit_contact(contact_id):
     collaborators = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
     projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=g.get('branch_id'), sandbox=sandbox) if g.get('branch_id') else DatabaseService.get_projects(owner_uid, company_id=company_id, sandbox=sandbox)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
     _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
     return render_template('contacts/form.html',
                            active_page='contacts',
@@ -768,6 +773,7 @@ def edit_contact(contact_id):
                            collaborators=collaborators,
                            price_lists=price_lists,
                            projects=projects,
+                           bank_accounts=bank_accounts,
                            ecf_types=_ecf_types)
 
 

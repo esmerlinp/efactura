@@ -564,7 +564,7 @@ def record_sod_action(owner_uid, user_uid, user_email, permission, entity_id, en
     DatabaseService.save_sod_action(owner_uid, action)
 
 
-def record_sod_from_session(permission, entity_id, entity_type):
+def record_sod_from_session(permission, entity_id, entity_type, company_id=None):
     """Helper que extrae datos de sesión y registra acción SoD."""
     if 'user' not in session:
         return
@@ -573,7 +573,7 @@ def record_sod_from_session(permission, entity_id, entity_type):
     user_uid = user.get('uid', '')
     user_email = user.get('email', '')
     if owner_uid and user_uid:
-        record_sod_action(owner_uid, user_uid, user_email, permission, entity_id, entity_type)
+        record_sod_action(owner_uid, user_uid, user_email, permission, entity_id, entity_type, company_id=company_id or session.get('selected_company_id'))
 
 
 def require_permission(permission_name, feature_name="esta sección"):

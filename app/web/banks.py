@@ -339,6 +339,7 @@ def new_bank():
             "description": request.form.get('description', ''),
             "creditLimit": float(request.form.get('creditLimit', 0)) if request.form.get('type') == 'tarjeta' else 0,
             "accountingAccountId": request.form.get('accountingAccountId', ''),
+            "isDefaultIncome": request.form.get('isDefaultIncome') == 'on',
             "branchId": g.get('branch_id', 'default-sucursal-principal'),
             "projectId": g.get('project_id'),
         }
@@ -372,6 +373,7 @@ def edit_bank(account_id):
             "description": request.form.get('description', ''),
             "creditLimit": float(request.form.get('creditLimit', 0)) if request.form.get('type') == 'tarjeta' else 0,
             "accountingAccountId": request.form.get('accountingAccountId', ''),
+            "isDefaultIncome": request.form.get('isDefaultIncome') == 'on',
             "branchId": g.get('branch_id', 'default-sucursal-principal'),
             "projectId": g.get('project_id'),
         }
@@ -381,6 +383,7 @@ def edit_bank(account_id):
             account_dict["createdAt"] = existing["createdAt"]
             account_dict["branchId"] = existing.get("branchId", account_dict["branchId"])
             account_dict["projectId"] = existing.get("projectId", account_dict["projectId"])
+            account_dict["isDefaultIncome"] = account_dict.get("isDefaultIncome", existing.get("isDefaultIncome", False))
         DatabaseService.save_bank_account(owner_uid, account_id, account_dict, sandbox=sandbox, company_id=company_id)
         flash('Cuenta actualizada exitosamente.', 'success')
         return redirect(url_for('web_banks.list_banks'))

@@ -166,6 +166,9 @@
         <input type="number" id="late-fee-input" name="lateFeePercentage" class="form-input" style="width:65px;text-align:center;" min="0" max="100" step="0.1" value="5.0" title="Mora %">
       </div>
     </div>
+    <div class="inp-row" style="margin-top:10px;">
+      <div class="inp-group" style="max-width:240px;"><label for="payment-method-select-main">Forma de pago</label><select id="payment-method-select-main" class="form-select" onchange="document.querySelector('[name=paymentMethod]').value=this.value"><option value="Efectivo" {% if not invoice or invoice.paymentMethod=='Efectivo' %}selected{% endif %}>Efectivo</option><option value="Cheque / Transferencia" {% if invoice and invoice.paymentMethod=='Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia</option><option value="Tarjeta de Crédito / Débito" {% if invoice and invoice.paymentMethod=='Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta de Crédito / Débito</option><option value="Crédito" {% if invoice and invoice.paymentMethod=='Crédito' %}selected{% endif %}>Crédito</option><option value="Mixto" {% if invoice and invoice.paymentMethod=='Mixto' %}selected{% endif %}>Mixto</option></select></div>
+    </div>
     <small id="client-warning" style="color:var(--accent-red);font-size:0.72rem;margin-top:6px;display:none;"></small>
   </div>
 
@@ -293,7 +296,8 @@
     <button type="submit" formaction="/invoices/preview" formtarget="_blank" id="preview-invoice-btn" class="btn-subtle"><i class="fa-solid fa-eye"></i> Vista Previa</button>
     <button type="submit" name="action" value="guardar" id="submit-invoice-btn" class="btn btn-secondary" style="padding:9px 20px;font-size:0.85rem;"><i class="fa-solid fa-floppy-disk"></i> {% if active_page == 'proformas' %}Guardar Proforma{% elif active_page == 'quotations' %}Guardar Cotización{% else %}Guardar Borrador{% endif %}</button>
     {% if active_page not in ('quotations', 'proformas') %}
-    <button type="submit" id="submit-invoice-cobrar-btn" name="action" value="emitir_credito" class="btn btn-primary" style="padding:10px 28px;font-size:0.9rem;"><i class="fa-solid fa-paper-plane"></i> Emitir Documento</button>
+     <button type="submit" id="submit-invoice-cobrar-btn" name="action" value="emitir_credito" class="btn btn-primary" style="padding:10px 22px;font-size:0.9rem;"><i class="fa-solid fa-paper-plane"></i> Emitir Documento</button>
+     <button type="button" id="emit-and-charge-btn" class="btn btn-success" style="padding:10px 22px;font-size:0.9rem;display:none;"><i class="fa-solid fa-cash-register"></i> Emitir y Cobrar</button>
     {% endif %}
   </div>
   <div id="payment-helper-container" style="text-align:right;font-size:0.72rem;color:var(--text-muted);margin-top:0;"></div>
@@ -301,6 +305,22 @@
 </div><!-- /doc-main-col -->
 {% if active_page not in ('quotations', 'proformas') %}<div id="emitting-overlay"><div class="spinner"></div><div class="emit-text">Enviando documento a la DGII...<small style="display:block;margin-top:8px;font-size:0.78em;opacity:0.85;">Por favor, espere mientras la DGII procesa la emisión. Este proceso puede tardar algunos segundos.</small></div></div>{% endif %}
 </form>
+
+<!-- MODAL: EMITIR Y COBRAR -->
+<div class="search-modal" id="emit-charge-modal" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;z-index:2100;background:rgba(0,0,0,.4);">
+  <div class="modal-content" style="max-width:520px;width:calc(100% - 32px);position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,.18);overflow:hidden;">
+    <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;"><h3 style="font-size:.95rem;margin:0;"><i class="fa-solid fa-cash-register" style="color:var(--accent-emerald);margin-right:8px;"></i>Emitir y cobrar</h3><button type="button" id="close-emit-charge-modal" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body" style="padding:22px 24px;display:flex;flex-direction:column;gap:14px;">
+      <p style="margin:0;color:var(--text-secondary);font-size:.8rem;">El documento se emitirá primero. El cobro se registrará únicamente si la emisión es exitosa.</p>
+      <div class="inp-group"><label for="payment-amount-modal">Monto recibido</label><input type="number" id="payment-amount-modal" name="paymentAmount" class="form-input" min="0.01" step="0.01" required></div>
+      <div class="inp-group"><label for="payment-method-modal">Forma de pago</label><select id="payment-method-modal" name="paymentMethodModal" class="form-select"><option value="Efectivo">Efectivo</option><option value="Cheque / Transferencia">Cheque / Transferencia</option><option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option><option value="Mixto">Mixto</option></select></div>
+      <div class="inp-group"><label for="payment-bank-modal">Cuenta receptora</label><select id="payment-bank-modal" name="paymentBankAccountId" class="form-select"><option value="">Sin cuenta bancaria</option>{% for account in bank_accounts %}<option value="{{ account.id }}" {% if account.id == default_income_bank_account_id %}selected{% endif %}>{{ account.name }}{% if account.accountNumber %} · {{ account.accountNumber }}{% endif %}</option>{% endfor %}</select><small style="color:var(--text-muted);font-size:.72rem;">Se selecciona automáticamente el banco predeterminado cuando existe.</small></div>
+      <div class="inp-row"><div class="inp-group"><label for="payment-reference-modal">Referencia</label><input type="text" id="payment-reference-modal" name="paymentReference" class="form-input" placeholder="No. de transferencia, cheque o recibo"></div><div class="inp-group" style="max-width:170px;"><label for="payment-date-modal">Fecha</label><input type="date" id="payment-date-modal" name="paymentDate" class="form-input" value="{{ default_date }}"></div></div>
+      <div class="inp-group"><label for="payment-notes-modal">Nota</label><textarea id="payment-notes-modal" name="paymentNotes" class="form-textarea" rows="2" placeholder="Nota opcional"></textarea></div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border-color);"><button type="button" id="cancel-emit-charge-modal" class="btn btn-secondary">Cancelar</button><button type="button" id="confirm-emit-charge" class="btn btn-success"><i class="fa-solid fa-paper-plane"></i> Confirmar emisión y cobro</button></div>
+  </div>
+</div>
 
 <!-- MODAL: RETENCIONES Y RECURRENCIA -->
 <div class="search-modal" id="retentions-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
@@ -347,21 +367,20 @@
     <h4 style="margin:0;font-size:0.95rem;font-weight:700;"><i class="fa-solid fa-sliders" style="color:var(--accent-emerald);margin-right:8px;"></i> Más ajustes</h4>
     <button type="button" onclick="toggleMoreSettings()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem;"><i class="fa-solid fa-xmark"></i></button>
   </div>
-  <div style="display:flex;flex-direction:column;gap:16px;">
-    <div class="inp-group"><label>Sucursal</label><select id="branch-select-side" class="form-select" onchange="document.querySelector('[name=branchId]').value=this.value">{% for b in branches %}<option value="{{ b.id }}" {% if invoice and invoice.branchId==b.id %}selected{% elif not invoice and b.isDefault %}selected{% endif %}>{{ b.name }}</option>{% endfor %}</select></div>
-    <div class="inp-group"><label>Almacén</label><select id="warehouse-select-side" class="form-select" onchange="document.querySelector('[name=warehouseId]').value=this.value">{% for w in warehouses %}<option value="{{ w.id }}" {% if invoice and invoice.warehouseId==w.id %}selected{% elif not invoice and loop.first %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</select></div>
-    <div class="inp-group"><label>Moneda</label><select id="currency-select-side" class="form-select" onchange="document.querySelector('[name=currency]').value=this.value;handleCurrencySideChange(this.value)"><option value="DOP" {% if not invoice or invoice.currency=='DOP' %}selected{% endif %}>Pesos Dominicanos (DOP)</option><option value="USD" {% if invoice and invoice.currency=='USD' %}selected{% endif %}>Dólares (USD)</option><option value="EUR" {% if invoice and invoice.currency=='EUR' %}selected{% endif %}>Euros (EUR)</option></select></div>
-    <div class="inp-group" id="exchange-rate-container-side" style="display:none;"><label>Tasa de Cambio</label><input type="number" id="exchangeRate-side" class="form-input" step="0.01" placeholder="0.00" oninput="document.querySelector('[name=exchangeRate]').value=this.value" value="{{ invoice.exchangeRate if invoice else 1.0 }}"></div>
-    <div class="inp-group"><label style="display:flex;justify-content:space-between;"><span>Centro de Costo</span><button type="button" onclick="openInvoiceCostCenterModal()" style="font-size:0.72rem;color:var(--accent-emerald);background:none;border:none;cursor:pointer;">+ Nuevo</button></label><select id="cost-center-select-side" class="form-select" onchange="document.querySelector('[name=costCenterId]').value=this.value"><option value="">— Sin centro de costo —</option>{% for cc in cost_centers %}<option value="{{ cc.id }}" {% if invoice and invoice.costCenterId==cc.id %}selected{% endif %}>{% if cc.code %}[{{ cc.code }}] {% endif %}{{ cc.name }}</option>{% endfor %}</select></div>
-    <div class="inp-group"><label style="display:flex;justify-content:space-between;"><span>Lista de Precios</span><button type="button" onclick="openInvoicePriceListModal()" style="font-size:0.72rem;color:var(--accent-emerald);background:none;border:none;cursor:pointer;">+ Nueva</button></label><select id="price-list-select-side" class="form-select" onchange="if(window.applyInvoicePriceList) window.applyInvoicePriceList(this.value, true); else { const h=document.querySelector('[name=priceListId]'); if(h) h.value=this.value; }"><option value="">— Sin lista —</option>{% for pl in price_lists %}<option value="{{ pl.id }}" {% if invoice and invoice.priceListId==pl.id %}selected{% elif not invoice and pl.id==default_price_list_id %}selected{% endif %}>{{ pl.name }}{% if pl.tipo %} ({{ pl.tipo }}){% endif %}</option>{% endfor %}</select></div>
-    <div class="inp-group"><label>Tipo de Ingreso (DGII)</label><select id="income-type-select-side" class="form-select" onchange="document.querySelector('[name=incomeType]').value=this.value"><option value="01 - Ingresos por operaciones" selected>01 — Operaciones</option><option value="02 - Ingresos Financieros">02 — Financieros</option><option value="03 - Ingresos Extraordinarios">03 — Extraordinarios</option><option value="04 - Arrendamientos">04 — Arrendamientos</option><option value="05 - Venta de Activo Depreciable">05 — Activo Depreciable</option><option value="06 - Otros Ingresos">06 — Otros</option></select></div>
-    <div class="inp-group"><label>Forma de Pago</label><select id="payment-method-select-side" class="form-select" onchange="document.querySelector('[name=paymentMethod]').value=this.value"><option value="Efectivo" {% if not invoice or invoice.paymentMethod=='Efectivo' %}selected{% endif %}>Efectivo</option><option value="Cheque / Transferencia" {% if invoice and invoice.paymentMethod=='Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia</option><option value="Tarjeta de Crédito / Débito" {% if invoice and invoice.paymentMethod=='Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta de Crédito / Débito</option><option value="Crédito" {% if invoice and invoice.paymentMethod=='Crédito' %}selected{% endif %}>Crédito</option><option value="Mixto" {% if invoice and invoice.paymentMethod=='Mixto' %}selected{% endif %}>Mixto</option></select></div>
-    <div class="inp-group"><label>Proyecto</label><select id="project-select-side" class="form-select" onchange="document.getElementById('project-id-hidden').value=this.value"><option value="">— Sin proyecto —</option>{% for p in projects %}<option value="{{ p.id }}" {% if (invoice and invoice.get('projectId','')==p.id) or (not invoice and p.id == active_project_id) %}selected{% endif %}>{{ p.name }} ({{ p.code }})</option>{% endfor %}</select></div>
-  </div>
-  <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-color);display:flex;gap:10px;">
-    <button type="button" onclick="toggleMoreSettings()" class="btn btn-secondary" style="flex:1;">Cancelar</button>
-    <button type="button" onclick="toggleMoreSettings()" class="btn btn-primary" style="flex:1;">Guardar</button>
-  </div>
+   <p style="margin:0 0 18px;color:var(--text-secondary);font-size:0.78rem;line-height:1.45;">Configuraciones opcionales que afectan la operación, clasificación o contabilización del documento.</p>
+   <div style="display:flex;flex-direction:column;gap:16px;">
+     <div class="inp-group"><label>Sucursal</label><select id="branch-select-side" class="form-select" onchange="document.querySelector('[name=branchId]').value=this.value">{% for b in branches %}<option value="{{ b.id }}" {% if invoice and invoice.branchId==b.id %}selected{% elif not invoice and b.isDefault %}selected{% endif %}>{{ b.name }}</option>{% endfor %}</select></div>
+     <div class="inp-group"><label>Almacén</label><select id="warehouse-select-side" class="form-select" onchange="document.querySelector('[name=warehouseId]').value=this.value">{% for w in warehouses %}<option value="{{ w.id }}" {% if invoice and invoice.warehouseId==w.id %}selected{% elif not invoice and loop.first %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</select></div>
+     <div class="inp-group"><label>Moneda</label><select id="currency-select-side" class="form-select" onchange="document.querySelector('[name=currency]').value=this.value;handleCurrencySideChange(this.value)"><option value="DOP" {% if not invoice or invoice.currency=='DOP' %}selected{% endif %}>Pesos Dominicanos (DOP)</option><option value="USD" {% if invoice and invoice.currency=='USD' %}selected{% endif %}>Dólares (USD)</option><option value="EUR" {% if invoice and invoice.currency=='EUR' %}selected{% endif %}>Euros (EUR)</option></select></div>
+     <div class="inp-group" id="exchange-rate-container-side" style="display:none;"><label>Tasa de Cambio</label><input type="number" id="exchangeRate-side" class="form-input" step="0.01" placeholder="0.00" oninput="document.querySelector('[name=exchangeRate]').value=this.value" value="{{ invoice.exchangeRate if invoice else 1.0 }}"></div>
+     <div class="inp-group"><label style="display:flex;justify-content:space-between;"><span>Centro de Costo</span><button type="button" onclick="openInvoiceCostCenterModal()" style="font-size:0.72rem;color:var(--accent-emerald);background:none;border:none;cursor:pointer;">+ Nuevo</button></label><select id="cost-center-select-side" class="form-select" onchange="document.querySelector('[name=costCenterId]').value=this.value"><option value="">— Sin centro de costo —</option>{% for cc in cost_centers %}<option value="{{ cc.id }}" {% if invoice and invoice.costCenterId==cc.id %}selected{% endif %}>{% if cc.code %}[{{ cc.code }}] {% endif %}{{ cc.name }}</option>{% endfor %}</select></div>
+     <div class="inp-group"><label style="display:flex;justify-content:space-between;"><span>Lista de Precios</span><button type="button" onclick="openInvoicePriceListModal()" style="font-size:0.72rem;color:var(--accent-emerald);background:none;border:none;cursor:pointer;">+ Nueva</button></label><select id="price-list-select-side" class="form-select" onchange="if(window.applyInvoicePriceList) window.applyInvoicePriceList(this.value, true); else { const h=document.querySelector('[name=priceListId]'); if(h) h.value=this.value; }"><option value="">— Sin lista —</option>{% for pl in price_lists %}<option value="{{ pl.id }}" {% if invoice and invoice.priceListId==pl.id %}selected{% elif not invoice and pl.id==default_price_list_id %}selected{% endif %}>{{ pl.name }}{% if pl.tipo %} ({{ pl.tipo }}){% endif %}</option>{% endfor %}</select></div>
+     <div class="inp-group"><label>Tipo de Ingreso (DGII)</label><select id="income-type-select-side" class="form-select" onchange="document.querySelector('[name=incomeType]').value=this.value"><option value="01 - Ingresos por operaciones" selected>01 — Operaciones</option><option value="02 - Ingresos Financieros">02 — Financieros</option><option value="03 - Ingresos Extraordinarios">03 — Extraordinarios</option><option value="04 - Arrendamientos">04 — Arrendamientos</option><option value="05 - Venta de Activo Depreciable">05 — Activo Depreciable</option><option value="06 - Otros Ingresos">06 — Otros</option></select></div>
+     <div class="inp-group"><label>Proyecto</label><select id="project-select-side" class="form-select" onchange="document.getElementById('project-id-hidden').value=this.value"><option value="">— Sin proyecto —</option>{% for p in projects %}<option value="{{ p.id }}" {% if (invoice and invoice.get('projectId','')==p.id) or (not invoice and p.id == active_project_id) %}selected{% endif %}>{{ p.name }} ({{ p.code }})</option>{% endfor %}</select></div>
+   </div>
+   <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-color);">
+     <button type="button" onclick="toggleMoreSettings()" class="btn btn-primary" style="width:100%;">Cerrar</button>
+   </div>
 </div>
 
 <!-- MODALES EXISTENTES -->
@@ -532,9 +551,12 @@
 <script src="{{ url_for('static', filename='js/invoicing.js') }}?v={{ static_hash('js/invoicing.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const paymentTypeSelect = document.getElementById('payment-type-select');
+     const paymentTypeSelect = document.getElementById('payment-type-select');
     const dueDateInput = document.getElementById('due-date');
-    const submitCobrarBtn = document.getElementById('submit-invoice-cobrar-btn');
+     const submitCobrarBtn = document.getElementById('submit-invoice-cobrar-btn');
+     const emitAndChargeBtn = document.getElementById('emit-and-charge-btn');
+     const emitChargeModal = document.getElementById('emit-charge-modal');
+     const invoiceForm = document.getElementById('invoice-form');
     const paymentAgreementGroup = document.getElementById('payment-agreement-group');
     const agreementEnabledSelect = document.getElementById('agreement-enabled-select');
     const agreementDetailsFields = document.getElementById('agreement-details-fields');
@@ -554,8 +576,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (agreementEnabledSelect) agreementEnabledSelect.value = 'false';
             if (agreementDetailsFields) agreementDetailsFields.style.display = 'none';
         }
-        // Emitir sin cobrar — el cobro se hace desde el detalle de la factura
-        if (submitCobrarBtn) { submitCobrarBtn.setAttribute('value','emitir_credito'); }
+         if (submitCobrarBtn) submitCobrarBtn.setAttribute('value','emitir_credito');
+         if (emitAndChargeBtn) emitAndChargeBtn.style.display = isCredit ? 'none' : 'inline-flex';
     }
     function handleAgreementToggle() { if (!agreementEnabledSelect || !agreementDetailsFields) return; agreementDetailsFields.style.display = agreementEnabledSelect.value === 'true' ? 'flex' : 'none'; }
     if (paymentTypeSelect) { paymentTypeSelect.addEventListener('change', handlePaymentTypeChange); handlePaymentTypeChange(); }
@@ -647,6 +669,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ci && !ci.value) ci.value = 'Consumidor Final';
         if (cn && !cn.value) cn.value = 'Consumidor Final';
         setRncDisabled(false);
+    }
+
+    function initializeNewInvoiceDefaults() {
+        if ({{ 'true' if invoice else 'false' }} || !ecfTypeSelect) return;
+        const e32Option = Array.from(ecfTypeSelect.options).find(option => option.dataset.code === 'E32');
+        if (e32Option) ecfTypeSelect.value = e32Option.value;
+        const clientId = document.getElementById('client-id-hidden');
+        const clientName = document.getElementById('client-name-hidden');
+        const clientSearch = document.getElementById('client-search-input');
+        if (clientId && !clientId.value) {
+            clientId.value = '';
+            if (clientName) clientName.value = 'Consumidor Final';
+            if (clientSearch) clientSearch.value = 'Consumidor Final';
+        }
+        ecfTypeSelect.removeAttribute('data-manual-override');
+        handleEcfTypeChange();
+        syncRncState();
     }
 
     function enableRncInput() {
@@ -770,6 +809,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.enableRncInput = enableRncInput;
     // On load: sync RNC state
     if (ecfTypeSelect && clientIdHidden) {
+        initializeNewInvoiceDefaults();
         if (extractCodeFromLabel(ecfTypeSelect.value) === 'E32' && !clientIdHidden.value) {
             setConsumerClient();
         }
@@ -781,8 +821,7 @@ document.addEventListener('DOMContentLoaded', () => {
         submitCobrarBtn.addEventListener('click', async (e) => {
             updateE32BuyerWarning();
             if (submitCobrarBtn.disabled) { e.preventDefault(); return; }
-            const invoiceForm = document.getElementById('invoice-form');
-            if (!invoiceForm.checkValidity()) { invoiceForm.reportValidity(); e.preventDefault(); return; }
+             if (!invoiceForm.checkValidity()) { invoiceForm.reportValidity(); e.preventDefault(); return; }
             const rows = document.querySelectorAll('#invoice-items-body .item-row'); if (rows.length === 0) { alert('Añada al menos una partida.'); e.preventDefault(); return; }
             const refTotalInput = document.getElementById('referenced-invoice-total');
             if (refTotalInput && ecfTypeSelect && ecfTypeSelect.value === 'Nota de Crédito (E34)') { const refTotal = parseFloat(refTotalInput.value) || 0; const nt = parseFloat((document.getElementById('lbl-net-payable')?.innerText || '0').replace(/[^0-9.]/g,'')) || 0; if (nt > refTotal) { alert('La Nota de Crédito excede el monto del documento original.'); e.preventDefault(); return; } }
@@ -796,6 +835,59 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    function openEmitChargeModal() {
+        if (!paymentTypeSelect || paymentTypeSelect.value === 'Crédito') return;
+        const amount = parseFloat((document.getElementById('lbl-net-payable')?.innerText || '0').replace(/[^0-9.-]/g, '')) || 0;
+        const amountInput = document.getElementById('payment-amount-modal');
+        if (amountInput) amountInput.value = amount.toFixed(2);
+        const mainPaymentMethod = document.querySelector('[name="paymentMethod"]')?.value || 'Efectivo';
+        const modalPaymentMethod = document.getElementById('payment-method-modal');
+        if (modalPaymentMethod) {
+            const supported = Array.from(modalPaymentMethod.options).some(option => option.value === mainPaymentMethod);
+            modalPaymentMethod.value = supported ? mainPaymentMethod : 'Efectivo';
+        }
+        if (emitChargeModal) emitChargeModal.style.display = 'flex';
+    }
+    function closeEmitChargeModal() { if (emitChargeModal) emitChargeModal.style.display = 'none'; }
+    emitAndChargeBtn?.addEventListener('click', async (e) => {
+        updateE32BuyerWarning();
+        if (!invoiceForm.checkValidity()) { invoiceForm.reportValidity(); return; }
+        const rows = document.querySelectorAll('#invoice-items-body .item-row');
+        if (!rows.length) { alert('Añada al menos una partida.'); return; }
+        const readiness = await checkCompanyReadiness();
+        if (readiness && !readiness.can_issue_ecf) { alert('La empresa aún no está lista para emitir comprobantes electrónicos.'); return; }
+        openEmitChargeModal();
+    });
+    document.getElementById('close-emit-charge-modal')?.addEventListener('click', closeEmitChargeModal);
+    document.getElementById('cancel-emit-charge-modal')?.addEventListener('click', closeEmitChargeModal);
+    emitChargeModal?.addEventListener('click', e => { if (e.target === emitChargeModal) closeEmitChargeModal(); });
+    document.getElementById('confirm-emit-charge')?.addEventListener('click', () => {
+        const amount = parseFloat(document.getElementById('payment-amount-modal')?.value || '0');
+        if (!(amount > 0)) { alert('Indique un monto recibido válido.'); return; }
+        const addHidden = (name, value) => { let input = invoiceForm.querySelector(`[name="${name}"]`); if (!input) { input = document.createElement('input'); input.type = 'hidden'; input.name = name; invoiceForm.appendChild(input); } input.value = value || ''; };
+        addHidden('action', 'emitir_cobrar');
+        addHidden('paymentAmount', amount.toFixed(2));
+        const modalPaymentMethod = document.getElementById('payment-method-modal')?.value || 'Efectivo';
+        addHidden('paymentMethod', modalPaymentMethod);
+        addHidden('paymentBankAccountId', document.getElementById('payment-bank-modal')?.value || '');
+        addHidden('paymentReference', document.getElementById('payment-reference-modal')?.value || '');
+        addHidden('paymentDate', document.getElementById('payment-date-modal')?.value || '');
+        addHidden('paymentNotes', document.getElementById('payment-notes-modal')?.value || '');
+        closeEmitChargeModal();
+        const overlay = document.getElementById('emitting-overlay');
+        if (overlay) overlay.style.display = 'flex';
+        const confirmButton = document.getElementById('confirm-emit-charge');
+        if (confirmButton) { confirmButton.disabled = true; confirmButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Emitiendo...'; }
+        if (emitAndChargeBtn) emitAndChargeBtn.disabled = true;
+        const submitter = document.createElement('button');
+        submitter.type = 'submit';
+        submitter.name = 'action';
+        submitter.value = 'emitir_cobrar';
+        submitter.hidden = true;
+        invoiceForm.appendChild(submitter);
+        invoiceForm.requestSubmit(submitter);
+        submitter.remove();
+    });
     document.addEventListener('input', (event) => {
         if (event.target.closest('#invoice-items-body, #discount-global, #isr-rate-select, #itbis-rate-select')) {
             window.setTimeout(updateE32BuyerWarning, 0);

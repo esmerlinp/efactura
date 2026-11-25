@@ -2970,9 +2970,14 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
 
         if not existing_invoice and not is_preliminary:
             from app.utils.decorators import record_sod_from_session
-            record_sod_from_session('canInvoice', target_invoice_id, 'invoice')
+            record_sod_from_session('canInvoice', target_invoice_id, 'invoice', company_id=company_id)
 
         action = request.form.get('action')
+        if action == 'emitir_credito' and request.form.get('paymentAmount'):
+            action = 'emitir_cobrar'
+        if action == 'emitir_cobrar' and str(invoice_dict.get('paymentType', '')).strip().lower() != 'contado':
+            flash('Solo se puede emitir y cobrar inmediatamente una factura de contado.', 'error')
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
         
         if is_preliminary:
             label = 'Proforma' if is_proforma else 'Cotización'
@@ -3036,22 +3041,47 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
                     invoice_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
                     
                     if action == 'emitir_cobrar':
-                        invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
-                        invoice_dict["totalPaid"] = invoice_dict["netPayable"]
-                        invoice_dict["remainingBalance"] = 0.0
+                        payment_amount = float(request.form.get('paymentAmount', invoice_dict['netPayable']) or 0)
+                        net_payable = float(invoice_dict.get('netPayable', 0) or 0)
+                        if payment_amount <= 0 or payment_amount > net_payable + 0.01:
+                            flash('El monto recibido debe ser positivo y no superar el neto de la factura.', 'error')
+                            return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
+                        invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
                         invoice_dict["paymentDate"] = datetime.now(timezone.utc).isoformat()
 
                         DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
                         
                         # Registrar pago inmediato en subcolección para el historial
                         payment_dict = {
-                            "amount": invoice_dict["netPayable"],
-                            "paymentMethod": invoice_dict["paymentMethod"],
-                            "bank": invoice_dict.get("bank") or ("Caja Efectivo" if invoice_dict["paymentMethod"] == "Efectivo" else "Banco Popular Dominicano"),
-                            "referenceNumber": invoice_dict.get("referenceNumber") or ("Pago en Efectivo" if invoice_dict["paymentMethod"] == "Efectivo" else "Cobro Inmediato"),
-                            "paymentDate": invoice_dict["paymentDate"],
+                            "amount": payment_amount,
+                            "paymentMethod": request.form.get('paymentMethod') or invoice_dict.get("paymentMethod") or "Efectivo",
+                            "bankAccountId": request.form.get('paymentBankAccountId', ''),
+                            "referenceNumber": request.form.get('paymentReference', '') or ("Pago en Efectivo" if request.form.get('paymentMethod', invoice_dict.get("paymentMethod")) == "Efectivo" else "Cobro Inmediato"),
+                            "paymentDate": request.form.get('paymentDate') or invoice_dict["paymentDate"],
+                            "notes": request.form.get('paymentNotes', ''),
                             "registeredBy": session['user']['email']
                         }
+                        selected_bank_id = payment_dict.get('bankAccountId')
+                        if selected_bank_id:
+                            selected_bank = DatabaseService.get_bank_account(owner_uid, selected_bank_id, sandbox=sandbox, company_id=company_id)
+                            if not selected_bank:
+                                flash('La cuenta seleccionada no pertenece a la empresa actual.', 'error')
+                                return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
+                            payment_dict['bank'] = selected_bank.get('name', '')
+                        else:
+                            client_for_payment = DatabaseService.get_client(owner_uid, invoice_dict.get('clientId', ''), sandbox=sandbox, company_id=company_id) if invoice_dict.get('clientId') else None
+                            client_default_id = (client_for_payment or {}).get('defaultIncomeBankAccountId', '')
+                            default_account = DatabaseService.get_bank_account(owner_uid, client_default_id, sandbox=sandbox, company_id=company_id) if client_default_id else None
+                            if not default_account:
+                                default_account = next((account for account in DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox) if account.get('isDefaultIncome')), None)
+                            if default_account:
+                                payment_dict['bankAccountId'] = default_account.get('id', '')
+                                payment_dict['bank'] = default_account.get('name', '')
+                            else:
+                                fallback_account = DatabaseService.ensure_default_bank_account(owner_uid, company_id, sandbox=sandbox)
+                                if fallback_account:
+                                    payment_dict['bankAccountId'] = fallback_account.get('id', '')
+                                    payment_dict['bank'] = fallback_account.get('name', '')
                         # La factura se guardará al registrar el pago
                         DatabaseService.register_invoice_payment(owner_uid, target_invoice_id, payment_dict, company_id=company_id, sandbox=sandbox)
                         # Generar asiento contable automático
@@ -3189,6 +3219,15 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
     catalog = [it for it in DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get('isActive', True)]
     warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
     branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+    default_income_bank_account_id = ''
+    selected_client_id = existing_invoice.get('clientId', '') if existing_invoice else ''
+    selected_client = DatabaseService.get_client(owner_uid, selected_client_id, company_id=company_id, sandbox=sandbox) if selected_client_id else None
+    if selected_client and selected_client.get('defaultIncomeBankAccountId'):
+        default_income_bank_account_id = selected_client['defaultIncomeBankAccountId']
+    if not default_income_bank_account_id:
+        default_income = next((account for account in bank_accounts if account.get('isDefaultIncome')), None)
+        default_income_bank_account_id = default_income.get('id', '') if default_income else ''
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
     projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
@@ -3276,7 +3315,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
             _ecf_types.append(_by_code(code))
 
     CLIENT_ECF_RULES = {
-        "NORMAL": {"hasRnc": {"def": "E31", "types": ["E31", "E32", "E45"]}, "noRnc": {"def": "E32", "types": ["E32"]}},
+        "NORMAL": {"hasRnc": {"def": "E32", "types": ["E31", "E32", "E45"]}, "noRnc": {"def": "E32", "types": ["E32"]}},
         "GOVERNMENT": {"def": "E45", "types": ["E45"]},
         "SPECIAL_REGIME": {"def": "E44", "types": ["E44", "E31"]},
         "FOREIGN": {"def": "E46", "types": ["E46"]},
@@ -3305,6 +3344,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
         client_ecf_rules=CLIENT_ECF_RULES,
         isr_withholding_options=_isr_withholding_options,
         itbis_withholding_options=_itbis_withholding_options,
+        bank_accounts=bank_accounts,
+        default_income_bank_account_id=default_income_bank_account_id,
     )
 
 

@@ -4690,6 +4690,11 @@ class DatabaseService:
             if new_total_paid > net_payable + 0.01:
                 raise ValueError("El pago excede el saldo pendiente del documento.")
             new_remaining_balance = max(0.0, net_payable - new_total_paid)
+            if not payment_dict.get("bankAccountId") and company_id:
+                fallback_account = cls.ensure_default_bank_account(owner_uid, company_id, sandbox=sandbox)
+                if fallback_account:
+                    payment_dict["bankAccountId"] = fallback_account.get("id", "")
+                    payment_dict.setdefault("bank", fallback_account.get("name", ""))
             
             # Cargar cuotas existentes o generar cuota única retrocompatible
             installments = inv_data.get("installments")
@@ -4772,6 +4777,8 @@ class DatabaseService:
                 new_status = current_status if current_status == "Aprobada" else "Aprobada"
             elif current_status in ("Borrador", "Pagado pero no emitido"):
                 new_status = "Pagado pero no emitido"
+            elif current_status == "Emitida" and new_remaining_balance <= 0.01:
+                new_status = "Cobrada"
             else:
                 if new_remaining_balance <= 0.01:  # tolerancia de centavos
                     new_status = "Cobrada"
@@ -4794,7 +4801,7 @@ class DatabaseService:
                 "status": new_status,
                 "paymentStatus": payment_status if document_type == "proforma" else inv_data.get("paymentStatus"),
                 "paymentMethod": payment_dict["paymentMethod"], # Mostrar el último método usado
-                "bank": payment_dict["bank"],
+                "bank": payment_dict.get("bank", ""),
                 "referenceNumber": payment_dict["referenceNumber"],
                 "paymentDate": payment_dict["paymentDate"],
                 "installments": updated_installments
@@ -8840,6 +8847,7 @@ class DatabaseService:
                         "creditLimit": float(data.get("creditLimit", 0.0)),
                         "description": data.get("description", ""),
                         "accountingAccountId": data.get("accountingAccountId", ""),
+                        "isDefaultIncome": bool(data.get("isDefaultIncome", False)),
                         "createdAt": serialize_field(data.get("createdAt")),
                         "updatedAt": serialize_field(data.get("updatedAt"))
                     })
@@ -8879,6 +8887,7 @@ class DatabaseService:
                         "creditLimit": float(data.get("creditLimit", 0.0)),
                         "description": data.get("description", ""),
                         "accountingAccountId": data.get("accountingAccountId", ""),
+                        "isDefaultIncome": bool(data.get("isDefaultIncome", False)),
                         "createdAt": serialize_field(data.get("createdAt")),
                         "updatedAt": serialize_field(data.get("updatedAt"))
                     }
@@ -8906,16 +8915,46 @@ class DatabaseService:
         account_dict["creditLimit"] = float(account_dict.get("creditLimit", 0.0))
         account_dict["description"] = account_dict.get("description", "")
         account_dict["accountingAccountId"] = account_dict.get("accountingAccountId", "")
+        account_dict["isDefaultIncome"] = bool(account_dict.get("isDefaultIncome", False))
         account_dict["createdAt"] = serialize_field(account_dict["createdAt"])
         account_dict["updatedAt"] = serialize_field(account_dict["updatedAt"])
 
         if firebase_initialized:
             try:
                 coll_name = "sandbox_bank_accounts" if sandbox else "bank_accounts"
+                if account_dict["isDefaultIncome"]:
+                    existing_accounts = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
+                    for existing_doc in existing_accounts:
+                        if existing_doc.id != account_id and existing_doc.to_dict().get("isDefaultIncome", False):
+                            existing_doc.reference.update({"isDefaultIncome": False, "updatedAt": datetime.now(timezone.utc).isoformat()})
                 _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(account_id).set(account_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar cuenta bancaria en Firestore: {e}")
         return account_dict
+
+    @classmethod
+    def ensure_default_bank_account(cls, owner_uid, company_id, sandbox=True):
+        """Returns the system fallback account, creating it once per company/environment."""
+        if not company_id:
+            return None
+        accounts = cls.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
+        existing = next((account for account in accounts if account.get("isSystemDefault")), None)
+        if existing:
+            return existing
+        account_id = f"system-default-{('sandbox' if sandbox else 'production')}"
+        account = {
+            "name": "Cuenta predeterminada",
+            "type": "efectivo",
+            "accountNumber": "",
+            "initialBalance": 0.0,
+            "currentBalance": 0.0,
+            "description": "Cuenta interna para ingresos y egresos sin cuenta seleccionada.",
+            "isSystemDefault": True,
+            "isDefaultIncome": True,
+            "isDefaultExpense": True,
+        }
+        cls.save_bank_account(owner_uid, account_id, account, sandbox=sandbox, company_id=company_id)
+        return cls.get_bank_account(owner_uid, account_id, sandbox=sandbox, company_id=company_id) or {"id": account_id, **account}
 
     @classmethod
 
@@ -9721,9 +9760,15 @@ class DatabaseService:
         action_id = action_dict.get("id", "")
         if not action_id:
             return
+        if not company_id:
+            print("⚠️ No se guardó acción SoD: company_id requerido.")
+            return
         if firebase_initialized:
             try:
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="sod_actions").document(action_id).set(action_dict)
+                sod_collection = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="sod_actions")
+                if sod_collection is None:
+                    raise ValueError("company_id requerido para guardar acción SoD")
+                sod_collection.document(action_id).set(action_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar acción SoD: {e}")
 
@@ -9818,6 +9863,8 @@ class DatabaseService:
             }
 
             db_firestore.collection("companies").document(company_id).set(profile)
+            cls.ensure_default_bank_account(owner_uid, company_id, sandbox=True)
+            cls.ensure_default_bank_account(owner_uid, company_id, sandbox=False)
             return company_id
         except Exception as e:
             print(f"⚠️ Error al crear compañía en Firestore: {e}")

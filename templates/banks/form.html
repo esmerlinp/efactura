@@ -90,6 +90,11 @@
                 <label for="description">Descripción</label>
                 <textarea id="description" name="description" class="form-textarea" rows="3" placeholder="Descripción opcional de la cuenta">{{ account.description if account else '' }}</textarea>
             </div>
+
+            <div class="form-group" style="grid-column:1/-1;display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--border-color);border-radius:var(--radius-sm);">
+                <input type="checkbox" id="isDefaultIncome" name="isDefaultIncome" {% if account and account.isDefaultIncome %}checked{% endif %} style="margin-top:3px;width:17px;height:17px;">
+                <div><label for="isDefaultIncome" style="margin:0;font-weight:600;cursor:pointer;">Usar como cuenta predeterminada para cobros</label><small style="display:block;color:var(--text-muted);margin-top:4px;">Se utilizará cuando el cliente no tenga una cuenta específica configurada.</small></div>
+            </div>
         </div>
 
         <div style="display:flex; gap:12px; margin-top:24px; padding-top:20px; border-top:1px solid var(--border-color);">

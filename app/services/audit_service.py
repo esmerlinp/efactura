@@ -130,9 +130,10 @@ class AuditService:
                 "isSandbox": bool(sandbox),
             }
 
-            _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="audit_logs") \
-                        .document(log_id) \
-                        .set(log_data)
+            audit_collection = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="audit_logs")
+            if audit_collection is None:
+                raise ValueError("company_id requerido para guardar auditoría")
+            audit_collection.document(log_id).set(log_data)
 
             if company_id:
                 CacheService.invalidate_audit(company_id, sandbox=sandbox)
