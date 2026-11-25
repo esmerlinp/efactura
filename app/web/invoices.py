@@ -8522,9 +8522,22 @@ def minor_new_route():
         from app.services.supplier_service import SupplierService
         from app.services.contact_service import ContactService
         suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
+        suppliers = [
+            {
+                **supplier,
+                "id": supplier.get("id", ""),
+                "name": supplier.get("name") or supplier.get("razonSocial") or supplier.get("supplierName", ""),
+                "rnc": supplier.get("rnc") or supplier.get("rncEmisor") or supplier.get("supplierRnc", ""),
+            }
+            for supplier in suppliers
+        ]
         seen_ids = {s['id'] for s in suppliers if s.get('id')}
         seen_rncs = {s.get('rnc') for s in suppliers if s.get('rnc')}
-        all_contacts = ContactService.get_contacts(owner_uid, sandbox=sandbox, company_id=company_id)
+        try:
+            all_contacts = ContactService.get_contacts(owner_uid, sandbox=sandbox, company_id=company_id)
+        except Exception as contact_error:
+            print(f"⚠️ Error loading contacts for minor_new (GET): {contact_error}")
+            all_contacts = []
         for c in all_contacts:
             cid = c.get('id')
             crnc = c.get('rnc', '')
