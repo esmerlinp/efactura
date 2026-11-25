@@ -263,23 +263,44 @@
                     <div class="accordion-content">
                         <div class="accordion-body">
                             <div class="form-grid">
-                                <div class="form-group">
-                                    <label for="price">Precio de Venta Público (RD$) <span style="color: var(--accent-red);">*</span></label>
-                                    <input type="number" id="price" name="price" class="form-input" placeholder="0.00"
-                                        step="0.01" required value="{{ item.price if item else '' }}">
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label style="font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 8px;">Modalidad de Precio de Venta</label>
+                                    <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                                        <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-primary); cursor: pointer;">
+                                            <input type="radio" name="pricingMode" id="mode_amount" value="amount"
+                                                onchange="updatePricingMode()"
+                                                {% if not item or item.get('pricingMode', 'amount') == 'amount' %}checked{% endif %}>
+                                            Por monto
+                                        </label>
+                                        <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-primary); cursor: pointer;">
+                                            <input type="radio" name="pricingMode" id="mode_markup" value="markup"
+                                                onchange="updatePricingMode()"
+                                                {% if item and item.get('pricingMode') == 'markup' %}checked{% endif %}>
+                                            Por porcentaje
+                                        </label>
+                                    </div>
                                 </div>
 
                                 <div class="form-group">
                                     <label for="cost_price">Precio de Costo Compra (RD$)</label>
                                     <input type="number" id="cost_price" name="costPrice" class="form-input"
-                                        placeholder="0.00" step="0.01" value="{{ item.costPrice if item else '' }}">
+                                        placeholder="0.00" step="0.01"
+                                        value="{{ item.costPrice if item else '' }}" oninput="recalcMarkupPrice()">
                                 </div>
 
                                 <div class="form-group">
-                                    <label for="wholesale_price">Precio al por Mayor (RD$)</label>
-                                    <input type="number" id="wholesale_price" name="wholesalePrice" class="form-input"
-                                        placeholder="0.00" step="0.01"
-                                        value="{{ item.wholesalePrice if item else '' }}">
+                                    <label for="price" id="price-label">Precio de Venta Público (RD$) <span style="color: var(--accent-red);">*</span></label>
+                                    <input type="number" id="price" name="price" class="form-input" placeholder="0.00"
+                                        step="0.01" required value="{{ item.price if item else '' }}">
+                                </div>
+
+                                <div class="form-group" id="markup-percentage-group" style="display: none;">
+                                    <label for="markup_percentage">Incremento sobre el costo (%)</label>
+                                    <input type="number" id="markup_percentage" name="markupPercentage" class="form-input"
+                                        placeholder="0" step="0.01" min="0"
+                                        value="{{ item.markupPercentage if item and item.markupPercentage is not none else '' }}"
+                                        oninput="recalcMarkupPrice()">
+                                    <small style="display: block; margin-top: 6px; color: var(--text-muted); font-size: 0.72rem;">El porcentaje es un incremento sobre el costo (markup), no un margen sobre el precio de venta.</small>
                                 </div>
 
                                 <div class="form-group">
@@ -588,7 +609,37 @@
             if (content) content.style.maxHeight = content.scrollHeight + 'px';
         }
         toggleIscFields();
+        updatePricingMode();
     });
+
+    function updatePricingMode() {
+        const modeMarkup = document.getElementById('mode_markup');
+        const priceInput = document.getElementById('price');
+        const priceLabel = document.getElementById('price-label');
+        const pctGroup = document.getElementById('markup-percentage-group');
+        if (!modeMarkup || !priceInput) return;
+
+        const isMarkup = modeMarkup.checked;
+        pctGroup.style.display = isMarkup ? 'block' : 'none';
+        if (isMarkup) {
+            priceInput.readOnly = true;
+            priceLabel.innerHTML = 'Precio calculado (RD$) <span style="color: var(--accent-red);">*</span>';
+            recalcMarkupPrice();
+        } else {
+            priceInput.readOnly = false;
+            priceLabel.innerHTML = 'Precio de Venta Público (RD$) <span style="color: var(--accent-red);">*</span>';
+        }
+        adjustActiveAccordionHeight();
+    }
+
+    function recalcMarkupPrice() {
+        const modeMarkup = document.getElementById('mode_markup');
+        if (!modeMarkup || !modeMarkup.checked) return;
+        const cost = parseFloat(document.getElementById('cost_price').value) || 0;
+        const pct = parseFloat(document.getElementById('markup_percentage').value) || 0;
+        const price = cost * (1 + pct / 100);
+        document.getElementById('price').value = price.toFixed(2);
+    }
 
     function previewImage() {
         const url = document.getElementById('image_url').value.trim();

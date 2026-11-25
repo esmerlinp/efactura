@@ -36,6 +36,7 @@ except Exception as e:
 import random
 from config import Config
 from app.services.db_service import DatabaseService, _resolve_company_id, _company_coll, db_firestore
+from app.services.pricing_service import PricingService
 from app.services.quotation_expiry_service import (
     quotation_expiry,
     apply_expiry_status,
@@ -821,15 +822,30 @@ def new_item():
     
     if request.method == 'POST':
         item_id = str(uuid.uuid4())
+        cost_price = float(request.form.get('costPrice') or 0.0)
+        pricing_mode = PricingService.normalize_mode(request.form.get('pricingMode', 'amount'))
+        markup_percentage = request.form.get('markupPercentage') or None
+        if pricing_mode != PricingService.MODE_MARKUP:
+            markup_percentage = None
+        price = float(PricingService.compute_price(
+            cost_price,
+            pricing_mode,
+            markup_percentage=markup_percentage,
+            explicit_price=request.form.get('price'),
+        ))
         item_dict = {
             "code": request.form.get('code', ''),
             "barcode": request.form.get('barcode', '').strip(),
             "branchId": request.form.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
-            "costPrice": float(request.form.get('costPrice') or 0.0),
+            "costPrice": cost_price,
             "categoryId": request.form.get('categoryId', 'general').strip(),
             "type": request.form.get('type', 'Bien'),
             "name": request.form['name'],
-            "price": float(request.form['price']),
+            "price": price,
+            "pricingMode": pricing_mode,
+            "markupPercentage": markup_percentage,
+            "priceSource": request.form.get('priceSource', 'markup' if pricing_mode == 'markup' else 'manual'),
+            "priceCalculationBase": 'costPrice' if pricing_mode == 'markup' else '',
             "unit": request.form.get('unit', 'Unidad'),
             "itbisRate": float(request.form.get('itbisRate', 0.18)),
             "minStock": float(request.form.get('minStock') or 0.0),
@@ -876,15 +892,32 @@ def edit_item(item_id):
         return redirect(url_for('web_invoices.list_items'))
         
     if request.method == 'POST':
+        cost_price = float(request.form.get('costPrice') or 0.0)
+        pricing_mode = PricingService.normalize_mode(
+            request.form.get('pricingMode', item.get('pricingMode', 'amount'))
+        )
+        markup_percentage = request.form.get('markupPercentage') or item.get('markupPercentage')
+        if pricing_mode != PricingService.MODE_MARKUP:
+            markup_percentage = None
+        price = float(PricingService.compute_price(
+            cost_price,
+            pricing_mode,
+            markup_percentage=markup_percentage,
+            explicit_price=request.form.get('price', item.get('price')),
+        ))
         item_dict = {
             "code": request.form.get('code', ''),
             "barcode": request.form.get('barcode', '').strip(),
             "branchId": request.form.get('branchId') or item.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
-            "costPrice": float(request.form.get('costPrice') or 0.0),
+            "costPrice": cost_price,
             "categoryId": request.form.get('categoryId', 'general').strip(),
             "type": request.form.get('type', 'Bien'),
             "name": request.form['name'],
-            "price": float(request.form['price']),
+            "price": price,
+            "pricingMode": pricing_mode,
+            "markupPercentage": markup_percentage,
+            "priceSource": request.form.get('priceSource', item.get('priceSource', 'markup' if pricing_mode == 'markup' else 'manual')),
+            "priceCalculationBase": 'costPrice' if pricing_mode == 'markup' else '',
             "unit": request.form.get('unit', 'Unidad'),
             "itbisRate": float(request.form.get('itbisRate', 0.18)),
             "minStock": float(request.form.get('minStock') or 0.0),

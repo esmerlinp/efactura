@@ -933,6 +933,14 @@
             'barcode': ['barcode', 'barra'],
             'unit': ['unidad', 'unit', 'medida'],
             'costPrice': ['costo', 'cost', 'compra'],
+            'pricingMode': ['tipoprecio', 'modoprecio', 'modalidad', 'pricingmode', 'tipodeprecio'],
+            'markupPercentage': ['porcentaje', 'porcentajeincremento', 'margen', 'markup', 'porciento', 'incremento'],
+            'initialStock': ['existenciainicial', 'existencia', 'stockinicial', 'cantidadinicial', 'cantidad', 'qtyinicial'],
+            'warehouseId': ['almacen', 'almacén', 'warehouse', 'bodega', 'almacenid'],
+            'initialUnitCost': ['costoinicial', 'costounitarioinicial', 'costoentrada'],
+            'initialStockDate': ['fechainicial', 'fechaapertura', 'fechaentrada'],
+            'lotNumber': ['lote', 'lotnumber', 'numerolote'],
+            'expirationDate': ['vencimiento', 'fechavencimiento', 'expiration'],
             'minStock': ['minimo', 'mínimo', 'min', 'alerta'],
             'maxStock': ['maximo', 'máximo', 'max'],
             'rackLocation': ['ubicacion', 'ubicación', 'pasillo', 'rack', 'gondola', 'góndola'],
@@ -1189,10 +1197,10 @@
 
             if (data.errors && data.errors.length > 0) {
                 document.getElementById('processingErrors').style.display = '';
-                var errHtml = '<thead><tr><th>Fila</th><th>Motivo</th></tr></thead><tbody>';
+                var errHtml = '<thead><tr><th>Fila</th><th>Columna</th><th>Motivo</th></tr></thead><tbody>';
                 var showErrors = data.errors.slice(-15);
                 showErrors.forEach(function(e) {
-                    errHtml += '<tr><td style="width:50px;">' + e.row + '</td><td>' + escapeHtml(e.reason) + '</td></tr>';
+                    errHtml += '<tr><td style="width:50px;">' + e.row + '</td><td>' + escapeHtml(e.column || '') + '</td><td>' + escapeHtml(e.reason) + '</td></tr>';
                 });
                 errHtml += '</tbody>';
                 document.getElementById('processingErrorsTable').innerHTML = errHtml;
@@ -1283,9 +1291,9 @@
 
     window.downloadErrorLog = function() {
         if (finalErrors.length === 0) return;
-        let csvContent = 'Fila,Motivo\n';
+        let csvContent = 'Fila,Columna,Motivo\n';
         finalErrors.forEach(function(e) {
-            csvContent += e.row + ',"' + (e.reason || '').replace(/"/g, '""') + '"\n';
+            csvContent += e.row + ',"' + (e.column || '') + '","' + (e.reason || '').replace(/"/g, '""') + '"\n';
         });
         const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);

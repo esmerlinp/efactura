@@ -482,7 +482,11 @@ def _cached_items(owner_uid, sandbox, company_id=None):
                     "wholesalePrice": float(data.get("wholesalePrice", 0.0)),
                     "brand": data.get("brand", ""),
                     "maxStock": float(data.get("maxStock", 0.0)),
-                    "imageUrl": data.get("imageUrl", "")
+                    "imageUrl": data.get("imageUrl", ""),
+                    "pricingMode": data.get("pricingMode", "amount"),
+                    "markupPercentage": float(data["markupPercentage"]) if data.get("markupPercentage") not in (None, "") and str(data.get("markupPercentage")).strip() != "" else None,
+                    "priceSource": data.get("priceSource", ""),
+                    "priceCalculationBase": data.get("priceCalculationBase", "")
                 })
             items.sort(key=lambda x: x["name"].lower())
         except Exception as e:
@@ -3202,6 +3206,11 @@ class DatabaseService:
         
         item_dict["price"] = float(item_dict.get("price", 0.0))
         item_dict["costPrice"] = float(item_dict.get("costPrice", 0.0))
+        item_dict["pricingMode"] = item_dict.get("pricingMode", "amount")
+        _mp = item_dict.get("markupPercentage")
+        item_dict["markupPercentage"] = float(_mp) if _mp is not None and str(_mp).strip() != "" else None
+        item_dict["priceSource"] = item_dict.get("priceSource", "")
+        item_dict["priceCalculationBase"] = item_dict.get("priceCalculationBase", "")
         item_dict["avgCost"] = float(item_dict.get("avgCost", 0.0))
         item_dict["lastPurchaseCost"] = float(item_dict.get("lastPurchaseCost", 0.0))
         item_dict["valuationMethod"] = item_dict.get("valuationMethod", "")

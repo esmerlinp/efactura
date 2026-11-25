@@ -74,6 +74,7 @@ class InventoryTransactionService:
     REASON_MERMA = "MERMA"
     REASON_CONSUMO_INTERNO = "CONSUMO_INTERNO"
     REASON_TRANSFERENCIA = "TRANSFERENCIA_ENTRE_ALMACENES"
+    REASON_SALDO_INICIAL = "SALDO_INICIAL"
 
     @classmethod
     def build_idempotency_key(

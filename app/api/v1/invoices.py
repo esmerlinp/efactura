@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, g, jsonify
 from app.api.auth import require_api_key, gate_api_blueprint_module
 from app.services.db_service import DatabaseService
+from app.services.pricing_service import PricingService, PricingError
 from app.services.mailer import Mailer
 from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
@@ -1264,7 +1265,18 @@ def create_item():
     try:
         data = request.json or {}
         name = data.get('name')
-        price = float(data.get('price', 0.0))
+        pricing_mode = PricingService.normalize_mode(data.get('pricingMode', 'amount'))
+        markup_percentage = data.get('markupPercentage') if pricing_mode == PricingService.MODE_MARKUP else None
+        cost_price = float(data.get('costPrice', data.get('cost', 0.0)))
+        try:
+            price = float(PricingService.compute_price(
+                cost_price,
+                pricing_mode,
+                markup_percentage=markup_percentage,
+                explicit_price=data.get('price', 0.0),
+            ))
+        except PricingError as pe:
+            return jsonify({"success": False, "error": str(pe)}), 400
         
         if not name:
             return jsonify({"success": False, "error": "El nombre del artículo es requerido."}), 400
@@ -1273,6 +1285,11 @@ def create_item():
         item_dict = {
             "name": name,
             "price": price,
+            "costPrice": cost_price,
+            "pricingMode": pricing_mode,
+            "markupPercentage": markup_percentage,
+            "priceSource": data.get('priceSource', 'markup' if pricing_mode == 'markup' else 'manual'),
+            "priceCalculationBase": 'costPrice' if pricing_mode == 'markup' else '',
             "code": data.get('code', ''),
             "type": data.get('type', 'Bien'),
             "unit": data.get('unit', 'Unidad'),
@@ -1360,10 +1377,33 @@ def update_item(item_id):
             return jsonify({"success": False, "error": "Artículo no encontrado."}), 404
             
         data = request.json or {}
+        pricing_mode = PricingService.normalize_mode(
+            data.get('pricingMode', item.get('pricingMode', 'amount'))
+        )
+        markup_percentage = data.get('markupPercentage', item.get('markupPercentage'))
+        if pricing_mode != PricingService.MODE_MARKUP:
+            markup_percentage = None
+        cost_price = float(data.get('costPrice', data.get('cost', item.get('costPrice', 0.0))))
+        explicit_price = data.get('price', item.get('price'))
+        try:
+            price = float(PricingService.compute_price(
+                cost_price,
+                pricing_mode,
+                markup_percentage=markup_percentage,
+                explicit_price=explicit_price,
+            ))
+        except PricingError as pe:
+            return jsonify({"success": False, "error": str(pe)}), 400
+
         item_dict = {
             **item,
             "name": data.get('name', item.get('name')),
-            "price": float(data.get('price', item.get('price'))),
+            "price": price,
+            "costPrice": cost_price,
+            "pricingMode": pricing_mode,
+            "markupPercentage": markup_percentage,
+            "priceSource": data.get('priceSource', item.get('priceSource', 'markup' if pricing_mode == 'markup' else 'manual')),
+            "priceCalculationBase": 'costPrice' if pricing_mode == 'markup' else '',
             "code": data.get('code', item.get('code')),
             "type": data.get('type', item.get('type')),
             "unit": data.get('unit', item.get('unit')),

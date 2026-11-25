@@ -10,6 +10,8 @@ from flask import (
 )
 from app.web.invoices import web_invoices_bp
 from app.services.db_service import DatabaseService
+from app.services.pricing_service import PricingService
+from app.services.product_import_preview import sanitize_float, resolve_import_price, build_preview
 from app.services.ai_service import AIService
 from app.utils.decorators import check_permission
 from app.extensions import limiter
@@ -30,6 +32,14 @@ ITEM_CSV_FIELDS = [
     ("barcode", "Código de Barra", False, ["barcode", "barra", "codigo_barra", "código de barra", "escaner"]),
     ("unit", "Unidad de Medida", False, ["unidad", "unit", "medida", "unidad_medida", "unidad de medida"]),
     ("costPrice", "Precio de Costo", False, ["costo", "cost", "compra", "precio_costo", "precio costo"]),
+    ("pricingMode", "Tipo de Precio", False, ["tipo_precio", "tipo de precio", "modo_precio", "modalidad", "pricingmode", "tipo precio"]),
+    ("markupPercentage", "Porcentaje de Incremento", False, ["porcentaje", "porcentaje_incremento", "margen", "markup", "porciento", "incremento", "%"]),
+    ("initialStock", "Existencia Inicial", False, ["existencia_inicial", "existencia", "stock_inicial", "cantidad_inicial", "cantidad", "qty_inicial"]),
+    ("warehouseId", "Almacén", False, ["almacen", "almacén", "warehouse", "bodega", "almacen_id"]),
+    ("initialUnitCost", "Costo Inicial", False, ["costo_inicial", "costo_unitario_inicial", "costo_entrada"]),
+    ("initialStockDate", "Fecha Inicial", False, ["fecha_inicial", "fecha_apertura", "fecha_entrada"]),
+    ("lotNumber", "Número de Lote", False, ["lote", "lotnumber", "numero_lote"]),
+    ("expirationDate", "Fecha de Vencimiento", False, ["vencimiento", "fecha_vencimiento", "expiration"]),
     ("minStock", "Stock Mínimo Alerta", False, ["minimo", "mínimo", "min", "alerta", "stock_minimo"]),
     ("maxStock", "Stock Máximo", False, ["maximo", "máximo", "max", "stock_maximo"]),
     ("rackLocation", "Ubicación Física", False, ["ubicacion", "ubicación", "location", "pasillo", "rack", "gondola", "góndola"]),
@@ -50,11 +60,17 @@ ITEM_TARGET_FIELDS = [
 ITEM_CSV_HEADERS = [f[0] for f in ITEM_CSV_FIELDS]
 ITEM_EXAMPLE_ROWS = [
     ["Laptop Dell Latitude", "45000.00", "0.18", "Bien", "Electrónica", "PROD-001",
-     "7460123456789", "Unidad", "35000.00", "5", "50", "Pasillo 3, Góndola A", "", "0.0",
+     "7460123456789", "Unidad", "35000.00", "MONTO", "", "0", "", "", "", "", "",
+     "5", "50", "Pasillo 3, Góndola A", "", "0.0",
      "Dell SRL", "42000.00", "Dell", "https://example.com/dell.jpg", "Activo"],
     ["Asesoría Legal por Hora", "3500.00", "0.0", "Servicio", "Servicios", "SERV-002",
-     "", "Hora", "1500.00", "0", "0", "", "", "0.0",
+     "", "Hora", "1500.00", "MONTO", "", "0", "", "", "", "", "",
+     "0", "0", "", "", "0.0",
      "", "3500.00", "", "", "Activo"],
+    ["Camiseta Algodón", "", "0.18", "Bien", "General", "PROD-003",
+     "", "Unidad", "100.00", "PORCENTAJE", "10", "150", "default-almacen-principal", "", "", "", "",
+     "0", "0", "", "", "0.0",
+     "", "", "", "", "Activo"],
 ]
 
 ITEM_TYPE_OPTIONS = ["Bien", "Servicio"]
@@ -76,18 +92,7 @@ def _get_delimiter(first_line):
     return ','
 
 
-def _sanitize_float_import(val, default=0.0):
-    if not val:
-        return default
-    try:
-        val_clean = str(val).strip().replace('RD$', '').replace('$', '').replace(' ', '')
-        if ',' in val_clean and '.' in val_clean:
-            val_clean = val_clean.replace(',', '')
-        elif ',' in val_clean:
-            val_clean = val_clean.replace(',', '.')
-        return float(val_clean)
-    except Exception:
-        return default
+_sanitize_float_import = sanitize_float
 
 
 def _normalize_type(val):
@@ -102,6 +107,9 @@ def _parse_is_active(val):
     if not v:
         return True
     return v not in ['inactivo', 'false', '0', 'no', 'disabled', 'inactive']
+
+
+_resolve_import_price = resolve_import_price
 
 
 @web_invoices_bp.route('/items/import')
@@ -121,12 +129,16 @@ def items_import():
     )
     category_names = sorted({c.get('name', '') for c in categories_list if c.get('name')})
 
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
+    warehouse_names = sorted({w.get('name', '') for w in warehouses if w.get('name')})
+
     system_defaults = {
         "type": ITEM_TYPE_OPTIONS,
         "itbisRate": ITEM_ITBIS_OPTIONS,
         "unit": ITEM_UNIT_OPTIONS,
         "categoryId": category_names,
         "isActive": ["Activo", "Inactivo"],
+        "warehouseId": warehouse_names,
     }
 
     return render_template('items/import.html', active_page='items',
@@ -231,6 +243,190 @@ def items_import_ai_suggest():
     return jsonify(res)
 
 
+def _read_csv_rows(temp_path):
+    with open(temp_path, 'r', encoding='utf-8-sig', errors='ignore') as f:
+        first_line = f.readline()
+        delimiter = _get_delimiter(first_line)
+        f.seek(0)
+        reader = csv.reader(f, delimiter=delimiter)
+        next(reader, None)
+        return list(reader)
+
+
+def _row_values(row_data, mapping, field_defaults):
+    values = {}
+    for field_id, idx in mapping.items():
+        try:
+            if len(row_data) > int(idx):
+                val = (row_data[int(idx)] or "").strip()
+                if val:
+                    values[field_id] = val
+        except (TypeError, ValueError):
+            continue
+    for field_id, val in field_defaults.items():
+        if val and field_id not in values:
+            values[field_id] = val
+    return values
+
+
+@web_invoices_bp.route('/items/import/preview', methods=['POST'])
+def items_import_preview():
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    if not check_permission('canManageCatalog'):
+        return jsonify({"success": False, "error": "Sin permiso para previsualizar catálogo."}), 403
+
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    temp_filename = request.form.get("temp_filename")
+    if not temp_filename:
+        return jsonify({"success": False, "error": "Información de importación incompleta."}), 400
+
+    temp_path = os.path.join(TEMP_IMPORT_DIR, temp_filename)
+    if not os.path.exists(temp_path):
+        return jsonify({"success": False, "error": "El archivo temporal ya no existe. Intenta subirlo de nuevo."}), 400
+
+    mapping = {}
+    for key, value in request.form.items():
+        if key.startswith("map_") and value:
+            field_id = key.replace("map_", "")
+            try:
+                mapping[field_id] = int(value)
+            except ValueError:
+                pass
+
+    field_defaults = {}
+    for key, value in request.form.items():
+        if key.startswith("default_") and value.strip():
+            field_defaults[key.replace("default_", "")] = value.strip()
+
+    try:
+        rows = _read_csv_rows(temp_path)
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error al leer el archivo: {html.escape(str(e))}"}), 500
+
+    resolved = []
+    for row_idx, row_data in enumerate(rows):
+        if not row_data or not any(c.strip() for c in row_data):
+            continue
+        values = _row_values(row_data, mapping, field_defaults)
+        values["row"] = row_idx + 2
+        resolved.append(values)
+
+    existing_items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox)
+    existing_codes = {str(i.get('code', '')).strip().lower() for i in existing_items if i.get('code')}
+    existing_barcodes = {str(i.get('barcode', '')).strip() for i in existing_items if i.get('barcode')}
+
+    result = build_preview(resolved, existing_codes, existing_barcodes)
+    summary = result["summary"]
+    summary["totalRows"] = len(resolved)
+
+    from app.services.product_import_batch_service import ProductImportBatchService
+    batch = ProductImportBatchService.create_batch(
+        company_id, {"filename": temp_filename, "createdBy": owner_uid}, sandbox=sandbox)
+    ProductImportBatchService.mark_validated(company_id, batch["id"], summary, sandbox=sandbox)
+
+    return jsonify({
+        "success": True,
+        "batch_id": batch["id"],
+        "summary": summary,
+        "rows": result["rows"],
+    })
+
+
+@web_invoices_bp.route('/items/import/confirm', methods=['POST'])
+def items_import_confirm():
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    if not check_permission('canManageCatalog'):
+        return jsonify({"success": False, "error": "Sin permiso para confirmar importación."}), 403
+
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+    user_email = session.get('user', {}).get('email', owner_uid)
+
+    batch_id = request.form.get("batch_id")
+    temp_filename = request.form.get("temp_filename")
+    if not batch_id or not temp_filename:
+        return jsonify({"success": False, "error": "Información de importación incompleta."}), 400
+
+    from app.services.product_import_batch_service import ProductImportBatchService
+
+    batch = ProductImportBatchService.get_batch(company_id, batch_id, sandbox=sandbox)
+    if not batch:
+        return jsonify({"success": False, "error": "Lote de importación no encontrado."}), 404
+    if batch.get("status") == ProductImportBatchService.STATUS_CONFIRMED:
+        return jsonify({"success": False, "error": "El lote ya fue confirmado y no puede reprocesarse."}), 409
+    if batch.get("status") != ProductImportBatchService.STATUS_VALIDATED:
+        return jsonify({"success": False, "error": "El lote debe validarse antes de confirmar."}), 409
+
+    temp_path = os.path.join(TEMP_IMPORT_DIR, temp_filename)
+    if not os.path.exists(temp_path):
+        return jsonify({"success": False, "error": "El archivo temporal ya no existe. Intenta subirlo de nuevo."}), 400
+
+    mapping = {}
+    for key, value in request.form.items():
+        if key.startswith("map_") and value:
+            field_id = key.replace("map_", "")
+            try:
+                mapping[field_id] = int(value)
+            except ValueError:
+                pass
+
+    field_defaults = {}
+    for key, value in request.form.items():
+        if key.startswith("default_") and value.strip():
+            field_defaults[key.replace("default_", "")] = value.strip()
+
+    try:
+        rows = _read_csv_rows(temp_path)
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error al leer el archivo: {html.escape(str(e))}"}), 500
+
+    resolved = []
+    for row_idx, row_data in enumerate(rows):
+        if not row_data or not any(c.strip() for c in row_data):
+            continue
+        values = _row_values(row_data, mapping, field_defaults)
+        values["row"] = row_idx + 2
+        resolved.append(values)
+
+    existing_items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox)
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
+
+    from app.services.product_import_processor import ProductImportProcessor
+
+    effective_date = request.form.get("effective_date", "").strip()
+    result = ProductImportProcessor.process_batch(
+        owner_uid, company_id, batch_id, resolved,
+        existing_items=existing_items, warehouses=warehouses,
+        sandbox=sandbox, performed_by=user_email, effective_date=effective_date,
+    )
+    summary = result["summary"]
+
+    ProductImportBatchService.record_summary(company_id, batch_id, {
+        "totalRows": len(resolved),
+        "validRows": summary["created"] + summary["updated"],
+        "errorRows": summary["errors"],
+        "newProducts": summary["created"],
+        "updatedProducts": summary["updated"],
+        "inventoryMovements": summary["stockMovements"],
+        "totalUnits": summary["totalUnits"],
+        "totalInventoryValue": summary["totalInventoryValue"],
+    }, sandbox=sandbox)
+    ProductImportBatchService.mark_confirmed(company_id, batch_id, confirmed_by=user_email, sandbox=sandbox)
+
+    return jsonify({
+        "success": True,
+        "batch_id": batch_id,
+        "summary": summary,
+        "rows": result["rows"],
+    })
+
+
 @web_invoices_bp.route('/items/import/process', methods=['POST'])
 def items_import_process():
     if 'user' not in session:
@@ -318,13 +514,17 @@ def items_import_process():
                 try:
                     name = _get_val(row_data, "name").strip()
                     if not name:
-                        errors.append({"row": row_num, "reason": "Falta el nombre o descripción del artículo (name)."})
+                        errors.append({"row": row_num, "column": "name", "reason": "Falta el nombre o descripción del artículo (name)."})
                         skipped += 1
                         continue
 
-                    price = _sanitize_float_import(_get_val(row_data, "price"), 0.0)
-                    if price < 0:
-                        errors.append({"row": row_num, "reason": f"Precio inválido: '{_get_val(row_data, 'price')}'."})
+                    cost_price = _sanitize_float_import(_get_val(row_data, "costPrice"))
+                    pricing_mode = PricingService.normalize_mode(_get_val(row_data, "pricingMode"))
+                    markup_pct_raw = _get_val(row_data, "markupPercentage").strip()
+                    price, err_col, err_reason = _resolve_import_price(
+                        cost_price, pricing_mode, markup_pct_raw, _get_val(row_data, "price"))
+                    if err_col:
+                        errors.append({"row": row_num, "column": err_col, "reason": err_reason})
                         skipped += 1
                         continue
 
@@ -342,9 +542,13 @@ def items_import_process():
                         "type": _normalize_type(_get_val(row_data, "type")),
                         "name": name,
                         "price": price,
+                        "costPrice": cost_price,
+                        "pricingMode": pricing_mode,
+                        "markupPercentage": markup_pct_raw if pricing_mode == PricingService.MODE_MARKUP else None,
+                        "priceSource": "import",
+                        "priceCalculationBase": "costPrice" if pricing_mode == PricingService.MODE_MARKUP else "",
                         "unit": _get_val(row_data, "unit", "Unidad").strip() or "Unidad",
                         "itbisRate": _sanitize_float_import(_get_val(row_data, "itbisRate"), 0.18),
-                        "costPrice": _sanitize_float_import(_get_val(row_data, "costPrice")),
                         "minStock": _sanitize_float_import(_get_val(row_data, "minStock")),
                         "maxStock": _sanitize_float_import(_get_val(row_data, "maxStock")),
                         "rackLocation": _get_val(row_data, "rackLocation").strip(),
