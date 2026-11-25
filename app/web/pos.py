@@ -416,6 +416,8 @@ def _pos_itbis_breakdown(calculated_items):
 def _check_pos_module():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
+    if request.endpoint == 'web_pos.print_receipt':
+        return None
     if not module_enabled('pos'):
         if request.is_json or request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({
@@ -2478,8 +2480,9 @@ def create_pos_sale():
 
 
 @web_pos_bp.route('/pos/invoice/<invoice_id>/print')
-@require_permission('canManagePOS', 'Impresión POS')
 def print_receipt(invoice_id):
+    if not (check_permission('canInvoice') or check_permission('canManagePOS')):
+        return render_template('auth/restricted.html', feature_name='Impresión de Ticket de Venta', required_permission='canInvoice'), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
