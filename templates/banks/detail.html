@@ -162,13 +162,17 @@
         height: 34px; padding: 0 13px; display: inline-flex;
         align-items: center; gap: 6px; font-size: 0.78rem;
     }
-    .ledger-filter-bar { display:flex; gap:8px; flex-wrap:nowrap; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border-color); background:#f8fafc; overflow-x:auto; }
-    .ledger-filter-bar input, .ledger-filter-bar select { height:34px; border:1px solid var(--border-color); border-radius:7px; padding:0 10px; font-size:.78rem; background:#fff; color:var(--text-primary); flex:0 0 auto; }
-    .ledger-filter-bar .quick-pills { display:flex; gap:6px; flex:0 0 auto; }
-    .ledger-filter-bar .date-filter { display:flex; align-items:center; gap:5px; flex:0 0 auto; color:var(--text-muted); font-size:.7rem; font-weight:700; white-space:nowrap; }
-    .ledger-filter-bar .filter-search { width:190px; }
-    .ledger-filter-bar .filter-origin { width:135px; }
-    .ledger-filter-bar .filter-refresh { flex:0 0 34px; width:34px; padding:0; justify-content:center; }
+    .ledger-controls { display:flex; align-items:center; gap:8px; flex-wrap:nowrap; padding:12px 16px; border-bottom:1px solid var(--border-color); background:#f8fafc; }
+    .ledger-controls input, .ledger-controls select { height:36px; border:1px solid #cbd5e1; border-radius:8px; padding:0 10px; font-size:.78rem; background:#fff; color:var(--text-primary); box-sizing:border-box; }
+    .ledger-controls input:focus, .ledger-controls select:focus { outline:none; border-color:var(--accent-emerald); box-shadow:0 0 0 3px rgba(16,185,129,.12); }
+    .ledger-controls .quick-pills { display:flex; gap:4px; flex:0 0 auto; padding:3px; background:#e2e8f0; border-radius:9px; }
+    .ledger-controls .quick-pills .btn { height:30px; padding:0 10px; border:0; font-size:.74rem; }
+    .ledger-controls .date-filter { display:flex; align-items:center; gap:6px; flex:0 0 auto; color:var(--text-muted); font-size:.68rem; font-weight:700; white-space:nowrap; }
+    .ledger-controls .date-filter input { width:136px; color:var(--text-primary); }
+    .ledger-controls .filter-search { min-width:150px; flex:1 1 190px; }
+    .ledger-controls .filter-origin { width:135px; flex:0 0 135px; }
+    .ledger-controls .filter-submit, .ledger-controls .filter-clear, .ledger-controls .filter-refresh { flex:0 0 auto; height:36px; display:inline-flex; align-items:center; justify-content:center; }
+    .ledger-controls .filter-refresh { width:36px; padding:0; }
 
     @media (max-width: 640px) {
         .account-hero { flex-direction:column; }
@@ -176,6 +180,12 @@
         .account-card .acc-balance { text-align:left; width:100%; }
         .summary-grid { grid-template-columns:repeat(2,1fr); }
         .movement-filters { align-items: stretch; }
+        .ledger-controls { display:grid; grid-template-columns:1fr 1fr; gap:8px; overflow:visible; }
+        .ledger-controls .quick-pills { grid-column:1 / -1; display:grid; grid-template-columns:repeat(4,1fr); padding:3px; }
+        .ledger-controls .quick-pills .btn { padding:0 6px; }
+        .ledger-controls .date-filter { width:100%; }
+        .ledger-controls .date-filter input { width:100%; min-width:0; }
+        .ledger-controls .filter-search, .ledger-controls .filter-origin, .ledger-controls .filter-submit, .ledger-controls .filter-clear, .ledger-controls .filter-refresh { width:100%; min-width:0; grid-column:1 / -1; }
         .movement-filter, .movement-filter--date,
         .movement-filter-actions { width: 100%; min-width: 0; }
         .movement-filter-actions .btn { flex: 1; justify-content: center; }
@@ -298,19 +308,14 @@
 
 <div class="rpt-table-card">
     <div class="card-header"><i class="fa-solid fa-book"></i> Libro bancario</div>
-    <div style="display:flex;justify-content:flex-end;gap:8px;padding:0 16px 12px;">
+    <div class="ledger-controls">
         <div class="quick-pills">
             {% for value,label in [('today','Hoy'),('week','Semana'),('month','Mes'),('year','Año')] %}<a class="btn {% if quick_filter == value %}btn-primary{% else %}btn-secondary{% endif %}" href="{{ url_for('web_banks.bank_detail', account_id=account.id, quick=value, type=type_filter, origin=origin_filter, q=movement_query) }}">{{ label }}</a>{% endfor %}
         </div>
         <label class="date-filter">Desde <input type="date" value="{{ date_from }}" onchange="setBankDateFilter('date_from', this.value)"></label>
         <label class="date-filter">Hasta <input type="date" value="{{ date_to }}" onchange="setBankDateFilter('date_to', this.value)"></label>
-        {% if page > 1 %}<a class="btn btn-secondary" href="{{ url_for('web_banks.bank_detail', account_id=account.id, page=page-1, type=type_filter, date_from=date_from, date_to=date_to, origin=origin_filter, q=movement_query) }}">Anterior</a>{% endif %}
-        {% if page < total_pages %}<a class="btn btn-secondary" href="{{ url_for('web_banks.bank_detail', account_id=account.id, page=page+1, type=type_filter, date_from=date_from, date_to=date_to, origin=origin_filter, q=movement_query) }}">Siguiente</a>{% endif %}
-        <a class="btn btn-secondary filter-refresh" title="Actualizar movimientos" aria-label="Actualizar movimientos" href="{{ url_for('web_banks.bank_detail', account_id=account.id, page=page, type=type_filter, date_from=date_from, date_to=date_to, origin=origin_filter, q=movement_query, refresh=1) }}"><i class="fa-solid fa-rotate"></i></a>
-    </div>
-    <form method="get" class="ledger-filter-bar" action="{{ url_for('web_banks.bank_detail', account_id=account.id) }}">
-        <input class="filter-search" name="q" value="{{ movement_query }}" placeholder="Buscar descripción o referencia" aria-label="Buscar movimientos">
-        <select class="filter-origin" name="origin" aria-label="Filtrar por origen">
+        <input class="filter-search" name="q" value="{{ movement_query }}" placeholder="Buscar descripción o referencia" aria-label="Buscar movimientos" form="ledger-filter-form">
+        <select class="filter-origin" name="origin" aria-label="Filtrar por origen" form="ledger-filter-form">
             <option value="">Todos los orígenes</option>
             <option value="invoice_payment" {% if origin_filter == 'invoice_payment' %}selected{% endif %}>Cobros</option>
             <option value="cxp_payment" {% if origin_filter == 'cxp_payment' %}selected{% endif %}>CxP</option>
@@ -318,9 +323,13 @@
             <option value="bank_transfer" {% if origin_filter == 'bank_transfer' %}selected{% endif %}>Transferencias</option>
             <option value="adjustment" {% if origin_filter == 'adjustment' %}selected{% endif %}>Ajustes</option>
         </select>
-        <button class="btn btn-secondary" type="submit">Filtrar</button>
-        {% if origin_filter or movement_query %}<a class="btn btn-secondary" href="{{ url_for('web_banks.bank_detail', account_id=account.id) }}">Limpiar</a>{% endif %}
-    </form>
+        <button class="btn btn-primary filter-submit" type="submit" form="ledger-filter-form">Filtrar</button>
+        {% if origin_filter or movement_query %}<a class="btn btn-secondary filter-clear" href="{{ url_for('web_banks.bank_detail', account_id=account.id) }}">Limpiar</a>{% endif %}
+        {% if page > 1 %}<a class="btn btn-secondary" href="{{ url_for('web_banks.bank_detail', account_id=account.id, page=page-1, type=type_filter, date_from=date_from, date_to=date_to, origin=origin_filter, q=movement_query) }}">Anterior</a>{% endif %}
+        {% if page < total_pages %}<a class="btn btn-secondary" href="{{ url_for('web_banks.bank_detail', account_id=account.id, page=page+1, type=type_filter, date_from=date_from, date_to=date_to, origin=origin_filter, q=movement_query) }}">Siguiente</a>{% endif %}
+        <a class="btn btn-secondary filter-refresh" title="Actualizar movimientos" aria-label="Actualizar movimientos" href="{{ url_for('web_banks.bank_detail', account_id=account.id, page=page, type=type_filter, date_from=date_from, date_to=date_to, origin=origin_filter, q=movement_query, refresh=1) }}"><i class="fa-solid fa-rotate"></i></a>
+    </div>
+    <form id="ledger-filter-form" method="get" action="{{ url_for('web_banks.bank_detail', account_id=account.id) }}"></form>
     {% if unified_movements %}
     <div style="overflow-x:auto;">
     <table class="rpt-table ledger-table">

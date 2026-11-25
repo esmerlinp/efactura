@@ -85,6 +85,7 @@ def _load_account_payment_transactions(owner_uid, account_id, sandbox, company_i
                     "amount": float(pmt.get('amount', 0)),
                     "reference": pmt.get('referenceNumber', ''),
                     "invoiceId": inv_id,
+                    "paymentId": pmt.get("id", ""),
                     "documentType": inv.get('documentType', ''),
                 })
 
@@ -260,8 +261,21 @@ def bank_detail(account_id):
             "document_url": "",
             "reversal_of": movement.get("reversalOf", ""),
         })
+    registered_payment_keys = {
+        (row.get("sourceType"), row.get("sourceId"))
+        for row in ledger_movements
+        if row.get("sourceType") == "invoice_payment" and row.get("sourceId")
+    }
     for movement in transactions:
-        if any(row["reference"] == movement.get("reference") and row["date"] == movement.get("date") for row in unified_movements):
+        payment_id = movement.get("paymentId")
+        if payment_id and ("invoice_payment", payment_id) in registered_payment_keys:
+            continue
+        if any(
+            row["reference"] == movement.get("reference")
+            and row["date"] == movement.get("date")
+            and abs((row.get("inflow", 0) - row.get("outflow", 0)) - movement.get("amount", 0)) < 0.01
+            for row in unified_movements
+        ):
             continue
         amount = float(movement.get("amount", 0) or 0)
         unified_movements.append({
