@@ -1702,6 +1702,104 @@ class AccountingService:
             ) from e
 
     @classmethod
+    def auto_generate_supplier_invoice_entry(cls, company_id, invoice, sandbox=True, country="DO"):
+        """Genera el asiento de reconocimiento de una factura recibida.
+
+        La factura a crédito reconoce CxP. La factura de contado conserva el
+        reconocimiento separado del pago; el asiento posterior del pago es el
+        que acredita banco/caja.
+        """
+        invoice = invoice or {}
+        invoice_id = invoice.get("id", "")
+        if not invoice_id:
+            raise AccountingPostingError("La factura de proveedor no tiene ID.")
+        if _accounting_entry_exists(company_id, "supplier_invoice", invoice_id):
+            return None
+
+        accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
+        if not accounts:
+            cls.seed_default_accounts(company_id, country=country)
+            accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
+        from app.services.country_provider import CountryProviderFactory
+        provider = CountryProviderFactory.create(country)
+        mapping = provider.get_account_mapping() if provider else {}
+        labels = provider.get_tax_labels() if provider else {}
+        rules = AccountingRulesService.get_rules(company_id)
+        expense_acc = AccountingRulesService.resolve(
+            company_id, "gasto", "gasto_cuenta_general", {}, accounts, rules=rules,
+            fallback_usages=["gastos", "compras"],
+        )
+        itbis_acc = AccountingRulesService.resolve(
+            company_id, "gasto", "gasto_itbis_credito", {}, accounts, rules=rules,
+            fallback_usages=[mapping.get("vat_credit")] if mapping.get("vat_credit") else None,
+        )
+        cxp_acc = AccountingRulesService.resolve(
+            company_id, "gasto", "gasto_deudor", {"payment_type": "Crédito"}, accounts, rules=rules,
+            fallback_usages=["cxp"],
+        )
+        if not expense_acc or not cxp_acc:
+            raise AccountingPostingError("Faltan cuentas contables para gasto o CxP.")
+
+        total = round(float(invoice.get("total", 0) or 0), 2)
+        itbis = round(float(invoice.get("itbis", 0) or 0), 2)
+        subtotal = round(float(invoice.get("subtotal", total - itbis) or 0), 2)
+        retained_isr = round(float(invoice.get("retainedISR", 0) or 0), 2)
+        retained_itbis = round(float(invoice.get("retainedITBIS", 0) or 0), 2)
+        lines = [{
+            "accountId": expense_acc["id"], "accountCode": expense_acc.get("code", ""),
+            "accountName": expense_acc.get("name", ""), "debit": subtotal, "credit": 0.0,
+            "description": invoice.get("supplierName", "Factura de proveedor"),
+        }]
+        if itbis > 0:
+            if not itbis_acc:
+                raise AccountingPostingError("Falta la cuenta de ITBIS crédito fiscal.")
+            lines.append({
+                "accountId": itbis_acc["id"], "accountCode": itbis_acc.get("code", ""),
+                "accountName": itbis_acc.get("name", ""), "debit": itbis, "credit": 0.0,
+                "description": labels.get("vat_credit", "ITBIS crédito fiscal"),
+            })
+        if retained_isr > 0:
+            isr_acc = AccountingRulesService.resolve(
+                company_id, "gasto", "gasto_isr_retenido", {}, accounts, rules=rules,
+                fallback_usages=["isr_retenido"],
+            )
+            if not isr_acc:
+                raise AccountingPostingError("Falta la cuenta de ISR retenido.")
+            lines.append({"accountId": isr_acc["id"], "accountCode": isr_acc.get("code", ""),
+                          "accountName": isr_acc.get("name", ""), "debit": 0.0,
+                          "credit": retained_isr, "description": "ISR retenido"})
+        if retained_itbis > 0:
+            ret_acc = AccountingRulesService.resolve(
+                company_id, "gasto", "gasto_itbis_retenido", {}, accounts, rules=rules,
+                fallback_usages=["itbis_retenido"],
+            )
+            if not ret_acc:
+                raise AccountingPostingError("Falta la cuenta de ITBIS retenido.")
+            lines.append({"accountId": ret_acc["id"], "accountCode": ret_acc.get("code", ""),
+                          "accountName": ret_acc.get("name", ""), "debit": 0.0,
+                          "credit": retained_itbis, "description": "ITBIS retenido"})
+        payable = round(total - retained_isr - retained_itbis, 2)
+        lines.append({"accountId": cxp_acc["id"], "accountCode": cxp_acc.get("code", ""),
+                      "accountName": cxp_acc.get("name", ""), "debit": 0.0,
+                      "credit": payable, "description": f"CxP {invoice.get('ncf', '')}"})
+        try:
+            return cls.generate_entry(company_id, {
+                "entryType": "supplier_invoice",
+                "date": str(invoice.get("date", ""))[:10],
+                "concept": f"Factura recibida {invoice.get('ncf', '')} - {invoice.get('supplierName', '')}"[:200],
+                "referenceType": "supplier_invoice",
+                "referenceId": invoice_id,
+                "referenceNumber": invoice.get("ncf", ""),
+                "lines": lines,
+                "createdBy": "system",
+                "prefix": "A",
+            }, sandbox=sandbox)
+        except ValueError as exc:
+            raise AccountingPostingError(
+                f"Asiento de factura recibida desbalanceado ({invoice_id}): {exc}"
+            ) from exc
+
+    @classmethod
     def auto_generate_depreciation_entry(cls, company_id, dep_data, sandbox=True):
         """Genera asiento contable para depreciación de activos fijos.
 

@@ -96,6 +96,74 @@ class TestCxpPaymentEntry:
         ve.assert_called_once()
 
 
+class _Snapshot:
+    def __init__(self, exists, data=None):
+        self.exists = exists
+        self._data = data or {}
+
+    def to_dict(self):
+        return self._data
+
+
+class _Ref:
+    def __init__(self, data=None):
+        self.data = data
+        self.updated = []
+        self.set_values = []
+
+    def get(self, transaction=None):
+        return _Snapshot(self.data is not None, self.data)
+
+
+class _Tx:
+    def __init__(self, account_ref, movement_ref):
+        self.account_ref = account_ref
+        self.movement_ref = movement_ref
+
+    def set(self, ref, data):
+        ref.set_values.append(data)
+
+    def update(self, ref, data):
+        ref.updated.append(data)
+
+
+def test_bank_payment_transaction_writes_movement_and_balance_once():
+    account_ref = _Ref({"id": "bank-1", "currentBalance": 1000.0})
+    movement_ref = _Ref()
+    tx = _Tx(account_ref, movement_ref)
+    company_coll = MagicMock()
+    company_coll.document.side_effect = [account_ref, movement_ref]
+
+    with patch("app.services.db_service._company_coll", return_value=company_coll):
+        result = SupplierInvoiceService._apply_bank_payment_tx(
+            tx, "owner", "bank-1", "payment-1", 100.0,
+            "Pago factura", "user", "company", True,
+        )
+
+    assert result["alreadyApplied"] is False
+    assert len(movement_ref.set_values) == 1
+    assert movement_ref.set_values[0]["amount"] == -100.0
+    assert account_ref.updated[0]["currentBalance"] == 900.0
+
+
+def test_bank_payment_transaction_is_idempotent_when_movement_exists():
+    account_ref = _Ref({"id": "bank-1", "currentBalance": 900.0})
+    movement_ref = _Ref({"id": "existing"})
+    tx = _Tx(account_ref, movement_ref)
+    company_coll = MagicMock()
+    company_coll.document.side_effect = [account_ref, movement_ref]
+
+    with patch("app.services.db_service._company_coll", return_value=company_coll):
+        result = SupplierInvoiceService._apply_bank_payment_tx(
+            tx, "owner", "bank-1", "payment-1", 100.0,
+            "Pago factura", "user", "company", True,
+        )
+
+    assert result["alreadyApplied"] is True
+    assert not movement_ref.set_values
+    assert not account_ref.updated
+
+
 def _patch_firebase():
     stack = ExitStack()
     stack.enter_context(patch.object(mod, "firebase_initialized", True))

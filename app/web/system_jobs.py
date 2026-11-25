@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, session, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, session, request, jsonify, g
 
 from app.services.job_service import JobService
 from app.utils.decorators import check_permission
@@ -7,6 +7,41 @@ from app.utils.module_gate import gate_blueprint_module
 
 web_system_jobs_bp = Blueprint("web_system_jobs", __name__)
 gate_blueprint_module(web_system_jobs_bp, "auditoria")
+
+
+@web_system_jobs_bp.route("/admin/cxp-reconciliation")
+def cxp_reconciliation():
+    if "user" not in session:
+        return redirect(url_for("web_auth.login"))
+    if not (check_permission("canViewSystemJobs") or check_permission("canAccounting")):
+        return render_template("auth/restricted.html", feature_name="Conciliación CxP", required_permission="canAccounting"), 403
+    from app.services.cxp_payment_reconciliation_service import CxpPaymentReconciliationService
+    owner_uid = session.get("selected_owner_uid") or session.get("user", {}).get("ownerUID")
+    company_id = session.get("selected_company_id")
+    sandbox = session.get("sandbox", True)
+    findings = CxpPaymentReconciliationService.scan(
+        owner_uid=owner_uid, company_id=company_id, sandbox=sandbox,
+    )
+    return render_template("system/cxp_reconciliation.html", findings=findings, active_page="cxp_reconciliation")
+
+
+@web_system_jobs_bp.route("/admin/cxp-reconciliation/<invoice_id>/<payment_id>/repair", methods=["POST"])
+def repair_cxp_payment(invoice_id, payment_id):
+    if "user" not in session:
+        return jsonify(success=False, error="No autorizado"), 401
+    if not (check_permission("canViewSystemJobs") or check_permission("canAccounting")):
+        return jsonify(success=False, error="Permiso insuficiente"), 403
+    from app.services.cxp_payment_reconciliation_service import CxpPaymentReconciliationService
+    owner_uid = session.get("selected_owner_uid") or session.get("user", {}).get("ownerUID")
+    company_id = session.get("selected_company_id")
+    sandbox = session.get("sandbox", True)
+    ok, message = CxpPaymentReconciliationService.repair_payment(
+        owner_uid=owner_uid, company_id=company_id,
+        invoice_id=invoice_id, payment_id=payment_id,
+        sandbox=sandbox,
+        repaired_by=str(session.get("user", {}).get("email") or "usuario"),
+    )
+    return jsonify(success=ok, message=message), (200 if ok else 400)
 
 
 @web_system_jobs_bp.route("/admin/jobs")
@@ -59,6 +94,7 @@ def trigger_job():
         "daily_depreciation": ("daily_depreciation", "Depreciación de Activos Fijos (Manual)"),
         "cleanup_idempotency_keys": ("cleanup_idempotency_keys", "Limpieza de Idempotency Keys (Manual)"),
         "tax_obligation_reminders": ("tax_obligation_reminders", "Recordatorios de Obligaciones Tributarias DGII (Manual)"),
+        "cxp_payment_reconciliation": ("cxp_payment_reconciliation", "Conciliación de pagos CxP (Manual)"),
     }
 
     job_info = job_map.get(job_id)
@@ -76,6 +112,7 @@ def trigger_job():
             cleanup_expired_idempotency_keys,
             run_tax_obligation_reminders,
         )
+        from app.services.cxp_payment_reconciliation_service import CxpPaymentReconciliationService
         func_map = {
             "contingency_sync": run_contingency_sync,
             "dgii_pending_reconciliation": run_dgii_pending_reconciliation,
@@ -83,6 +120,13 @@ def trigger_job():
             "daily_depreciation": run_daily_depreciation,
             "cleanup_idempotency_keys": cleanup_expired_idempotency_keys,
             "tax_obligation_reminders": run_tax_obligation_reminders,
+            "cxp_payment_reconciliation": lambda: {
+                "findings": CxpPaymentReconciliationService.scan(
+                    owner_uid=session.get("selected_owner_uid") or session.get("user", {}).get("ownerUID"),
+                    company_id=session.get("selected_company_id"),
+                    sandbox=session.get("sandbox", True),
+                )
+            },
         }
         func = func_map.get(job_id)
         if not func:
@@ -94,4 +138,3 @@ def trigger_job():
         import logging
         logging.getLogger(__name__).error(f"Error ejecutando job {job_id}: {e}")
         return jsonify(success=False, error=str(e)), 500
-

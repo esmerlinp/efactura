@@ -84,10 +84,9 @@
                             {{ detail.razon_social_emisor or doc.sender_name or 'Emisor no especificado' }}
                         </h2>
                         <span
-                            style="font-family: monospace; font-size: 0.88rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">RNC
-                            Emisor: {{ detail.rnc_emisor or doc.sender_rnc or '-' }}</span>
+                            style="font-family: monospace; font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 3px;">RNC {{ detail.rnc_emisor or doc.sender_rnc or '-' }}</span>
                         {% if detail.nombre_comercial %}
-                        <span style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">{{
+                        <span style="font-size: 0.78rem; color: var(--text-secondary); display: block; margin-bottom: 3px;">{{
                             detail.nombre_comercial }}</span>
                         {% endif %}
                         {% if detail.direccion_emisor %}
@@ -95,7 +94,7 @@
                             detail.direccion_emisor }}</span>
                         {% endif %}
                         {% if detail.telefono_emisor or detail.correo_emisor %}
-                        <span style="font-size: 0.82rem; color: var(--text-muted); display: block;">
+                        <span style="font-size: 0.78rem; color: var(--text-muted); display: block; max-width: 620px; overflow-wrap: anywhere;">
                             {% if detail.telefono_emisor %}<i class="fa-solid fa-phone"></i> {{ detail.telefono_emisor }}{% endif %}
                             {% if detail.telefono_emisor and detail.correo_emisor %} | {% endif %}
                             {% if detail.correo_emisor %}<i class="fa-solid fa-envelope"></i> {{ detail.correo_emisor }}{% endif %}
@@ -104,7 +103,7 @@
                     </div>
                 </div>
 
-                <div style="text-align: right;">
+                <div style="text-align: right; min-width: 230px;">
                     <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px; font-family: monospace;">{{
                         doc.encf }}</h3>
                     <span class="badge" style="background: var(--accent-blue); color: white; margin-bottom: 10px;">{{
@@ -116,38 +115,34 @@
                     {% elif doc.status == 'rechazado' %}
                     <span class="badge badge-danger" style="margin-bottom: 10px; margin-left: 4px;">Rechazado</span>
                     {% endif %}
-                    {% if detail.fecha_emision %}
-                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Fecha: <strong>{{
-                            detail.fecha_emision | replace('-', '/') }}</strong></div>
-                    {% endif %}
-                    {% if detail.fecha_vencimiento %}
-                    <div style="font-size: 0.85rem; color: var(--text-secondary);">Vence: <strong>{{
-                            detail.fecha_vencimiento | replace('-', '/') }}</strong></div>
-                    {% endif %}
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Fecha: <strong>{{ detail.fecha_emision | replace('-', '/') or '-' }}</strong></div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Vence: <strong>{{ detail.fecha_vencimiento | replace('-', '/') or 'No aplica' }}</strong></div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">Pago: <strong>{% if detail.tipo_pago == '1' %}Contado{% elif detail.tipo_pago == '2' %}Crédito{% elif detail.tipo_pago == '3' %}Gratuito{% else %}No especificado{% endif %}</strong></div>
                 </div>
             </div>
 
-            <!-- Información de Receptor / Comprador -->
+            <!-- Información de proveedor y transacción -->
             <div
                 style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 30px;">
                 <div>
                     <span
-                        style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Receptor
-                        (Nuestra Empresa)</span>
-                    <strong style="font-size: 1.05rem; display: block; margin-bottom: 4px;">{{ doc.receiver_name or
-                        detail.razon_social_comprador or '-' }}</strong>
+                        style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Proveedor</span>
+                    <strong style="font-size: 1.05rem; display: block; margin-bottom: 4px;">{{ detail.razon_social_emisor or doc.sender_name or '-' }}</strong>
                     <span
                         style="font-family: monospace; font-size: 0.88rem; color: var(--text-secondary); display: block;">RNC/Cédula:
-                        {{ doc.receiver_rnc or detail.rnc_comprador or '-' }}</span>
+                        {{ detail.rnc_emisor or doc.sender_rnc or '-' }}</span>
                 </div>
 
                 <div style="text-align: right;">
                     <span
-                        style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Detalles
-                        de Recepción</span>
+                        style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Detalles de Transacción</span>
                     <span
-                        style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Recibido
-                        el: <strong>{{ (doc.received_at or '')[:10] | format_date }}</strong></span>
+                        style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Moneda:
+                        <strong>DOP</strong></span>
+                    <span style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Condición:
+                        <strong>{% if detail.tipo_pago == '1' %}Contado{% elif detail.tipo_pago == '2' %}Crédito{% elif detail.tipo_pago == '3' %}Gratuito{% else %}No especificada{% endif %}</strong></span>
+                    <span style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Forma de pago 606:
+                        <strong>{{ detail.forma_pago_606 or '-' }}</strong></span>
                     <span style="font-size: 0.85rem; color: var(--text-secondary); display: block;">Tipo de Documento:
                         <strong>{{ (detail.tipo_ecf or doc.ecf_type) | ecf_label }}</strong></span>
                 </div>
@@ -165,22 +160,22 @@
                                 Cód.</th>
                             <th
                                 style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em;">
-                                Artículo/Desc.</th>
+                                Descripción</th>
                             <th
                                 style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
-                                Precio Unit.</th>
+                                Precio Unitario</th>
                             <th
                                 style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: center;">
-                                Cant.</th>
+                                Cantidad</th>
                             <th
                                 style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
                                 ITBIS</th>
                             <th
                                 style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
-                                Desc. %</th>
+                                Descuento</th>
                             <th
                                 style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
-                                Subtotal</th>
+                                Monto</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -240,7 +235,7 @@
                 <div style="min-width: min(320px, 100%); display: flex; flex-direction: column; gap: 12px;">
                     <div
                         style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
-                        <span>Monto Gravado:</span>
+                        <span>Subtotal gravado:</span>
                         <span>RD$ {{ "{:,.2f}".format(detail.monto_gravado_total | float) }}</span>
                     </div>
                     {% if detail.monto_gravado_i1 or detail.monto_gravado_i2 or detail.monto_gravado_i3 %}
@@ -277,7 +272,7 @@
                     {% endif %}
                     <div
                         style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
-                        <span>ITBIS Total:</span>
+                        <span>ITBIS:</span>
                         <span>RD$ {{ "{:,.2f}".format(detail.total_itbis | float) }}</span>
                     </div>
                     {% if detail.monto_impuesto_adicional %}
@@ -347,6 +342,17 @@
                 El comprobante fue validado y aceptado con ARECF emitido.
                 {% endif %}
             </p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left; margin-bottom: 12px;">
+                <div style="background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 9px;">
+                    <span style="display:block; font-size:.68rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Estado CxP</span>
+                    <strong style="font-size:.82rem;">{{ doc.get('cxpStatus') or 'No registrado' }}</strong>
+                </div>
+                <div style="background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 9px;">
+                    <span style="display:block; font-size:.68rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Saldo pendiente</span>
+                    <strong style="font-size:.82rem;">RD$ {{ "{:,.2f}".format((doc.get('cxpRemainingBalance') or 0) | float) }}</strong>
+                </div>
+            </div>
+            <div style="font-size:.78rem; color:var(--text-muted); margin-bottom:12px;">Recibido el <strong>{{ (doc.received_at or '')[:10] | format_date }}</strong></div>
             <div
                 style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px; font-family: monospace; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 12px; word-break: break-all;">
                 Track ID: {{ doc.track_id or '-' }}
@@ -360,6 +366,23 @@
                     <i class="fa-solid fa-file-invoice"></i>
                     <span>Ver en Reporte 606</span>
                 </a>
+                <form method="POST" action="{{ url_for('web_recepcion.register_received_ecf_cxp', ecf_id=doc.id) }}"
+                    style="border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <label for="bankAccountId" style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);">
+                        Cuenta de banks/ para contado (opcional)
+                    </label>
+                    <select id="bankAccountId" name="bankAccountId" style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-color);">
+                        <option value="">Sin cuenta, dejar pendiente</option>
+                        {% for account in bank_accounts %}
+                        <option value="{{ account.id }}">{{ account.name or account.bankName or account.id }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Registrar en CxP</span>
+                    </button>
+                </form>
                 {% endif %}
                 <a href="{{ url_for('web_recepcion.download_received_pdf', ecf_id=doc.id) }}" class="btn btn-primary"
                     style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">

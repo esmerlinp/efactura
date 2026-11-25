@@ -827,6 +827,15 @@ class SupplierInvoiceService:
         if amount > current_rem:
             raise ValueError(f"El monto (RD$ {amount:,.2f}) excede el saldo pendiente (RD$ {current_rem:,.2f}).")
 
+        bank_account_id = str(pay_data.get("bankAccountId") or "").strip()
+        if bank_account_id:
+            from app.services.db_service import DatabaseService
+            bank_account = DatabaseService.get_bank_account(
+                owner_uid, bank_account_id, sandbox=sandbox, company_id=company_id
+            )
+            if not bank_account:
+                raise ValueError("La cuenta bancaria del pago ya no existe en banks/.")
+
         new_rem = round(current_rem - amount, 2)
         new_status = "Pagado" if new_rem <= 0.01 else "Abonado"
         today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -891,22 +900,30 @@ class SupplierInvoiceService:
             if result == "already_approved":
                 return True, "El pago ya estaba aprobado."
 
-            # Post-commit: saldo bancario + contabilización (idempotentes)
+            # El estado CxP ya quedó atómico. Banco se aplica en una segunda
+            # transacción para incluir saldo y movimiento en la misma unidad.
             pay_data = pay_ref.get().to_dict() or {}
             data = doc_ref.get().to_dict() or {}
             amount = round(float(pay_data.get("amount", 0) or 0), 2)
-            bank_account_id = pay_data.get("bankAccountId", "")
+            bank_account_id = str(pay_data.get("bankAccountId") or "").strip()
             if bank_account_id:
                 try:
-                    from app.services.db_service import DatabaseService
-                    bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox, company_id=company_id)
-                    if bank_acc:
-                        new_balance = bank_acc["currentBalance"] - amount
-                        DatabaseService.save_bank_account(owner_uid, bank_account_id, {
-                            **bank_acc, "currentBalance": new_balance
-                        }, sandbox=sandbox, company_id=company_id)
+                    from app.services.db_service import run_firestore_transaction
+                    bank_result = run_firestore_transaction(
+                        cls._apply_bank_payment_tx, owner_uid, bank_account_id,
+                        payment_id, amount,
+                        f"Pago factura {data.get('supplierInvoiceNumber') or data.get('ncf') or ''}",
+                        approved_by, company_id, sandbox,
+                    )
+                    pay_ref.update({"bankStatus": "posted", "bankMovementId": bank_result.get("movementId", ""), "bankError": ""})
                 except Exception as bank_err:
-                    print(f"⚠️ Error al actualizar saldo bancario al aprobar pago: {bank_err}")
+                    pay_ref.update({
+                        "bankStatus": "error",
+                        "bankError": str(bank_err),
+                    })
+                    return False, f"El pago fue aprobado en CxP, pero no se actualizó banks/: {bank_err}"
+            else:
+                pay_ref.update({"bankStatus": "not_applicable", "bankError": ""})
 
             accounting_entry_id = ""
             accounting_error = ""
@@ -948,6 +965,61 @@ class SupplierInvoiceService:
         except Exception as e:
             print(f"⚠️ Error al aprobar pago {payment_id}: {e}")
             return False, "No se pudo aprobar el pago. Intente nuevamente."
+
+    @classmethod
+    def _apply_bank_payment_tx(cls, transaction, owner_uid, bank_account_id,
+                               payment_id, amount, description, registered_by,
+                               company_id, sandbox):
+        from app.services.db_service import _company_coll
+        from datetime import datetime, timezone
+        import hashlib
+
+        if not company_id:
+            raise ValueError("La empresa es obligatoria para actualizar banks/.")
+        accounts_ref = _company_coll(
+            company_id=company_id,
+            owner_uid=owner_uid,
+            coll_name="sandbox_bank_accounts" if sandbox else "bank_accounts",
+        )
+        movements_ref = _company_coll(
+            company_id=company_id,
+            owner_uid=owner_uid,
+            coll_name="sandbox_bank_movements" if sandbox else "bank_movements",
+        )
+        account_ref = accounts_ref.document(bank_account_id)
+        account_doc = account_ref.get(transaction=transaction)
+        if not account_doc.exists:
+            raise ValueError("La cuenta bancaria del pago ya no existe en banks/.")
+
+        movement_id = hashlib.sha256(
+            f"{bank_account_id}:cxp_payment:{payment_id}".encode()
+        ).hexdigest()
+        movement_ref = movements_ref.document(movement_id)
+        movement_doc = movement_ref.get(transaction=transaction)
+        if movement_doc.exists:
+            return {"movementId": movement_id, "alreadyApplied": True}
+
+        account = account_doc.to_dict() or {}
+        current_balance = float(account.get("currentBalance", 0) or 0)
+        now = datetime.now(timezone.utc).isoformat()
+        transaction.set(movement_ref, {
+            "id": movement_id,
+            "accountId": bank_account_id,
+            "amount": -float(amount),
+            "type": "expense",
+            "sourceType": "cxp_payment",
+            "sourceId": payment_id,
+            "description": description,
+            "registeredBy": registered_by,
+            "createdAt": now,
+            "ownerUID": owner_uid,
+            "companyId": company_id,
+        })
+        transaction.update(account_ref, {
+            "currentBalance": current_balance - float(amount),
+            "updatedAt": now,
+        })
+        return {"movementId": movement_id, "alreadyApplied": False}
 
     @classmethod
     def reject_payment(cls, owner_uid=None, invoice_id=None, payment_id=None, rejected_by="",

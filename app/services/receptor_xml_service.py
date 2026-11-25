@@ -288,8 +288,12 @@ class ReceptorXmlService:
         ncf_modificado = ReceptorXmlService._find_text(info_ref, "NCFModificado") if info_ref is not None else ""
 
         tipo_pago = ReceptorXmlService._find_text(id_doc, "TipoPago") if id_doc is not None else "2"
+        tipo_pago = str(tipo_pago or "2").strip()
+        # TipoPago identifica la condición (contado/crédito), mientras que
+        # FormaPago identifica el medio usado y puede venir por separado.
+        forma_pago = ReceptorXmlService._find_text(id_doc, "FormaPago") if id_doc is not None else ""
         forma_pago_map = {"1": "01", "2": "02", "3": "03", "4": "04", "5": "05", "6": "06", "7": "07"}
-        forma_pago_606 = forma_pago_map.get(tipo_pago, "02")
+        forma_pago_606 = forma_pago or forma_pago_map.get(tipo_pago, "02")
 
         detail = {
             "tipo_ecf": ReceptorXmlService._find_text(id_doc, "TipoeCF", "TipoECF", "tipoeCF") if id_doc is not None else "",
@@ -342,6 +346,7 @@ class ReceptorXmlService:
             "monto_bienes": round(monto_bienes_calc, 2),
             "ncf_modificado": ncf_modificado,
             "tipo_pago": tipo_pago,
+            "forma_pago": forma_pago,
             "forma_pago_606": forma_pago_606,
             "detalle_items": items,
         }

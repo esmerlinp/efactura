@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block title %}Conciliación CxP — {{ product_name }}{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:20px;">
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-link"></i> Conciliación CxP</h1>
+        <p style="color:var(--text-secondary); margin:6px 0 0; font-size:.88rem;">Pagos aprobados con integración bancaria o contable incompleta.</p>
+    </div>
+    <a class="btn btn-secondary" href="{{ url_for('web_system_jobs.dashboard') }}"><i class="fa-solid fa-arrow-left"></i> Jobs</a>
+</div>
+<div class="card-table-wrapper">
+    <div class="table-responsive">
+        <table class="data-grid">
+            <thead><tr><th>Factura</th><th>Pago</th><th>Proveedor</th><th>Monto</th><th>Problemas</th><th>Acción</th></tr></thead>
+            <tbody>
+            {% for item in findings %}
+                <tr>
+                    <td><code>{{ item.invoiceId }}</code></td>
+                    <td><code>{{ item.paymentId }}</code></td>
+                    <td>{{ item.supplierName or '—' }}</td>
+                    <td>RD$ {{ "{:,.2f}".format(item.amount|float) }}</td>
+                    <td>{% for issue in item.issues %}<span class="badge badge-warning" style="margin-right:4px;">{{ issue }}</span>{% endfor %}</td>
+                    <td><button class="btn btn-sm btn-primary" onclick="repairPayment('{{ item.invoiceId }}','{{ item.paymentId }}', this)">Reparar</button></td>
+                </tr>
+            {% else %}
+                <tr><td colspan="6" style="text-align:center; padding:32px; color:var(--text-muted);">No hay inconsistencias pendientes.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+function repairPayment(invoiceId, paymentId, button) {
+    if (!confirm('¿Reprocesar este pago contable?')) return;
+    button.disabled = true;
+    fetch('/admin/cxp-reconciliation/' + encodeURIComponent(invoiceId) + '/' + encodeURIComponent(paymentId) + '/repair', {method:'POST'})
+      .then(function(r){ return r.json(); })
+      .then(function(data){ if (!data.success) alert(data.error || data.message || 'No se pudo reparar'); location.reload(); })
+      .catch(function(){ alert('Error de red'); button.disabled = false; });
+}
+</script>
+{% endblock %}

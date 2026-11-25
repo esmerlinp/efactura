@@ -208,12 +208,16 @@ def detail_received_ecf(ecf_id):
                 detail.update(parsed)
         except Exception:
             pass
+    bank_accounts = DatabaseService.get_bank_accounts(
+        owner_uid, sandbox=session.get("sandbox", True), company_id=company_id
+    ) or []
     return render_template(
         "recepcion/detail.html",
         doc=doc,
         detail=detail,
         active_page="recepcion_ecf",
         company_id=company_id,
+        bank_accounts=bank_accounts,
     )
 
 
@@ -392,3 +396,32 @@ def sync_received_to_606():
     except Exception as e:
         flash(f"Error al sincronizar con el Reporte 606: {e}", "error")
     return redirect(url_for("web_recepcion.list_received_ecf"))
+
+
+@web_recepcion_bp.route("/recepcion/ecf/<ecf_id>/registrar-cxp", methods=["POST"])
+def register_received_ecf_cxp(ecf_id):
+    guard = _check_auth()
+    if guard:
+        return guard
+    owner_uid, company_id = _get_context()
+    sandbox = session.get("sandbox", True)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    receiver_rnc = str(company.get("companyRNC") or "").replace("-", "").replace(" ", "").strip()
+    doc = ReceptorRepository.get_received_ecf_merged(
+        owner_uid, ecf_id, company_id=company_id, receiver_rnc=receiver_rnc
+    )
+    if not doc:
+        flash("Documento no encontrado.", "error")
+        return redirect(url_for("web_recepcion.list_received_ecf"))
+    try:
+        bank_account_id = str(request.form.get("bankAccountId") or "").strip()
+        if bank_account_id:
+            doc["bankAccountId"] = bank_account_id
+        from app.services.received_ecf_bridge_service import ReceivedEcfBridgeService
+        ok, message = ReceivedEcfBridgeService.process_received_ecf(
+            owner_uid=owner_uid, ecf_document=doc, sandbox=sandbox, company_id=company_id
+        )
+        flash(message if ok else f"No se pudo registrar en CxP: {message}", "success" if ok else "error")
+    except Exception as exc:
+        flash(f"Error al registrar en CxP: {exc}", "error")
+    return redirect(url_for("web_recepcion.detail_received_ecf", ecf_id=ecf_id))

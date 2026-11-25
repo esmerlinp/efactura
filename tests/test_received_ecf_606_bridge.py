@@ -105,6 +105,7 @@ def test_parse_ecf_detail_extracts_606_fields():
     assert detail["monto_total"] == 1180.00
     assert detail["total_itbis"] == 180.00
     assert detail["forma_pago_606"] == "02"
+    assert detail["tipo_pago"] == "2"
 
 
 def test_parse_ecf_detail_e34_ncf_modificado():
@@ -255,6 +256,91 @@ def test_bridge_process_received_ecf(mock_coll, mock_supplier, mock_save_expense
     assert saved_payload["montoBienes"] == 400.00
     assert saved_payload["amount"] == 1180.00
     assert saved_payload["itbisAmount"] == 180.00
+    assert saved_payload["paymentType"] == "Crédito"
+    assert saved_payload["paymentTypeCode"] == "2"
+    assert saved_payload["cxpStatus"] == "Pendiente"
+
+
+@patch("app.services.received_ecf_bridge_service.DatabaseService.save_expense")
+@patch("app.services.received_ecf_bridge_service.SupplierService.get_or_create_supplier")
+@patch("app.services.received_ecf_bridge_service.ReceptorRepository._resolve_collection")
+def test_bridge_contado_requires_existing_bank_account(mock_coll, mock_supplier, mock_save_expense):
+    mock_supplier.return_value = ("supp-123", False)
+    mock_coll.return_value.document.return_value = MagicMock()
+    ecf_doc = {
+        "id": "rec-ecf-cash-001",
+        "estado_arecf": "0",
+        "ecf_type": "31",
+        "xml_content": SAMPLE_ECF_E31_XML.replace("<TipoPago>2</TipoPago>", "<TipoPago>1</TipoPago>"),
+        "received_at": "2026-10-15T10:00:00Z",
+    }
+
+    with patch.object(ReceivedEcfBridgeService, "_find_existing_expense", return_value=None):
+        ok, message = ReceivedEcfBridgeService.process_received_ecf("owner-999", ecf_doc, sandbox=True)
+
+    assert ok is True
+    payload = mock_save_expense.call_args[0][2]
+    assert payload["paymentType"] == "Contado"
+    assert payload["paymentStatus"] == "Pendiente de cuenta bancaria"
+    assert payload["cxpStatus"] == "Pendiente"
+    assert payload["cxpRemainingBalance"] == 1180.0
+
+
+@patch("app.services.received_ecf_bridge_service.DatabaseService.get_bank_account", return_value={"id": "bank-1", "name": "Banco Test"})
+@patch("app.services.received_ecf_bridge_service.DatabaseService.save_expense")
+@patch("app.services.received_ecf_bridge_service.SupplierService.get_or_create_supplier")
+@patch("app.services.received_ecf_bridge_service.ReceptorRepository._resolve_collection")
+def test_bridge_contado_uses_explicit_bank_account(mock_coll, mock_supplier, mock_save_expense, mock_bank):
+    mock_supplier.return_value = ("supp-123", False)
+    mock_coll.return_value.document.return_value = MagicMock()
+    ecf_doc = {
+        "id": "rec-ecf-cash-002",
+        "estado_arecf": "0",
+        "ecf_type": "31",
+        "bankAccountId": "bank-1",
+        "xml_content": SAMPLE_ECF_E31_XML.replace("<TipoPago>2</TipoPago>", "<TipoPago>1</TipoPago>"),
+        "received_at": "2026-10-15T10:00:00Z",
+    }
+
+    with patch.object(ReceivedEcfBridgeService, "_find_existing_expense", return_value=None):
+        ok, _ = ReceivedEcfBridgeService.process_received_ecf("owner-999", ecf_doc, sandbox=True)
+
+    assert ok is True
+    payload = mock_save_expense.call_args[0][2]
+    assert payload["bankAccountId"] == "bank-1"
+    assert payload["paymentStatus"] == "Pendiente de cuenta bancaria"
+    assert payload["cxpStatus"] == "Pendiente"
+    assert payload["cxpRemainingBalance"] == 1180.0
+
+
+def test_supplier_invoice_entry_uses_cxp_for_received_invoice():
+    from app.services.accounting_service import AccountingService
+
+    accounts = [
+        {"id": "expense", "code": "6101", "name": "Gastos", "usage": "gastos"},
+        {"id": "itbis", "code": "1141", "name": "ITBIS crédito", "usage": "itbis_credito"},
+        {"id": "cxp", "code": "2101", "name": "Cuentas por pagar", "usage": "cxp"},
+    ]
+    invoice = {
+        "id": "supplier-invoice-1",
+        "ncf": "E310000000001",
+        "supplierName": "Proveedor Test",
+        "date": "2026-10-15",
+        "subtotal": 1000.0,
+        "itbis": 180.0,
+        "total": 1180.0,
+        "paymentType": "Crédito",
+    }
+    with patch("app.services.accounting_service._accounting_entry_exists", return_value=False), \
+            patch("app.services.accounting_service.DatabaseService.get_chart_of_accounts", return_value=accounts), \
+            patch("app.services.accounting_service.AccountingRulesService.get_rules", return_value=[]), \
+            patch("app.services.accounting_service.AccountingService.generate_entry", return_value={"id": "entry-1"}) as generate:
+        entry = AccountingService.auto_generate_supplier_invoice_entry("company-1", invoice)
+
+    assert entry["id"] == "entry-1"
+    lines = generate.call_args[0][1]["lines"]
+    assert any(line["accountId"] == "cxp" and line["credit"] == 1180.0 for line in lines)
+    assert not any(line["accountId"] == "cxp" and line["debit"] > 0 for line in lines)
 
 
 @patch("app.services.received_ecf_bridge_service.DatabaseService.save_expense")
@@ -289,4 +375,3 @@ def test_historical_ecf_from_previous_month_preserves_emission_date(mock_coll, m
     # La fecha debe ser 2026-07-20 (Julio 2026), garantizando que se muestre en el 606 de Julio
     assert saved_payload["date"] == "2026-07-20"
     assert saved_payload["date"][:7] == "2026-07"
-
