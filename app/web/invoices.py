@@ -2975,6 +2975,9 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
         action = request.form.get('action')
         if action == 'emitir_credito' and request.form.get('paymentAmount'):
             action = 'emitir_cobrar'
+        if action in ('emitir_credito', 'emitir_cobrar') and not invoice_dict.get('items'):
+            flash('Añada al menos un producto o servicio antes de emitir la factura.', 'error')
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
         if action == 'emitir_cobrar' and str(invoice_dict.get('paymentType', '')).strip().lower() != 'contado':
             flash('Solo se puede emitir y cobrar inmediatamente una factura de contado.', 'error')
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
@@ -3209,7 +3212,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False, document_type=None
                     flash('No hay comprobantes fiscales disponibles. La factura se guardó como borrador. Puede emitirla más tarde desde el detalle.', 'warning')
                 else:
                     flash(f"Borrador creado, pero fallo en emisión: {err_str}", "error")
-            return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id, show_print_options='1' if action == 'emitir_cobrar' else None))
         else:
             flash('Borrador de documento guardado exitosamente.', 'success')
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
@@ -3713,7 +3716,7 @@ def invoice_detail(invoice_id):
         invoice['quotationExpiryDate'] = expiry.get('expiry_date') or ''
 
     detail_page = 'proformas' if invoice.get('documentType') == 'proforma' else ('quotations' if invoice.get('isQuotation') else 'invoices')
-    return render_template('invoices/detail.html', active_page=detail_page, invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox=sandbox, company_id=company_id), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs, bank_accounts=bank_accounts, projects=projects)
+    return render_template('invoices/detail.html', active_page=detail_page, invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox=sandbox, company_id=company_id), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs, bank_accounts=bank_accounts, projects=projects, show_print_options=request.args.get('show_print_options') == '1')
 
 @web_invoices_bp.route('/invoices/<invoice_id>/comments/new', methods=['POST'])
 def add_invoice_comment(invoice_id):

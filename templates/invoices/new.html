@@ -24,6 +24,7 @@
     .row-menu-btn { background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px 8px; border-radius:6px; transition:all 0.15s; }
     .row-menu-btn:hover { background:rgba(0,0,0,0.05); color:var(--text-primary); }
     .row-menu-dropdown { display:none; position:absolute; right:0; top:100%; z-index:500; min-width:170px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); box-shadow:0 8px 30px rgba(0,0,0,0.12); padding:6px; margin-top:4px; }
+    .row-menu-dropdown.row-menu-floating { position:fixed; right:auto; top:auto; z-index:10000; margin-top:0; }
     .row-menu-dropdown.show { display:block; }
     .row-menu-item { display:flex; align-items:center; gap:8px; width:100%; padding:8px 12px; background:none; border:none; color:var(--text-primary); font-size:0.8rem; cursor:pointer; border-radius:6px; text-align:left; }
     .row-menu-item:hover { background:rgba(0,0,0,0.04); }
@@ -158,15 +159,13 @@
       <div class="inp-group" style="max-width:160px;"><label>Condición</label><select id="payment-type-select" name="paymentType" class="form-select"><option value="Contado" {% if not invoice or invoice.paymentType=='Contado' %}selected{% endif %}>Contado</option><option value="Crédito" {% if invoice and invoice.paymentType=='Crédito' %}selected{% endif %}>Crédito</option></select></div>
     </div>
     <input type="hidden" name="paymentMethod" value="{% if invoice %}{{ invoice.paymentMethod or 'Efectivo' }}{% else %}Efectivo{% endif %}">
-    <div class="inp-row" style="margin-top:10px;" id="payment-agreement-group" style="display:none;align-items:center;gap:10px;">
-      <div class="inp-group" style="max-width:140px;"><label>Cuotas</label><select id="agreement-enabled-select" name="agreementEnabled" class="form-select"><option value="false">Pago único</option><option value="true">Dividir</option></select></div>
+    <div class="inp-row" style="margin-top:10px;display:none;align-items:flex-end;gap:10px;" id="payment-agreement-group">
+      <div class="inp-group" style="max-width:140px;"><label for="agreement-enabled-select">Cuotas</label><select id="agreement-enabled-select" name="agreementEnabled" class="form-select"><option value="false">Pago único</option><option value="true">Dividir</option></select></div>
       <div id="agreement-details-fields" style="display:none;align-items:center;gap:8px;">
         <select id="installments-count-select" name="installmentsCount" class="form-select" style="width:70px;"><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="6">6</option><option value="12">12</option></select>
         <select id="agreement-frequency-select" name="agreementFrequency" class="form-select" style="width:100px;"><option value="mensual">Mensual</option><option value="quincenal">Quincenal</option><option value="semanal">Semanal</option></select>
         <input type="number" id="late-fee-input" name="lateFeePercentage" class="form-input" style="width:65px;text-align:center;" min="0" max="100" step="0.1" value="5.0" title="Mora %">
       </div>
-    </div>
-    <div class="inp-row" style="margin-top:10px;">
       <div class="inp-group" style="max-width:240px;"><label for="payment-method-select-main">Forma de pago</label><select id="payment-method-select-main" class="form-select" onchange="document.querySelector('[name=paymentMethod]').value=this.value"><option value="Efectivo" {% if not invoice or invoice.paymentMethod=='Efectivo' %}selected{% endif %}>Efectivo</option><option value="Cheque / Transferencia" {% if invoice and invoice.paymentMethod=='Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia</option><option value="Tarjeta de Crédito / Débito" {% if invoice and invoice.paymentMethod=='Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta de Crédito / Débito</option><option value="Crédito" {% if invoice and invoice.paymentMethod=='Crédito' %}selected{% endif %}>Crédito</option><option value="Mixto" {% if invoice and invoice.paymentMethod=='Mixto' %}selected{% endif %}>Mixto</option></select></div>
     </div>
     <small id="client-warning" style="color:var(--accent-red);font-size:0.72rem;margin-top:6px;display:none;"></small>
@@ -835,6 +834,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    invoiceForm?.addEventListener('submit', (event) => {
+        const submitterAction = event.submitter?.value || document.querySelector('input[name="action"]')?.value || '';
+        if (!['emitir_credito', 'emitir_cobrar'].includes(submitterAction)) return;
+        const rows = document.querySelectorAll('#invoice-items-body .item-row');
+        if (!rows.length) {
+            event.preventDefault();
+            alert('Añada al menos un producto o servicio antes de emitir la factura.');
+        }
+    });
     function openEmitChargeModal() {
         if (!paymentTypeSelect || paymentTypeSelect.value === 'Crédito') return;
         const amount = parseFloat((document.getElementById('lbl-net-payable')?.innerText || '0').replace(/[^0-9.-]/g, '')) || 0;
@@ -980,7 +988,36 @@ document.addEventListener('DOMContentLoaded', function() { document.querySelecto
 
 // Menú 3 puntos
 document.addEventListener('click', function(e) { if (!e.target.closest('.row-menu-btn')) document.querySelectorAll('.row-menu-dropdown.show').forEach(d => d.classList.remove('show')); });
-function toggleRowMenu(b) { var d = b.nextElementSibling, is = d.classList.contains('show'); document.querySelectorAll('.row-menu-dropdown.show').forEach(x => x.classList.remove('show')); if (!is) d.classList.add('show'); }
+function toggleRowMenu(b) {
+    var d = b.nextElementSibling;
+    var isOpen = d.classList.contains('show') && d.classList.contains('row-menu-floating');
+    document.querySelectorAll('.row-menu-dropdown.show').forEach(function(x) {
+        x.classList.remove('show', 'row-menu-floating');
+        if (x.dataset.menuParent) document.getElementById(x.dataset.menuParent)?.appendChild(x);
+        delete x.dataset.menuParent;
+    });
+    if (isOpen) return;
+    var parent = d.parentElement;
+    var parentId = parent.id || ('row-menu-parent-' + Date.now());
+    parent.id = parentId;
+    d.dataset.menuParent = parentId;
+    var rect = b.getBoundingClientRect();
+    document.body.appendChild(d);
+    d.classList.add('row-menu-floating', 'show');
+    var width = d.offsetWidth || 170;
+    var left = Math.min(rect.right - width, window.innerWidth - width - 8);
+    var top = rect.bottom + 4;
+    if (top + d.offsetHeight > window.innerHeight - 8) top = Math.max(8, rect.top - d.offsetHeight - 4);
+    d.style.left = Math.max(8, left) + 'px';
+    d.style.top = top + 'px';
+}
+window.addEventListener('scroll', function() {
+    document.querySelectorAll('.row-menu-dropdown.row-menu-floating.show').forEach(function(d) {
+        d.classList.remove('show', 'row-menu-floating');
+        if (d.dataset.menuParent) document.getElementById(d.dataset.menuParent)?.appendChild(d);
+        delete d.dataset.menuParent;
+    });
+}, true);
 function removeRowFromMenu(b) { var r = b.closest('.item-row'); if (r) { r.remove(); if (typeof realignRowIndexes === 'function') realignRowIndexes(); if (typeof recalculateTotals === 'function') recalculateTotals(); } }
 
 // CC y PL

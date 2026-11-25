@@ -8,6 +8,15 @@
 {% set is_proforma = invoice.get('documentType') == 'proforma' %}
 {% set document_label = 'Proforma' if is_proforma else ('Cotización' if invoice.isQuotation else 'Factura') %}
 <style>
+    #post-emission-print-modal { display:none; position:fixed !important; top:0 !important; right:0 !important; bottom:0 !important; left:0 !important; width:100vw !important; height:100vh !important; z-index:99999; align-items:center; justify-content:center; overflow-y:auto; background:rgba(15,23,42,.48); padding:20px; box-sizing:border-box; }
+    #post-emission-print-modal.open { display:flex !important; }
+    body:has(#post-emission-print-modal.open) { overflow:hidden; }
+    #post-emission-print-modal .post-print-card { width:min(460px,100%); background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); box-shadow:0 24px 70px rgba(15,23,42,.24); overflow:hidden; }
+    #post-emission-print-modal .post-print-head { display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border-bottom:1px solid var(--border-color); }
+    #post-emission-print-modal .post-print-body { padding:22px 24px; color:var(--text-secondary); font-size:.84rem; line-height:1.5; }
+    #post-emission-print-modal .post-print-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:16px 24px 22px; }
+    #post-emission-print-modal .post-print-actions .wide { grid-column:1 / -1; }
+    @media (max-width:520px) { #post-emission-print-modal .post-print-actions { grid-template-columns:1fr; } #post-emission-print-modal .post-print-actions .wide { grid-column:auto; } }
     /* Estilos dinámicos para diferenciar Cotizaciones de Facturas en la vista de detalle */
     .document-card-sheet {
         position: relative;
@@ -2288,11 +2297,43 @@ function closeDraftPaymentModal() {
             </div>
         </div>
         {% endif %}
+
+        <div id="post-emission-print-modal" aria-modal="true" role="dialog" aria-labelledby="post-emission-print-title">
+            <div class="post-print-card">
+                <div class="post-print-head">
+                    <h3 id="post-emission-print-title" style="margin:0;font-size:1rem;color:var(--text-primary);"><i class="fa-solid fa-circle-check" style="color:var(--accent-emerald);margin-right:8px;"></i>Factura emitida y cobrada</h3>
+                    <button type="button" onclick="closePostEmissionPrintModal()" style="border:0;background:none;color:var(--text-muted);font-size:1.15rem;cursor:pointer;" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="post-print-body">La factura <strong>{{ invoice.invoiceNumber }}</strong>{% if invoice.encf %} con e-NCF <strong>{{ invoice.encf }}</strong>{% endif %} fue procesada correctamente. Selecciona una opción para continuar.</div>
+                <div class="post-print-actions">
+                    <a class="btn btn-primary" target="_blank" rel="noopener" href="{{ url_for('web_pos.print_receipt', invoice_id=invoice.id) }}"><i class="fa-solid fa-receipt"></i> Imprimir ticket</a>
+                    <a class="btn btn-secondary" target="_blank" rel="noopener" href="{{ url_for('web_invoices.invoice_pdf_download', invoice_id=invoice.id, action='print') }}"><i class="fa-solid fa-file-invoice"></i> Imprimir factura</a>
+                    <button type="button" class="btn btn-secondary wide" onclick="closePostEmissionPrintModal()">Continuar viendo detalle</button>
+                </div>
+            </div>
+        </div>
     {% endblock %}
 
 
     {% block extra_scripts %}
     <script>
+        function closePostEmissionPrintModal() {
+            const modal = document.getElementById('post-emission-print-modal');
+            if (modal) modal.classList.remove('open');
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('show_print_options') === '1') {
+                const modal = document.getElementById('post-emission-print-modal');
+                if (modal) modal.classList.add('open');
+                params.delete('show_print_options');
+                const cleanQuery = params.toString();
+                window.history.replaceState({}, document.title, window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash);
+            }
+            document.getElementById('post-emission-print-modal')?.addEventListener('click', event => {
+                if (event.target.id === 'post-emission-print-modal') closePostEmissionPrintModal();
+            });
+        });
         document.addEventListener('DOMContentLoaded', () => {
             const payMethodSelect = document.getElementById('payment-method-select-pay');
             const bankTransferFields = document.getElementById('bank-transfer-fields');
