@@ -192,6 +192,7 @@ class CacheService:
     def invalidate_bank_movements(cls, company_id, sandbox=True):
         if company_id:
             cls.bump_version(company_id, bool(sandbox), "bank_movements")
+            cls.bump_version(company_id, bool(sandbox), "bank_detail")
 
     @staticmethod
     def invalidate_accounting(owner_uid: str, company_id=None):

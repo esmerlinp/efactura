@@ -883,3 +883,144 @@ def test_bank_detail_includes_supplier_invoice_payment():
         "expenseId": "supplier-inv-1",
         "invoiceId": "",
     }]
+
+
+def test_bank_detail_base_data_is_cached():
+    from app.web import banks as banks_module
+
+    cache = MagicMock()
+    cache.get.return_value = None
+    cache_service = MagicMock()
+    cache_service.get_cache.return_value = cache
+    expected = [{"date": "2026-11-01", "type": "income", "amount": 100.0}]
+
+    with patch.object(
+        banks_module, '_load_account_payment_transactions', return_value=expected
+    ) as load_payments, patch.object(
+        banks_module.DatabaseService, 'get_expenses', return_value=[]
+    ), patch.object(
+        banks_module.DatabaseService, 'get_bank_transfers', return_value=[]
+    ):
+        first = banks_module._load_bank_detail_data(
+            "owner", "bank-1", True, "company-1", cache_service
+        )
+        cache.get.return_value = expected
+        second = banks_module._load_bank_detail_data(
+            "owner", "bank-1", True, "company-1", cache_service
+        )
+
+    assert first == expected
+    assert second == expected
+    assert cache.set.call_count == 1
+    load_payments.assert_called_once()
+
+
+def test_bank_detail_uses_persisted_ledger_before_legacy_sources():
+    from app.web import banks as banks_module
+
+    cache = MagicMock()
+    cache.get.return_value = None
+    cache_service = MagicMock()
+    cache_service.get_cache.return_value = cache
+    ledger = [{
+        "createdAt": "2026-11-01T12:00:00+00:00",
+        "sourceType": "invoice_payment",
+        "sourceId": "payment-1",
+        "description": "Cobro E3100000001",
+        "amount": 250.0,
+    }]
+
+    with patch.object(
+        banks_module.DatabaseService, 'get_bank_movements', return_value=ledger
+    ), patch.object(
+        banks_module, '_load_account_payment_transactions'
+    ) as load_payments:
+        result = banks_module._load_bank_detail_data(
+            "owner", "bank-1", True, "company-1", cache_service
+        )
+
+    assert result[0]["paymentId"] == "payment-1"
+    assert result[0]["amount"] == 250.0
+    load_payments.assert_not_called()
+
+
+def test_persisted_bank_movement_keeps_filterable_origin():
+    from app.web import banks as banks_module
+
+    cache = MagicMock()
+    cache.get.return_value = None
+    cache_service = MagicMock()
+    cache_service.get_cache.return_value = cache
+    ledger = [{
+        "createdAt": "2026-11-01T12:00:00+00:00",
+        "sourceType": "bank_transfer",
+        "sourceId": "transfer-1",
+        "description": "Transferencia interna",
+        "amount": -100.0,
+        "type": "transfer_out",
+    }]
+
+    with patch.object(
+        banks_module.DatabaseService, 'get_bank_movements', return_value=ledger
+    ):
+        result = banks_module._load_bank_detail_data(
+            "owner", "bank-1", True, "company-1", cache_service
+        )
+
+    assert result[0]["type"] == "transfer_out"
+    assert result[0]["origin"] == "bank_transfer"
+
+
+def test_movement_date_prefers_payment_date_and_falls_back_to_created_at():
+    from app.web import banks as banks_module
+
+    assert banks_module._movement_date({
+        "paymentDate": "2026-11-03T10:00:00+00:00",
+        "createdAt": "2026-11-04T10:00:00+00:00",
+    }) == "2026-11-03"
+    assert banks_module._movement_date({
+        "createdAt": "2026-11-04T10:00:00+00:00",
+    }) == "2026-11-04"
+
+
+def test_bank_detail_combines_ledger_adjustments_with_legacy_transactions():
+    from app.web import banks as banks_module
+
+    cache = MagicMock()
+    cache.get.return_value = None
+    cache_service = MagicMock()
+    cache_service.get_cache.return_value = cache
+    ledger = [{
+        "createdAt": "2026-11-24T12:00:00+00:00",
+        "sourceType": "bank_adjustment",
+        "sourceId": "adjustment-1",
+        "description": "Ajuste histórico",
+        "amount": 25000.0,
+        "type": "adjustment",
+    }]
+    legacy = [{
+        "date": "2026-11-20",
+        "type": "income",
+        "concept": "Cobro histórico",
+        "amount": 500.0,
+        "reference": "PAY-1",
+        "paymentId": "PAY-1",
+        "invoiceId": "INV-1",
+    }]
+
+    with patch.object(
+        banks_module.DatabaseService, 'get_bank_movements', return_value=ledger
+    ), patch.object(
+        banks_module, '_load_account_payment_transactions', return_value=legacy
+    ), patch.object(
+        banks_module.DatabaseService, 'get_expenses', return_value=[]
+    ), patch.object(
+        banks_module.DatabaseService, 'get_bank_transfers', return_value=[]
+    ):
+        result = banks_module._load_bank_detail_data(
+            "owner", "bank-1", True, "company-1", cache_service
+        )
+
+    assert {row["concept"] for row in result} == {
+        "Ajuste histórico", "Cobro histórico"
+    }
