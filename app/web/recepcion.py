@@ -67,6 +67,16 @@ def list_received_ecf():
     # Filtros en memoria
     filtered = []
     for doc in documents:
+        if not doc.get("tipo_pago") and doc.get("xml_content"):
+            try:
+                parsed, _ = ReceptorXmlService.parse_ecf_detail(
+                    doc["xml_content"].encode("utf-8")
+                )
+                if parsed:
+                    doc["tipo_pago"] = parsed.get("tipo_pago", "")
+                    doc["forma_pago_606"] = parsed.get("forma_pago_606", "")
+            except Exception:
+                pass
         if q:
             q_lower = q.lower()
             haystack = " ".join([
@@ -211,6 +221,19 @@ def detail_received_ecf(ecf_id):
     bank_accounts = DatabaseService.get_bank_accounts(
         owner_uid, sandbox=session.get("sandbox", True), company_id=company_id
     ) or []
+    linked_document = None
+    linked_type = doc.get("registeredType", "")
+    if doc.get("supplierInvoiceId"):
+        from app.services.supplier_invoice_service import SupplierInvoiceService
+        linked_document = SupplierInvoiceService.get(
+            owner_uid=owner_uid, invoice_id=doc.get("supplierInvoiceId"),
+            sandbox=session.get("sandbox", True), company_id=company_id,
+        )
+        linked_type = "supplier_invoice"
+    elif doc.get("expenseId"):
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=session.get("sandbox", True), company_id=company_id) or []
+        linked_document = next((expense for expense in expenses if expense.get("id") == doc.get("expenseId")), None)
+        linked_type = "expense"
     return render_template(
         "recepcion/detail.html",
         doc=doc,
@@ -218,6 +241,8 @@ def detail_received_ecf(ecf_id):
         active_page="recepcion_ecf",
         company_id=company_id,
         bank_accounts=bank_accounts,
+        linked_document=linked_document,
+        linked_type=linked_type,
     )
 
 

@@ -380,8 +380,14 @@
             {% set is_emitted = expense.isSyncedWithDGII and expense.encf and not expense.dgiiError %}
             {% set is_rejected = expense.dgiiError %}
             {% set is_fallback = expense.emisionMode == 'FALLBACK' %}
+            {% set is_received_ecf = expense.get('source') == 'received_ecf' or expense.get('receivedEcfId') %}
 
-            {% if not is_emitted %}
+            {% if is_received_ecf %}
+            <div style="border-top:1px solid var(--border-color); padding-top:16px; margin-top:4px; text-align:center;">
+                <span class="badge-pill badge-gray" style="justify-content:center; width:100%;">e-CF recibido del proveedor</span>
+                <span style="font-size:.72rem; color:var(--text-muted); display:block; margin-top:6px;">No se puede emitir nuevamente desde esta empresa.</span>
+            </div>
+            {% elif not is_emitted %}
             <div style="border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 4px;">
                 <form action="{{ url_for('web_invoices.sync_expense_ecf_route', expense_id=expense.id) }}" method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

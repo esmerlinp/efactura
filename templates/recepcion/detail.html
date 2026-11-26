@@ -44,10 +44,43 @@
         max-width: 100%;
     }
 
+    .received-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 28px;
+        flex-wrap: nowrap;
+    }
+
+    .received-header-meta {
+        flex: 0 0 330px;
+        margin-left: auto;
+    }
+
     @media screen and (max-width: 1024px) {
         .detail-grid {
             grid-template-columns: minmax(0, 1fr);
             gap: 20px;
+        }
+    }
+
+    @media screen and (max-width: 700px) {
+        .received-header {
+            flex-wrap: wrap;
+        }
+
+        .received-header-meta {
+            flex: 1 1 100%;
+            margin-left: 0;
+            text-align: left !important;
+        }
+
+        .received-header-meta .received-badges {
+            justify-content: flex-start !important;
+        }
+
+        .received-header-meta .received-facts {
+            text-align: left !important;
         }
     }
 </style>
@@ -71,7 +104,7 @@
             {% endif %}
 
             <!-- Encabezado del Emisor -->
-            <div
+            <div class="received-header"
                 style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 30px; margin-bottom: 30px; flex-wrap: wrap; gap: 20px;">
                 <div style="display: flex; align-items: center; gap: 24px;">
                     <div
@@ -103,21 +136,20 @@
                     </div>
                 </div>
 
-                <div style="text-align: right; min-width: 230px;">
-                    <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px; font-family: monospace;">{{
-                        doc.encf }}</h3>
-                    <span class="badge" style="background: var(--accent-blue); color: white; margin-bottom: 10px;">{{
-                        (detail.tipo_ecf or doc.ecf_type) | ecf_label }}</span>
-                    {% if doc.status == 'recibido' %}
-                    <span class="badge badge-warning" style="margin-bottom: 10px; margin-left: 4px;">Recibido</span>
-                    {% elif doc.status == 'procesado' %}
-                    <span class="badge badge-success" style="margin-bottom: 10px; margin-left: 4px;">Procesado</span>
-                    {% elif doc.status == 'rechazado' %}
-                    <span class="badge badge-danger" style="margin-bottom: 10px; margin-left: 4px;">Rechazado</span>
-                    {% endif %}
-                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Fecha: <strong>{{ detail.fecha_emision | replace('-', '/') or '-' }}</strong></div>
-                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Vence: <strong>{{ detail.fecha_vencimiento | replace('-', '/') or 'No aplica' }}</strong></div>
-                    <div style="font-size: 0.85rem; color: var(--text-secondary);">Pago: <strong>{% if detail.tipo_pago == '1' %}Contado{% elif detail.tipo_pago == '2' %}Crédito{% elif detail.tipo_pago == '3' %}Gratuito{% else %}No especificado{% endif %}</strong></div>
+                <div class="received-header-meta" style="text-align: right; min-width: 270px; max-width: 330px;">
+                    <div style="font-family: monospace; font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-bottom: 8px;">{{ doc.encf }}</div>
+                    <div class="received-badges" style="display:flex; justify-content:flex-end; flex-wrap:wrap; gap:5px; margin-bottom:12px;">
+                        <span class="badge" style="background: var(--accent-blue); color: white; font-size:.68rem;">{{ (detail.tipo_ecf or doc.ecf_type) | ecf_label }}</span>
+                        {% if doc.status == 'recibido' %}<span class="badge badge-warning" style="font-size:.68rem;">Recibido</span>
+                        {% elif doc.status == 'procesado' %}<span class="badge badge-success" style="font-size:.68rem;">Procesado</span>
+                        {% elif doc.status == 'rechazado' %}<span class="badge badge-danger" style="font-size:.68rem;">Rechazado</span>{% endif %}
+                    </div>
+                    <div class="received-facts" style="display:grid; grid-template-columns:1fr 1fr; gap:7px 16px; text-align:right; border-top:1px solid var(--border-color); padding-top:10px;">
+                        <div><span style="display:block; font-size:.66rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Fecha</span><strong style="font-size:.8rem; color:var(--text-secondary);">{{ detail.fecha_emision | replace('-', '/') or '-' }}</strong></div>
+                        <div><span style="display:block; font-size:.66rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Vence</span><strong style="font-size:.8rem; color:var(--text-secondary);">{{ detail.fecha_vencimiento | replace('-', '/') or 'No aplica' }}</strong></div>
+                        <div><span style="display:block; font-size:.66rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Pago</span><strong style="font-size:.8rem; color:var(--text-secondary);">{% if detail.tipo_pago == '1' %}Contado{% elif detail.tipo_pago == '2' %}Crédito{% elif detail.tipo_pago == '3' %}Gratuito{% else %}No especificado{% endif %}</strong></div>
+                        {% if detail.tipo_pago == '1' %}<div><span style="display:block; font-size:.66rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">CxP</span><strong style="font-size:.76rem; color:var(--accent-emerald);">Sin saldo pendiente</strong></div>{% endif %}
+                    </div>
                 </div>
             </div>
 
@@ -326,93 +358,94 @@
 
     <!-- Barra Lateral: Estado DGII y Acciones -->
     <div style="display: flex; flex-direction: column; gap: 24px;">
-        <div class="card-table-wrapper"
-            style="padding: 24px; text-align: center; {% if doc.estado_arecf == '1' %}border: 1.5px solid var(--accent-red); background: rgba(239, 68, 68, 0.03);{% else %}border: 1.5px solid var(--accent-emerald); background: rgba(16, 185, 129, 0.03);{% endif %}">
-            <div
-                style="width: 52px; height: 52px; border-radius: 50%; background: {% if doc.estado_arecf == '1' %}var(--accent-red){% else %}linear-gradient(135deg, #059669, #10b981){% endif %}; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: white;">
-                <i class="fa-solid {% if doc.estado_arecf == '1' %}fa-circle-xmark{% else %}fa-circle-check{% endif %}"
-                    style="font-size: 1.2rem;"></i>
-            </div>
-            <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: {% if doc.estado_arecf == '1' %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
-                {% if doc.estado_arecf == '1' %}Documento Rechazado{% else %}Documento Aceptado{% endif %}</h4>
-            <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 16px;">
-                {% if doc.estado_arecf == '1' %}
-                La recepción fue rechazada (código de motivo {{ doc.codigo_motivo_no_recibido or '-' }}).
-                {% else %}
-                El comprobante fue validado y aceptado con ARECF emitido.
-                {% endif %}
-            </p>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left; margin-bottom: 12px;">
-                <div style="background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 9px;">
-                    <span style="display:block; font-size:.68rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Estado CxP</span>
-                    <strong style="font-size:.82rem;">{{ doc.get('cxpStatus') or 'No registrado' }}</strong>
-                </div>
-                <div style="background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 9px;">
-                    <span style="display:block; font-size:.68rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Saldo pendiente</span>
-                    <strong style="font-size:.82rem;">RD$ {{ "{:,.2f}".format((doc.get('cxpRemainingBalance') or 0) | float) }}</strong>
+        <div class="card-table-wrapper" style="padding: 16px; border: 1px solid {% if doc.estado_arecf == '1' %}rgba(239,68,68,.35){% else %}rgba(16,185,129,.35){% endif %};">
+            <div style="display:flex; align-items:flex-start; gap:9px; margin-bottom:12px;">
+                <div style="display:flex; align-items:center; gap:9px; min-width:0;">
+                    <span style="width:32px; height:32px; flex:0 0 32px; border-radius:9px; display:flex; align-items:center; justify-content:center; background:{% if doc.estado_arecf == '1' %}rgba(239,68,68,.12){% else %}rgba(16,185,129,.12){% endif %}; color:{% if doc.estado_arecf == '1' %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
+                        <i class="fa-solid {% if doc.estado_arecf == '1' %}fa-xmark{% else %}fa-check{% endif %}" style="font-size:.85rem;"></i>
+                    </span>
+                    <div style="min-width:0; flex:1;">
+                        <h4 style="margin:0 0 3px; font-size:.94rem; font-family:var(--font-heading); color:{% if doc.estado_arecf == '1' %}var(--accent-red){% else %}var(--accent-emerald){% endif %}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{% if doc.estado_arecf == '1' %}Documento rechazado{% else %}Documento aceptado{% endif %}</h4>
+                        <span style="font-size:.72rem; color:var(--text-muted); display:block;">{% if doc.estado_arecf == '1' %}Código {{ doc.codigo_motivo_no_recibido or '-' }}{% else %}ARECF emitido{% endif %}</span>
+                    </div>
                 </div>
             </div>
-            <div style="font-size:.78rem; color:var(--text-muted); margin-bottom:12px;">Recibido el <strong>{{ (doc.received_at or '')[:10] | format_date }}</strong></div>
-            <div
-                style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px; font-family: monospace; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 12px; word-break: break-all;">
-                Track ID: {{ doc.track_id or '-' }}
+            <div style="margin:0 0 10px 41px;">
+                <span class="badge {% if doc.estado_arecf == '1' %}badge-danger{% else %}badge-success{% endif %}" style="font-size:.65rem; padding:4px 7px;">{% if doc.estado_arecf == '1' %}Rechazado{% else %}Aceptado{% endif %}</span>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
+
+            <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin-bottom:10px;">
+                <div style="padding:8px 9px; border:1px solid var(--border-color); border-radius:7px; background:var(--bg-input);">
+                    <span style="display:block; font-size:.62rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Estado CxP</span>
+                    <strong style="display:block; margin-top:2px; font-size:.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ doc.get('cxpStatus') or (linked_document.get('cxpStatus') if linked_document else ('Registrado' if doc.get('registeredIn606') else 'No registrado')) }}</strong>
+                </div>
+                <div style="padding:8px 9px; border:1px solid var(--border-color); border-radius:7px; background:var(--bg-input);">
+                    <span style="display:block; font-size:.62rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Saldo</span>
+                    <strong style="display:block; margin-top:2px; font-size:.78rem;">RD$ {{ "{:,.2f}".format((doc.get('cxpRemainingBalance') if doc.get('cxpRemainingBalance') is not none else (linked_document.get('cxpRemainingBalance', 0) if linked_document else 0)) | float) }}</strong>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; gap:8px; align-items:center; padding-bottom:9px; border-bottom:1px solid var(--border-color); color:var(--text-muted); font-size:.7rem;">
+                <span>Recibido {{ (doc.received_at or '')[:10] | format_date }}</span>
+                <span title="Track ID" style="font-family:monospace; max-width:52%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ doc.track_id or 'Sin Track ID' }}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 7px; margin-top:10px;">
                 {% if doc.estado_arecf != '1' %}
                 {% set doc_year = detail.fecha_emision_iso[:4] if detail and detail.fecha_emision_iso else (doc.received_at[:4] if doc.received_at else '') %}
                 {% set doc_month = detail.fecha_emision_iso[5:7] if detail and detail.fecha_emision_iso else (doc.received_at[5:7] if doc.received_at else '') %}
                 <a href="{{ url_for('web_reports_606.reporte_606', search=doc.encf, year=doc_year, month=doc_month) }}" class="btn btn-secondary"
-                    style="width: 100%; font-size: 0.82rem; padding: 8px 16px; border-color: var(--accent-purple); color: var(--accent-purple);">
+                    style="width:100%; font-size:.76rem; padding:7px 10px; border-color:var(--accent-purple); color:var(--accent-purple);">
                     <i class="fa-solid fa-file-invoice"></i>
                     <span>Ver en Reporte 606</span>
                 </a>
+                {% set ecf_cxp_blocked = (detail.tipo_ecf or doc.ecf_type) | upper in ['E34', 'E43', 'E46', 'E47', '34', '43', '46', '47'] %}
+                {% if ecf_cxp_blocked %}
+                <div style="border:1px solid rgba(245,158,11,.35); border-radius:7px; padding:9px; color:#b45309; font-size:.76rem; background:rgba(245,158,11,.06);">
+                    <i class="fa-solid fa-circle-info"></i>
+                    {% if (detail.tipo_ecf or doc.ecf_type) | upper in ['E34', '34'] %}Nota de crédito: debe aplicarse a una factura original.{% elif (detail.tipo_ecf or doc.ecf_type) | upper in ['E43', '43'] %}Gasto menor: se controla desde Gastos y Reporte 606.{% else %}Este tipo de e-CF requiere un flujo especial y no genera CxP automática.{% endif %}
+                </div>
+                {% elif not doc.get('registeredIn606') %}
                 <form method="POST" action="{{ url_for('web_recepcion.register_received_ecf_cxp', ecf_id=doc.id) }}"
-                    style="border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                    style="border:1px solid var(--border-color); border-radius:7px; padding:9px; display:flex; flex-direction:column; gap:7px;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <label for="bankAccountId" style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);">
-                        Cuenta de banks/ para contado (opcional)
+                    <label for="bankAccountId" style="font-size:.7rem; font-weight:700; color:var(--text-secondary);">
+                        Cuenta bancaria para contado
                     </label>
-                    <select id="bankAccountId" name="bankAccountId" style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-color);">
+                    <select id="bankAccountId" name="bankAccountId" style="width:100%; padding:7px; border-radius:6px; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-color); font-size:.75rem;">
                         <option value="">Sin cuenta, dejar pendiente</option>
                         {% for account in bank_accounts %}
                         <option value="{{ account.id }}">{{ account.name or account.bankName or account.id }}</option>
                         {% endfor %}
                     </select>
-                    <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
+                    <button type="submit" class="btn btn-primary" style="width:100%; font-size:.76rem; padding:7px 10px;">
                         <i class="fa-solid fa-file-invoice-dollar"></i>
                         <span>Registrar en CxP</span>
                     </button>
                 </form>
+                {% else %}
+                <div style="border:1px solid rgba(16,185,129,.35); border-radius:7px; padding:9px; color:var(--accent-emerald); font-size:.76rem;">
+                    <i class="fa-solid fa-circle-check"></i>
+                    Documento ya registrado como {% if linked_type == 'supplier_invoice' %}factura de proveedor{% else %}gasto{% endif %}.
+                </div>
+                {% endif %}
                 {% endif %}
                 <a href="{{ url_for('web_recepcion.download_received_pdf', ecf_id=doc.id) }}" class="btn btn-primary"
-                    style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
+                    style="width:100%; font-size:.76rem; padding:7px 10px;">
                     <i class="fa-solid fa-file-pdf"></i>
                     <span>Descargar PDF</span>
                 </a>
                 <a href="{{ url_for('web_recepcion.download_received_xml', ecf_id=doc.id) }}" class="btn btn-secondary"
-                    style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
+                    style="width:100%; font-size:.76rem; padding:7px 10px;">
                     <i class="fa-solid fa-file-code" style="color: var(--accent-blue);"></i>
                     <span>Descargar XML Recibido</span>
                 </a>
                 <a href="{{ url_for('web_recepcion.download_arecf', ecf_id=doc.id) }}" class="btn btn-primary"
-                    style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
+                    style="width:100%; font-size:.76rem; padding:7px 10px;">
                     <i class="fa-solid fa-receipt"></i>
                     <span>Descargar ARECF</span>
                 </a>
             </div>
         </div>
 
-        <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 12px;">
-            <div style="text-align: center; padding-bottom: 8px;">
-                <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: 700;">Recibido el</span>
-                <strong style="font-size: 0.95rem; color: var(--text-primary);">{{ (doc.received_at or '')[:10] | format_date }}</strong>
-            </div>
-            <a href="{{ url_for('web_recepcion.list_received_ecf') }}" class="btn btn-secondary"
-                style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="fa-solid fa-arrow-rotate-left"></i>
-                <span>Volver al Listado</span>
-            </a>
-        </div>
     </div>
 </div>
 {% endblock %}

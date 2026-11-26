@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 VALID_606_ECF_TYPES = ("31", "33", "34", "44", "45", "E31", "E33", "E34", "E44", "E45")
 PAYMENT_TYPE_LABELS = {"1": "Contado", "2": "Crédito", "3": "Gratuito"}
+CXP_ECF_TYPES = {"E31", "E33", "E41", "E44", "E45"}
+CXP_BLOCKED_ECF_TYPES = {"E34", "E43", "E46", "E47"}
 
 
 class ReceivedEcfBridgeService:
@@ -69,10 +71,26 @@ class ReceivedEcfBridgeService:
         if not encf or not sender_rnc:
             return False, "Falta e-NCF o RNC del emisor para registrar en 606."
 
+        if ecf_type_final in CXP_BLOCKED_ECF_TYPES:
+            messages = {
+                "E34": "E34 es una nota de crédito y debe aplicarse contra el e-CF original; no crea una CxP nueva.",
+                "E43": "E43 es un gasto menor; debe registrarse en Gastos y Reporte 606, no como factura CxP.",
+                "E46": "E46 requiere un flujo especial de exportación/importación; no se registra automáticamente en CxP.",
+                "E47": "E47 requiere un flujo especial de pagos al exterior; no se registra automáticamente en CxP.",
+            }
+            return False, messages.get(ecf_type_final, f"El tipo {ecf_type_final} no puede registrarse en CxP.")
+
         # ── Verificar si ya existe en gastos o facturas de proveedor ──
         existing_expense = cls._find_existing_expense(owner_uid, encf, sender_rnc, sandbox=sandbox, company_id=company_id)
         if existing_expense:
-            cls._mark_ecf_as_registered(owner_uid, ecf_document.get("id"), existing_expense.get("id"), sandbox=sandbox)
+            cls._mark_ecf_as_registered(
+                owner_uid, ecf_document.get("id"), existing_expense.get("id"),
+                tipo_gasto=existing_expense.get("tipoGastoDGII", "02"),
+                sandbox=sandbox, expense=existing_expense,
+            )
+            existing_type = str(existing_expense.get("paymentType") or "").strip().lower()
+            if existing_type == "contado":
+                return True, f"Ya registrado como gasto contado {existing_expense.get('id')}. No genera saldo pendiente en CxP."
             return True, f"Ya registrado como gasto {existing_expense.get('id')}."
 
         if company_id:
@@ -85,7 +103,7 @@ class ReceivedEcfBridgeService:
                             "".join(filter(str.isdigit, str(invoice.get("supplierRnc") or ""))) == sender_rnc:
                         cls._mark_ecf_as_registered(
                             owner_uid, ecf_document.get("id"), invoice.get("id"),
-                            sandbox=sandbox,
+                            sandbox=sandbox, supplier_invoice=invoice,
                         )
                         return True, f"Ya registrado como factura de proveedor {invoice.get('id')}."
             except Exception as e:
@@ -292,11 +310,11 @@ class ReceivedEcfBridgeService:
                                     "accountingError": accounting_error})
                 cls._mark_ecf_as_registered(
                     owner_uid, ecf_document.get("id"), invoice.get("id"),
-                    tipo_gasto=tipo_gasto, sandbox=sandbox,
+                    tipo_gasto=tipo_gasto, sandbox=sandbox, supplier_invoice=invoice,
                 )
                 if payment_type == "Contado":
                     if not bank_account_id:
-                        return True, invoice.get("id")
+                        return True, f"e-CF registrado como contado {invoice.get('id')}. No genera saldo pendiente en CxP."
                     paid_ok, paid_message = cls._register_cash_payment(
                         owner_uid=owner_uid,
                         invoice=invoice,
@@ -307,10 +325,14 @@ class ReceivedEcfBridgeService:
                     )
                     if not paid_ok:
                         logger.warning("Factura contado %s creada, pago pendiente: %s", invoice.get("id"), paid_message)
-                return True, invoice.get("id")
+                    return True, f"e-CF contado registrado en CxP {invoice.get('id')}; pago pendiente de aprobación."
+                return True, f"e-CF a crédito registrado en CxP {invoice.get('id')}."
 
             DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox, company_id=company_id)
-            cls._mark_ecf_as_registered(owner_uid, ecf_document.get("id"), expense_id, tipo_gasto=tipo_gasto, sandbox=sandbox)
+            cls._mark_ecf_as_registered(
+                owner_uid, ecf_document.get("id"), expense_id,
+                tipo_gasto=tipo_gasto, sandbox=sandbox, expense=expense_dict,
+            )
             logger.info("e-CF %s registrado automáticamente en 606 (gasto %s).", encf, expense_id)
             return True, expense_id
         except Exception as e:
@@ -349,16 +371,23 @@ class ReceivedEcfBridgeService:
         return None
 
     @classmethod
-    def _mark_ecf_as_registered(cls, owner_uid, ecf_doc_id, expense_id, tipo_gasto="02", sandbox=True):
+    def _mark_ecf_as_registered(cls, owner_uid, ecf_doc_id, expense_id, tipo_gasto="02",
+                                sandbox=True, expense=None, supplier_invoice=None):
         """Actualiza el documento en received_ecf para marcarlo registrado."""
         if not ecf_doc_id or db_firestore is None:
             return
         try:
             coll = ReceptorRepository._resolve_collection(owner_uid, "received_ecf", sandbox=sandbox)
+            linked = supplier_invoice or expense or {}
+            is_supplier_invoice = bool(supplier_invoice)
             coll.document(ecf_doc_id).update({
                 "registeredIn606": True,
-                "expenseId": expense_id,
+                "expenseId": "" if is_supplier_invoice else expense_id,
+                "supplierInvoiceId": expense_id if is_supplier_invoice else "",
+                "registeredType": "supplier_invoice" if is_supplier_invoice else "expense",
                 "tipoGastoDGII": tipo_gasto,
+                "cxpStatus": linked.get("cxpStatus", "") or ("Pagado" if linked.get("paymentType") == "Contado" else "Pendiente"),
+                "cxpRemainingBalance": float(linked.get("cxpRemainingBalance", 0) or 0),
                 "processedAt": datetime.now(timezone.utc).isoformat(),
             })
         except Exception as e:

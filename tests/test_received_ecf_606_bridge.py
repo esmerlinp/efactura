@@ -118,6 +118,21 @@ def test_parse_ecf_detail_e34_ncf_modificado():
     assert detail["monto_bienes"] == 500.00
 
 
+def test_bridge_blocks_credit_note_from_cxp():
+    ecf_doc = {
+        "id": "rec-ecf-nc-001",
+        "estado_arecf": "0",
+        "ecf_type": "34",
+        "xml_content": SAMPLE_ECF_E34_NC_XML,
+        "received_at": "2026-10-20T10:00:00Z",
+    }
+    ok, message = ReceivedEcfBridgeService.process_received_ecf(
+        "owner-999", ecf_doc, sandbox=True,
+    )
+    assert ok is False
+    assert "nota de crédito" in message.lower()
+
+
 def test_to_dgii_date():
     assert _to_dgii_date("2026-10-15") == "20261015"
     assert _to_dgii_date("15-10-2026") == "20261015"

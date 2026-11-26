@@ -9231,6 +9231,10 @@ def sync_expense_ecf_route(expense_id):
         flash('Gasto no encontrado.', 'error')
         return redirect(url_for('web_invoices.list_expenses'))
 
+    if expense.get("source") == "received_ecf" or expense.get("receivedEcfId"):
+        flash('Este documento fue recibido desde DGII y no puede emitirse nuevamente desde esta empresa.', 'warning')
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
+
     ecf_type_raw = expense.get("ecfType", "")
     if ecf_type_raw not in ("E41", "E43", "Comprobante de Compras (E41)", "Gastos Menores (E43)"):
         flash('Solo los gastos E41 y E43 pueden sincronizarse con la DGII.', 'warning')
