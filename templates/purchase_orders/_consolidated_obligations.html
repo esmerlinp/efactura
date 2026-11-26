@@ -2,10 +2,8 @@
     <table class="data-grid">
         <thead>
             <tr>
-                <th>Origen</th>
                 <th>Proveedor</th>
                 <th>Documento</th>
-                <th>Descripción</th>
                 <th>Emisión</th>
                 <th>Vence</th>
                 <th>Moneda</th>
@@ -21,16 +19,8 @@
             {% if items %}
             {% for item in items %}
             <tr>
-                <td>
-                    {% if item.source == 'provider' %}
-                    <span class="badge-pill badge-blue"><i class="fa-solid fa-cart-shopping"></i> Proveedor</span>
-                    {% else %}
-                    <span class="badge-pill badge-amber"><i class="fa-solid fa-receipt"></i> Gasto</span>
-                    {% endif %}
-                </td>
                 <td><strong>{{ item.supplier_name or '—' }}</strong><br><span class="mono" style="font-size:0.7rem;color:var(--text-muted);">{{ item.supplier_tax_id or '' }}</span></td>
                 <td class="mono">{{ item.document_number or item.ncf or '—' }}</td>
-                <td>{{ item.description or '—' }}</td>
                 <td>{{ item.issue_date or '—' }}</td>
                 <td style="{% if item.status=='vencida' %}color:var(--accent-red);font-weight:600;{% endif %}">{{ item.due_date or '—' }}</td>
                 <td class="mono">{{ item.currency }}</td>
@@ -58,7 +48,7 @@
             </tr>
             {% endfor %}
             {% else %}
-            <tr><td colspan="13" style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-credit-card" style="font-size:2rem;display:block;margin-bottom:10px;opacity:0.3;"></i>No hay obligaciones para los filtros seleccionados.</td></tr>
+            <tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-credit-card" style="font-size:2rem;display:block;margin-bottom:10px;opacity:0.3;"></i>No hay obligaciones para los filtros seleccionados.</td></tr>
             {% endif %}
         </tbody>
     </table>

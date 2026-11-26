@@ -1,4 +1,6 @@
 from flask import Blueprint, render_template, session, request, make_response, redirect, url_for, flash, send_file
+from werkzeug.utils import secure_filename
+from datetime import datetime, timezone
 from app.repositories.receptor_repository import ReceptorRepository
 from app.services.db_service import DatabaseService
 from app.services.receptor_xml_service import ReceptorXmlService
@@ -35,6 +37,79 @@ def _get_context():
     owner_uid = session.get("selected_owner_uid") or session["user"].get("ownerUID")
     company_id = session.get("selected_company_id")
     return owner_uid, company_id
+
+
+@web_recepcion_bp.route("/recepcion/ecf/cargar-manual", methods=["GET", "POST"])
+def upload_manual_ecf():
+    guard = _check_auth()
+    if guard:
+        return guard
+    owner_uid, company_id = _get_context()
+    if request.method == "GET":
+        return render_template("recepcion/manual_upload.html", active_page="recepcion_ecf", company_id=company_id)
+
+    uploaded = request.files.get("xml_file")
+    if not uploaded or not uploaded.filename:
+        flash("Selecciona un archivo XML.", "error")
+        return redirect(url_for("web_recepcion.upload_manual_ecf"))
+    filename = secure_filename(uploaded.filename)
+    if not filename.lower().endswith(".xml"):
+        flash("Solo se permiten archivos con extensión .xml.", "error")
+        return redirect(url_for("web_recepcion.upload_manual_ecf"))
+    xml_bytes = uploaded.read()
+    if len(xml_bytes) > 5 * 1024 * 1024:
+        flash("El archivo XML no puede superar 5 MB.", "error")
+        return redirect(url_for("web_recepcion.upload_manual_ecf"))
+
+    detail, error = ReceptorXmlService.validate_manual_ecf(xml_bytes)
+    if error:
+        flash(error, "error")
+        return redirect(url_for("web_recepcion.upload_manual_ecf"))
+    sender_rnc = "".join(filter(str.isdigit, str(detail.get("rnc_emisor") or "")))
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    receiver_rnc = "".join(filter(str.isdigit, str(company.get("companyRNC") or "")))
+    if detail.get("rnc_comprador") and receiver_rnc:
+        buyer_rnc = "".join(filter(str.isdigit, str(detail["rnc_comprador"])))
+        if buyer_rnc != receiver_rnc:
+            flash("El RNC comprador del XML no corresponde a la empresa seleccionada.", "error")
+            return redirect(url_for("web_recepcion.upload_manual_ecf"))
+
+    existing = ReceptorRepository.find_received_by_encf_merged(
+        owner_uid, detail["encf"], sender_rnc, company_id=company_id, receiver_rnc=receiver_rnc
+    )
+    if existing:
+        flash(f"El e-NCF ya está registrado en e-CF Recibidos (ID {existing['id']}).", "warning")
+        return redirect(url_for("web_recepcion.detail_received_ecf", ecf_id=existing["id"]))
+
+    signature_ok, signature_error = ReceptorXmlService.verify_signature(xml_bytes)
+    now = datetime.now(timezone.utc).isoformat()
+    data = {
+        "sender_rnc": sender_rnc,
+        "sender_name": detail.get("razon_social_emisor", ""),
+        "receiver_rnc": receiver_rnc or detail.get("rnc_comprador", ""),
+        "encf": detail["encf"],
+        "ecf_type": detail["tipo_ecf"],
+        "xml_content": xml_bytes.decode("utf-8"),
+        "arecf_xml": "",
+        "status": "recibido_manual",
+        "received_at": now,
+        "track_id": "",
+        "source": "manual_upload",
+        "receipt_channel": "manual",
+        "received_automatically": False,
+        "uploaded_filename": filename,
+        "uploaded_at": now,
+        "uploaded_by": session.get("user", {}).get("uid") or session.get("user", {}).get("email", ""),
+        "signature_status": "valid" if signature_ok is True else ("invalid" if signature_ok is False else "missing"),
+        "signature_message": signature_error or "Firma digital válida.",
+        "company_id": company_id or "",
+        "monto_total": detail.get("monto_total", 0),
+        "estado_arecf": "0",
+    }
+    ecf_id = ReceptorRepository.save_received_ecf(owner_uid, data, sandbox=session.get("sandbox", True))
+    warning = "" if signature_ok is True else " Advertencia: " + data["signature_message"]
+    flash(f"e-CF {detail['encf']} cargado manualmente.{warning}", "success" if signature_ok is True else "warning")
+    return redirect(url_for("web_recepcion.detail_received_ecf", ecf_id=ecf_id))
 
 
 @web_recepcion_bp.route("/recepcion/ecf")

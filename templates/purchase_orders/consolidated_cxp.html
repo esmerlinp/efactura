@@ -3,6 +3,9 @@
 {% block page_header %}Cuentas por Pagar{% endblock %}
 
 {% block content %}
+{% macro query_url(target_page=1, target_tab=tab) -%}
+{{ url_for('web_purchase_orders.consolidated_cxp', tab=target_tab, status=status_filter, approval=approval_filter, currency=currency_filter, search=search_query, start_date=start_date, end_date=end_date, page=target_page, per_page=per_page) }}
+{%- endmacro %}
 <div style="margin-bottom:20px; padding-left:4px;">
     <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
         <i class="fa-solid fa-credit-card" style="color:var(--accent-purple); margin-right:10px;"></i>
@@ -31,24 +34,34 @@
     {% endfor %}
 </div>
 
-<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px; margin-bottom:22px;">
+<div class="cxp-kpi-section">
     {% for cur, k in kpis.items() %}
-    <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px 18px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <span style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Indicadores</span>
-            <span class="badge-pill badge-gray">{{ cur }}</span>
+    <section class="cxp-kpi-strip" aria-label="Indicadores de cuentas por pagar {{ cur }}">
+        <div class="cxp-kpi-heading">
+            <span>Resumen CxP</span>
+            <strong>{{ cur }}</strong>
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px 14px;">
-            <div><div class="kpi-label">Pendiente</div><div class="kpi-value green">{{ "{:,.2f}".format(k.pending) }}</div></div>
-            <div><div class="kpi-label">Vencido</div><div class="kpi-value red">{{ "{:,.2f}".format(k.overdue) }}</div></div>
-            <div><div class="kpi-label">Por vencer</div><div class="kpi-value">{{ "{:,.2f}".format(k.due_soon) }}</div></div>
-            <div><div class="kpi-label">Pend. aprob. doc.</div><div class="kpi-value amber">{{ "{:,.2f}".format(k.pending_doc_approval) }}</div></div>
-            <div><div class="kpi-label">Pend. aprob. pago</div><div class="kpi-value amber">{{ "{:,.2f}".format(k.pending_payment_approval) }}</div></div>
-            <div><div class="kpi-label">Pagado en período</div><div class="kpi-value green">{{ "{:,.2f}".format(k.paid_in_period) }}</div></div>
+        <div class="cxp-kpi-metric">
+            <span>Pendiente</span><strong class="is-green">{{ "{:,.2f}".format(k.pending) }}</strong>
         </div>
-    </div>
+        <div class="cxp-kpi-metric">
+            <span>Vencido</span><strong class="is-red">{{ "{:,.2f}".format(k.overdue) }}</strong>
+        </div>
+        <div class="cxp-kpi-metric">
+            <span>Por vencer</span><strong>{{ "{:,.2f}".format(k.due_soon) }}</strong>
+        </div>
+        <div class="cxp-kpi-metric">
+            <span>Aprob. doc.</span><strong class="is-amber">{{ "{:,.2f}".format(k.pending_doc_approval) }}</strong>
+        </div>
+        <div class="cxp-kpi-metric">
+            <span>Aprob. pagos</span><strong class="is-amber">{{ "{:,.2f}".format(k.pending_payment_approval) }}</strong>
+        </div>
+        <div class="cxp-kpi-metric">
+            <span>Pagado período</span><strong class="is-green">{{ "{:,.2f}".format(k.paid_in_period) }}</strong>
+        </div>
+    </section>
     {% else %}
-    <div style="grid-column:1/-1; color:var(--text-muted);">No hay indicadores disponibles para los permisos actuales.</div>
+    <div class="cxp-kpi-empty">No hay indicadores disponibles para los permisos actuales.</div>
     {% endfor %}
 </div>
 
@@ -69,10 +82,16 @@
                 <option value="pendiente" {% if approval_filter=='pendiente' %}selected{% endif %}>Pendiente</option>
                 <option value="aprobada" {% if approval_filter=='aprobada' %}selected{% endif %}>Aprobada</option>
             </select>
-            <input type="text" name="currency" class="form-input" placeholder="Moneda (DOP/USD)" value="{{ currency_filter or '' }}" style="width:130px;">
-            <input type="text" name="search" class="form-input" placeholder="Buscar proveedor, RNC, NCF..." value="{{ search_query or '' }}" style="flex:1; min-width:180px;">
-            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-search"></i> Filtrar</button>
-            {% if status_filter or approval_filter or currency_filter or search_query %}
+             <input type="text" name="currency" class="form-input" placeholder="Moneda (DOP/USD)" value="{{ currency_filter or '' }}" style="width:130px;">
+             <input type="text" name="search" class="form-input" placeholder="Buscar proveedor, RNC, NCF..." value="{{ search_query or '' }}" style="flex:1; min-width:180px;">
+             <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--text-secondary);">Desde
+                 <input type="date" name="start_date" value="{{ start_date or '' }}" class="form-input" style="width:145px;">
+             </label>
+             <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--text-secondary);">Hasta
+                 <input type="date" name="end_date" value="{{ end_date or '' }}" class="form-input" style="width:145px;">
+             </label>
+             <button type="submit" class="btn btn-primary"><i class="fa-solid fa-search"></i> Filtrar</button>
+             {% if status_filter or approval_filter or currency_filter or search_query or start_date or end_date %}
             <a href="{{ url_for('web_purchase_orders.consolidated_cxp', tab=tab) }}" class="btn btn-secondary"><i class="fa-solid fa-xmark"></i> Limpiar</a>
             {% endif %}
         </form>
@@ -87,12 +106,54 @@
     {% endif %}
 </div>
 
+{% if tab != 'aprobacion' %}
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0;color:var(--text-secondary);font-size:.82rem;">
+    <span>Mostrando <strong>{{ start_count }}</strong> a <strong>{{ end_count }}</strong> de <strong>{{ total_items }}</strong> registros</span>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <form method="GET" style="display:flex;align-items:center;gap:6px;margin:0;">
+            {% if tab %}<input type="hidden" name="tab" value="{{ tab }}">{% endif %}
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <input type="hidden" name="approval" value="{{ approval_filter }}">
+            <input type="hidden" name="currency" value="{{ currency_filter }}">
+            <input type="hidden" name="search" value="{{ search_query }}">
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="page" value="1">
+            <label for="footer-per-page" style="white-space:nowrap;">Filas:</label>
+            <select id="footer-per-page" name="per_page" class="form-select" style="width:auto;padding:4px 8px;font-size:.8rem;" onchange="this.form.submit()">
+                {% for value in ['10', '25', '50', '100', 'all'] %}
+                <option value="{{ value }}" {% if per_page|string == value %}selected{% endif %}>{{ 'Todas' if value == 'all' else value }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        {% if total_pages > 1 %}
+        {% if page > 1 %}<a href="{{ query_url(page - 1) }}" class="btn btn-secondary" style="padding:5px 9px;"><i class="fa-solid fa-chevron-left"></i></a>{% endif %}
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}<span class="btn btn-primary" style="padding:5px 10px;">{{ p }}</span>
+            {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 1 and p <= page + 1) %}<a href="{{ query_url(p) }}" class="btn btn-secondary" style="padding:5px 10px;">{{ p }}</a>
+            {% elif p == 4 or p == total_pages - 3 %}<span style="padding:0 3px;">...</span>{% endif %}
+        {% endfor %}
+        {% if page < total_pages %}<a href="{{ query_url(page + 1) }}" class="btn btn-secondary" style="padding:5px 9px;"><i class="fa-solid fa-chevron-right"></i></a>{% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
 <style>
-.kpi-label { font-size:0.66rem; color:var(--text-muted); text-transform:uppercase; font-weight:600; }
-.kpi-value { font-size:1.05rem; font-weight:800; }
-.kpi-value.green { color:var(--accent-emerald); }
-.kpi-value.red { color:var(--accent-red); }
-.kpi-value.amber { color:#f59e0b; }
+.cxp-kpi-section { display:flex; flex-direction:column; gap:10px; margin-bottom:22px; }
+.cxp-kpi-strip { display:grid; grid-template-columns:minmax(112px, 1.1fr) repeat(6, minmax(105px, 1fr)); align-items:stretch; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); overflow:hidden; }
+.cxp-kpi-heading, .cxp-kpi-metric { min-height:72px; padding:13px 15px; display:flex; flex-direction:column; justify-content:center; }
+.cxp-kpi-heading { background:rgba(99,102,241,.045); gap:5px; }
+.cxp-kpi-heading span, .cxp-kpi-metric span { color:var(--text-muted); font-size:.64rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+.cxp-kpi-heading strong { color:var(--accent-purple); font-size:.82rem; font-weight:800; }
+.cxp-kpi-metric { border-left:1px solid var(--border-color); gap:5px; }
+.cxp-kpi-metric strong { color:var(--text-primary); font-size:1rem; font-weight:750; line-height:1; }
+.cxp-kpi-metric strong.is-green { color:var(--accent-emerald); }
+.cxp-kpi-metric strong.is-red { color:var(--accent-red); }
+.cxp-kpi-metric strong.is-amber { color:#d97706; }
+.cxp-kpi-empty { color:var(--text-muted); padding:14px 2px; }
+@media (max-width: 1100px) { .cxp-kpi-strip { grid-template-columns:repeat(3, 1fr); } .cxp-kpi-heading { grid-column:1/-1; min-height:auto; flex-direction:row; justify-content:space-between; align-items:center; } .cxp-kpi-metric:nth-child(2), .cxp-kpi-metric:nth-child(5) { border-left:none; } }
+@media (max-width: 560px) { .cxp-kpi-strip { grid-template-columns:repeat(2, 1fr); } .cxp-kpi-heading { grid-column:1/-1; } .cxp-kpi-metric:nth-child(2n+1) { border-left:none; } .cxp-kpi-heading, .cxp-kpi-metric { min-height:64px; padding:11px 12px; } .cxp-kpi-metric strong { font-size:.92rem; } }
 .badge-pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:99px; font-size:0.7rem; font-weight:600; }
 .badge-green  { background:rgba(16,185,129,0.12); color:var(--accent-emerald); border:1px solid rgba(16,185,129,0.25); }
 .badge-amber  { background:rgba(245,158,11,0.1);  color:#f59e0b; border:1px solid rgba(245,158,11,0.2); }

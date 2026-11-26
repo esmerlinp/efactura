@@ -63,6 +63,9 @@
             <a href="{{ url_for('web_reports_606.reporte_606') }}" class="btn btn-outline" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; padding: 6px 14px; border-radius: 8px;">
                 <i class="fa-solid fa-file-invoice-dollar"></i> Ir al Reporte 606
             </a>
+            <a href="{{ url_for('web_recepcion.upload_manual_ecf') }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; padding: 6px 14px; border-radius: 8px;">
+                <i class="fa-solid fa-upload"></i> Cargar XML manualmente
+            </a>
             <form method="POST" action="{{ url_for('web_recepcion.sync_received_to_606') }}" style="margin: 0;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; padding: 6px 14px; border-radius: 8px;">
@@ -163,6 +166,7 @@
                     <th>{{ sort_link('received_at', 'Recibido', 'desc') }}</th>
                     <th>{{ sort_link('status', 'Estado', 'asc') }}</th>
                     <th style="font-size: 0.72rem; text-transform: uppercase;">Reporte 606</th>
+                    <th style="font-size: 0.72rem; text-transform: uppercase;">Origen</th>
                     <th style="text-align: right; width: 50px;"></th>
                 </tr>
             </thead>
@@ -174,6 +178,13 @@
                         <a href="{{ url_for('web_recepcion.detail_received_ecf', ecf_id=doc.id) }}" class="invoice-link" style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple);">
                             {{ doc.encf or '-' }}
                         </a>
+                    </td>
+                    <td>
+                        {% if doc.get('source') == 'manual_upload' %}
+                        <span class="badge badge-warning" style="font-size:.65rem;">Manual</span>
+                        {% else %}
+                        <span class="badge badge-success" style="font-size:.65rem;">DGII</span>
+                        {% endif %}
                     </td>
                     <td style="font-size: 0.82rem; color: var(--text-primary);">{{ doc.sender_name or '-' }}</td>
                     <td style="font-family: monospace; font-size: 0.82rem; color: var(--text-secondary);">{{ doc.sender_rnc or '-' }}</td>
@@ -254,7 +265,7 @@
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="10" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                    <td colspan="11" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
                         <i class="fa-solid fa-inbox"
                             style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                         <span>No hay documentos que coincidan con los filtros aplicados.</span>

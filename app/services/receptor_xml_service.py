@@ -109,6 +109,31 @@ class ReceptorXmlService:
             "monto_total": monto_total,
         }, None
 
+    @staticmethod
+    def validate_manual_ecf(xml_bytes):
+        """Valida la estructura mínima de un e-CF cargado fuera de DGII."""
+        try:
+            root = etree.fromstring(xml_bytes)
+        except Exception as e:
+            return None, f"XML malformado: {str(e)}"
+        if ReceptorXmlService._local_name(root) != "ECF":
+            return None, "El documento XML no es un e-CF (elemento raíz ECF requerido)."
+        detail, error = ReceptorXmlService.parse_ecf_detail(xml_bytes)
+        if error or not detail:
+            return None, error or "No se pudo interpretar el e-CF."
+        missing = []
+        if not detail.get("encf"):
+            missing.append("e-NCF")
+        if not detail.get("tipo_ecf"):
+            missing.append("TipoeCF")
+        if not detail.get("rnc_emisor"):
+            missing.append("RNCEmisor")
+        if not detail.get("fecha_emision_iso"):
+            missing.append("FechaEmision")
+        if missing:
+            return None, f"Faltan campos obligatorios: {', '.join(missing)}."
+        return detail, None
+
     # ─────────────────────────────────────────────────────────────────
     # Parseo enriquecido para la vista de detalle (items, totales, fechas)
     # ─────────────────────────────────────────────────────────────────

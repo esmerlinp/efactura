@@ -184,6 +184,9 @@ class ReceivedEcfBridgeService:
         # el movimiento en banks/ deben ocurrir al crear/aprobar el pago de la
         # supplier_invoice, no al guardar este gasto.
         expense_id = str(uuid.uuid4())
+        # La recepción no confirma pagos. Incluso los documentos de contado
+        # quedan pendientes hasta registrar/aprobar el movimiento bancario.
+        is_paid = False
         expense_dict = {
             "id": expense_id,
             "ownerUID": owner_uid,

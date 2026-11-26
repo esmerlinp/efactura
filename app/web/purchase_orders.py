@@ -1193,6 +1193,22 @@ def consolidated_cxp():
     approval_filter = request.args.get('approval', '').strip()
     currency_filter = request.args.get('currency', '').strip().upper()
     search_query = request.args.get('search', '').strip().lower()
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+    try:
+        page = max(1, int(request.args.get('page', '1')))
+    except (TypeError, ValueError):
+        page = 1
+    per_page_raw = request.args.get('per_page', '10').strip()
+    if per_page_raw == 'all':
+        per_page = max(1, len(obligations) + len(pending_documents) + len(payments))
+    else:
+        try:
+            per_page = int(per_page_raw)
+        except (TypeError, ValueError):
+            per_page = 10
+        if per_page not in (10, 25, 50, 100):
+            per_page = 10
 
     def _match_obligation(o):
         if status_filter and o['status'] != status_filter:
@@ -1200,6 +1216,10 @@ def consolidated_cxp():
         if approval_filter and o['document_approval'] != approval_filter and o['payment_approval'] != approval_filter:
             return False
         if currency_filter and o['currency'] != currency_filter:
+            return False
+        if start_date and o.get('issue_date', '') < start_date:
+            return False
+        if end_date and o.get('issue_date', '') > end_date:
             return False
         if search_query:
             hay = f"{o['supplier_name']} {o['supplier_tax_id']} {o['ncf']} {o['document_number']} {o['description']}".lower()
@@ -1209,6 +1229,11 @@ def consolidated_cxp():
 
     def _match_payment(p):
         if currency_filter and p.get('currency') != currency_filter:
+            return False
+        payment_date = p.get('payment_date', '') or ''
+        if start_date and payment_date < start_date:
+            return False
+        if end_date and payment_date > end_date:
             return False
         if search_query:
             hay = f"{p.get('supplier_name','')} {p.get('obligation_number','')}".lower()
@@ -1231,11 +1256,31 @@ def consolidated_cxp():
     else:
         items = [o for o in obligations if _match_obligation(o)]
 
+    # Las obligaciones más recientes deben aparecer primero. Para pagos se
+    # utiliza la fecha efectiva del pago, no la fecha de emisión.
+    if tab == 'pagos':
+        items.sort(key=lambda item: (item.get('payment_date', '') or '', item.get('id', '')), reverse=True)
+    else:
+        items.sort(key=lambda item: (item.get('issue_date', '') or '', item.get('id', '')), reverse=True)
+
+    total_items = len(items)
+    total_pages = max(1, (total_items + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    start_idx = (page - 1) * per_page
+    paginated_items = items[start_idx:start_idx + per_page] if per_page_raw != 'all' else items
+    start_count = start_idx + 1 if total_items else 0
+    end_count = min(start_idx + len(paginated_items), total_items)
+
+    # Estas listas son independientes de la tabla principal y se paginan por
+    # separado para que una no oculte la otra en la pestaña de aprobación.
+    pending_documents = sorted(pending_documents, key=lambda item: (item.get('issue_date', '') or '', item.get('id', '')), reverse=True)
+    pending_payments = sorted(pending_payments, key=lambda item: (item.get('payment_date', '') or '', item.get('id', '')), reverse=True)
+
     return render_template(
         'purchase_orders/consolidated_cxp.html',
         active_page='consolidated_cxp',
         tab=tab,
-        items=items,
+        items=paginated_items,
         pending_documents=pending_documents if tab in ('aprobacion', '') else [],
         pending_payments=pending_payments,
         kpis=kpis,
@@ -1243,6 +1288,14 @@ def consolidated_cxp():
         approval_filter=approval_filter,
         currency_filter=currency_filter,
         search_query=search_query,
+        start_date=start_date,
+        end_date=end_date,
+        page=page,
+        per_page=per_page_raw if per_page_raw == 'all' else str(per_page),
+        total_items=total_items,
+        total_pages=total_pages,
+        start_count=start_count,
+        end_count=end_count,
     )
 
 

@@ -1,0 +1,34 @@
+{% extends "layout.html" %}
+{% block title %}Cargar e-CF manualmente{% endblock %}
+{% block page_header %}Cargar e-CF manualmente{% endblock %}
+{% block content %}
+<div class="card-table-wrapper" style="max-width: 760px; margin: 0 auto;">
+    <div style="margin-bottom: 24px;">
+        <a href="{{ url_for('web_recepcion.list_received_ecf') }}" style="color: var(--text-muted); text-decoration: none;">
+            <i class="fa-solid fa-arrow-left"></i> e-CF Recibidos
+        </a>
+        <h1 style="margin: 18px 0 8px;">Cargar XML manualmente</h1>
+        <p style="color: var(--text-secondary); margin: 0;">
+            Usa esta opción cuando el comprobante no haya llegado por el canal automático de la DGII.
+        </p>
+    </div>
+    <div class="guide-banner" style="margin-bottom: 24px;">
+        <div class="guide-banner-icon"><i class="fa-solid fa-circle-info"></i></div>
+        <div class="guide-banner-content">
+            <strong>Importante</strong>
+            <p style="margin: 4px 0 0;">El documento quedará identificado como Manual. No se generará ARECF ni track ID de DGII. La firma digital se verificará cuando esté disponible.</p>
+        </div>
+    </div>
+    <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="xml_file" style="display:block; font-weight:600; margin-bottom:8px;">Archivo XML</label>
+        <input id="xml_file" name="xml_file" type="file" accept=".xml,text/xml,application/xml" required
+               style="display:block; width:100%; padding:12px; border:1px dashed var(--border-color); border-radius:8px; background:var(--bg-input);">
+        <small style="display:block; color:var(--text-muted); margin-top:8px;">Formato permitido: XML. Tamaño máximo: 5 MB.</small>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:24px;">
+            <a href="{{ url_for('web_recepcion.list_received_ecf') }}" class="btn btn-outline">Cancelar</a>
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-upload"></i> Validar y cargar</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

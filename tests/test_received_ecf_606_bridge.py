@@ -274,6 +274,7 @@ def test_bridge_process_received_ecf(mock_coll, mock_supplier, mock_save_expense
     assert saved_payload["paymentType"] == "Crédito"
     assert saved_payload["paymentTypeCode"] == "2"
     assert saved_payload["cxpStatus"] == "Pendiente"
+    assert saved_payload["cxpRemainingBalance"] == 1180.0
 
 
 @patch("app.services.received_ecf_bridge_service.DatabaseService.save_expense")

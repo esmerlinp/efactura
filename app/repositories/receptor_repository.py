@@ -146,6 +146,28 @@ class ReceptorRepository:
             pass
         return None
 
+    @staticmethod
+    def find_received_by_encf_merged(owner_uid, encf, sender_rnc="", company_id=None,
+                                     receiver_rnc=None):
+        """Busca un e-CF existente en sandbox y producción para evitar duplicados."""
+        if not encf:
+            return None
+        for coll in ReceptorRepository._receptor_collections(owner_uid, COLLECTION_RECEIVED_ECF):
+            try:
+                for doc in coll.where("encf", "==", encf).limit(20).stream():
+                    data = doc.to_dict() or {}
+                    data["id"] = doc.id
+                    if sender_rnc and data.get("sender_rnc") != sender_rnc:
+                        continue
+                    if company_id and data.get("company_id") and data.get("company_id") != company_id:
+                        continue
+                    if receiver_rnc and not data.get("company_id") and data.get("receiver_rnc") != receiver_rnc:
+                        continue
+                    return data
+            except Exception:
+                continue
+        return None
+
     # ── Lecturas combinadas sandbox + producción (para la UI de recepción) ──
 
     @staticmethod

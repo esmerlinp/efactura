@@ -358,20 +358,21 @@
 
     <!-- Barra Lateral: Estado DGII y Acciones -->
     <div style="display: flex; flex-direction: column; gap: 24px;">
-        <div class="card-table-wrapper" style="padding: 16px; border: 1px solid {% if doc.estado_arecf == '1' %}rgba(239,68,68,.35){% else %}rgba(16,185,129,.35){% endif %};">
+        <div class="card-table-wrapper" style="padding: 16px; border: 1px solid {% if doc.get('source') == 'manual_upload' %}rgba(245,158,11,.35){% elif doc.estado_arecf == '1' %}rgba(239,68,68,.35){% else %}rgba(16,185,129,.35){% endif %};">
             <div style="display:flex; align-items:flex-start; gap:9px; margin-bottom:12px;">
                 <div style="display:flex; align-items:center; gap:9px; min-width:0;">
                     <span style="width:32px; height:32px; flex:0 0 32px; border-radius:9px; display:flex; align-items:center; justify-content:center; background:{% if doc.estado_arecf == '1' %}rgba(239,68,68,.12){% else %}rgba(16,185,129,.12){% endif %}; color:{% if doc.estado_arecf == '1' %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
                         <i class="fa-solid {% if doc.estado_arecf == '1' %}fa-xmark{% else %}fa-check{% endif %}" style="font-size:.85rem;"></i>
                     </span>
                     <div style="min-width:0; flex:1;">
-                        <h4 style="margin:0 0 3px; font-size:.94rem; font-family:var(--font-heading); color:{% if doc.estado_arecf == '1' %}var(--accent-red){% else %}var(--accent-emerald){% endif %}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{% if doc.estado_arecf == '1' %}Documento rechazado{% else %}Documento aceptado{% endif %}</h4>
-                        <span style="font-size:.72rem; color:var(--text-muted); display:block;">{% if doc.estado_arecf == '1' %}Código {{ doc.codigo_motivo_no_recibido or '-' }}{% else %}ARECF emitido{% endif %}</span>
+                        <h4 style="margin:0 0 3px; font-size:.94rem; font-family:var(--font-heading); color:{% if doc.get('source') == 'manual_upload' %}#b45309{% elif doc.estado_arecf == '1' %}var(--accent-red){% else %}var(--accent-emerald){% endif %}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{% if doc.get('source') == 'manual_upload' %}Carga manual{% elif doc.estado_arecf == '1' %}Documento rechazado{% else %}Documento aceptado{% endif %}</h4>
+                        <span style="font-size:.72rem; color:var(--text-muted); display:block;">{% if doc.get('source') == 'manual_upload' %}No recibido por DGII{% elif doc.estado_arecf == '1' %}Código {{ doc.codigo_motivo_no_recibido or '-' }}{% else %}ARECF emitido{% endif %}</span>
                     </div>
                 </div>
             </div>
             <div style="margin:0 0 10px 41px;">
-                <span class="badge {% if doc.estado_arecf == '1' %}badge-danger{% else %}badge-success{% endif %}" style="font-size:.65rem; padding:4px 7px;">{% if doc.estado_arecf == '1' %}Rechazado{% else %}Aceptado{% endif %}</span>
+                <span class="badge {% if doc.get('source') == 'manual_upload' %}badge-warning{% elif doc.estado_arecf == '1' %}badge-danger{% else %}badge-success{% endif %}" style="font-size:.65rem; padding:4px 7px;">{% if doc.get('source') == 'manual_upload' %}Manual{% elif doc.estado_arecf == '1' %}Rechazado{% else %}Aceptado{% endif %}</span>
+                {% if doc.get('source') == 'manual_upload' %}<span class="badge badge-secondary" style="font-size:.65rem; padding:4px 7px;">Firma: {{ doc.get('signature_status', 'no verificada') }}</span>{% endif %}
             </div>
 
             <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin-bottom:10px;">
@@ -438,11 +439,11 @@
                     <i class="fa-solid fa-file-code" style="color: var(--accent-blue);"></i>
                     <span>Descargar XML Recibido</span>
                 </a>
-                <a href="{{ url_for('web_recepcion.download_arecf', ecf_id=doc.id) }}" class="btn btn-primary"
+                {% if doc.get('source') != 'manual_upload' %}<a href="{{ url_for('web_recepcion.download_arecf', ecf_id=doc.id) }}" class="btn btn-primary"
                     style="width:100%; font-size:.76rem; padding:7px 10px;">
                     <i class="fa-solid fa-receipt"></i>
                     <span>Descargar ARECF</span>
-                </a>
+                </a>{% endif %}
             </div>
         </div>
 

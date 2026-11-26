@@ -250,6 +250,17 @@ class DgiiXmlBuilder:
         return code.zfill(2)[:2]
 
     @classmethod
+    def _payment_type_code(cls, invoice_data):
+        """Normaliza la condición de pago para el elemento DGII TipoPago."""
+        raw = invoice_data.get("paymentType", invoice_data.get("payment_type", "Contado"))
+        value = str(raw or "").strip().lower()
+        if value.startswith("2") or "crédito" in value or "credito" in value:
+            return "2"
+        if value.startswith("3") or "gratuito" in value or "gratis" in value:
+            return "3"
+        return "1"
+
+    @classmethod
     def _add_with_value(cls, parent, tag, value, default=None):
         if value is not None and (default is None or str(value) != str(default)):
             ET.SubElement(parent, tag).text = str(value)
@@ -366,7 +377,7 @@ class DgiiXmlBuilder:
 
         if tipo_ecf in ("31", "32", "33", "34", "41", "44", "45", "46"):
             pay_method = invoice_data.get("paymentMethod", "Efectivo")
-            tipo_pago = "2" if "crédito" in pay_method.lower() or "credito" in pay_method.lower() else "1"
+            tipo_pago = cls._payment_type_code(invoice_data)
             ET.SubElement(id_doc, "TipoPago").text = tipo_pago
 
             if tipo_pago == "2":
@@ -388,8 +399,7 @@ class DgiiXmlBuilder:
                 ET.SubElement(fdp, "FormaPago").text = fpv
                 ET.SubElement(fdp, "MontoPago").text = cls._sd(invoice_data.get("total", 0.0))
         elif tipo_ecf == "43":
-            pay_method = invoice_data.get("paymentMethod", "")
-            if "crédito" in pay_method.lower() or "credito" in pay_method.lower():
+            if cls._payment_type_code(invoice_data) == "2":
                 ET.SubElement(id_doc, "TipoPago").text = "2"
 
         # ======================== Emisor ========================
