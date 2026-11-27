@@ -115,6 +115,13 @@ class RecurringContractService:
             attempt_id=occurrence.invoice_id or occurrence.id,
             sandbox=sandbox,
         )
+        self.outbox.set_invoice_id(
+            owner_uid=owner_uid,
+            company_id=company_id,
+            command_id=command.command_id,
+            invoice_id=prepared.invoice.id,
+            sandbox=sandbox,
+        )
         return {
             "enabled": True,
             "status": "outbox_created",

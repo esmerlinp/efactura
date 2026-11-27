@@ -80,6 +80,16 @@ class OutboxCommandService:
 
         return self._run_transaction(operation)
 
+    def set_invoice_id(self, *, owner_uid: str, company_id: str, command_id: str, invoice_id: str, sandbox: bool = True):
+        ref = self._collection(company_id, sandbox).document(command_id)
+        snapshot = self._required_snapshot(ref.get())
+        data = snapshot.to_dict()
+        self._assert_scope(data, owner_uid, company_id)
+        data["invoice_id"] = invoice_id
+        data["updated_at"] = self.clock().isoformat()
+        ref.set(data)
+        return RecurringContractEmissionOutboxCommand(**data)
+
     def claim(self, *, owner_uid: str, company_id: str, command_id: str, worker_id: str, ttl_seconds: int = 120, sandbox: bool = True):
         if ttl_seconds <= 0:
             raise ValueError("ttl_seconds debe ser positivo")

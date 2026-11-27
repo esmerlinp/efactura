@@ -1,8 +1,4 @@
-"""Controlled fiscal worker for recurring-contract outbox commands.
-
-The worker is not registered with the scheduler in this phase. It only runs
-when explicitly invoked by an integration caller or a test.
-"""
+"""Fiscal worker for recurring-contract outbox commands."""
 
 from __future__ import annotations
 

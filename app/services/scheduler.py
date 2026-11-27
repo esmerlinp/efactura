@@ -4,8 +4,9 @@ Se inicializa una sola vez dentro del proceso Flask con BackgroundScheduler.
 """
 import logging
 import atexit
+import os
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from app.utils.timezone import SANTO_DOMINGO, today_santo_domingo
@@ -191,6 +192,63 @@ def run_daily_contract_billing(company_id=None):
                 )
 
     logger.info("✅ APScheduler — Facturación diaria finalizada.")
+
+
+def run_recurring_contract_emission(company_id=None):
+    """Consume available recurring-contract outbox commands."""
+    from app.services.db_service import DatabaseService, db_firestore
+    from app.services.recurring_contract_billing_service import RecurringContractBillingService
+    from app.services.recurring_contract_emission_store import RecurringContractEmissionStore
+    from app.services.recurring_contract_emission_worker import RecurringContractEmissionWorker
+    from app.services.recurring_contract_outbox_service import OutboxCommandService
+    from app.services.recurring_contract_repository import RecurringContractRepository
+
+    processed = 0
+    for company in _billing_companies(company_id=company_id):
+        current_company_id = company["id"]
+        owner_uid = company["owner_uid"]
+        for sandbox in (False, True):
+            try:
+                prefix = "sandbox_" if sandbox else ""
+                outbox = OutboxCommandService(db_firestore)
+                snapshots = (
+                    db_firestore.collection("companies")
+                    .document(current_company_id)
+                    .collection(prefix + outbox.COLLECTION)
+                    .where("status", "in", ["pending", "retry_wait"])
+                    .stream()
+                )
+                repository = RecurringContractRepository(DatabaseService)
+                worker = RecurringContractEmissionWorker(
+                    outbox=outbox,
+                    attempts_store=RecurringContractEmissionStore(db_firestore),
+                    company_loader=lambda _uid, cid: DatabaseService.get_company(cid) or {},
+                )
+                for snapshot in snapshots:
+                    command = snapshot.to_dict() or {}
+                    if command.get("owner_uid") != owner_uid:
+                        continue
+                    contract = repository.get(owner_uid, current_company_id, command["contract_id"], sandbox=sandbox)
+                    invoice_id = command.get("invoice_id") or command["attempt_id"]
+                    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=current_company_id)
+                    if not contract or not invoice:
+                        logger.error("Outbox %s sin contrato o factura preparada", snapshot.id)
+                        continue
+                    prepared = RecurringContractBillingService.prepare_invoice(
+                        contract, occurrence_date=date.fromisoformat(invoice["date"])
+                    )
+                    worker.process(
+                        command_id=snapshot.id,
+                        owner_uid=owner_uid,
+                        company_id=current_company_id,
+                        worker_id=f"scheduler-{os.getpid()}",
+                        prepared=prepared,
+                        sandbox=sandbox,
+                    )
+                    processed += 1
+            except Exception as exc:
+                logger.error("Error emitiendo contratos de %s (sandbox=%s): %s", current_company_id, sandbox, exc)
+    return {"processed": processed}
 
 
 
@@ -601,6 +659,14 @@ def init_scheduler(app):
         trigger=CronTrigger(hour=6, minute=0),   # 6:00 AM RD cada día
         id="daily_contract_billing",
         name="Facturación Diaria de Contratos Recurrentes",
+        replace_existing=True,
+    )
+
+    _scheduler.add_job(
+        func=run_recurring_contract_emission,
+        trigger=CronTrigger(hour=6, minute=10),
+        id="recurring_contract_emission",
+        name="Emisión Fiscal de Contratos Recurrentes",
         replace_existing=True,
     )
 

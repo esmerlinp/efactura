@@ -46,6 +46,7 @@ class RecurringContractEmissionOutboxCommand(BaseModel):
     contract_id: str
     occurrence_id: str
     attempt_id: str
+    invoice_id: Optional[str] = None
     command_type: OutboxCommandType = OutboxCommandType.PREPARE_EMISSION
     status: OutboxCommandStatus = OutboxCommandStatus.PENDING
     available_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
