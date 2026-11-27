@@ -374,9 +374,9 @@
                 <div style="height: {{ bar_h_exp if bar_h_exp > 0 else 4 }}%; background: var(--accent-red); border-radius: 4px 4px 0 0; min-height: 4px;"></div>
             </div>
         </div>
-        <div style="display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-muted); margin-top: 4px;">
-            <span><span style="color: var(--accent-emerald); font-weight: 600;">Ingresos</span> RD$ {{ "{:,.0f}".format(stats.total_invoiced) }}</span>
-            <span><span style="color: var(--accent-red); font-weight: 600;">Gastos</span> RD$ {{ "{:,.0f}".format(stats.total_expenses) }}</span>
+        <div class="business-summary-values">
+            <span><span class="business-summary-label business-summary-income">Ingresos</span> <span class="business-summary-amount">RD$ {{ "{:,.0f}".format(stats.total_invoiced) }}</span></span>
+            <span><span class="business-summary-label business-summary-expense">Gastos</span> <span class="business-summary-amount">RD$ {{ "{:,.0f}".format(stats.total_expenses) }}</span></span>
         </div>
     </div>
 

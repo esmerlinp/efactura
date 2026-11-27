@@ -197,6 +197,39 @@
 .metric-row .danger { color: var(--accent-red); }
 .metric-row .count { font-size: var(--text-xs); color: var(--text-muted); }
 
+.business-summary-values {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 4px;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.business-summary-label {
+    font-weight: 600;
+}
+
+.business-summary-income { color: var(--accent-emerald); }
+.business-summary-expense { color: var(--accent-red); }
+
+.business-summary-amount {
+    display: inline-block;
+    margin-left: 2px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+@media (max-width: 480px) {
+    .business-summary-values {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+    }
+}
+
 /* ── Small Metric Cards (4-col) ────────────────────────────────────── */
 .small-metrics-grid {
     display: grid;
